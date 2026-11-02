@@ -44,3 +44,6 @@ next-env.d.ts
 
 # 家族の記録（本物の記録は公開しない）
 /data/
+/sim-data/
+/.next-sim/
+/sim/out/
