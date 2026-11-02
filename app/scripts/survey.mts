@@ -274,8 +274,8 @@ const prevDir = fs.existsSync(SURVEY_ROOT)
 const prev = prevDir ? (JSON.parse(fs.readFileSync(path.join(SURVEY_ROOT, prevDir, "summary.json"), "utf8")) as Summary) : null;
 
 const CatSchema = z.object({
-  pain: z.array(z.object({ id: z.string(), name: z.string().describe("短い名前（25字まで）"), desc: z.string() })).max(24),
-  want: z.array(z.object({ id: z.string(), name: z.string().describe("短い名前（25字まで）"), desc: z.string() })).max(20),
+  pain: z.array(z.object({ id: z.string(), name: z.string().describe("短い名前（25字まで）"), desc: z.string() })).max(40),
+  want: z.array(z.object({ id: z.string(), name: z.string().describe("短い名前（25字まで）"), desc: z.string() })).max(32),
 });
 type Cats = z.infer<typeof CatSchema>;
 
