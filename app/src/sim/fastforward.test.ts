@@ -430,11 +430,12 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
             ? `今週は何もしなくて大丈夫 → 次は「${s.calmNext.plain}」`
             : "今週は何もしなくて大丈夫";
       const rows = s.rows.slice(0, 5).map((t) => `${t.plain}（${whoLabel(t, fv, persona)}・${when(t, day)}）`);
-      const sig = `${top}|${s.rows.map((t) => t.id + t.status).join(",")}|${[...kinds].join(",")}`;
+      const stale = planToday(tasks, day, persona).stale;
+      const sig = `${top}|${s.rows.map((t) => t.id + t.status).join(",")}|${[...kinds].join(",")}|${stale.length}`;
       if (sig !== diarySig) {
         diarySig = sig;
         diary.push(
-          `${day}（${at}）一番上: ${top}${rows.length ? `／このあと: ${rows.join("・")}${s.rows.length > 5 ? ` ほか${s.rows.length - 5}件` : ""}` : ""}${overdue.length ? `／期限切れ${overdue.length}件` : ""}${kinds.size ? `／${[...kinds].map((k) => TRIGGER_LABEL[k]).join("・")}` : ""}`,
+          `${day}（${at}）一番上: ${top}${rows.length ? `／このあと: ${rows.join("・")}${s.rows.length > 5 ? ` ほか${s.rows.length - 5}件` : ""}` : ""}${overdue.length ? `／期限切れ${overdue.length}件` : ""}${stale.length ? `／「済みましたか？」の箱: ${stale.map((t) => t.plain).join("・")}` : ""}${kinds.size ? `／${[...kinds].map((k) => TRIGGER_LABEL[k]).join("・")}` : ""}`,
         );
       }
     }
