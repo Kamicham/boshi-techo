@@ -1,0 +1,14 @@
+[Unit]
+Description=母子手帳の文字起こしサーバ（faster-whisper）
+After=network-online.target tailscaled.service
+
+[Service]
+Environment=ASR_HOST=0.0.0.0
+Environment=LD_LIBRARY_PATH=%h/boshi-asr/lib/python3.11/site-packages/nvidia/cublas/lib:%h/boshi-asr/lib/python3.11/site-packages/nvidia/cudnn/lib
+WorkingDirectory=%h/boshi-asr-app
+ExecStart=%h/boshi-asr/bin/python %h/boshi-asr-app/server.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

@@ -9,3 +9,5 @@ ASR_HOST=0.0.0.0 ~/boshi-asr/bin/python server.py   # 既定はモデル large-v
 ```
 
 アプリ側は `app/.env.local` に `ASR_URL=http://<機械の住所>:8765` を書く。
+
+自動で立ち上げる時（systemd のユーザーサービス）は `boshi-asr.service` を `~/.config/systemd/user/` に置き、`ASR_HOST` を機械の住所に変えて `systemctl --user enable --now boshi-asr`。

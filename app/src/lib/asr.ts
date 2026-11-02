@@ -1,6 +1,7 @@
 // 録音を文字にする（自宅の GPU の機械で動く asr/server.py を呼ぶ）。
 // 音声は家のネットワークの外に出ない。
 import "server-only";
+import http from "node:http";
 
 export interface Transcript {
   text: string;
@@ -9,15 +10,34 @@ export interface Transcript {
   elapsed: number;
 }
 
+/** 1時間の録音でも待てるよう、fetch（返事の頭まで300秒で切れる）ではなく http で送る */
+function post(url: URL, headers: Record<string, string>, payload: Buffer, timeoutMs: number): Promise<{ status: number; body: string }> {
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      url,
+      { method: "POST", headers: { ...headers, "content-length": String(payload.length) } },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c: Buffer) => chunks.push(c));
+        res.on("end", () => resolve({ status: res.statusCode ?? 0, body: Buffer.concat(chunks).toString("utf8") }));
+        res.on("error", reject);
+      },
+    );
+    req.setTimeout(timeoutMs, () => req.destroy(new Error("文字起こしが時間内に終わりませんでした")));
+    req.on("error", reject);
+    req.end(payload);
+  });
+}
+
 export async function transcribe(audio: Buffer, prompt?: string): Promise<Transcript> {
-  const url = process.env.ASR_URL;
-  if (!url) throw new Error("文字起こしの機械が設定されていません（ASR_URL）");
+  const base = process.env.ASR_URL;
+  if (!base) throw new Error("文字起こしの機械が設定されていません（ASR_URL）");
   const headers: Record<string, string> = { "content-type": "application/octet-stream" };
   // 専門用語の聞き取りを助けるヒント（日本語は 16 進にして送る）
   if (prompt) headers["x-prompt"] = Buffer.from(prompt.slice(0, 400), "utf8").toString("hex");
-  const r = await fetch(`${url}/transcribe`, { method: "POST", headers, body: new Uint8Array(audio) });
-  if (!r.ok) throw new Error(`文字起こしに失敗しました（${r.status}）`);
-  return (await r.json()) as Transcript;
+  const r = await post(new URL("/transcribe", base), headers, audio, 30 * 60_000);
+  if (r.status !== 200) throw new Error(`文字起こしに失敗しました（${r.status}）`);
+  return JSON.parse(r.body) as Transcript;
 }
 
 export async function asrReady(): Promise<boolean> {

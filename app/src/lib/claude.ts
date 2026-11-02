@@ -93,17 +93,20 @@ export async function research(system: string, question: string, opts: AskOption
     .map((b) => b.text)
     .join("")
     .trim();
-  const sources = new Map<string, string>();
+  // 出典は、答えの中で実際に引用されたページだけ。引用が無い時だけ検索で当たったページを使う
+  const cited = new Map<string, string>();
+  const searched = new Map<string, string>();
   for (const b of res.content) {
     if (b.type === "text" && b.citations) {
       for (const c of b.citations) {
-        if (c.type === "web_search_result_location") sources.set(c.url, c.title ?? c.url);
+        if (c.type === "web_search_result_location") cited.set(c.url, c.title ?? c.url);
       }
     }
     if (b.type === "web_search_tool_result" && Array.isArray(b.content)) {
-      for (const r of b.content) if (r.type === "web_search_result" && !sources.has(r.url)) sources.set(r.url, r.title);
+      for (const r of b.content) if (r.type === "web_search_result") searched.set(r.url, r.title);
     }
   }
+  const sources = cited.size ? cited : searched;
   return { text, sources: [...sources].map(([url, title]) => ({ url, title })) };
 }
 
