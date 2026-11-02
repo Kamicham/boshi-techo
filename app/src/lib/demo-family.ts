@@ -17,6 +17,8 @@ export interface Family extends FamilyDates {
   prefecture: string;
   childName?: string;
   members: Member[];
+  /** わが家がこの手帳を使い始めた日（途中から始めた時、それより前に期限が過ぎた事は済み扱いにする） */
+  startedOn?: string;
 }
 
 export const DEMO_FAMILY: Family = {

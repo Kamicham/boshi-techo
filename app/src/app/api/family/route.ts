@@ -1,5 +1,7 @@
 import { body, route } from "@/lib/api";
-import { allFamilies, HttpError, saveMine } from "@/lib/family";
+import { allFamilies, getFamily, HttpError, MINE_ID, saveMine } from "@/lib/family";
+import { list, put } from "@/lib/db";
+import { scheduleFor } from "@/lib/milestones";
 import type { Family } from "@/lib/demo-family";
 
 export const GET = route(async () => ({ families: allFamilies() }));
@@ -9,7 +11,12 @@ export const POST = route(async (req: Request) => {
   const b = await body<Partial<Family>>(req);
   if (!b.dueDate || !/^\d{4}-\d{2}-\d{2}$/.test(b.dueDate)) throw new HttpError(400, "出産予定日を入れてください");
   if (!b.city) throw new HttpError(400, "住んでいる市区町村を入れてください");
+  const prior = getFamily(MINE_ID);
+  // 日本時間の今日
+  const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
+  const restart = !prior?.startedOn || prior.dueDate !== b.dueDate;
   const fam = saveMine({
+    startedOn: restart ? today : prior!.startedOn,
     city: b.city,
     prefecture: b.prefecture ?? "",
     dueDate: b.dueDate,
@@ -17,5 +24,14 @@ export const POST = route(async (req: Request) => {
     childName: b.childName || undefined,
     members: (b.members ?? []).filter((m) => m.name),
   });
+  // 途中から使い始めた家族: 使い始める前に期限が過ぎた事（妊娠の届出など）は、もう済んでいるものとして扱う
+  if (restart) {
+    const done = new Set(list<{ milestoneId?: string }>(MINE_ID, "done").map((d) => d.data.milestoneId));
+    for (const m of scheduleFor(fam)) {
+      if (m.deadlineDate && m.deadlineDate < today && !done.has(m.id)) {
+        put(MINE_ID, "done", { milestoneId: m.id, today, at: new Date().toISOString(), auto: "started-late" }, { id: `done:${MINE_ID}:${m.id}`, date: today });
+      }
+    }
+  }
   return { family: fam };
 });

@@ -31,7 +31,7 @@ export const MILESTONES: MilestoneDef[] = [
   { id: "pregnancy-report", title: "妊娠の届出と母子健康手帳の受け取り", kind: "手続き", who: "母", anchor: "lmp", start: w(6), deadline: w(11), basis: "母子保健法第15条（期限の定めはなく、11週までが目安）", needsLocal: true },
   { id: "checkup-plan", title: "妊婦健診の予定を立てる（23週まで4週ごと）", kind: "健診", who: "母", anchor: "lmp", start: w(8), basis: "国の標準的な健診の回数（14回）", needsLocal: false },
   { id: "tell-work", title: "職場に妊娠を伝え、産休・育休の段取りを相談する", kind: "仕事", who: "母", anchor: "lmp", start: w(14), deadline: w(20), basis: "目安（安定期のころ）", needsLocal: false },
-  { id: "partner-leave", title: "パートナーの育休（産後パパ育休）を職場に相談する", kind: "仕事", who: "パートナー", anchor: "lmp", start: w(20), deadline: w(32), basis: "育児・介護休業法（申し出は原則2週間前まで）", needsLocal: false },
+  { id: "partner-leave", title: "パートナーの育休（産後パパ育休）を職場に相談する", kind: "仕事", who: "パートナー", anchor: "lmp", start: w(20), deadline: { days: 280 - 14 }, basis: "育児・介護休業法（産後パパ育休の申し出は原則2週間前まで。予定日から休むなら予定日の2週間前）", needsLocal: false },
   { id: "checkup-biweekly", title: "健診が2週ごとになる（24〜35週）", kind: "健診", who: "母", anchor: "lmp", start: w(24), basis: "国の標準的な健診の回数", needsLocal: false },
   { id: "direct-payment", title: "出産育児一時金の直接支払制度の書類を産院で出す", kind: "手続き", who: "母", anchor: "lmp", start: w(30), deadline: w(36), basis: "健康保険法（出産育児一時金50万円）", needsLocal: false },
   { id: "maternity-leave", title: "産前休業が始められる（予定日の6週前）", kind: "仕事", who: "母", anchor: "lmp", start: { days: 280 - 42 }, basis: "労働基準法第65条", needsLocal: false },
