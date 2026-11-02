@@ -1,13 +1,13 @@
-// ④ 家族全体の参謀の「気づき」: 期限表に無い事を、この家族の今から見つける。
+// 「気づいた事」: 期限表に無い事を、この家族の今から見つける（期限の数え直しと下書きだけ）。
 // ここは機械で見つける所だけ（純関数・Claude は呼ばない）。文を書かせるのは app/api/advisor/_lib/write.ts。
-// きっかけは4つ: 予定より早く／遅く生まれた・パートナーの担当が止まっている・町が変わった・祖父母が来る。
+// きっかけは2つ: 予定より早く／遅く生まれた・町が変わった。
 import { z } from "zod";
 import { addDays, clockAt, diffDays } from "./clock";
 import type { Family, Member } from "./demo-family";
-import { scheduleFor, statusOf, type Milestone } from "./milestones";
-import type { GrandparentPlace, Situation } from "./situation";
+import { scheduleFor, type Milestone } from "./milestones";
+import type { Situation } from "./situation";
 
-export type TriggerKind = "birth-early" | "birth-late" | "moved" | "grandparents" | "partner-stalled";
+export type TriggerKind = "birth-early" | "birth-late" | "moved";
 
 export interface Trigger {
   kind: TriggerKind;
@@ -38,18 +38,10 @@ export interface AdvisorInput {
 
 /** 予定日と何日ずれたら「早く／遅く生まれた」と見るか */
 export const BIRTH_SHIFT_DAYS = 7;
-/** 生まれてから何日、組み直しの気づきを出すか */
+/** 生まれてから何日、期限の数え直しの気づきを出すか */
 export const BIRTH_WINDOW_DAYS = 3;
-/** パートナーの担当: 期限まで何日以内の事を見るか */
-export const STALL_HORIZON_DAYS = 14;
-/** 始まってから何日手付かずなら「止まっている」と見るか */
-export const STALL_IDLE_DAYS = 3;
-/** 何件止まっていたら気づくか */
-export const STALL_MIN_ITEMS = 2;
 /** 引っ越してから何日、差の気づきを出すか */
 export const MOVED_WINDOW_DAYS = 30;
-/** 祖父母が来る何日前から割り振りを出すか */
-export const GRANDPARENT_LEAD_DAYS = 7;
 
 const jp = (d: string) => `${Number(d.slice(5, 7))}月${Number(d.slice(8, 10))}日`;
 
@@ -60,18 +52,8 @@ function doneWithPast(schedule: Milestone[], input: AdvisorInput): Set<string> {
   return d;
 }
 
-function memberLine(m: Member): string {
-  return `${m.name}（${m.role}）${m.voice ? `: ${m.voice}` : ""}`;
-}
-
-const GP_WORD: Record<GrandparentPlace, string> = { 同居: "同じ家に住んでいる", 近く: "近くに住んでいる", 遠く: "遠くに住んでいる", いない: "いない（亡くなった・付き合いが無いなど）" };
-
-/** 祖父母が手を貸せる近さか（同居・近く） */
-const nearGp = (p?: GrandparentPlace) => p === "同居" || p === "近く";
-
 /**
  * 家族の形（situation）を、Claude に渡す言葉にする。わからない欄は書かない（決めつけない）。
- * 頼める人（同居・近くの祖父母、里帰り先の実家）・平日の日中に動ける人（夜勤）・上の子・仕事の有無を入れる。
  */
 export function situationFacts(f: Family): string[] {
   const s: Situation | undefined = f.situation;
@@ -79,46 +61,14 @@ export function situationFacts(f: Family): string[] {
   const mom = f.members.find((m) => m.role === "母");
   const partner = f.members.find((m) => m.role === "パートナー");
   const out: string[] = [];
-  if (s.motherWork) out.push(`${mom?.name ?? "母"}の働き方: ${s.motherWork}${s.motherLeave && s.motherWork !== "仕事なし" ? `（育休: ${s.motherLeave}）` : ""}`);
+  if (s.motherWork) out.push(`${mom?.name ?? "母"}の働き方: ${s.motherWork}`);
   if (partner && s.partnerWork) out.push(`${partner.name}の働き方: ${s.partnerWork}${s.partnerLeave && s.partnerWork !== "仕事なし" ? `（育休: ${s.partnerLeave}）` : ""}`);
-  if (partner && s.partnerNightShift) out.push(`${partner.name}は夜勤がある（夜勤明けや休みの平日の日中に、役所など平日の窓口へ行ける日がある。昼は眠っている時間もある）`);
-  if (partner && s.partnerAway) out.push(`${partner.name}は単身赴任で、ふだんは家にいない（電話・オンラインでできる事が向く）`);
-  if (s.olderChildren) {
-    out.push(
-      s.olderChildren.length
-        ? `上の子が${s.olderChildren.length}人（生まれた年月: ${s.olderChildren.join("・")}）。上の子の世話・送り迎え・入院中の預け先も考える`
-        : "初めての子（上の子はいない）",
-    );
-  }
+  if (s.olderChildren === true) out.push("上の子がいる");
+  else if (s.olderChildren === false) out.push("初めての子（上の子はいない）");
   if (s.babies && s.babies > 1) out.push(`生まれる子は${s.babies}人（双子など）`);
-  if (s.satogaeri) out.push(`里帰り出産: ${s.satogaeri.prefecture}${s.satogaeri.city}の実家へ${s.satogaeri.from ? `（${s.satogaeri.from}から${s.satogaeri.until ? `${s.satogaeri.until}まで` : ""}）` : ""}。里帰りの間は、実家の人（母方の祖父母など）が頼める人`);
-  else if (s.satogaeri === null) out.push("里帰り出産はしない");
-  const g = s.grandparents;
-  if (g?.mother) out.push(`母方の祖父母: ${GP_WORD[g.mother]}${nearGp(g.mother) ? "（頼める人）" : ""}`);
-  if (g?.partner) out.push(`パートナー方の祖父母: ${GP_WORD[g.partner]}${nearGp(g.partner) ? "（頼める人）" : ""}`);
+  if (s.satogaeri === true) out.push("里帰り出産をする");
+  else if (s.satogaeri === false) out.push("里帰り出産はしない");
   return out;
-}
-
-/** 祖父母を頼める（家族に祖父母が入っている・同居か近く・里帰り先の実家） */
-function helperLine(f: Family): string {
-  const s = f.situation;
-  const gps = f.members.filter((m) => m.role === "祖父母");
-  const near: string[] = [];
-  if (nearGp(s?.grandparents?.mother)) near.push(`母方の祖父母（${s!.grandparents!.mother}）`);
-  if (nearGp(s?.grandparents?.partner)) near.push(`パートナー方の祖父母（${s!.grandparents!.partner}）`);
-  if (s?.satogaeri) near.push(`里帰り先（${s.satogaeri.prefecture}${s.satogaeri.city}）の実家の人`);
-  if (gps.length) return `祖父母: ${gps.map((g) => `${memberLine(g)}${g.visit?.from ? `（${jp(g.visit.from)}から来る予定）` : ""}`).join("／")}${near.length ? `。ほかに頼める人: ${near.join("・")}` : ""}`;
-  if (near.length) return `手帳には入っていないが、頼める人: ${near.join("・")}（家事・上の子・電話での下調べなどを頼める）`;
-  const known = s?.grandparents && (s.grandparents.mother || s.grandparents.partner);
-  return known
-    ? "祖父母は遠く・いないので、すぐには頼めない（外の手: 自治体の産前産後ヘルパー・家事支援など。町のページで調べる前提で）"
-    : "祖父母を頼めるかは、まだ分からない（家族に聞く。外の手: 自治体の産前産後ヘルパー・家事支援など。町のページで調べる前提で）";
-}
-
-/** 頼める祖父母が、手帳の家族の外にいるか（同居・近く・里帰り先） */
-function helperOutside(f: Family): boolean {
-  const s = f.situation;
-  return nearGp(s?.grandparents?.mother) || nearGp(s?.grandparents?.partner) || !!s?.satogaeri;
 }
 
 // ── 1. 予定より早く／遅く生まれた ──
@@ -181,75 +131,6 @@ function moved(input: AdvisorInput): Trigger | null {
   };
 }
 
-// ── 3. 祖父母が来る ──
-function grandparents(input: AdvisorInput, schedule: Milestone[], done: Set<string>): Trigger | null {
-  const { family: f, today } = input;
-  const g = f.members
-    .filter((m) => m.role === "祖父母" && m.visit?.from)
-    .map((m) => ({ m, from: m.visit!.from, until: m.visit!.until }))
-    .filter(({ from }) => {
-      const d = diffDays(from, today);
-      return d >= 0 && d <= GRANDPARENT_LEAD_DAYS;
-    })
-    .sort((a, b) => a.from.localeCompare(b.from))[0];
-  if (!g) return null;
-  const until = g.until && g.until >= g.from ? g.until : addDays(g.from, 6);
-  const during = schedule.filter((m) => {
-    if (done.has(m.id)) return false;
-    const end = m.deadlineDate ?? addDays(m.startDate, 14);
-    return m.startDate <= until && end >= g.from;
-  });
-  const left = diffDays(g.from, today);
-  return {
-    kind: "grandparents",
-    key: `grandparents:${g.m.id}:${g.from}:${until}`,
-    priority: 3,
-    facts: [
-      `${memberLine(g.m)}`,
-      `${g.m.name}が ${jp(g.from)} から ${jp(until)} まで来る（${left === 0 ? "今日来る" : `あと${left}日`}）`,
-      `来ている間の家族の時期: ${clockAt(f, g.from).label} 〜 ${clockAt(f, until).label}`,
-      during.length ? "来ている間にある事:" : "来ている間に、期限表の事は特に無い",
-      ...during.map((m) => `- ${m.title}（担当の目安: ${m.who}${m.deadlineDate ? `・${jp(m.deadlineDate)}まで` : ""}）`),
-    ],
-    to: { memberId: g.m.id, role: g.m.name },
-    ...fromRole(f, "母"),
-  };
-}
-
-// ── 4. パートナーの担当が止まっている ──
-function partnerStalled(input: AdvisorInput, schedule: Milestone[], done: Set<string>): Trigger | null {
-  const { family: f, today } = input;
-  const partner = f.members.find((m) => m.role === "パートナー");
-  if (!partner) return null;
-  const stuck = schedule.filter((m) => {
-    if (m.who !== "パートナー" || !m.deadlineDate) return false;
-    const st = statusOf(m, today, done);
-    if (st !== "今やる" && st !== "期限が近い") return false;
-    return diffDays(m.deadlineDate, today) <= STALL_HORIZON_DAYS && diffDays(today, m.startDate) >= STALL_IDLE_DAYS;
-  });
-  if (stuck.length < STALL_MIN_ITEMS) return null;
-  const mother = f.members.find((m) => m.role === "母");
-  const motherOpen = schedule.filter((m) => m.who === "母" && m.deadlineDate && ["今やる", "期限が近い"].includes(statusOf(m, today, done))).length;
-  const gps = f.members.filter((m) => m.role === "祖父母");
-  const facts = [
-    `${partner.name}（パートナー）の担当で、始まってから${STALL_IDLE_DAYS}日以上手付かずのまま、期限まで${STALL_HORIZON_DAYS}日以内の事が${stuck.length}件:`,
-    ...stuck.map((m) => `- ${m.title}: ${jp(m.deadlineDate!)}まで（あと${diffDays(m.deadlineDate!, today)}日・始まって${diffDays(today, m.startDate)}日）`),
-    `今の時期: ${clockAt(f, today).label}`,
-    mother ? `${mother.name}（母）の担当で今動いている事: ${motherOpen}件` : "",
-    helperLine(f),
-  ].filter(Boolean);
-  const g = gps[0];
-  return {
-    kind: "partner-stalled",
-    key: `partner-stalled:${partner.id}:${stuck.map((m) => m.id).join(",")}`,
-    priority: 4,
-    facts,
-    // 頼める祖父母がいれば祖父母へ（手帳の外なら「母方の祖父母」など役の言い方で）。いなければ町の窓口へ
-    to: g ? { memberId: g.id, role: g.name } : helperOutside(f) ? { role: "頼める祖父母（実家）" } : { role: "町の窓口" },
-    from: { memberId: partner.id, name: partner.name },
-  };
-}
-
 /** 文面を送る人（その役の人がいれば） */
 function fromRole(f: Family, role: Member["role"]): { from?: Trigger["from"] } {
   const p = f.members.find((m) => m.role === role);
@@ -260,7 +141,7 @@ function fromRole(f: Family, role: Member["role"]): { from?: Trigger["from"] } {
 export function detectTriggers(input: AdvisorInput): Trigger[] {
   const schedule = scheduleFor(input.family);
   const done = doneWithPast(schedule, input);
-  return [birthShift(input, schedule, done), moved(input), grandparents(input, schedule, done), partnerStalled(input, schedule, done)]
+  return [birthShift(input, schedule, done), moved(input)]
     .filter((t): t is Trigger => t != null)
     .sort((a, b) => a.priority - b.priority);
 }
@@ -270,9 +151,6 @@ export function advisorMoments(f: Family): { label: string; date: string }[] {
   const out: { label: string; date: string }[] = [];
   if (f.movedOn) out.push({ label: "引っ越した", date: addDays(f.movedOn, 1) });
   if (f.birthDate && Math.abs(diffDays(f.dueDate, f.birthDate)) >= BIRTH_SHIFT_DAYS) out.push({ label: "早く生まれた", date: addDays(f.birthDate, 1) });
-  if (f.birthDate) out.push({ label: "生まれて5日", date: addDays(f.birthDate, 5) });
-  const g = f.members.find((m) => m.role === "祖父母" && m.visit?.from);
-  if (g?.visit) out.push({ label: `${g.name}が来る前`, date: addDays(g.visit.from, -3) });
   return out.sort((a, b) => a.date.localeCompare(b.date));
 }
 
@@ -281,10 +159,10 @@ export function advisorMoments(f: Family): { label: string; date: string }[] {
 export const AdviceSchema = z.object({
   title: z.string().describe("気づいた事を1文で。30字まで。家族の言葉で（例: 予定より2週間早く生まれ、職場への連絡が早まります）"),
   why: z.string().describe("なぜ気づいたか。この家族の状況（日付・人・件数）を使って2行まで"),
-  plan: z.array(z.string().describe("組み直しの一手。40字まで。誰が・何を・いつまでに")).max(3).describe("組み直し案。3つまで"),
+  plan: z.array(z.string().describe("次の一手。40字まで。何を・いつまでに")).max(3).describe("次にする事。3つまで"),
   message: z
     .object({
-      to: z.string().describe("相手の役（例: 職場の上司・和子さん・町の窓口）"),
+      to: z.string().describe("相手の役（例: 職場の上司・町の窓口）"),
       via: z.enum(["mail", "line"]).describe("職場・役所は mail、家族は line"),
       subject: z.string().optional().describe("mail の時だけ。件名"),
       body: z.string().describe("そのまま送れる本文。送る人の名前で書く。分からない名前・日付は【 】の空欄にする"),

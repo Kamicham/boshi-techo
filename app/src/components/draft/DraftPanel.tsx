@@ -13,7 +13,7 @@ import { ErrorLine, Working } from "./Working";
 
 /** 家族が付ける印の言葉（status "ok" の見せ方。仕組みは「OK」のまま） */
 export function doneWord(kind: DraftKind): string {
-  return kind === "メール" || kind === "連絡文" ? "送った" : kind === "持ち物" ? "そろえた" : kind === "記入メモ" ? "書いた" : "聞いた";
+  return kind === "メール" ? "送った" : kind === "記入メモ" ? "書いた" : kind === "質問リスト" ? "聞いた" : "使った";
 }
 
 function mdJst(iso: string): string {
@@ -127,9 +127,7 @@ function DraftBody(p: Omit<PanelProps, "view" | "err" | "onRetry"> & { view: Dra
   const handoff =
     draft.kind === "メール"
       ? { mail: { to: view.mailTo, subject: draft.title, body: draft.body }, share: { title: draft.title, text: draft.body } }
-      : draft.kind === "連絡文"
-        ? { line: draft.body, share: { title: draft.title, text: draft.body } }
-        : { line: listText, share: { title: draft.title, text: listText } };
+      : { line: listText, share: { title: draft.title, text: listText } };
 
   return (
     <>
@@ -151,7 +149,7 @@ function DraftBody(p: Omit<PanelProps, "view" | "err" | "onRetry"> & { view: Dra
         <>
           {view.fromName && (
             <p className="text-sm text-muted">
-              {view.fromName}さんから{isMail || draft.kind === "連絡文" ? "送る文" : "使うメモ"}
+              {view.fromName}さんから{isMail ? "送る文" : "使うメモ"}
             </p>
           )}
           {isMail ? (

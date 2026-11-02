@@ -188,7 +188,7 @@ describe("現実に無い組み合わせが無い", () => {
     if (s.kind === "ほかの都道府県" && s.prefecture === f.prefecture) return "県外の里帰りが同じ県";
     return false;
   });
-  each("同居の祖父母は家族（members）にいる", (f) => (f.profile.grandma.mother === "同居" || f.profile.grandma.father === "同居") !== f.members.some((m) => m.role === "祖父母") && "同居と members が食い違う");
+  each("家族の人（members）は母とパートナーだけ", (f) => f.members.some((m) => m.role !== "母" && m.role !== "パートナー") && "母とパートナーのほかの人がいる");
   each("両方の祖父母と同居しない", (f) => f.profile.grandma.mother === "同居" && f.profile.grandma.father === "同居" && "両方と同居");
   each("21歳以下で大学卒・23歳以下で大学院卒が無い", (f) => ((f.profile.motherAge < 22 && ["大学", "大学院"].includes(f.profile.education)) || (f.profile.motherAge < 24 && f.profile.education === "大学院")) && `${f.profile.motherAge}歳で${f.profile.education}`);
   each("育休は雇われて働く母だけ・期間は36か月まで", (f) => {
@@ -294,7 +294,7 @@ function statsDoc(): string {
   L.push("統計ではなく、検査のための動きの仮定です。30家族の検査と同じ作りに合わせています。");
   L.push("");
   L.push("- どの家族も今日（2026-11-03）から使い始める（使い始める前に期限が過ぎた事は済み扱い。アプリの「途中から使い始めた家族」と同じ）");
-  L.push("- 母とパートナーは毎日、自分の画面の一番上を1つ済ませる。夜勤の父は3日おき、単身赴任の父は7日おきで、生まれてから10日は手を付けられない。同居の祖父母は2日おき");
+  L.push("- 母とパートナーは毎日、自分の画面の一番上を1つ済ませる。夜勤の父は3日おき、単身赴任の父は7日おきで、生まれてから10日は手を付けられない");
   L.push("- ふだんの検査（`npm run sim`）は1週おき＋節目の日（届出・出産の前後・生後14日・1か月・3か月・1歳・2歳など）だけ画面を確かめ、間の日に家族が動いた分は、確かめる日の前にまとめて動かす（近似）。全部の日を通すのは `npm run sim:full`");
   L.push("");
   return L.join("\n");

@@ -6,11 +6,12 @@
 //   → 国籍と婚姻（ひとり親）→ 祖父母 → 里帰り → 言葉 → 学歴 → 母の仕事と育休 → 父の仕事・夜勤・単身赴任・育休 → 引っ越し → 耳
 // 家族ごとに自分の乱数（種 + 番号）を持つので、1組の作り方を変えても、ほかの家族は変わらない。
 //
-// 出力は今の Family 型（lib/demo-family.ts）＋ persona（なりきり用）＋ profile（今の型で表せない事: 双子・NICU・里帰り・国籍・働き方など）。
+// 出力は今の Family 型（lib/demo-family.ts）＋ persona（なりきり用）＋ profile（今の型で表せない事: NICU・国籍・祖父母・夜勤・単身赴任など）。
+// 家族の人（members）は母とパートナーだけ。祖父母・夜勤・単身赴任はアプリでは聞かないが、現実の家族にはいるので profile と persona.who に残す。
 // 予定日は、今日（POP_TODAY）から見て「授かる前〜2歳過ぎ」に一様にばらける。どの家族も今日から使い始める（startedOn = 今日）。
 import { addDays, addMonths, clockAt, diffDays, lmpFromDue, secondBirthday } from "../lib/clock";
 import type { Family, Member } from "../lib/demo-family";
-import type { GrandparentPlace, Situation } from "../lib/situation";
+import type { Situation } from "../lib/situation";
 import type { Persona, SimFamily } from "./types";
 import {
   ART_AGE_WEIGHT,
@@ -580,12 +581,16 @@ export function makeFamily(seed: number, index: number): PopFamily {
   );
   const child1 = oneOf(r, childPool);
   const childName = twins ? `${child1}と${oneOf(r, childPool.filter((n) => n !== child1))}` : child1;
-  const members: Member[] = [{ id: "haha", name: motherName, role: "母", voice: motherVoice() }];
-  if (partnerName) members.push({ id: "partner", name: partnerName, role: "パートナー", voice: partnerVoice() });
+  const members: Member[] = [{ id: "haha", name: motherName, role: "母" }];
+  if (partnerName) members.push({ id: "partner", name: partnerName, role: "パートナー" });
+  // なりきりの説明（persona.who に入れる。アプリの家族の型には持たない）
+  const voices: Record<string, string> = { haha: motherVoice(), partner: partnerVoice() };
   if (coSide) {
+    // 同居の祖母は家族の人に入れない（2026-11-03 に祖父母の役を消した）。名前の乱数は前と同じ回数だけ引いて捨てる（後の乱数がずれて、1000組が別の家族にならないように）
     const gmNat = coSide === "mother" ? motherNat : (fatherNat ?? "日本");
-    const gmName = gmNat === "日本" ? oneOf(r, JP.grandma) : oneOf(r, FOREIGN[nameNation(r, gmNat, nations)].f.filter((n) => n !== motherName));
-    members.push({ id: "sofubo", name: gmName, role: "祖父母", voice: `${coSide === "mother" ? motherName : partnerName}の母。同居。` });
+    void (gmNat === "日本" ? oneOf(r, JP.grandma) : oneOf(r, FOREIGN[nameNation(r, gmNat, nations)].f.filter((n) => n !== motherName)));
+    const gm = `${coSide === "mother" ? motherName : partnerName}の母と同居している`;
+    for (const id of Object.keys(voices)) voices[id] = voices[id] ? `${voices[id]}。${gm}` : gm;
   }
 
   function motherVoice(): string {
@@ -644,53 +649,36 @@ export function makeFamily(seed: number, index: number): PopFamily {
     move,
     hearing,
   };
-  const persona = personaFor(r, fam, profile);
+  const persona = personaFor(r, fam, profile, voices);
   // 家族の形は、profile を作った後で写すだけ（乱数を引かないので、1000組の顔ぶれと割合は変わらない）
-  fam.situation = situationFromProfile(profile, birthDate);
+  fam.situation = situationFromProfile(profile);
   return { ...fam, persona, profile };
 }
 
 // ───────── profile → 家族の形（Family.situation） ─────────
 
-const GP: Record<GrandmaPlace, GrandparentPlace> = {
-  同居: "同居",
-  同じ市区町村: "近く",
-  遠く: "遠く",
-  // 国外は「遠く」に寄せた（近似。来られる時期が限られる点は同じ）
-  国外: "遠く",
-  亡くなっている: "いない",
-};
-
 /** 作った家族の profile を、アプリが読む家族の形に写す。統計で決めていない事（里帰りの期間など）は空のまま */
-export function situationFromProfile(p: PopProfile, birthDate: string): Situation {
+export function situationFromProfile(p: PopProfile): Situation {
   const mw = p.motherWork;
   const motherWork: Situation["motherWork"] =
     mw.after === "退職" ? "出産で辞める" : { 正規: "会社員・公務員", 非正規: "パート・派遣", 自営など: "自営・フリー", 無職: "仕事なし" }[mw.atPregnancy] as Situation["motherWork"];
   const s: Situation = {
     motherWork,
-    // 育休は雇われて働く人の制度。自営・仕事なし・辞める人は「取らない」
-    motherLeave: mw.after === "育休" ? "取る" : "取らない",
-    // 上の子の生まれ年月 = この子が生まれた月から、上の子の年齢（か月）を引く
-    olderChildren: p.olderChildrenMonths.map((m) => addMonths(birthDate, -m).slice(0, 7)),
+    olderChildren: p.olderChildrenMonths.length > 0,
     babies: p.twins ? 2 : 1,
-    satogaeri: p.satogaeri ? { prefecture: p.satogaeri.prefecture, city: p.satogaeri.city } : null,
-    // 統計は祖母の住む所。祖父母の住む所として使う（近似）
-    grandparents: { mother: GP[p.grandma.mother] },
+    satogaeri: !!p.satogaeri,
   };
   if (p.father) {
     // 「その他」は非正規・無職・不詳をまとめた区分。いちばん多い非正規に寄せた（近似）
     s.partnerWork = { 正規: "会社員・公務員", 自営など: "自営・フリー", その他: "パート・派遣" }[p.father.work] as Situation["partnerWork"];
     s.partnerLeave = p.father.leave ? "取る" : "取らない";
-    s.partnerNightShift = p.father.nightShift;
-    s.partnerAway = p.father.tanshin;
-    if (p.grandma.father) s.grandparents!.partner = GP[p.grandma.father];
   }
   return s;
 }
 
 // ───────── persona（なりきり用。家族の状況から機械で作る） ─────────
 
-function personaFor(r: Rng, f: Family, p: PopProfile): Persona {
+function personaFor(r: Rng, f: Family, p: PopProfile, voices: Record<string, string>): Persona {
   const partner = f.members.find((m) => m.role === "パートナー");
   const me = partner && chance(r, 40) ? partner : f.members[0];
   const isMother = me.role === "母";
@@ -712,7 +700,7 @@ function personaFor(r: Rng, f: Family, p: PopProfile): Persona {
   return {
     label: labelOf(f, p),
     meId: me.id,
-    who: `${me.name}（${isMother ? "母" : "パートナー"}・${f.prefecture}${f.city}）。${me.voice}`,
+    who: `${me.name}（${isMother ? "母" : "パートナー"}・${f.prefecture}${f.city}）。${voices[me.id] ?? ""}`,
     literacy,
     goals,
     watch: watchOf(p),
@@ -799,7 +787,6 @@ function watchOf(p: PopProfile): string[] {
   if (p.marital === "ひとり親") w.push("「パパの番」と出さない");
   if (p.satogaeri?.kind === "ほかの都道府県") w.push("里帰り先の町の健診・窓口を表せない");
   if (p.motherWork.atPregnancy === "自営など") w.push("自営に「職場に伝える」「育休」をそのまま出さない");
-  if (p.father?.tanshin || p.father?.nightShift) w.push("パートナーが動けない時期に、担当を振り直せるか");
   if (p.japaneseAnxious.mother || p.japaneseAnxious.father) w.push("やさしい日本語で伝わるか");
   return w;
 }

@@ -13,7 +13,7 @@ export const meta = {
 //   change: 今回の修正の一言（なりきり役は、そこを特によく触る）
 // 前提: app/scripts/sim-server.sh が 3100番で動いている。
 //   pop- の家族は、画面が /api/family?id= で1家族だけ引き、時計も進められる（シミュレーションのサーバだけ）。
-const FALLBACK = ['sim-04', 'sim-06', 'sim-12', 'sim-16', 'sim-18', 'sim-22']
+const FALLBACK = ['sim-04', 'sim-06', 'sim-08', 'sim-12', 'sim-16', 'sim-22']
 const pick = args && args.pick && Array.isArray(args.pick.families) ? args.pick : null
 const ids = (args && args.families && args.families.length ? args.families : pick ? [...pick.families.map((f) => f.id), pick.rare] : FALLBACK).slice(0, 8)
 if (!(args && args.families && args.families.length) && !pick) log('args.pick が無いので、30家族の6つで回します（既定は app/src/sim/pick.json の rounds[n] を args.pick で渡す）')

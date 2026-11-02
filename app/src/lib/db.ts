@@ -37,13 +37,12 @@ function open(): Database.Database {
  * - local: 町の制度の調べ結果（②）
  * - draft: 下書き（③）
  * - done: 済んだ事（milestone id）
- * - wisdom: 窓口の知恵（⑥）
  * - book: 一冊（⑦）
  * - profile: わが家の設定
  * - plan: 家族の役割分担（④）
  * - advice: 参謀の気づき（④。きっかけの鍵ごと）
  */
-export type DocType = "record" | "visit" | "local" | "draft" | "done" | "wisdom" | "book" | "profile" | "plan" | "advice";
+export type DocType = "record" | "visit" | "local" | "draft" | "done" | "book" | "profile" | "plan" | "advice";
 
 export interface Doc<T = Record<string, unknown>> {
   id: string;

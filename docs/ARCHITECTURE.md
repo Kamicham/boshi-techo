@@ -11,7 +11,7 @@ app/                       Next.js 15（App Router・TypeScript・Tailwind 4）
   src/lib/db.ts            SQLite の docs 表（type ごとに JSON を置く）。置き場 app/data/ は git の外
   src/lib/api.ts           API ルートの包み route() と body()
   src/components/FamilyProvider.tsx  見ている家族と「今日」を全画面で共有（useFamily）、api() 呼び出し
-  src/components/Shell.tsx           上の家族切り替え・下のタブ（今日／健診／話す・撮る／家族／一冊）
+  src/components/Shell.tsx           上の家族切り替え・下のタブ（今日／健診／話す・撮る／一冊）
 asr/server.py              文字起こしサーバ（faster-whisper large-v3）
 ```
 
@@ -28,9 +28,8 @@ asr/server.py              文字起こしサーバ（faster-whisper large-v3）
 |---|---|
 | record | 話した・撮った記録（①入力ゼロ） |
 | visit | 健診 1 回分（⑤）: 録音・文字起こし・整理・院内の道案内 |
-| local | 町の制度の調べ結果（②） |
+| local | 町の制度の調べ結果（②⑥） |
 | draft | 下書き（③） |
 | done | 済んだ事 |
-| wisdom | 窓口の知恵（⑥） |
 | book | 一冊（⑦） |
 | profile | わが家の設定 |

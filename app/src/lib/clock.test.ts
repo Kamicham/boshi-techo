@@ -66,8 +66,8 @@ describe("期限", () => {
   });
 
   it("期限の無い事は14日で「過ぎた」になる", () => {
-    const m = get("checkup-biweekly");
+    const m = get("daycare-research");
     expect(statusOf(m, m.startDate, new Set())).toBe("今やる");
-    expect(statusOf(m, "2027-02-05", new Set())).toBe("過ぎた");
+    expect(statusOf(m, "2027-09-23", new Set())).toBe("過ぎた");
   });
 });

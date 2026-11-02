@@ -1,4 +1,4 @@
-// ④ 参謀の気づき: 今のきっかけを機械で見つけ（lib/advisor.ts）、気づき1つを返す。
+// 気づいた事: 今のきっかけを機械で見つけ（lib/advisor.ts）、気づき1つを返す。
 // GET ?familyId=&today=  … 出す1つ（閉じていないきっかけのうち一番先の物）。無ければ advice: null
 // GET ?familyId=&today=&peek=1 … 気づきが今いくつあるかだけ（Claude は呼ばない。今日の画面が場所を取っておくため）
 // POST { familyId, key }  … 「わかった」で閉じる

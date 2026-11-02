@@ -7,7 +7,6 @@ import { clockAt, diffDays } from "@/lib/clock";
 import type { Family } from "@/lib/demo-family";
 import type { Keep } from "@/lib/keep";
 import { scheduleFor, statusOf, type Milestone } from "@/lib/milestones";
-import { applyAssignments, type Assign, type Assignments } from "@/lib/assign";
 import type { VisitPlan } from "@/lib/visit";
 import { api, useFamily } from "./FamilyProvider";
 import { Fold, NextStep, daysUntil } from "./ui";
@@ -34,12 +33,9 @@ export function Techo() {
   // 済んだ印と下書きの印を読み終わるまで、一番上を出さない（済んだ事が一瞬出るのを防ぐ）
   const [doneReady, setDoneReady] = useState(false);
   const [sentReady, setSentReady] = useState(false);
-  // 家族が決め直した担当（/api/assign）
-  const [assign, setAssign] = useState<Assignments>({});
-  const [assignReady, setAssignReady] = useState(false);
-  // 参謀の気づきがあるか（先に数だけ聞く。ある時は、読み込みの間も同じ高さの場所を取っておく）
+  // 気づいた事があるか（先に数だけ聞く。ある時は、読み込みの間も同じ高さの場所を取っておく）
   const [advisorOpen, setAdvisorOpen] = useState<number | null>(null);
-  // 家族の画面などから「この事を今日の画面で開く」（/?focus=<id>）
+  // ほかの画面から「この事を今日の画面で開く」（/?focus=<id>）
   const [focusId, setFocusId] = useState<string | null>(null);
   useEffect(() => {
     setFocusId(new URLSearchParams(window.location.search).get("focus"));
@@ -55,13 +51,7 @@ export function Techo() {
     setSent(new Set());
     setDoneReady(false);
     setSentReady(false);
-    setAssign({});
-    setAssignReady(false);
     const fid = encodeURIComponent(family.id);
-    api<{ assign: Assignments }>(`/api/assign?familyId=${fid}`)
-      .then((j) => alive && setAssign(j.assign ?? {}))
-      .catch(() => {})
-      .finally(() => alive && setAssignReady(true));
     api<{ done: string[] }>(`/api/done?familyId=${fid}`)
       .then((j) => alive && setMarked(new Set(j.done)))
       .catch((e: Error) => alive && setDoneError(e.message))
@@ -104,7 +94,7 @@ export function Techo() {
     };
   }, [family.id]);
 
-  // 参謀の気づきが今あるか（機械で見つけるだけなので速い。Claude が書くのは AdvisorCard が読む時）
+  // 気づいた事が今あるか（機械で見つけるだけなので速い。Claude が書くのは AdvisorCard が読む時）
   useEffect(() => {
     let alive = true;
     setAdvisorOpen(null);
@@ -150,8 +140,7 @@ export function Techo() {
     [marked, family.id, today],
   );
 
-  // 予定表に、家族が決め直した担当を当てる
-  const schedule = useMemo(() => applyAssignments(scheduleFor(family), assign, family.members), [family, assign]);
+  const schedule = useMemo(() => scheduleFor(family), [family]);
 
   const setManyDone = useCallback(
     async (ids: string[]) => {
@@ -169,25 +158,6 @@ export function Techo() {
       }
     },
     [marked, schedule, family.id, today],
-  );
-
-  const changeAssign = useCallback(
-    async (m: Milestone, a: Assign | null) => {
-      setDoneError("");
-      const prev = assign;
-      const next = { ...assign };
-      if (a) next[m.id] = a;
-      else delete next[m.id];
-      setAssign(next);
-      try {
-        const r = await api<{ assign: Assignments }>("/api/assign", { body: { familyId: family.id, milestoneId: m.id, assign: a } });
-        setAssign(r.assign);
-      } catch (e) {
-        setAssign(prev);
-        setDoneError((e as Error).message);
-      }
-    },
-    [assign, family.id],
   );
 
   // デモの早送り: 通り過ぎた期限の事は、家族が済ませた前提にする
@@ -219,12 +189,7 @@ export function Techo() {
   );
   const upcoming = plan.upcoming;
   const common = { today, family, me, keep };
-  const rowProps = (t: Task) => ({
-    ...common,
-    onAssign: (a: Assign | null) => void changeAssign(t, a),
-    reassigned: !!assign[t.id],
-  });
-  const loading = !(doneReady && sentReady && assignReady && advisorOpen !== null);
+  const loading = !(doneReady && sentReady && advisorOpen !== null);
 
   return (
     <main className="flex flex-col gap-5 px-4 pt-4 pb-8">
@@ -258,7 +223,7 @@ export function Techo() {
       ) : visitTop && nextVisit ? (
         <VisitToday family={family} today={today} next={nextVisit} agendaCount={visit?.agenda ?? 0} keep={keep} />
       ) : top ? (
-        <TopTask key={`${family.id}:${top.id}`} task={top} soon={!focus && plan.topIsSoon} {...rowProps(top)} onDone={() => void setDone(top, true)} />
+        <TopTask key={`${family.id}:${top.id}`} task={top} soon={!focus && plan.topIsSoon} {...common} onDone={() => void setDone(top, true)} />
       ) : (
         <Calm upcoming={(me && upcoming.find((t) => t.who === "家族" || t.who === me.role)) || upcoming[0]} today={today} />
       )}
@@ -268,7 +233,7 @@ export function Techo() {
           <h2 className="text-sm font-semibold text-muted">このあと</h2>
           {rows.map((r) =>
             r.kind === "task" ? (
-              <TaskRow key={`${family.id}:${r.task.id}`} task={r.task} {...rowProps(r.task)} onDone={() => void setDone(r.task, true)} />
+              <TaskRow key={`${family.id}:${r.task.id}`} task={r.task} {...common} onDone={() => void setDone(r.task, true)} />
             ) : (
               <Link key="visit" href="/visit" className="flex min-h-12 items-center justify-between gap-3 border-b border-line py-2 last:border-b-0">
                 <span className="text-base font-semibold">次の健診{visitRow!.time ? ` ${visitRow!.time}` : ""}</span>
@@ -294,7 +259,7 @@ export function Techo() {
         <Fold title="まだ先" count={upcoming.length}>
           <div className="flex flex-col">
             {upcoming.map((t) => (
-              <TaskRow key={`${family.id}:${t.id}`} task={t} {...rowProps(t)} muted onDone={() => void setDone(t, true)} />
+              <TaskRow key={`${family.id}:${t.id}`} task={t} {...common} muted onDone={() => void setDone(t, true)} />
             ))}
           </div>
         </Fold>

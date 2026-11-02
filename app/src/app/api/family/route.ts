@@ -25,21 +25,17 @@ export const POST = route(async (req: Request) => {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
   const restart = !prior?.startedOn || prior.dueDate !== b.dueDate;
   // 町を変えた時は前の町と引っ越した日を覚える（参謀の気づき「町が変わった」が、引き継がれない制度の差を調べる）
-  const isDay = (s: unknown): s is string => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
   const movedNow = !!prior?.city && (prior.city !== b.city || (prior.prefecture ?? "") !== (b.prefecture ?? ""));
   const move = movedNow
     ? { previousCity: prior!.city, previousPrefecture: prior!.prefecture || undefined, movedOn: today }
     : { previousCity: prior?.previousCity, previousPrefecture: prior?.previousPrefecture, movedOn: prior?.movedOn };
+  // 家族の人は母とパートナーだけ（ほかの役・前の形の欄は捨てる）
   const members = (b.members ?? [])
-    .filter((m) => m.name)
-    .map((m) => {
-      // 祖父母の来る日（来る日が無ければ持たない）
-      const visit = m.role === "祖父母" && isDay(m.visit?.from) ? { from: m.visit.from, until: isDay(m.visit.until) ? m.visit.until : undefined } : undefined;
-      return { id: m.id, name: m.name, role: m.role, voice: m.voice ?? "", ...(visit ? { visit } : {}) };
-    });
+    .filter((m) => m?.name?.trim() && (m.role === "母" || m.role === "パートナー"))
+    .map((m) => ({ id: String(m.id), name: String(m.name).trim().slice(0, 30), role: m.role }));
   // 家族の形: 送られて来なければ前のままにする。パートナーの欄は、パートナーを入れた時だけ持つ
   const hasPartner = members.some((m) => m.role === "パートナー");
-  const situation = "situation" in b ? cleanSituation(b.situation, hasPartner, Number(today.slice(0, 4))) : prior?.situation;
+  const situation = "situation" in b ? cleanSituation(b.situation, hasPartner) : prior?.situation;
   const fam = saveMine({
     ...move,
     startedOn: restart ? today : prior!.startedOn,

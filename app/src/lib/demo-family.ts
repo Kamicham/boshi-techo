@@ -7,11 +7,8 @@ import type { Situation } from "./situation";
 export interface Member {
   id: string;
   name: string;
-  role: "母" | "パートナー" | "祖父母";
-  /** 話しかける時の言葉づかいのヒント */
-  voice: string;
-  /** 祖父母が来る日（と帰る日）。来る前に、任せられる事を割り振る */
-  visit?: { from: string; until?: string };
+  /** 家族の人は母とパートナーだけ（2026-11-03 に祖父母の役を消した） */
+  role: "母" | "パートナー";
 }
 
 export interface Family extends FamilyDates {
@@ -26,7 +23,7 @@ export interface Family extends FamilyDates {
   previousCity?: string;
   previousPrefecture?: string;
   movedOn?: string;
-  /** 家族の形（働き方・育休・上の子・里帰り・祖父母）。わからない欄は空のまま（今までどおりの予定が出る） */
+  /** 家族の形（働き方・育休・上の子・双子・里帰り）。わからない欄は空のまま（今までどおりの予定が出る） */
   situation?: Situation;
 }
 
@@ -43,22 +40,19 @@ export const DEMO_FAMILY: Family = {
   movedOn: "2027-01-18",
   childName: "ひなた",
   // 家族の形: 美咲は会社員で育休を取る。翔太も会社員で、産後パパ育休を取る（参謀の「早く生まれた」場面で、始まる日を早める）。
-  // 初めての子で1人。和子は鹿児島から手伝いに来るので、里帰りはしない。翔太の親は書いていないので空。
+  // 初めての子で1人。里帰りはしない。
   situation: {
     motherWork: "会社員・公務員",
-    motherLeave: "取る",
     partnerWork: "会社員・公務員",
     partnerLeave: "取る",
-    partnerNightShift: false,
-    partnerAway: false,
-    olderChildren: [],
+    olderChildren: false,
     babies: 1,
-    satogaeri: null,
-    grandparents: { mother: "遠く" },
+    satogaeri: false,
   },
   members: [
-    { id: "misaki", name: "美咲", role: "母", voice: "初めての出産。会社員で、細かい段取りは苦手ではないが、時間がない" },
-    { id: "shota", name: "翔太", role: "パートナー", voice: "やる気はあるが、何をすればいいか分からない。短く具体的に" },
-    { id: "kazuko", name: "和子", role: "祖父母", voice: "鹿児島に住む美咲の母。大きな字で、ゆっくり、やさしい言葉で", visit: { from: "2027-05-15", until: "2027-05-29" } },
+    // 美咲: 初めての出産。会社員で、細かい段取りは苦手ではないが、時間がない
+    { id: "misaki", name: "美咲", role: "母" },
+    // 翔太: やる気はあるが、何をすればいいか分からない
+    { id: "shota", name: "翔太", role: "パートナー" },
   ],
 };

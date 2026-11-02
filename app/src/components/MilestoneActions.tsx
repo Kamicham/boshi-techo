@@ -18,13 +18,13 @@ const DRAFTABLE: Record<string, DraftKind> = {
   "tell-work": "メール",
   "partner-leave": "メール",
   "direct-payment": "記入メモ",
-  "hospital-bag": "持ち物",
   "birth-registration": "記入メモ",
   "child-allowance": "記入メモ",
   "health-insurance": "記入メモ",
   "medical-subsidy": "記入メモ",
   "birth-notice": "記入メモ",
   "tell-work-birth": "メール",
+  "partner-tell-work-birth": "メール",
   "daycare-research": "質問リスト",
   "vaccines-start": "質問リスト",
   "checkup-3-4m": "質問リスト",
@@ -34,9 +34,7 @@ const DRAFTABLE: Record<string, DraftKind> = {
 /** 下書きの呼び名（種類ごと） */
 const NOUN: Record<DraftKind, string> = {
   メール: "職場へのメール",
-  連絡文: "家族への連絡",
   記入メモ: "書く事のメモ",
-  持ち物: "持ち物の一覧",
   質問リスト: "聞く事の一覧",
 };
 
@@ -151,7 +149,8 @@ function Actions({ milestone, today, primary, compact, onDoneChange }: Props) {
   };
 
   const draft = view?.draft ?? null;
-  const noun = NOUN[draft?.kind ?? DRAFTABLE[milestone.id] ?? "記入メモ"];
+  // 前の版で作った下書き（今は無い種類）は「下書き」と呼ぶ
+  const noun = NOUN[draft?.kind ?? DRAFTABLE[milestone.id] ?? "記入メモ"] ?? "下書き";
   const draftLabel =
     open === "draft" ? `${noun}を閉じる` : draft ? (draft.status === "ok" ? `${noun}を見る（✓ ${doneWord(draft.kind)}）` : `${noun}を見る`) : `${noun}を作る`;
   const localLabel = open === "local" ? "行き先を閉じる" : "どこへ行くか見る";

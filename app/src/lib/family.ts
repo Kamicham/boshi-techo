@@ -3,7 +3,7 @@ import "server-only";
 import { DEMO_FAMILY, type Family } from "./demo-family";
 import { get, put } from "./db";
 import { scheduleFor } from "./milestones";
-import type { GrandparentPlace, Leave, MotherWork, Situation, Work } from "./situation";
+import type { Leave, MotherWork, Situation, Work } from "./situation";
 
 export const MINE_ID = "mine";
 
@@ -49,8 +49,24 @@ export function getFamily(id: string): Family | null {
   if (id === DEMO_FAMILY.id) return DEMO_FAMILY;
   if (id.startsWith("sim-")) return simFamilies().find((f) => f.id === id) ?? null;
   if (id.startsWith("pop-")) return popFamily(id);
-  if (id === MINE_ID) return get<Family>(`profile:${MINE_ID}`)?.data ?? null;
+  if (id === MINE_ID) {
+    const f = get<Family>(`profile:${MINE_ID}`)?.data;
+    return f ? fromSaved(f) : null;
+  }
   return null;
+}
+
+/**
+ * 前の形で保存した「わが家」を今の形に直して読む（保存し直すまでは DB の中は前の形のまま）。
+ * 祖父母の人は外し、人の来る日・伝え方のヒントは読み捨てる。家族の形は cleanSituation で直す。
+ */
+function fromSaved(f: Family): Family {
+  const members = (f.members ?? [])
+    .filter((m) => m.role === "母" || m.role === "パートナー")
+    .map((m) => ({ id: m.id, name: m.name, role: m.role }));
+  const { situation: raw, ...rest } = f;
+  const situation = cleanSituation(raw, members.some((m) => m.role === "パートナー"));
+  return { ...rest, members, ...(situation ? { situation } : {}) };
 }
 
 export function saveMine(f: Omit<Family, "id">): Family {
@@ -84,61 +100,40 @@ export class HttpError extends Error {
 const WORKS: Work[] = ["会社員・公務員", "パート・派遣", "自営・フリー", "仕事なし"];
 const MOTHER_WORKS: MotherWork[] = [...WORKS, "出産で辞める"];
 const LEAVES: Leave[] = ["取る", "取らない", "未定"];
-const PLACES: GrandparentPlace[] = ["同居", "近く", "遠く", "いない"];
 
 function oneOf<T extends string>(v: unknown, list: readonly T[]): T | undefined {
   return typeof v === "string" && (list as readonly string[]).includes(v) ? (v as T) : undefined;
 }
-const isDay = (v: unknown): v is string => typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v);
-/** 町の名前（短い文字だけ。長すぎる・空は捨てる） */
-const placeName = (v: unknown): string | undefined => (typeof v === "string" && v.trim() && v.trim().length <= 20 ? v.trim() : undefined);
 
 /**
- * 設定の画面から来た家族の形を確かめる。決まった選びに無い値・形の違う値は捨てる（= わからない）。
+ * はい・いいえの欄を読む。前の形で保存された値も読む:
+ * 配列（上の子の生まれ年月）は1人以上で true、空で false。オブジェクト（里帰り先の町）は true、null は false。
+ */
+function yesNo(v: unknown): boolean | undefined {
+  if (typeof v === "boolean") return v;
+  if (v === null) return false;
+  if (Array.isArray(v)) return v.length > 0;
+  if (typeof v === "object") return true;
+  return undefined;
+}
+
+/**
+ * 設定の画面から来た家族の形を確かめる（保存してある前の形の値も、ここで今の形に直す）。
+ * 決まった選びに無い値・形の違う値は捨てる（= わからない）。消した欄（母の育休・夜勤・単身赴任・祖父母）は読み捨てる。
  * 何も残らなければ undefined（今までどおりの予定が出る）。
  */
-export function cleanSituation(x: unknown, hasPartner: boolean, thisYear: number): Situation | undefined {
+export function cleanSituation(x: unknown, hasPartner: boolean): Situation | undefined {
   if (!x || typeof x !== "object") return undefined;
   const r = x as Record<string, unknown>;
   const s: Situation = {};
   s.motherWork = oneOf(r.motherWork, MOTHER_WORKS);
-  s.motherLeave = oneOf(r.motherLeave, LEAVES);
   if (hasPartner) {
     s.partnerWork = oneOf(r.partnerWork, WORKS);
     s.partnerLeave = oneOf(r.partnerLeave, LEAVES);
-    if (typeof r.partnerNightShift === "boolean") s.partnerNightShift = r.partnerNightShift;
-    if (typeof r.partnerAway === "boolean") s.partnerAway = r.partnerAway;
   }
-  // 上の子: YYYY-MM を最大10人。今年より先・40年より前は捨てる。空の配列は「上の子はいない」
-  if (Array.isArray(r.olderChildren)) {
-    const kept = r.olderChildren
-      .filter((v): v is string => typeof v === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(v))
-      .filter((v) => {
-        const y = Number(v.slice(0, 4));
-        return y <= thisYear && y >= thisYear - 40;
-      })
-      .slice(0, 10)
-      .sort();
-    // 「いる」と答えて年月が1つも読めない時は「わからない」にする（「いない」と取り違えない）
-    if (kept.length || !r.olderChildren.length) s.olderChildren = kept;
-  }
+  s.olderChildren = yesNo(r.olderChildren);
   if (typeof r.babies === "number" && Number.isInteger(r.babies) && r.babies >= 1 && r.babies <= 5) s.babies = r.babies;
-  // 里帰り: null は「しない」。する時は先の町がいる（無ければ、わからない扱い）
-  if (r.satogaeri === null) s.satogaeri = null;
-  else if (r.satogaeri && typeof r.satogaeri === "object") {
-    const g = r.satogaeri as Record<string, unknown>;
-    const city = placeName(g.city);
-    if (city) {
-      const from = isDay(g.from) ? g.from : undefined;
-      const until = isDay(g.until) && (!from || g.until >= from) ? g.until : undefined;
-      s.satogaeri = { prefecture: placeName(g.prefecture) ?? "", city, ...(from ? { from } : {}), ...(until ? { until } : {}) };
-    }
-  }
-  if (r.grandparents && typeof r.grandparents === "object") {
-    const g = r.grandparents as Record<string, unknown>;
-    const gp = { mother: oneOf(g.mother, PLACES), partner: hasPartner ? oneOf(g.partner, PLACES) : undefined };
-    if (gp.mother || gp.partner) s.grandparents = Object.fromEntries(Object.entries(gp).filter(([, v]) => v)) as Situation["grandparents"];
-  }
+  s.satogaeri = yesNo(r.satogaeri);
   // わからない欄（undefined）は持たない
   const out = Object.fromEntries(Object.entries(s).filter(([, v]) => v !== undefined)) as Situation;
   return Object.keys(out).length ? out : undefined;

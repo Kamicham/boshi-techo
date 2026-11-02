@@ -38,7 +38,7 @@ export function DemoClock({ family, today, setToday }: { family: Family; today: 
             </button>
           ))}
         </div>
-        {/* 参謀の気づきが出る日（期限表に無い事に気づく場面） */}
+        {/* 気づいた事が出る日（早く生まれた・引っ越した） */}
         <div className="flex flex-wrap gap-2">
           {advisorMoments(family).map((j) => (
             <button key={j.label} type="button" onClick={() => jump(j.date)} className="min-h-11 rounded-full border border-sky/40 px-3 text-sky hover:border-sky">

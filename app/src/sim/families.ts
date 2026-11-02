@@ -1,6 +1,7 @@
 // 30家族（すべて作った家族。実在の人物ではない）。町だけは実在の市区町村にして、制度は本物を取りに行く。
 // 今日（2026-11-03）から見て、授かる前・妊娠初期・中期・後期・生後すぐ・生後数か月・1歳過ぎが混ざるように置いた。
-// 家族の形（働き方・育休・上の子・双子・里帰り・祖父母）は situation に、persona の説明から写した。説明に無い欄は空（わからない）のまま。
+// 家族の形（働き方・パートナーの育休・上の子・双子・里帰り）は situation に、persona の説明から写した。説明に無い欄は空（わからない）のまま。
+// 家族の人は母とパートナーだけ（2026-11-03 に祖父母の役を消した）。祖父母・夜勤・単身赴任など、型に無い家族の事実は、行末と members の中の注に残した。
 // それ以外の今の Family 型で表せない事（NICU・同性カップル・耳など）は persona.who と watch に書く。
 // birthDate は1000日を早送りするために、まだ先の家族にも置いてある（その日に生まれる筋書き）。
 import type { SimFamily } from "./types";
@@ -15,10 +16,10 @@ export const SIM_FAMILIES: SimFamily[] = [
     birthDate: "2027-09-13",
     startedOn: "2026-10-15",
     members: [
-      { id: "yoko", name: "陽子", role: "母", voice: "42歳。不妊治療（体外受精）を2年続けて、次の移植を待っている。会社員。調べすぎて疲れている" },
-      { id: "takeshi", name: "剛", role: "パートナー", voice: "44歳。会社員。治療の通院に付き添えないのが気がかり" },
+      { id: "yoko", name: "陽子", role: "母" }, // 42歳。不妊治療（体外受精）を2年続けて、次の移植を待っている。会社員。調べすぎて疲れている
+      { id: "takeshi", name: "剛", role: "パートナー" }, // 44歳。会社員。治療の通院に付き添えないのが気がかり
     ],
-    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", olderChildren: [], babies: 1 },
+    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", olderChildren: false, babies: 1 },
     persona: {
       label: "授かる前・不妊治療の後・40代の初産・共働き",
       meId: "yoko",
@@ -41,11 +42,11 @@ export const SIM_FAMILIES: SimFamily[] = [
     startedOn: "2026-11-01",
     childName: "そら",
     members: [
-      { id: "mai", name: "麻衣", role: "母", voice: "34歳。美容室を夫婦で営む自営業。育休は無い。上の子（3歳）を保育園に預けている" },
-      { id: "ryo", name: "亮", role: "パートナー", voice: "36歳。美容室の店主。お金と段取りの担当。短く数字で知りたい" },
+      { id: "mai", name: "麻衣", role: "母" }, // 34歳。美容室を夫婦で営む自営業。育休は無い。上の子（3歳）を保育園に預けている
+      { id: "ryo", name: "亮", role: "パートナー" }, // 36歳。美容室の店主。お金と段取りの担当。短く数字で知りたい
     ],
-    // 家族の形: 上の子は今3歳（生まれ月は目安）
-    situation: { motherWork: "自営・フリー", motherLeave: "取らない", partnerWork: "自営・フリー", partnerLeave: "取らない", olderChildren: ["2023-08"], babies: 1 },
+    // 家族の形: 上の子は今3歳
+    situation: { motherWork: "自営・フリー", partnerWork: "自営・フリー", partnerLeave: "取らない", olderChildren: true, babies: 1 },
     persona: {
       label: "授かる前・2人目を考えている・自営業で育休が無い・政令市（区）",
       meId: "ryo",
@@ -66,11 +67,11 @@ export const SIM_FAMILIES: SimFamily[] = [
     birthDate: "2027-11-29",
     startedOn: "2026-11-03",
     members: [
-      { id: "aya", name: "彩", role: "母", voice: "33歳。出産する側。デザイナー" },
-      { id: "nao", name: "奈央", role: "パートナー", voice: "35歳。女性のパートナー（渋谷区のパートナーシップ証明あり）。出産しない側。会社員" },
+      { id: "aya", name: "彩", role: "母" }, // 33歳。出産する側。デザイナー
+      { id: "nao", name: "奈央", role: "パートナー" }, // 35歳。女性のパートナー（渋谷区のパートナーシップ証明あり）。出産しない側。会社員
     ],
     // 家族の形: 彩の働き方（デザイナー）は雇われか自営か書いていないので空
-    situation: { partnerWork: "会社員・公務員", partnerLeave: "未定", olderChildren: [], babies: 1 },
+    situation: { partnerWork: "会社員・公務員", partnerLeave: "未定", olderChildren: false, babies: 1 },
     persona: {
       label: "授かる前・同性カップル（女性2人）",
       meId: "nao",
@@ -93,10 +94,10 @@ export const SIM_FAMILIES: SimFamily[] = [
     dueDate: "2027-06-01",
     birthDate: "2027-05-29",
     members: [
-      { id: "misa", name: "美沙", role: "母", voice: "28歳。ひとり親（パートナーはいない）。パートで働く。実家で両親と暮らしている" },
-      { id: "keiko", name: "恵子", role: "祖父母", voice: "美沙の母。同居。60歳。スマホは LINE だけ使う" },
+      { id: "misa", name: "美沙", role: "母" }, // 28歳。ひとり親（パートナーはいない）。パートで働く。実家で両親と暮らしている
+      // 祖父母の恵子（家族の人には入れない）: 美沙の母。同居。60歳。スマホは LINE だけ使う
     ],
-    situation: { motherWork: "パート・派遣", olderChildren: [], babies: 1, grandparents: { mother: "同居" } },
+    situation: { motherWork: "パート・派遣", olderChildren: false, babies: 1 },
     persona: {
       label: "妊娠初期・ひとり親（パートナー無し）・祖父母と同居・政令市",
       meId: "misa",
@@ -117,12 +118,12 @@ export const SIM_FAMILIES: SimFamily[] = [
     dueDate: "2027-06-20",
     birthDate: "2027-06-25",
     members: [
-      { id: "rina", name: "莉菜", role: "母", voice: "19歳。専門学校の学生。漢字の多い文は読むのが大変。母と暮らす" },
-      { id: "kaito", name: "海斗", role: "パートナー", voice: "20歳。別に暮らしている。飲食店のアルバイト。まだ結婚していない" },
-      { id: "chiaki", name: "千秋", role: "祖父母", voice: "莉菜の母。44歳。同居。仕事が忙しい" },
+      { id: "rina", name: "莉菜", role: "母" }, // 19歳。専門学校の学生。漢字の多い文は読むのが大変。母と暮らす
+      { id: "kaito", name: "海斗", role: "パートナー" }, // 20歳。別に暮らしている。飲食店のアルバイト。まだ結婚していない
+      // 祖父母の千秋（家族の人には入れない）: 莉菜の母。44歳。同居。仕事が忙しい
     ],
     // 家族の形: 莉菜は学生。働き方の選びに学生が無いので「仕事なし」に寄せた
-    situation: { motherWork: "仕事なし", partnerWork: "パート・派遣", partnerLeave: "未定", olderChildren: [], babies: 1, grandparents: { mother: "同居" } },
+    situation: { motherWork: "仕事なし", partnerWork: "パート・派遣", partnerLeave: "未定", olderChildren: false, babies: 1 },
     persona: {
       label: "妊娠初期・10代・学生・漢字が苦手・未婚のパートナー",
       meId: "rina",
@@ -142,11 +143,11 @@ export const SIM_FAMILIES: SimFamily[] = [
     dueDate: "2027-07-10",
     birthDate: "2027-07-08",
     members: [
-      { id: "ana", name: "アナ", role: "母", voice: "27歳。ブラジル国籍。日本に来て4年。工場で働く。日本語は話せるが、読むのは簡単な言葉だけ。ポルトガル語が一番" },
-      { id: "lucas", name: "ルーカス", role: "パートナー", voice: "30歳。ブラジル国籍。工場で夜勤もある。日本語は少し" },
+      { id: "ana", name: "アナ", role: "母" }, // 27歳。ブラジル国籍。日本に来て4年。工場で働く。日本語は話せるが、読むのは簡単な言葉だけ。ポルトガル語が一番
+      { id: "lucas", name: "ルーカス", role: "パートナー" }, // 30歳。ブラジル国籍。工場で夜勤もある。日本語は少し
     ],
     // 家族の形: 工場で働く。雇われ方は書いていないので、外国籍の工場の働き手に多い派遣に寄せた（目安）
-    situation: { motherWork: "パート・派遣", partnerWork: "パート・派遣", partnerNightShift: true, olderChildren: [], babies: 1 },
+    situation: { motherWork: "パート・派遣", partnerWork: "パート・派遣", olderChildren: false, babies: 1 },
     persona: {
       label: "妊娠初期・外国籍（ブラジル）・やさしい日本語が要る・町村",
       meId: "ana",
@@ -168,12 +169,12 @@ export const SIM_FAMILIES: SimFamily[] = [
     birthDate: "2027-04-15",
     childName: "ゆい・りん",
     members: [
-      { id: "saki", name: "早紀", role: "母", voice: "31歳。双子を妊娠中。会社員。管理入院になるかもしれない" },
-      { id: "daisuke", name: "大輔", role: "パートナー", voice: "33歳。会社員。何でもやるので指示してほしい" },
-      { id: "hiroko", name: "弘子", role: "祖父母", voice: "早紀の母。岐阜から車で来る。手伝う気は満々", visit: { from: "2027-04-20", until: "2027-05-31" } },
+      { id: "saki", name: "早紀", role: "母" }, // 31歳。双子を妊娠中。会社員。管理入院になるかもしれない
+      { id: "daisuke", name: "大輔", role: "パートナー" }, // 33歳。会社員。何でもやるので指示してほしい
+      // 祖父母の弘子（家族の人には入れない）: 早紀の母。岐阜から車で来る。手伝う気は満々（来る日 2027-04-20〜2027-05-31）
     ],
-    // 家族の形: 岐阜の実家から車で来る。母の育休は書いていないので空
-    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", olderChildren: [], babies: 2, satogaeri: null, grandparents: { mother: "遠く" } },
+    // 家族の形: 岐阜の実家から母が車で来るので、里帰りはしない
+    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", olderChildren: false, babies: 2, satogaeri: false },
     persona: {
       label: "妊娠初期・双子・早産で NICU・祖父母が来る・政令市",
       meId: "daisuke",
@@ -194,10 +195,10 @@ export const SIM_FAMILIES: SimFamily[] = [
     dueDate: "2027-07-28",
     birthDate: "2027-07-30",
     members: [
-      { id: "kumiko", name: "久美子", role: "母", voice: "43歳。初産。会社員。仙台で一人暮らし同然" },
-      { id: "masaru", name: "勝", role: "パートナー", voice: "45歳。大阪へ単身赴任中。月に2回帰ってくる。連絡は夜だけ" },
+      { id: "kumiko", name: "久美子", role: "母" }, // 43歳。初産。会社員。仙台で一人暮らし同然
+      { id: "masaru", name: "勝", role: "パートナー" }, // 45歳。大阪へ単身赴任中。月に2回帰ってくる。連絡は夜だけ
     ],
-    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", partnerAway: true, olderChildren: [], babies: 1 },
+    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", olderChildren: false, babies: 1 },
     persona: {
       label: "妊娠初期・40代の初産・パートナーが単身赴任",
       meId: "kumiko",
@@ -220,10 +221,10 @@ export const SIM_FAMILIES: SimFamily[] = [
     birthDate: "2027-02-27",
     childName: "はると",
     members: [
-      { id: "eri", name: "絵里", role: "母", voice: "32歳。2人目。上の子は2歳で保育園。会社員" },
-      { id: "kenta", name: "健太", role: "パートナー", voice: "34歳。会社員。上の子の送り迎え担当" },
+      { id: "eri", name: "絵里", role: "母" }, // 32歳。2人目。上の子は2歳で保育園。会社員
+      { id: "kenta", name: "健太", role: "パートナー" }, // 34歳。会社員。上の子の送り迎え担当
     ],
-    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", olderChildren: ["2024-09"], babies: 1, satogaeri: null, grandparents: { mother: "いない", partner: "いない" } },
+    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", olderChildren: true, babies: 1, satogaeri: false },
     persona: {
       label: "妊娠中期・2人目（上の子2歳）・祖父母はいない・共働き",
       meId: "eri",
@@ -246,11 +247,11 @@ export const SIM_FAMILIES: SimFamily[] = [
     dueDate: "2027-04-10",
     birthDate: "2027-04-09",
     members: [
-      { id: "yui", name: "結衣", role: "母", voice: "30歳。夫の転勤で妊娠27週に川崎から神戸へ。知り合いがいない" },
-      { id: "shun", name: "駿", role: "パートナー", voice: "31歳。転勤で神戸の支社へ。忙しい" },
+      { id: "yui", name: "結衣", role: "母" }, // 30歳。夫の転勤で妊娠27週に川崎から神戸へ。知り合いがいない
+      { id: "shun", name: "駿", role: "パートナー" }, // 31歳。転勤で神戸の支社へ。忙しい
     ],
     // 家族の形: 結衣の働き方は書いていないので空
-    situation: { partnerWork: "会社員・公務員", olderChildren: [], babies: 1 },
+    situation: { partnerWork: "会社員・公務員", olderChildren: false, babies: 1 },
     persona: {
       label: "妊娠中期・途中で引っ越し（川崎市→神戸市）・政令市",
       meId: "yui",
@@ -270,12 +271,12 @@ export const SIM_FAMILIES: SimFamily[] = [
     dueDate: "2027-02-15",
     birthDate: "2027-02-20",
     members: [
-      { id: "haruka", name: "遥", role: "母", voice: "29歳。会社員。鹿児島県霧島市の実家に帰って産む（里帰り出産）。34週で帰省予定" },
-      { id: "tomoya", name: "智也", role: "パートナー", voice: "30歳。東京に残る。生まれたら週末に飛行機で行く" },
-      { id: "setsuko", name: "節子", role: "祖父母", voice: "遥の母。霧島市に住む。里帰り中の世話をする" },
+      { id: "haruka", name: "遥", role: "母" }, // 29歳。会社員。鹿児島県霧島市の実家に帰って産む（里帰り出産）。34週で帰省予定
+      { id: "tomoya", name: "智也", role: "パートナー" }, // 30歳。東京に残る。生まれたら週末に飛行機で行く
+      // 祖父母の節子（家族の人には入れない）: 遥の母。霧島市に住む。里帰り中の世話をする
     ],
     // 家族の形: 34週ごろ帰る（2027-01-04 ごろ）。戻る日は決めていない。智也の働き方は書いていないので空
-    situation: { motherWork: "会社員・公務員", olderChildren: [], babies: 1, satogaeri: { prefecture: "鹿児島県", city: "霧島市", from: "2027-01-04" }, grandparents: { mother: "遠く" } },
+    situation: { motherWork: "会社員・公務員", olderChildren: false, babies: 1, satogaeri: true },
     persona: {
       label: "妊娠中期・里帰り出産（江東区→霧島市の実家）",
       meId: "haruka",
@@ -296,10 +297,10 @@ export const SIM_FAMILIES: SimFamily[] = [
     dueDate: "2027-03-25",
     birthDate: "2027-03-24",
     members: [
-      { id: "kana", name: "加奈", role: "母", voice: "35歳。生まれつき耳が聞こえにくい。電話はできない。メール・チャット・筆談で用を足す。事務職" },
-      { id: "yusuke", name: "雄介", role: "パートナー", voice: "36歳。看護師で夜勤がある。耳は聞こえる。昼は寝ている事が多い" },
+      { id: "kana", name: "加奈", role: "母" }, // 35歳。生まれつき耳が聞こえにくい。電話はできない。メール・チャット・筆談で用を足す。事務職
+      { id: "yusuke", name: "雄介", role: "パートナー" }, // 36歳。看護師で夜勤がある。耳は聞こえる。昼は寝ている事が多い
     ],
-    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", partnerNightShift: true, olderChildren: [], babies: 1 },
+    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", olderChildren: false, babies: 1 },
     persona: {
       label: "妊娠中期・母の耳が聞こえにくい・パートナーが夜勤・政令市（区）",
       meId: "kana",
@@ -319,12 +320,12 @@ export const SIM_FAMILIES: SimFamily[] = [
     dueDate: "2027-04-25",
     birthDate: "2027-04-20",
     members: [
-      { id: "minami", name: "美波", role: "母", voice: "30歳。八丈島で民宿を手伝う。島には分娩できる所が限られ、本土の病院で産む予定" },
-      { id: "sota", name: "颯太", role: "パートナー", voice: "32歳。漁師。漁の時期は家にいない日が多い" },
-      { id: "fumi", name: "フミ", role: "祖父母", voice: "颯太の母。島に住む。68歳。スマホはあまり使わない", visit: { from: "2027-04-28", until: "2027-05-20" } },
+      { id: "minami", name: "美波", role: "母" }, // 30歳。八丈島で民宿を手伝う。島には分娩できる所が限られ、本土の病院で産む予定
+      { id: "sota", name: "颯太", role: "パートナー" }, // 32歳。漁師。漁の時期は家にいない日が多い
+      // 祖父母のフミ（家族の人には入れない）: 颯太の母。島に住む。68歳。スマホはあまり使わない（来る日 2027-04-28〜2027-05-20）
     ],
     // 家族の形: 本土の病院で待つのは里帰りではない（島に分娩できる所が限られるため）
-    situation: { motherWork: "自営・フリー", motherLeave: "取らない", partnerWork: "自営・フリー", partnerLeave: "取らない", olderChildren: [], babies: 1, satogaeri: null, grandparents: { partner: "近く" } },
+    situation: { motherWork: "自営・フリー", partnerWork: "自営・フリー", partnerLeave: "取らない", olderChildren: false, babies: 1, satogaeri: false },
     persona: {
       label: "妊娠中期・離島（八丈町）・本土で産む・漁師のパートナー",
       meId: "minami",
@@ -347,10 +348,10 @@ export const SIM_FAMILIES: SimFamily[] = [
     birthDate: "2026-12-18",
     startedOn: "2026-10-12",
     members: [
-      { id: "asuka", name: "明日香", role: "母", voice: "29歳。初めて。会社員。30週で知人に勧められて使い始めた" },
-      { id: "ren", name: "蓮", role: "パートナー", voice: "30歳。会社員。言われればやる" },
+      { id: "asuka", name: "明日香", role: "母" }, // 29歳。初めて。会社員。30週で知人に勧められて使い始めた
+      { id: "ren", name: "蓮", role: "パートナー" }, // 30歳。会社員。言われればやる
     ],
-    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", olderChildren: [], babies: 1 },
+    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", olderChildren: false, babies: 1 },
     persona: {
       label: "妊娠後期・初めて・30週から使い始めた・政令市（区）",
       meId: "asuka",
@@ -372,12 +373,11 @@ export const SIM_FAMILIES: SimFamily[] = [
     // 予定日より12日遅く生まれる
     birthDate: "2026-12-02",
     members: [
-      { id: "noriko", name: "紀子", role: "母", voice: "33歳。夫婦で農家（自営業）。育休は無い。冬は農閑期" },
-      { id: "goro", name: "吾郎", role: "パートナー", voice: "35歳。農家。冬は除雪の仕事で朝が早い。スマホはたまに見る" },
-      { id: "sumie", name: "澄江", role: "祖父母", voice: "吾郎の母。同じ敷地に住む" },
+      { id: "noriko", name: "紀子", role: "母" }, // 33歳。夫婦で農家（自営業）。育休は無い。冬は農閑期
+      { id: "goro", name: "吾郎", role: "パートナー" }, // 35歳。農家。冬は除雪の仕事で朝が早い。スマホはたまに見る
+      // 祖父母の澄江（家族の人には入れない）: 吾郎の母。同じ敷地に住む
     ],
-    // 家族の形: 吾郎の母は同じ敷地に住む（別の家なので「近く」）
-    situation: { motherWork: "自営・フリー", motherLeave: "取らない", partnerWork: "自営・フリー", partnerLeave: "取らない", olderChildren: [], babies: 1, satogaeri: null, grandparents: { partner: "近く" } },
+    situation: { motherWork: "自営・フリー", partnerWork: "自営・フリー", partnerLeave: "取らない", olderChildren: false, babies: 1, satogaeri: false },
     persona: {
       label: "妊娠後期・自営業（農家）で育休無し・予定日より遅く生まれる・町",
       meId: "noriko",
@@ -398,10 +398,10 @@ export const SIM_FAMILIES: SimFamily[] = [
     // 32週で生まれ、NICU に入る（予定日より51日早い）
     birthDate: "2026-11-20",
     members: [
-      { id: "chihiro", name: "千尋", role: "母", voice: "31歳。会社員。切迫早産で入院中" },
-      { id: "kohei", name: "航平", role: "パートナー", voice: "32歳。会社員。病院と家と職場を行き来している" },
+      { id: "chihiro", name: "千尋", role: "母" }, // 31歳。会社員。切迫早産で入院中
+      { id: "kohei", name: "航平", role: "パートナー" }, // 32歳。会社員。病院と家と職場を行き来している
     ],
-    situation: { motherWork: "会社員・公務員", motherLeave: "取る", partnerWork: "会社員・公務員", olderChildren: [], babies: 1 },
+    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", olderChildren: false, babies: 1 },
     persona: {
       label: "妊娠後期・32週で生まれて NICU・政令市",
       meId: "kohei",
@@ -422,11 +422,11 @@ export const SIM_FAMILIES: SimFamily[] = [
     dueDate: "2026-11-28",
     birthDate: "2026-11-26",
     members: [
-      { id: "lihua", name: "李華", role: "母", voice: "30歳。中国国籍。IT企業の会社員。日本語の会話はできるが、役所の文は難しい" },
-      { id: "wei", name: "王偉", role: "パートナー", voice: "32歳。中国国籍。会社員。日本語はやさしい言葉なら読める" },
-      { id: "mei", name: "梅", role: "祖父母", voice: "李華の母。中国から手伝いに来る。日本語はできない", visit: { from: "2026-12-05", until: "2027-02-28" } },
+      { id: "lihua", name: "李華", role: "母" }, // 30歳。中国国籍。IT企業の会社員。日本語の会話はできるが、役所の文は難しい
+      { id: "wei", name: "王偉", role: "パートナー" }, // 32歳。中国国籍。会社員。日本語はやさしい言葉なら読める
+      // 祖父母の梅（家族の人には入れない）: 李華の母。中国から手伝いに来る。日本語はできない（来る日 2026-12-05〜2027-02-28）
     ],
-    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", olderChildren: [], babies: 1, satogaeri: null, grandparents: { mother: "遠く" } },
+    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", olderChildren: false, babies: 1, satogaeri: false },
     persona: {
       label: "妊娠後期・外国籍（中国）・やさしい日本語・祖父母が国から来る",
       meId: "wei",
@@ -436,7 +436,7 @@ export const SIM_FAMILIES: SimFamily[] = [
         { on: "2026-11-27", want: "生まれた。出生届のあと、在留資格の手続きがいつまでか知りたい" },
         { on: "2026-12-02", want: "義母が来る前に、義母にお願いできる事を中国語で伝えたい" },
       ],
-      watch: ["在留資格（生まれて30日以内）を表に持っていない", "祖父母の言葉（中国語）で渡せるか", "やさしい日本語で読めるか"],
+      watch: ["在留資格（生まれて30日以内）を表に持っていない", "やさしい日本語で読めるか"],
     },
   },
   {
@@ -446,21 +446,22 @@ export const SIM_FAMILIES: SimFamily[] = [
     dueDate: "2026-12-08",
     birthDate: "2026-12-06",
     members: [
-      { id: "yuka", name: "由香", role: "母", voice: "27歳。会社員。初めて" },
-      { id: "takumi", name: "拓海", role: "パートナー", voice: "28歳。会社員" },
-      { id: "isamu", name: "勇", role: "祖父母", voice: "由香の父。70歳。同居。スマホは孫の写真を見るだけ。大きな字でないと読めない" },
+      { id: "yuka", name: "由香", role: "母" }, // 27歳。会社員。初めて
+      { id: "takumi", name: "拓海", role: "パートナー" }, // 28歳。会社員
+      // 祖父母の勇（家族の人には入れない）: 由香の父。70歳。同居。スマホは孫の写真を見るだけ。大きな字でないと読めない
     ],
-    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", olderChildren: [], babies: 1, satogaeri: null, grandparents: { mother: "同居" } },
+    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", olderChildren: false, babies: 1, satogaeri: false },
     persona: {
-      label: "妊娠後期・スマホが苦手な祖父母が使う（同居）",
-      meId: "isamu",
-      who: "勇（70歳・由香の父・松本市・同居）。娘に「ここを見て」と言われて開いた。字が小さいと読めない。押す所が分からないと困る。",
+      label: "妊娠後期・スマホが苦手な祖父（同居）が母の画面を見る",
+      // 家族の人は母とパートナーだけなので、勇は由香のスマホを借りて見る
+      meId: "yuka",
+      who: "由香のスマホを、同居の父・勇（70歳）が借りて見ている。娘に「ここを見て」と言われて開いた。字が小さいと読めない。押す所が分からないと困る。",
       literacy: "スマホが苦手",
       goals: [
         { on: "2026-11-30", want: "自分が手伝える事があるか見たい" },
         { on: "2026-12-10", want: "孫が生まれた。役所に行くなら何を持っていくか知りたい" },
       ],
-      watch: ["祖父母が使う時、一番上が祖父母にできる事か「家族」の事", "パパ・ママの番が祖父母の画面の一番上に来ない"],
+      watch: ["字が大きく、押す所が分かるか", "母の画面の一番上が、家族の誰が見ても分かる言葉か"],
     },
   },
   {
@@ -474,10 +475,10 @@ export const SIM_FAMILIES: SimFamily[] = [
     birthDate: "2027-01-22",
     startedOn: "2026-06-01",
     members: [
-      { id: "shiori", name: "栞", role: "母", voice: "34歳。在宅で働くフリーランスの編集者。33週で山梨へ移住" },
-      { id: "kazuya", name: "和也", role: "パートナー", voice: "35歳。会社員。リモート勤務" },
+      { id: "shiori", name: "栞", role: "母" }, // 34歳。在宅で働くフリーランスの編集者。33週で山梨へ移住
+      { id: "kazuya", name: "和也", role: "パートナー" }, // 35歳。会社員。リモート勤務
     ],
-    situation: { motherWork: "自営・フリー", motherLeave: "取らない", partnerWork: "会社員・公務員", olderChildren: [], babies: 1 },
+    situation: { motherWork: "自営・フリー", partnerWork: "会社員・公務員", olderChildren: false, babies: 1 },
     persona: {
       label: "妊娠後期・33週で移住（杉並区→北杜市）・フリーランス・山間",
       meId: "shiori",
@@ -501,11 +502,11 @@ export const SIM_FAMILIES: SimFamily[] = [
     birthDate: "2026-10-28",
     childName: "ひかり",
     members: [
-      { id: "nanami", name: "七海", role: "母", voice: "26歳。初めて。会社員で育休中" },
-      { id: "yuto", name: "悠斗", role: "パートナー", voice: "28歳。会社員。産後パパ育休を2週間取る予定だった" },
-      { id: "masako", name: "正子", role: "祖父母", voice: "七海の母。長崎から来る", visit: { from: "2026-11-08", until: "2026-11-22" } },
+      { id: "nanami", name: "七海", role: "母" }, // 26歳。初めて。会社員で育休中
+      { id: "yuto", name: "悠斗", role: "パートナー" }, // 28歳。会社員。産後パパ育休を2週間取る予定だった
+      // 祖父母の正子（家族の人には入れない）: 七海の母。長崎から来る（来る日 2026-11-08〜2026-11-22）
     ],
-    situation: { motherWork: "会社員・公務員", motherLeave: "取る", partnerWork: "会社員・公務員", partnerLeave: "取る", olderChildren: [], babies: 1, satogaeri: null, grandparents: { mother: "遠く" } },
+    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", partnerLeave: "取る", olderChildren: false, babies: 1, satogaeri: false },
     persona: {
       label: "生後すぐ・予定日より早く生まれた・祖父母が来る",
       meId: "nanami",
@@ -515,7 +516,7 @@ export const SIM_FAMILIES: SimFamily[] = [
         { on: "2026-10-29", want: "早く生まれた。夫の育休を早められるか知りたい" },
         { on: "2026-11-05", want: "母が来る前に、母に頼む事を決めたい" },
       ],
-      watch: ["早く生まれた気づき", "祖父母が来る気づき"],
+      watch: ["早く生まれた気づき"],
     },
   },
   {
@@ -528,11 +529,11 @@ export const SIM_FAMILIES: SimFamily[] = [
     startedOn: "2026-10-25",
     childName: "こはる",
     members: [
-      { id: "ayumi", name: "あゆみ", role: "母", voice: "31歳。2人目。上の子は4歳。パート" },
-      { id: "hiroshi", name: "浩", role: "パートナー", voice: "33歳。会社員。上の子の世話もしている" },
+      { id: "ayumi", name: "あゆみ", role: "母" }, // 31歳。2人目。上の子は4歳。パート
+      { id: "hiroshi", name: "浩", role: "パートナー" }, // 33歳。会社員。上の子の世話もしている
     ],
-    // 家族の形: 上の子は生まれた時に4歳（生まれ月は目安）
-    situation: { motherWork: "パート・派遣", partnerWork: "会社員・公務員", olderChildren: ["2022-06"], babies: 1 },
+    // 家族の形: 上の子は生まれた時に4歳
+    situation: { motherWork: "パート・派遣", partnerWork: "会社員・公務員", olderChildren: true, babies: 1 },
     persona: {
       label: "生後すぐ・2人目・予定日より遅く生まれた・生後5日から使い始めた・政令市",
       meId: "hiroshi",
@@ -553,9 +554,11 @@ export const SIM_FAMILIES: SimFamily[] = [
     birthDate: "2026-10-12",
     startedOn: "2026-10-30",
     childName: "そうた",
-    members: [{ id: "megumi", name: "恵", role: "母", voice: "30歳。ひとり親。派遣で事務をしていた。頼れる親はいない" }],
+    members: [
+      { id: "megumi", name: "恵", role: "母" }, // 30歳。ひとり親。派遣で事務をしていた。頼れる親はいない
+    ],
     // 家族の形: 派遣の事務をしていて、今は働いていない
-    situation: { motherWork: "出産で辞める", motherLeave: "取らない", olderChildren: [], babies: 1, satogaeri: null, grandparents: { mother: "いない" } },
+    situation: { motherWork: "出産で辞める", olderChildren: false, babies: 1, satogaeri: false },
     persona: {
       label: "生後すぐ・ひとり親・祖父母もいない・生後18日から使い始めた",
       meId: "megumi",
@@ -565,7 +568,7 @@ export const SIM_FAMILIES: SimFamily[] = [
         { on: "2026-10-30", want: "出生届は出した。ほかに間に合っていない手続きがあるか知りたい" },
         { on: "2026-11-15", want: "ひとりで1か月健診に行けるか、手伝ってくれる所があるか知りたい" },
       ],
-      watch: ["パートナー・祖父母の番が出ない（全部自分の番になる）", "止まっている気づきを、パートナーがいない家族でも出せるか", "外の手（産後ヘルパー）につなぐ"],
+      watch: ["パートナーの番が出ない（全部自分の番になる）", "止まっている気づきを、パートナーがいない家族でも出せるか", "外の手（産後ヘルパー）につなぐ"],
     },
   },
   {
@@ -576,11 +579,11 @@ export const SIM_FAMILIES: SimFamily[] = [
     birthDate: "2026-11-01",
     childName: "うみ",
     members: [
-      { id: "satomi", name: "里美", role: "母", voice: "28歳。会社員で育休中。初めて" },
-      { id: "kenji", name: "健二", role: "パートナー", voice: "31歳。佐渡で飲食店を営む自営業。育休は無い。昼夜とも店にいる" },
-      { id: "toshiko", name: "敏子", role: "祖父母", voice: "健二の母。同居。店も手伝う" },
+      { id: "satomi", name: "里美", role: "母" }, // 28歳。会社員で育休中。初めて
+      { id: "kenji", name: "健二", role: "パートナー" }, // 31歳。佐渡で飲食店を営む自営業。育休は無い。昼夜とも店にいる
+      // 祖父母の敏子（家族の人には入れない）: 健二の母。同居。店も手伝う
     ],
-    situation: { motherWork: "会社員・公務員", motherLeave: "取る", partnerWork: "自営・フリー", partnerLeave: "取らない", olderChildren: [], babies: 1, satogaeri: null, grandparents: { partner: "同居" } },
+    situation: { motherWork: "会社員・公務員", partnerWork: "自営・フリー", partnerLeave: "取らない", olderChildren: false, babies: 1, satogaeri: false },
     persona: {
       label: "生後すぐ・パートナーが自営業（飲食店）で忙しい・祖父母同居・島の市",
       meId: "satomi",
@@ -604,11 +607,11 @@ export const SIM_FAMILIES: SimFamily[] = [
     startedOn: "2026-09-01",
     childName: "えま",
     members: [
-      { id: "maria", name: "マリア", role: "母", voice: "29歳。フィリピン国籍。日本人の夫と結婚して5年。話せるが、漢字はあまり読めない。タガログ語と英語" },
-      { id: "shinji", name: "伸二", role: "パートナー", voice: "35歳。自動車部品の工場で交代勤務" },
+      { id: "maria", name: "マリア", role: "母" }, // 29歳。フィリピン国籍。日本人の夫と結婚して5年。話せるが、漢字はあまり読めない。タガログ語と英語
+      { id: "shinji", name: "伸二", role: "パートナー" }, // 35歳。自動車部品の工場で交代勤務
     ],
     // 家族の形: マリアの働き方と上の子は書いていないので空
-    situation: { partnerWork: "会社員・公務員", partnerNightShift: true, babies: 1 },
+    situation: { partnerWork: "会社員・公務員", babies: 1 },
     persona: {
       label: "生後数か月・外国籍（フィリピン）の母・やさしい日本語・生後1か月半から使い始めた",
       meId: "maria",
@@ -631,11 +634,11 @@ export const SIM_FAMILIES: SimFamily[] = [
     startedOn: "2026-08-10",
     childName: "あおい",
     members: [
-      { id: "mizuki", name: "瑞希", role: "母", voice: "33歳。会社員で育休中。赤ちゃんは NICU に2週間いた" },
-      { id: "takuya", name: "拓也", role: "パートナー", voice: "34歳。会社員" },
-      { id: "yoshie", name: "良江", role: "祖父母", voice: "瑞希の母。熊本市内に住む。週に2回来る" },
+      { id: "mizuki", name: "瑞希", role: "母" }, // 33歳。会社員で育休中。赤ちゃんは NICU に2週間いた
+      { id: "takuya", name: "拓也", role: "パートナー" }, // 34歳。会社員
+      // 祖父母の良江（家族の人には入れない）: 瑞希の母。熊本市内に住む。週に2回来る
     ],
-    situation: { motherWork: "会社員・公務員", motherLeave: "取る", partnerWork: "会社員・公務員", olderChildren: [], babies: 1, grandparents: { mother: "近く" } },
+    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", olderChildren: false, babies: 1 },
     persona: {
       label: "生後数か月・早く生まれて NICU だった・退院後しばらくして使い始めた・政令市",
       meId: "mizuki",
@@ -656,10 +659,10 @@ export const SIM_FAMILIES: SimFamily[] = [
     birthDate: "2026-08-20",
     childName: "たいち",
     members: [
-      { id: "makoto", name: "誠", role: "パートナー", voice: "34歳。会社員。1年の育休を取った。家の事の主担当" },
-      { id: "ai", name: "愛", role: "母", voice: "33歳。研究職。産後3か月で職場に戻った" },
+      { id: "makoto", name: "誠", role: "パートナー" }, // 34歳。会社員。1年の育休を取った。家の事の主担当
+      { id: "ai", name: "愛", role: "母" }, // 33歳。研究職。産後3か月で職場に戻った
     ],
-    situation: { motherWork: "会社員・公務員", motherLeave: "取る", partnerWork: "会社員・公務員", partnerLeave: "取る", olderChildren: [], babies: 1 },
+    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", partnerLeave: "取る", olderChildren: false, babies: 1 },
     persona: {
       label: "生後数か月・パパがおもに使う（1年の育休）・ママは仕事に復帰",
       meId: "makoto",
@@ -680,12 +683,12 @@ export const SIM_FAMILIES: SimFamily[] = [
     birthDate: "2026-06-10",
     childName: "ゆき",
     members: [
-      { id: "ayaka", name: "彩花", role: "母", voice: "30歳。山あいの町で暮らす。小児科まで車で30分" },
-      { id: "james", name: "ジェームズ", role: "パートナー", voice: "33歳。イギリス国籍。英語の先生。日本語は日常会話まで" },
-      { id: "linda", name: "リンダ", role: "祖父母", voice: "ジェームズの母。イギリスから年末に来る。日本語はできない。英語で", visit: { from: "2026-12-20", until: "2027-01-10" } },
+      { id: "ayaka", name: "彩花", role: "母" }, // 30歳。山あいの町で暮らす。小児科まで車で30分
+      { id: "james", name: "ジェームズ", role: "パートナー" }, // 33歳。イギリス国籍。英語の先生。日本語は日常会話まで
+      // 祖父母のリンダ（家族の人には入れない）: ジェームズの母。イギリスから年末に来る。日本語はできない。英語で（来る日 2026-12-20〜2027-01-10）
     ],
     // 家族の形: 夫婦の働き方は書いていないので空（英語の先生の雇われ方もわからない）
-    situation: { babies: 1, satogaeri: null, grandparents: { partner: "遠く" } },
+    situation: { babies: 1, satogaeri: false },
     persona: {
       label: "生後数か月・山間・祖父母が海外から来る（英語）",
       meId: "ayaka",
@@ -695,7 +698,7 @@ export const SIM_FAMILIES: SimFamily[] = [
         { on: "2026-12-14", want: "義母が来る前に、頼める事と、伝えておく事を英語でまとめたい" },
         { on: "2026-12-10", want: "6か月の予防接種のあと、次は何か知りたい" },
       ],
-      watch: ["祖父母が来る気づき（7日前から）", "祖父母の言葉（英語）で渡せるか"],
+      watch: ["パートナーの言葉（英語）でも伝わるか"],
     },
   },
 
@@ -709,10 +712,10 @@ export const SIM_FAMILIES: SimFamily[] = [
     startedOn: "2026-11-01",
     childName: "りく",
     members: [
-      { id: "natsumi", name: "夏美", role: "母", voice: "32歳。会社員。来年4月の復職に向けて保活中" },
-      { id: "yosuke", name: "洋介", role: "パートナー", voice: "33歳。会社員" },
+      { id: "natsumi", name: "夏美", role: "母" }, // 32歳。会社員。来年4月の復職に向けて保活中
+      { id: "yosuke", name: "洋介", role: "パートナー" }, // 33歳。会社員
     ],
-    situation: { motherWork: "会社員・公務員", motherLeave: "取る", partnerWork: "会社員・公務員", olderChildren: [], babies: 1 },
+    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", olderChildren: false, babies: 1 },
     persona: {
       label: "1歳過ぎ・1歳を過ぎてから使い始めた・保活中・共働き",
       meId: "natsumi",
@@ -738,10 +741,10 @@ export const SIM_FAMILIES: SimFamily[] = [
     startedOn: "2025-12-01",
     childName: "めい",
     members: [
-      { id: "tomomi", name: "友美", role: "母", voice: "31歳。会社員で育休中。夫の転勤で富山へ" },
-      { id: "kazuki", name: "一樹", role: "パートナー", voice: "33歳。転勤族" },
+      { id: "tomomi", name: "友美", role: "母" }, // 31歳。会社員で育休中。夫の転勤で富山へ
+      { id: "kazuki", name: "一樹", role: "パートナー" }, // 33歳。転勤族
     ],
-    situation: { motherWork: "会社員・公務員", motherLeave: "取る", partnerWork: "会社員・公務員", olderChildren: [], babies: 1 },
+    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", olderChildren: false, babies: 1 },
     persona: {
       label: "1歳過ぎ・途中で引っ越し（吹田市→富山市）・早く生まれた",
       meId: "tomomi",
@@ -762,12 +765,12 @@ export const SIM_FAMILIES: SimFamily[] = [
     birthDate: "2025-10-25",
     childName: "なぎ",
     members: [
-      { id: "kaori", name: "香織", role: "母", voice: "38歳。3人目。島で保育士をしていた" },
-      { id: "takashi", name: "隆", role: "パートナー", voice: "40歳。島の病院の夜勤の警備員。昼は寝ている" },
-      { id: "chiyo", name: "千代", role: "祖父母", voice: "香織の母。松江に住む。フェリーで来る", visit: { from: "2026-11-10", until: "2026-11-24" } },
+      { id: "kaori", name: "香織", role: "母" }, // 38歳。3人目。島で保育士をしていた
+      { id: "takashi", name: "隆", role: "パートナー" }, // 40歳。島の病院の夜勤の警備員。昼は寝ている
+      // 祖父母の千代（家族の人には入れない）: 香織の母。松江に住む。フェリーで来る（来る日 2026-11-10〜2026-11-24）
     ],
-    // 家族の形: 上の子2人の生まれ月は筋書きに無いので作った（目安）。香織と隆の雇われ方は書いていないので空
-    situation: { partnerNightShift: true, olderChildren: ["2019-05", "2022-08"], babies: 1, satogaeri: null, grandparents: { mother: "遠く" } },
+    // 家族の形: 上の子が2人いる。香織と隆の雇われ方は書いていないので空
+    situation: { olderChildren: true, babies: 1, satogaeri: false },
     persona: {
       label: "1歳過ぎ・3人目・離島（隠岐の島町）・パートナーが夜勤・祖父母が来る",
       meId: "kaori",
@@ -777,7 +780,7 @@ export const SIM_FAMILIES: SimFamily[] = [
         { on: "2026-11-04", want: "1歳の予防接種が済んでいるか確かめたい" },
         { on: "2026-11-07", want: "母が来る間に頼む事を、フェリーの日に合わせて決めたい" },
       ],
-      watch: ["3人目に、初めての人向けの長い説明をしない", "祖父母が来る気づき", "上の子たちの事を表せない"],
+      watch: ["3人目に、初めての人向けの長い説明をしない", "上の子たちの事を表せない"],
     },
   },
 ];

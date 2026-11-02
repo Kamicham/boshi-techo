@@ -32,6 +32,5 @@ export const POST = route(async (req: Request) => {
     if (Object.keys(names).length) patch.names = names as Record<string, string>;
   }
   if (k.office) patch.office = { name: str(k.office.name), address: str(k.office.address) };
-  if (k.shareVia === "line" || k.shareVia === "mail" || k.shareVia === "share") patch.shareVia = k.shareVia;
   return { keep: remember(fam.id, patch) };
 });

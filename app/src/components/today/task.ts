@@ -25,7 +25,7 @@ export function isMine(m: Pick<Milestone, "who">, me: Member | null): boolean {
 
 /**
  * 今やる事の並べ方: 期限切れ・期限が近い物 → 使う人の担当 → 期限のある物 → 終わりが近い順。
- * 期限の無い「お知らせ」（健診が毎週になる、など）は、期限のある事より後ろ。
+ * 期限の無い事（保育園を調べる、など）は、期限のある事より後ろ。
  */
 export function sortNow(tasks: Task[], me: Member | null): Task[] {
   const key = (t: Task) => [URGENCY[t.status] ?? 3, isMine(t, me) ? 0 : 1, t.deadlineDate ? 0 : 1] as const;
@@ -37,28 +37,60 @@ export function sortNow(tasks: Task[], me: Member | null): Task[] {
   });
 }
 
-/** 期限をこれより多く過ぎた事は、一番上と「このあと」から外し、stale（済みましたか？）へ回す */
+/** 期限をこれより多く過ぎた事は、一番上と「このあと」から外して畳む */
 export const STALE_DAYS = 30;
 
 /**
  * 時期を過ぎて畳む事か（まだ済みにしていない物）:
- * - 生まれた後の、妊娠中だけの事（期限のある物だけ。「健診が毎週になる」のようなお知らせは聞かずに消す）
- * - 期限を30日より多く過ぎた事（目安の物は、過ぎたらすぐ）
+ * - 生まれた後の、妊娠中だけの事
+ * - 目安の日を過ぎた事（法の期限ではないので、過ぎたらすぐ）
+ * - 法の期限を30日より多く過ぎた事
+ * 畳んだ事のうち「済みましたか？」で聞くのは、法の期限がある物だけ（asksDone）。ほかは聞かずに隠す
  */
 export function isStale(t: Task, today: string): boolean {
   if (t.status === "済み") return false;
-  if (t.endsOn && today >= t.endsOn) return !!t.deadlineDate;
+  if (t.endsOn && today >= t.endsOn) return true;
   if (!t.deadlineDate || t.status !== "期限切れ") return false;
-  // 法の期限ではない「目安」は、過ぎたら赤く一番上に出さず、すぐ「済みましたか？」へ回す
   if (deadlineKindOf(t) === "目安") return true;
   return daysUntil(today, t.deadlineDate) < -STALE_DAYS;
 }
 
-/** あと何日（まだ先なら始まりまで、期限があれば期限まで。期限の無いお知らせと「生まれたら」の事は null） */
+/** 畳んだ事を「済みましたか？」で聞くか（法の期限がある物だけ。目安の物と期限の無い物は聞かない） */
+export function asksDone(t: Pick<Milestone, "deadlineDate" | "deadlineKind">): boolean {
+  return !!t.deadlineDate && deadlineKindOf(t) === "期限";
+}
+
+/** あと何日（まだ先なら始まりまで、期限があれば期限まで。期限の無い事と「生まれたら」の事は null）。並べる順にも使う */
 export function daysLeft(t: Task, today: string): number | null {
   if (t.awaitingBirth) return null;
   if (t.status === "まだ先") return daysUntil(today, t.startDate);
   if (t.deadlineDate) return daysUntil(today, t.deadlineDate);
+  return null;
+}
+
+/** これより先の事は「あと◯日」と数えず、日付で書く */
+export const FAR_DAYS = 30;
+
+/** 画面に出す「あと◯日」。30日より先は null（代わりに whenDate の日付を出す） */
+export function shownDays(t: Task, today: string): number | null {
+  const d = daysLeft(t, today);
+  return d != null && d <= FAR_DAYS ? d : null;
+}
+
+/** 12月10日（年が今日と違う時は 2027年12月10日） */
+export function dateWord(date: string, today: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  return date.slice(0, 4) === today.slice(0, 4) ? `${m}月${d}日` : `${y}年${m}月${d}日`;
+}
+
+/**
+ * 日付の文: 期限なら「2027年12月10日まで」、まだ先なら「12月10日から」。
+ * 期限の無い事と「生まれたら」の事は null
+ */
+export function whenDate(t: Task, today: string): string | null {
+  if (t.awaitingBirth) return null;
+  if (t.status === "まだ先") return `${dateWord(t.startDate, today)}から`;
+  if (t.deadlineDate) return `${dateWord(t.deadlineDate, today)}まで`;
   return null;
 }
 
@@ -78,9 +110,8 @@ export interface TodayPlan {
   /** まだ先（畳む。「このあと」に出した物は除く。「生まれたら」の事もここ） */
   upcoming: Task[];
   /**
-   * 時期を過ぎて畳んだ事（まだ済みにしていない物）。画面が「済みましたか？」の箱で1回だけまとめて聞く。
-   * 中身は isStale: 生まれた後の妊娠中だけの事（期限のある物）と、期限を30日より多く過ぎた事。
-   * 並びは期限の古い順（同じ日なら id の順）
+   * 時期を過ぎて畳んだ事のうち、法の期限がある物（まだ済みにしていない物）。画面が「済みましたか？」の箱で1回だけまとめて聞く。
+   * 目安の物と期限の無い物は、畳んでも聞かない（ここに入れない）。並びは期限の古い順（同じ日なら id の順）
    */
   stale: Task[];
 }
@@ -92,12 +123,12 @@ export interface TodayPlan {
  * ほかの人の番は「このあと」の1行だけ。
  */
 export function planToday(tasks: Task[], today: string, me: Member | null): TodayPlan {
-  const stale = tasks
-    .filter((t) => isStale(t, today))
+  const folded = tasks.filter((t) => isStale(t, today));
+  const stale = folded
+    .filter(asksDone)
     .sort((a, b) => (a.deadlineDate ?? "").localeCompare(b.deadlineDate ?? "") || a.id.localeCompare(b.id));
-  const staleIds = new Set(stale.map((t) => t.id));
-  // 生まれた後の妊娠中だけの事は、期限の有る無しにかかわらず今やるに出さない
-  const live = tasks.filter((t) => !staleIds.has(t.id) && !(t.endsOn && today >= t.endsOn));
+  const foldedIds = new Set(folded.map((t) => t.id));
+  const live = tasks.filter((t) => !foldedIds.has(t.id));
   const now = sortNow(
     live.filter((t) => NOW.has(t.status)),
     me,
@@ -122,11 +153,11 @@ export function planToday(tasks: Task[], today: string, me: Member | null): Toda
   return { top: null, topIsSoon: false, rest: byDays(others, (t) => daysLeft(t, today)), upcoming, stale };
 }
 
-/** 担当の呼び名（家族の名前で。いなければ役の言い方） */
+/** 担当の呼び名（家族の名前で。いなければ役の言い方）。「家族」の事は空文字（画面は札を出さない） */
 export function whoLabel(m: Pick<Milestone, "who">, family: Family, me: Member | null): string {
+  if (m.who === "家族") return "";
   if (me && m.who === me.role) return "あなた";
-  if (m.who === "家族") return "家族みんな";
   const person = family.members.find((x) => x.role === m.who);
   if (person) return person.name;
-  return m.who === "母" ? "ママ" : m.who === "パートナー" ? "パパ" : m.who;
+  return m.who === "母" ? "ママ" : "パートナー";
 }

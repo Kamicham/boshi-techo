@@ -4,7 +4,6 @@
 import "server-only";
 import { z } from "zod";
 import { clearDoneFromDraft, markDoneFromDraft } from "@/app/api/done/_lib/done";
-import { getAssignments } from "@/app/api/assign/_lib/store";
 import { fillFamilyBlanks, findBlanks, isRoleWord, type Blank } from "./blanks";
 import { structured } from "./claude";
 import { get, list, put } from "./db";
@@ -13,7 +12,7 @@ import { fillBlanks, getKeep, type Keep } from "./keep";
 import { getLocal } from "./local";
 import { MILESTONES, scheduleFor, type MilestoneDef } from "./milestones";
 
-export const DRAFT_KINDS = ["メール", "連絡文", "記入メモ", "持ち物", "質問リスト"] as const;
+export const DRAFT_KINDS = ["メール", "記入メモ", "質問リスト"] as const;
 export type DraftKind = (typeof DRAFT_KINDS)[number];
 
 export const DraftSchema = z.object({
@@ -52,7 +51,7 @@ export interface DraftView {
   cc: string;
   /** 書き手の家族の id（【自分の名前】に入れた名前を、この人の名前として覚える）。決まらなければ null */
   writerId: string | null;
-  /** 誰が送る文か（担当の人の名前。手紙に書く名前が分からなければ呼び名）。決まらなければ空 */
+  /** 誰が送る文か（開いた人の名前。手紙に書く名前が分からなければ呼び名）。決まらなければ空 */
   fromName: string;
   /** メールなのに宛先のアドレスが分からず、欄で聞かない時の案内（町の窓口あて: 「宛先は町のページで」） */
   mailHint: string;
@@ -78,26 +77,9 @@ export function listDrafts(familyId: string): Draft[] {
     .filter((d) => d.status === "ok");
 }
 
-/** その事の担当（家族が決め直していればその担当。人まで決めていれば、その人の id も） */
-function whoFor(family: Family, milestoneId: string): { who: string; memberId?: string } | null {
-  const m = MILESTONES.find((x) => x.id === milestoneId);
-  if (!m) return null;
-  const a = getAssignments(family.id)[milestoneId];
-  if (a?.memberId && family.members.some((x) => x.id === a.memberId)) return { who: family.members.find((x) => x.id === a.memberId)!.role, memberId: a.memberId };
-  // パートナーのいない家族は、パートナーの担当を母へ（予定表と同じ）
-  const who = a?.who ?? m.who;
-  if (who === "パートナー" && !family.members.some((x) => x.role === "パートナー")) return { who: "母" };
-  return { who };
-}
-
-/** 書き手: 担当を人まで決めていればその人。開いた人が担当ならその人。担当が1人に決まるならその人。決まらなければ null */
-export function writerOf(family: Family, milestoneId: string, meId?: string | null): Member | null {
-  const w = whoFor(family, milestoneId);
-  if (w?.memberId) return family.members.find((x) => x.id === w.memberId) ?? null;
-  const me = family.members.find((x) => x.id === meId);
-  if (me && (!w || w.who === "家族" || me.role === w.who)) return me;
-  const cands = w ? family.members.filter((x) => w.who === "家族" || x.role === w.who) : [];
-  return cands.length === 1 ? cands[0] : null;
+/** 書き手: 開いた人（me）。選んでいなければ母（いなければ家族の最初の人） */
+export function writerOf(family: Family, meId?: string | null): Member | null {
+  return family.members.find((x) => x.id === meId) ?? family.members.find((x) => x.role === "母") ?? family.members[0] ?? null;
 }
 
 /** 宛先が職場（上司・人事）か。職場でなければ、上司のメールアドレスを聞かない */
@@ -108,8 +90,8 @@ function toWork(d: Pick<Draft, "to" | "title" | "body">, milestoneId: string): b
 }
 
 /** 手紙に書く書き手の名前: 覚えた名前 → 呼び名（「パパ」など役割の言葉なら使わない） */
-export function writerName(family: Family, keep: Keep, milestoneId: string, meId?: string | null): string | null {
-  const w = writerOf(family, milestoneId, meId);
+export function writerName(family: Family, keep: Keep, meId?: string | null): string | null {
+  const w = writerOf(family, meId);
   if (!w) return null;
   return keep.names?.[w.id] || (isRoleWord(w.name) ? null : w.name);
 }
@@ -145,8 +127,8 @@ export function splitTo(to: string): { name: string; email: string; cc: string }
 export function viewDraft(family: Family, draft: Draft | null, meId?: string | null): DraftView {
   if (!draft) return { draft: null, blanks: [], mailTo: "", toName: "", cc: "", writerId: null, fromName: "", mailHint: "" };
   const keep = getKeep(family.id);
-  const writer = writerOf(family, draft.milestoneId, meId);
-  const d = fillDraft(draft, keep, writerName(family, keep, draft.milestoneId, meId), family);
+  const writer = writerOf(family, meId);
+  const d = fillDraft(draft, keep, writerName(family, keep, meId), family);
   const split = splitTo(d.to);
   const isMail = d.kind === "メール";
   const work = isMail && toWork(d, draft.milestoneId);
@@ -169,8 +151,8 @@ export function viewDraft(family: Family, draft: Draft | null, meId?: string | n
 }
 
 const SYSTEM = `あなたの役割: 家族の「やる事」1件について、家族がそのまま使える下書きを1つ作る係。家族がするのは最後に送る・使うだけにする。
-- 種類（kind）は事に合う物を選ぶ: 職場への相談・報告は「メール」、家族や祖父母への頼み事は「連絡文」（LINE で送る短い文）、役所の届出・申請書は「記入メモ」（欄ごとに何を書くか・どこで分かるか）、入院の準備などは「持ち物」（1行に1つ）、窓口や保育園・病院で聞く事は「質問リスト」（1行に1つ）。
-- 書き手は、その事の担当の家族（呼び名と役割を渡す）。その人の言葉づかいのヒントに合わせる。
+- 種類（kind）は事に合う物を選ぶ: 職場への相談・報告は「メール」、役所の届出・申請書は「記入メモ」（欄ごとに何を書くか・どこで分かるか）、窓口や保育園・病院で聞く事は「質問リスト」（1行に1つ）。
+- 書き手は、この手帳を開いた家族の一人（呼び名と役割を渡す）。
 - 「覚えている事」が渡された時は、会社名・上司の名前・病院の名前などをそれで書く。
 - 書き手の名前は、家族が送る文の最後に必ず書く（分からなければ【自分の名前】）。町名・都道府県・家族の名前・予定日・生まれた日は、渡した家族の情報で書く（空欄にしない）。
 - 宛先・会社名・上司の名前・住所・番号など分からない所は空欄で残す。作り話で埋めない。空欄の名前はそろえる（家族が一度入れると次から自動で埋まる）: 会社は【会社名】、部署は【部署名】、上司は【上司の名前】、上司のメールは【上司のメールアドレス】、人事の担当は【人事のご担当者名】、書き手の名前は【自分の名前】、病院・産院は【産院名】。
@@ -191,10 +173,8 @@ export async function makeDraft(family: Family, m: MilestoneDef, today: string, 
   const sched = scheduleFor(family).find((x) => x.id === m.id);
   const local = getLocal(family, m.id);
   const keep = getKeep(family.id);
-  // 担当（家族が決め直していればその担当）の人が書き手。開いた人が担当（か「家族」の事）なら、その人
-  const decided = writerOf(family, m.id, meId);
-  const who = whoFor(family, m.id)?.who ?? m.who;
-  const writers = decided ? [decided] : family.members.filter((x) => who === "家族" || x.role === who);
+  // 書き手は開いた人（選んでいなければ母）
+  const writer = writerOf(family, meId);
   const born = family.birthDate && family.birthDate <= today;
   const w = keep.work ?? {};
   const known = [
@@ -206,7 +186,7 @@ export async function makeDraft(family: Family, m: MilestoneDef, today: string, 
     keep.office?.name && `役所: ${keep.office.name}${keep.office.address ? `（${keep.office.address}）` : ""}`,
   ].filter(Boolean);
   const lines = [
-    `事: ${m.title}（${m.kind}・担当: ${who}）`,
+    `事: ${m.title}（${m.kind}）`,
     `根拠: ${m.basis}`,
     sched?.deadlineDate ? `期限: ${jpDay(sched.deadlineDate)}` : "",
     `今日: ${jpDay(today)}`,
@@ -215,13 +195,13 @@ export async function makeDraft(family: Family, m: MilestoneDef, today: string, 
     family.childName ? `赤ちゃんの呼び名: ${family.childName}` : "",
     `住む町: ${family.prefecture}${family.city}`,
     "家族:",
-    ...family.members.map((x) => `- ${x.name}（${x.role}）: ${x.voice}`),
-    writers.length ? `書き手: ${writers.map((x) => x.name).join("・")}` : "書き手: 【自分の名前】",
+    ...family.members.map((x) => `- ${x.name}（${x.role}）`),
+    writer ? `書き手: ${writer.name}（${writer.role}）` : "書き手: 【自分の名前】",
     // 手紙に書く名前（呼び名が「パパ」などの時は、空欄にして家族に入れてもらう）
-    writers.length === 1
-      ? keep.names?.[writers[0].id]
-        ? `手紙に書く書き手の名前: ${keep.names[writers[0].id]}`
-        : isRoleWord(writers[0].name)
+    writer
+      ? keep.names?.[writer.id]
+        ? `手紙に書く書き手の名前: ${keep.names[writer.id]}`
+        : isRoleWord(writer.name)
           ? "手紙に書く書き手の名前: 分からない（【自分の名前】の空欄にする）"
           : ""
       : "",

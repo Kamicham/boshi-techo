@@ -11,15 +11,31 @@ describe("家族の形で予定を組み替える", () => {
   it("わからない時は今までどおり（職場の事も育休も出る）", () => {
     const x = ids(undefined);
     for (const id of ["tell-work", "maternity-leave", "tell-work-birth", "partner-leave", "child-allowance"]) expect(x).toContain(id);
-    for (const id of ["partner-days-off", "child-allowance-change", "single-child-support", "satogaeri-hospital", "nenkin-maternity-exempt"]) expect(x).not.toContain(id);
+    for (const id of ["child-allowance-change", "single-child-support", "satogaeri-hospital", "nenkin-maternity-exempt"]) expect(x).not.toContain(id);
   });
 
   it("仕事のない母には職場の事を出さない", () => {
     const x = ids({ motherWork: "仕事なし", partnerWork: "会社員・公務員" });
-    for (const id of ["tell-work", "maternity-leave", "nenkin-maternity-exempt"]) expect(x).not.toContain(id);
-    // パートナーが会社員なら、生まれた事を職場に伝える（育休・扶養の入口）は残す
-    expect(x).toContain("tell-work-birth");
-    expect(ids({ motherWork: "仕事なし", partnerWork: "仕事なし" })).not.toContain("tell-work-birth");
+    for (const id of ["tell-work", "maternity-leave", "nenkin-maternity-exempt", "tell-work-birth"]) expect(x).not.toContain(id);
+    // パートナーが会社員なら、パートナーの職場に生まれた事を伝える（扶養・育休の入口）は残す
+    expect(x).toContain("partner-tell-work-birth");
+    const none = ids({ motherWork: "仕事なし", partnerWork: "仕事なし" });
+    expect(none).not.toContain("tell-work-birth");
+    expect(none).not.toContain("partner-tell-work-birth");
+  });
+
+  it("職場の事は働いている人に振る（「家族」にしない）", () => {
+    const s = scheduleFor({ dueDate: due, members: both });
+    expect(s.find((m) => m.id === "tell-work-birth")?.who).toBe("母");
+    expect(s.find((m) => m.id === "partner-tell-work-birth")?.who).toBe("パートナー");
+    for (const m of s.filter((x) => x.kind === "仕事")) expect(m.who).not.toBe("家族");
+    // パートナーのいない家族には、パートナーの職場の事を出さない
+    expect(ids(undefined, [{ role: "母" }])).not.toContain("partner-tell-work-birth");
+  });
+
+  it("消した項目（健診のお知らせ・入院の荷物・休む日・一冊）は出さない", () => {
+    const x = ids(undefined, both, due);
+    for (const id of ["checkup-plan", "checkup-biweekly", "checkup-weekly", "hospital-bag", "partner-days-off", "the-book"]) expect(x).not.toContain(id);
   });
 
   it("出産で辞める母: 職場に伝えるは残し、退職の日と保険の切り替えを足す", () => {
@@ -42,25 +58,22 @@ describe("家族の形で予定を組み替える", () => {
     expect(s.map((m) => m.id)).toEqual(expect.arrayContaining(["single-child-support", "single-medical"]));
   });
 
-  it("育休を取らない・自営のパートナー: 育休の代わりに休む日を決める", () => {
-    for (const sit of [{ partnerLeave: "取らない" }, { partnerWork: "自営・フリー" }] as Situation[]) {
-      const x = ids(sit);
-      expect(x).not.toContain("partner-leave");
-      expect(x).toContain("partner-days-off");
-    }
+  it("育休を取らない・自営のパートナー: 育休の事を出さない", () => {
+    for (const sit of [{ partnerLeave: "取らない" }, { partnerWork: "自営・フリー" }] as Situation[]) expect(ids(sit)).not.toContain("partner-leave");
     expect(ids({ partnerLeave: "未定" })).toContain("partner-leave");
   });
 
   it("第2子: 児童手当は額を変える届け。上の子の預け先を足す", () => {
-    const x = ids({ olderChildren: ["2024-04"] });
+    const x = ids({ olderChildren: true });
     expect(x).not.toContain("child-allowance");
     expect(x).toEqual(expect.arrayContaining(["child-allowance-change", "older-child-care"]));
   });
 
   it("里帰り: 産院の予約・健診代の申請・訪問の依頼。出生届は里帰り先でも", () => {
-    const s = scheduleFor({ dueDate: due, situation: { satogaeri: { prefecture: "鹿児島県", city: "鹿児島市" } }, members: both });
+    const s = scheduleFor({ dueDate: due, situation: { satogaeri: true }, members: both });
     expect(s.map((m) => m.id)).toEqual(expect.arrayContaining(["satogaeri-hospital", "satogaeri-checkup-refund", "satogaeri-visit"]));
     expect(s.find((m) => m.id === "birth-registration")?.hint).toContain("里帰り先");
+    expect(ids({ satogaeri: false })).not.toContain("satogaeri-hospital");
   });
 
   it("双子: 見出しに（2人分）。産休は14週前から", () => {

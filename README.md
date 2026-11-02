@@ -20,17 +20,17 @@
 |---|---|---|
 | ① | 入力ゼロ | 話すだけ・撮るだけ（役所の封筒、健診の紙）で、日付つきの記録と期限になる。足りない事は1つだけ聞く |
 | ② | 1000日を生きる | 家族の時計（妊娠週数・生後日数）で、その日にやる事が自分から出てくる。住んでいる町の窓口・持ち物・助成は、Claude が市の公式ページを web 検索で取りに行き、出典つきで残す |
-| ③ | 答えずに、動く | 職場への連絡、出生届の記入メモ、保育園見学の予約文、入院の持ち物。家族がするのは「OK」だけ（外へは何も送らない） |
-| ④ | 家族全体の参謀 | 母・パートナー・祖父母、一人ずつの「今週のあなたの事」。負担の偏りを数字で見せて組み替える。遠くの祖父母には大きな字とやさしい言葉で |
+| ③ | 答えずに、動く | 職場への連絡、出生届の記入メモ、保育園見学の予約文。家族がするのは「OK」だけ（外へは何も送らない） |
+| ④ | 家族で1冊 | パートナーも合言葉で同じ手帳を開き、自分の番の事と、自分の名前の下書きが出る。担当は法と制度で決まる人（出生届・職場の事は働いている人）に振る |
 | ⑤ | 医療は壁でなく橋 | **健診の1日を支える**: 前日に「先生の説明を録音しましょう」と声をかけ、アプリで録音 → 自宅の GPU で文字起こし → 先生が言った事・次までにやる事・次の予約・難しい言葉の言い換え（元の言葉を並べる）・次に聞く質問。大きな病院の案内図を撮ると、今日回る順番になる。**体の判断はしない** |
-| ⑥ | 家族が育てる地図 | 「窓口に行ってみてどうだった？」を家族が足し、確かめた家族の数とともに次の家族へ |
+| ⑥ | 町の制度を取りに行く | どの町でも、その手続きの窓口・持ち物・期限を、Claude が公式ページから取ってくる（「どこへ行くか見る」） |
 | ⑦ | 子どもへの贈り物 | 1000日の記録が、最後に子どもへ語りかける一冊になる |
 
 作り手自身が、使う人の1号目です。家族の妊婦健診で、このアプリで先生の説明を録音して使っています（本物の記録は公開しません）。
 
 ## Claude の使い方
 
-- **Claude Opus 5.5** が7つの役を担う: 声と写真の読み取り（画像入力）、記録の構造化（Structured Outputs＋zod）、自治体の制度の調査（web 検索ツール・出典つき）、下書き、家族の分担、健診の整理、一冊の執筆
+- **Claude Opus 5.5** が7つの役を担う: 声と写真の読み取り（画像入力）、記録の構造化（Structured Outputs＋zod）、自治体の制度の調査（web 検索ツール・出典つき）、下書き、生まれた日や町が変わった時の組み直し（参謀の気づき）、健診の整理、一冊の執筆
 - 軽い整形は **Claude Haiku 5.5**
 - 体の判断をしない約束を、すべての呼び出しの共通の決まり（`CHARTER`）として持つ
 - 作る過程は **Claude Code** で進めた（計画 → 承認 → 実装を、機能ごとに並列のエージェントで）。コミットの履歴がその記録
@@ -86,17 +86,17 @@ What is missing is not information. It is **someone who holds the whole picture 
 
 1. **Zero input**: talk or take a photo (a letter from the city, a checkup slip); it becomes dated records and deadlines. It asks at most one question.
 2. **Lives through 1,000 days**: a family clock (weeks of pregnancy, days since birth) surfaces what to do today. Local rules for your own city are researched with Claude's web search, with sources.
-3. **Acts instead of answering**: drafts of the message to your employer, birth-registration notes, daycare visit requests, hospital bag lists. The family only says "OK". Nothing is sent.
-4. **A chief of staff for the whole family**: "your things this week" for mother, partner and grandparents, with the load balance shown and rebalanced. Large, gentle text for grandparents far away.
+3. **Acts instead of answering**: drafts of the message to your employer, birth-registration notes, daycare visit requests. The family only says "OK". Nothing is sent.
+4. **One handbook for the family**: the partner opens the same handbook (with a family passcode) and sees their own tasks and drafts written in their own name. Tasks go to whoever the law and the system name (for work matters, the parent who is employed).
 5. **A bridge to medicine, not a wall**: the day of a prenatal checkup. The app reminds you to ask the doctor to record, records in the app, transcribes on a home GPU, and turns it into what the doctor said, what to do next, the next appointment, plain-language notes for jargon (always next to the doctor's own words) and questions for next time. Photograph a big hospital's floor map and get today's route. **It never judges health.**
-6. **A map families grow**: tips about city-office counters, confirmed by families, passed to the next family.
+6. **Fetches your city's rules**: for any city, the office, what to bring and the deadline for each procedure are fetched from the official pages.
 7. **A gift to the child**: the 1,000 days of records become a book that speaks to the child.
 
 The author is user #1, using it at a family member's real prenatal checkups (real records are never published).
 
 ## How Claude is used
 
-Claude Opus 5.5 plays seven roles (vision, structured outputs with zod, web search with citations, drafting, family planning, checkup structuring, book writing); Claude Haiku 5.5 handles light formatting. A shared charter forbids medical judgment in every call. The whole project was built with Claude Code, with parallel agents per feature; the commit history is the record.
+Claude Opus 5.5 plays seven roles (vision, structured outputs with zod, web search with citations, drafting, replanning when the baby comes early or late or the family moves, checkup structuring, book writing); Claude Haiku 5.5 handles light formatting. A shared charter forbids medical judgment in every call. The whole project was built with Claude Code, with parallel agents per feature; the commit history is the record.
 
 Every change is fast-forwarded through 1,000 days with 1,000 synthetic families drawn from Japanese public statistics (sources: [docs/SIM_STATS.md](docs/SIM_STATS.md), in Japanese).
 

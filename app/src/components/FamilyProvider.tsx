@@ -16,7 +16,7 @@ interface Ctx {
   setToday: (d: string) => void;
   setFamilyId: (id: string) => void;
   reload: () => Promise<void>;
-  /** この端末を使っている家族の一人（「わたしはママ／パパ」）。まだ選んでいなければ null */
+  /** この端末を使っている家族の一人。設定で選んだ人、選んでいなければ母（家族に人がいなければ null） */
   me: Member | null;
   setMeId: (id: string | null) => void;
 }
@@ -118,7 +118,8 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
   // デモとシミュレーションの家族だけ、時計を進められる
   const timeTravel = isDemo || family.id.startsWith("sim-") || family.id.startsWith("pop-");
   const today = timeTravel ? demoToday : realToday();
-  const me = family.members.find((m) => m.id === meIds[family.id]) ?? null;
+  // 設定で選んだ人。選んでいなければ母（いなければ最初の人）
+  const me = family.members.find((m) => m.id === meIds[family.id]) ?? family.members.find((m) => m.role === "母") ?? family.members[0] ?? null;
 
   const value: Ctx = {
     family,

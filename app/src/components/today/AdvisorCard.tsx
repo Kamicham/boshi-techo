@@ -1,10 +1,10 @@
 "use client";
 
-// ④ 参謀の気づき: 今日の画面の一番上（NextStep の上）に出すカード。
-// 期限表に無い事を、この家族の今から気づいて、組み直し案とそのまま渡せる文面を出す。
+// 気づいた事: 今日の画面の一番上（NextStep の上）に出すカード。
+// 期限表に無い事を、この家族の今から気づいて、数え直した期限とそのまま渡せる文面を出す。
 // 今日の画面は、気づきがある時だけ（/api/advisor?peek=1 で先に数を聞いて）これを出す。
 // 書き上がるまでの間も、同じ高さの場所（AdvisorSpace）を取っておく（後から入って下の行がずれ、押し間違えないように）。
-// 表は高さをそろえ（題は2行・理由は1行まで）、組み直し案と渡す文面は「案と文面を見る」の中に畳む。
+// 表は高さをそろえ（題は2行・理由は1行まで）、次にする事と渡す文面は「次にする事と文面」の中に畳む。
 import { useEffect, useState } from "react";
 import { api } from "@/components/FamilyProvider";
 import type { Advice } from "@/lib/advisor";
@@ -89,14 +89,14 @@ export function AdvisorCard({ familyId, today, meId }: { familyId: string; today
         </Btn>
         {res && res.waiting > 0 && <span className="text-sm text-muted">ほかにも気づいた事が{res.waiting}つ</span>}
       </div>
-      <Why label={a.plan.length > 0 || m ? "案と文面を見る" : "なぜ？"}>
+      <Why label={a.plan.length > 0 || m ? "次にする事と文面" : "なぜ？"}>
         <Details a={a} res={res} />
       </Why>
     </section>
   );
 }
 
-/** 畳んだ中身: 組み直し案・渡す文面・なぜ（機械で確かめた事・調べたページ） */
+/** 畳んだ中身: 次にする事・渡す文面・なぜ（機械で確かめた事・調べたページ） */
 function Details({ a, res }: { a: Advice; res: Res | null }) {
   const m = a.message;
   const [, ...whyRest] = a.why

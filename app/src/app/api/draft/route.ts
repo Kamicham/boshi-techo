@@ -70,7 +70,7 @@ export const PATCH = route(async (req: Request) => {
   const family = requireFamily(b.familyId);
   const m = findMilestone(b.milestoneId);
   const meId = meOf(b.meId);
-  const draft = saveDraft(family.id, m.id, readEdits(b), { unmark: b.unmark === true, writer: writerName(family, getKeep(family.id), m.id, meId) });
+  const draft = saveDraft(family.id, m.id, readEdits(b), { unmark: b.unmark === true, writer: writerName(family, getKeep(family.id), meId) });
   if (!draft) throw new HttpError(404, "下書きが見つかりません。先に作ってください");
   return viewDraft(family, draft, meId);
 });
