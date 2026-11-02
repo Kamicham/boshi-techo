@@ -3,7 +3,7 @@
 // どの家族の手帳を見ているか、と「今日」を全画面で共有する。
 // デモの家族は時計を早送りでき、「わが家」は本当の今日で動く。
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { DEMO_FAMILY, type Family } from "@/lib/demo-family";
+import { DEMO_FAMILY, type Family, type Member } from "@/lib/demo-family";
 import { addDays, conceptionDate } from "@/lib/clock";
 
 interface Ctx {
@@ -16,6 +16,9 @@ interface Ctx {
   setToday: (d: string) => void;
   setFamilyId: (id: string) => void;
   reload: () => Promise<void>;
+  /** この端末を使っている家族の一人（「わたしはママ／パパ」）。まだ選んでいなければ null */
+  me: Member | null;
+  setMeId: (id: string | null) => void;
 }
 
 const FamilyCtx = createContext<Ctx | null>(null);
@@ -42,12 +45,19 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
   const [families, setFamilies] = useState<Family[]>([DEMO_FAMILY]);
   const [familyId, setFamilyIdState] = useState<string>(DEMO_FAMILY.id);
   const [ready, setReady] = useState(false);
+  const [chosen, setChosen] = useState(false);
+  const [meIds, setMeIds] = useState<Record<string, string>>({});
   const [demoToday, setDemoToday] = useState<string>(addDays(conceptionDate(DEMO_FAMILY), 41));
 
   const reload = useCallback(async () => {
     try {
       const r = await fetch("/api/family");
-      if (r.ok) setFamilies(((await r.json()) as { families: Family[] }).families);
+      if (r.ok) {
+        const list = ((await r.json()) as { families: Family[] }).families;
+        setFamilies(list);
+        // まだ自分で選んでいない端末は、わが家があればわが家から開く（デモは選んだ人だけ）
+        if (list.some((f) => f.id === "mine")) setFamilyIdState((cur) => (read("boshi.family") ? cur : "mine"));
+      }
     } catch {
       // 電波が無い時はデモの家族のまま
     } finally {
@@ -58,7 +68,16 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const id = read("boshi.family");
     const d = read("boshi.demoToday");
-    if (id) setFamilyIdState(id);
+    const me = read("boshi.me");
+    if (id) {
+      setFamilyIdState(id);
+      setChosen(true);
+    }
+    if (me) {
+      try {
+        setMeIds(JSON.parse(me) as Record<string, string>);
+      } catch {}
+    }
     if (d) setDemoToday(d);
     void reload();
   }, [reload]);
@@ -66,6 +85,8 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
   const family = families.find((f) => f.id === familyId) ?? DEMO_FAMILY;
   const isDemo = family.id === DEMO_FAMILY.id;
   const today = isDemo ? demoToday : realToday();
+  const me = family.members.find((m) => m.id === meIds[family.id]) ?? null;
+  void chosen;
 
   const value: Ctx = {
     family,
@@ -80,9 +101,18 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
     },
     setFamilyId: (id) => {
       setFamilyIdState(id);
+      setChosen(true);
       write("boshi.family", id);
     },
     reload,
+    me,
+    setMeId: (id) => {
+      const next = { ...meIds };
+      if (id) next[family.id] = id;
+      else delete next[family.id];
+      setMeIds(next);
+      write("boshi.me", JSON.stringify(next));
+    },
   };
   return <FamilyCtx.Provider value={value}>{children}</FamilyCtx.Provider>;
 }
