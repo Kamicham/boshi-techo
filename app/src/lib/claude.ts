@@ -3,6 +3,7 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import type { z } from "zod";
+import { checkBudget, recordSpend } from "./spend";
 
 export const MODEL = "claude-opus-5-5";
 /** 言い換え・整形など軽い仕事 */
@@ -41,6 +42,7 @@ export async function structured<S extends z.ZodType>(
 ): Promise<z.infer<S>> {
   const model = opts.model ?? MODEL;
   const useFallback = model === MODEL;
+  checkBudget();
   const res = await claude().beta.messages.parse({
     model,
     max_tokens: opts.maxTokens ?? 16000,
@@ -49,6 +51,7 @@ export async function structured<S extends z.ZodType>(
     output_config: { format: betaZodOutputFormat(schema), effort: opts.effort ?? "medium" },
     ...(useFallback ? { betas: [FALLBACK_BETA], fallbacks: "default" as const } : {}),
   });
+  recordSpend("structured", res.model ?? model, res.usage);
   if (res.stop_reason === "refusal") throw new Error("Claude がこの依頼を断りました");
   if (res.parsed_output == null) throw new Error("答えの形が読めませんでした");
   return res.parsed_output as z.infer<S>;
@@ -73,6 +76,7 @@ export async function research(system: string, question: string, opts: AskOption
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: question }];
   let res: Anthropic.Beta.BetaMessage | undefined;
   for (let i = 0; i < 4; i++) {
+    checkBudget();
     res = await claude().beta.messages.create({
       model: opts.model ?? MODEL,
       max_tokens: opts.maxTokens ?? 16000,
@@ -83,6 +87,7 @@ export async function research(system: string, question: string, opts: AskOption
       betas: [FALLBACK_BETA],
       fallbacks: "default",
     });
+    recordSpend("research", res.model ?? opts.model ?? MODEL, res.usage);
     if (res.stop_reason !== "pause_turn") break;
     messages.push({ role: "assistant", content: res.content });
   }
