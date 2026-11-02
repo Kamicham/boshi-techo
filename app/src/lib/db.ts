@@ -41,8 +41,9 @@ function open(): Database.Database {
  * - book: 一冊（⑦）
  * - profile: わが家の設定
  * - plan: 家族の役割分担（④）
+ * - advice: 参謀の気づき（④。きっかけの鍵ごと）
  */
-export type DocType = "record" | "visit" | "local" | "draft" | "done" | "wisdom" | "book" | "profile" | "plan";
+export type DocType = "record" | "visit" | "local" | "draft" | "done" | "wisdom" | "book" | "profile" | "plan" | "advice";
 
 export interface Doc<T = Record<string, unknown>> {
   id: string;

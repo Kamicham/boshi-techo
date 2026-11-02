@@ -3,6 +3,7 @@
 // デモの早送り（デモの家族の時だけ、画面の下に小さく）。
 import { addDays, conceptionDate, diffDays, totalDays } from "@/lib/clock";
 import type { Family } from "@/lib/demo-family";
+import { advisorMoments } from "@/lib/advisor";
 
 export function DemoClock({ family, today, setToday }: { family: Family; today: string; setToday: (d: string) => void }) {
   const start = conceptionDate(family);
@@ -34,6 +35,14 @@ export function DemoClock({ family, today, setToday }: { family: Family; today: 
           {jumps.map((j) => (
             <button key={j.label} type="button" onClick={() => jump(j.d)} className="min-h-11 rounded-full border border-line px-3 hover:border-rose hover:text-rose">
               {j.label}
+            </button>
+          ))}
+        </div>
+        {/* 参謀の気づきが出る日（期限表に無い事に気づく場面） */}
+        <div className="flex flex-wrap gap-2">
+          {advisorMoments(family).map((j) => (
+            <button key={j.label} type="button" onClick={() => jump(j.date)} className="min-h-11 rounded-full border border-sky/40 px-3 text-sky hover:border-sky">
+              気づき: {j.label}
             </button>
           ))}
         </div>

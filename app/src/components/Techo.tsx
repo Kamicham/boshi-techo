@@ -13,6 +13,7 @@ import { Fold, NextStep, daysUntil } from "./ui";
 import { DemoClock } from "./today/DemoClock";
 import { TaskRow, TopTask } from "./today/TaskCard";
 import { jpShort } from "./today/dates";
+import { AdvisorCard } from "./today/AdvisorCard";
 import { byDays, daysLeft, planToday, type Task } from "./today/task";
 import { VisitToday, visitIsTop } from "./today/VisitToday";
 
@@ -176,6 +177,8 @@ export function Techo() {
           </button>
         </p>
       )}
+
+      {!loading && <AdvisorCard familyId={family.id} today={today} meId={me?.id} />}
 
       {loading ? (
         <div className="h-40 rounded-2xl bg-rose-soft/60" aria-hidden />

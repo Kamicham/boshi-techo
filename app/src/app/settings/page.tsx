@@ -114,6 +114,42 @@ export default function Settings() {
                 />
               </label>
             ))}
+            {members.some((m) => m.role === "祖父母" && m.name) && (
+              <Fold title="おじいちゃん・おばあちゃんが来る日">
+                {members
+                  .map((m, i) => ({ m, i }))
+                  .filter(({ m }) => m.role === "祖父母" && m.name)
+                  .map(({ m, i }) => (
+                    <div key={m.id} className="flex flex-col gap-1 text-base">
+                      {m.name}
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="flex flex-col gap-1 text-sm text-muted">
+                          来る日
+                          <input
+                            id={`member-visit-from-${i}`}
+                            type="date"
+                            className={field}
+                            value={m.visit?.from ?? ""}
+                            onChange={(e) => setMembers(members.map((x, j) => (j === i ? { ...x, visit: e.target.value ? { ...x.visit, from: e.target.value } : undefined } : x)))}
+                          />
+                        </label>
+                        <label className="flex flex-col gap-1 text-sm text-muted">
+                          帰る日
+                          <input
+                            id={`member-visit-until-${i}`}
+                            type="date"
+                            className={field}
+                            value={m.visit?.until ?? ""}
+                            disabled={!m.visit?.from}
+                            onChange={(e) => setMembers(members.map((x, j) => (j === i && x.visit ? { ...x, visit: { ...x.visit, until: e.target.value || undefined } } : x)))}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  ))}
+                <p className="text-sm text-muted">来る前に、任せられる事と、頼む文を用意します</p>
+              </Fold>
+            )}
             <Fold title="伝え方のヒント">
               {members
                 .map((m, i) => ({ m, i }))
