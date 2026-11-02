@@ -23,24 +23,24 @@ export function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col">
       <div className="flex items-center justify-between gap-2 px-4 pt-3 text-xs">
-        <label className="flex items-center gap-1 text-muted">
+        <label className="flex min-w-0 shrink items-center gap-1 text-muted">
           <span className="sr-only">見ている手帳</span>
           <select
             id="family-select"
             value={family.id}
             onChange={(e) => setFamilyId(e.target.value)}
             disabled={recording}
-            className="min-h-11 rounded-full border border-line bg-card px-3 py-1 text-base text-ink disabled:opacity-50"
+            className="min-h-11 w-full min-w-0 truncate rounded-full border border-line bg-card px-3 py-1 text-base text-ink disabled:opacity-50"
           >
             {families.map((f) => (
               <option key={f.id} value={f.id}>
-                {f.id === "mine" ? "わが家" : `デモ: ${f.members.map((m) => m.name).join("と")}`}
+                {f.id === "mine" ? "わが家" : `デモ（作った家族）: ${f.members.map((m) => m.name).join("・")}`}
               </option>
             ))}
           </select>
         </label>
-        <div className={`flex items-center gap-1 ${recording ? "invisible" : ""}`}>
-          {isDemo && <span className="rounded-full bg-sky-soft px-2 py-0.5 font-semibold text-sky">デモ（作った家族）</span>}
+        <div className={`flex shrink-0 items-center gap-1 whitespace-nowrap ${recording ? "invisible" : ""}`}>
+          {isDemo && <span className="rounded-full bg-sky-soft px-2 py-0.5 font-semibold text-sky">デモ</span>}
           <Link href="/map" className="flex min-h-11 min-w-11 items-center justify-center px-2 text-muted underline-offset-2 hover:underline">地図</Link>
           <Link href="/settings" className="flex min-h-11 items-center px-2 text-muted underline-offset-2 hover:underline">わが家の設定</Link>
         </div>

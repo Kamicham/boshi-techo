@@ -49,6 +49,9 @@ export function Recorder({ visit, onFinished }: { visit: VisitView; onFinished: 
   /** 本人が「止める」を押したか（着信などで止められた時と分ける） */
   const userStopped = useRef(false);
   const hiddenAt = useRef(0);
+  /** 最後に声らしい音を拾った時刻（無音が続いたら知らせる） */
+  const lastSound = useRef(0);
+  const [silent, setSilent] = useState(false);
   const mime = useRef("");
   const startedAt = useRef(0);
   const before = useRef(0);
@@ -65,10 +68,17 @@ export function Recorder({ visit, onFinished }: { visit: VisitView; onFinished: 
 
   const elapsed = () => (before.current + (phase === "recording" && startedAt.current ? Date.now() - startedAt.current : 0)) / 1000;
 
-  // 経過時間を進める
+  // 経過時間を進め、無音が10秒続いたら知らせる（マイクが取られている・塞がれている時）
   useEffect(() => {
-    if (phase !== "recording") return;
-    const t = setInterval(() => tick((n) => n + 1), 500);
+    if (phase !== "recording") {
+      setSilent(false);
+      return;
+    }
+    lastSound.current = Date.now();
+    const t = setInterval(() => {
+      tick((n) => n + 1);
+      setSilent(Date.now() - lastSound.current > 10_000);
+    }, 500);
     return () => clearInterval(t);
   }, [phase]);
 
@@ -242,7 +252,9 @@ export function Recorder({ visit, onFinished }: { visit: VisitView; onFinished: 
         an.getByteTimeDomainData(buf);
         let sum = 0;
         for (const v of buf) sum += ((v - 128) / 128) ** 2;
-        setLevel(Math.min(1, Math.sqrt(sum / buf.length) * 4));
+        const lv = Math.min(1, Math.sqrt(sum / buf.length) * 4);
+        setLevel(lv);
+        if (lv > 0.02) lastSound.current = Date.now();
         setTimeout(loop, 150);
       };
       loop();
@@ -385,22 +397,7 @@ export function Recorder({ visit, onFinished }: { visit: VisitView; onFinished: 
 
       {(live || phase === "sending") && (
         <div className="flex flex-col items-center gap-3">
-          <p className="flex items-center gap-2 text-sm font-semibold text-rose">
-            <span className={`inline-block h-3 w-3 rounded-full bg-rose ${phase === "recording" ? "animate-pulse" : "opacity-40"}`} />
-            {phase === "recording" ? "録音中" : phase === "paused" ? "一時停止中" : "残りを送っています…"}
-          </p>
-          <p className="tabular font-display text-6xl font-bold" aria-live="off">{formatClock(elapsed())}</p>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-line" aria-hidden>
-            <div className="h-full rounded-full bg-rose transition-[width] duration-150" style={{ width: `${Math.round(level * 100)}%` }} />
-          </div>
-          <p className="tabular text-xs text-muted">
-            送った {counts.sent} / 録った {counts.made}（10秒ずつ）
-          </p>
-          {live && (
-            <p className="w-full rounded-lg bg-rose-soft px-3 py-2 text-sm font-semibold text-rose">
-              画面を消さない・ほかのアプリに切り替えないでください。iPhone は画面が消えると録音が止まります
-            </p>
-          )}
+          {/* 小さな画面でも止めるボタンが隠れないよう、操作を一番上に置く */}
           {live && (
             <div className="flex w-full gap-2">
               {phase === "recording" ? (
@@ -410,6 +407,29 @@ export function Recorder({ visit, onFinished }: { visit: VisitView; onFinished: 
               )}
               <button onClick={stop} className="flex-1 rounded-lg bg-ink py-3 font-semibold text-paper">止めて整理する</button>
             </div>
+          )}
+          <div className="flex w-full items-center justify-between gap-3">
+            <p className="flex items-center gap-2 text-sm font-semibold text-rose">
+              <span className={`inline-block h-3 w-3 rounded-full bg-rose ${phase === "recording" ? "animate-pulse" : "opacity-40"}`} />
+              {phase === "recording" ? "録音中" : phase === "paused" ? "一時停止中" : "残りを送っています…"}
+            </p>
+            <p className="tabular font-display text-4xl font-bold" aria-live="off">{formatClock(elapsed())}</p>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-line" aria-hidden>
+            <div className="h-full rounded-full bg-rose transition-[width] duration-150" style={{ width: `${Math.round(level * 100)}%` }} />
+          </div>
+          <p className="tabular self-start text-xs text-muted">
+            送った {counts.sent} / 録った {counts.made}（10秒ずつ）
+          </p>
+          {silent && (
+            <p role="alert" className="w-full rounded-lg bg-alert/10 px-3 py-2 text-sm font-semibold text-alert">
+              10秒以上、音が入っていません。マイクを指で塞いでいないか、ほかのアプリ（通話・ミラーリングなど）がマイクを使っていないか確かめてください
+            </p>
+          )}
+          {live && (
+            <p className="w-full rounded-lg bg-rose-soft px-3 py-2 text-sm font-semibold text-rose">
+              画面を消さない・ほかのアプリに切り替えないでください。iPhone は画面が消えると録音が止まります
+            </p>
           )}
         </div>
       )}
