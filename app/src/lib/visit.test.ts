@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  autoStage,
   briefingDay,
+  familyMessage,
   chunkName,
   extFromMime,
   formatClock,
@@ -122,5 +124,36 @@ describe("止まった処理", () => {
     expect(looksStuck({ status: "organizing", processingSince: "2027-02-15T10:00:00Z" }, now)).toBe(true);
     expect(looksStuck({ status: "organizing", processingSince: "2027-02-15T10:25:00Z" }, now)).toBe(false);
     expect(looksStuck({ status: "done" }, now)).toBe(false);
+  });
+});
+
+describe("健診の日の段", () => {
+  it("記録の状態から、開いた時の段を決める", () => {
+    expect(autoStage({ status: "ready" })).toBe("arrive");
+    expect(autoStage({ status: "ready", guide: { steps: [{ place: "受付", floor: null, what: "出す", note: null }], done: [], at: "" } })).toBe("guide");
+    expect(autoStage({ status: "ready", guide: { steps: [{ place: "受付", floor: null, what: "出す", note: null }], done: [0], at: "" } })).toBe("record");
+    expect(autoStage({ status: "recording" })).toBe("record");
+    expect(autoStage({ status: "failed" })).toBe("record");
+    expect(autoStage({ status: "failed", transcript: { text: "a", segments: [], source: "text" } })).toBe("read");
+    expect(autoStage({ status: "organizing" })).toBe("read");
+    expect(autoStage({ status: "done" })).toBe("read");
+  });
+
+  it("家族へ送る文は、まとめ3行と次の予約だけ", () => {
+    const jp = (d: string) => d;
+    const result = {
+      summary: ["a", "b", "c", "d"],
+      said: [],
+      todo: [],
+      nextAppointment: { said: "2週間後", month: null, day: null, afterWeeks: 2, afterDays: null, afterMonths: null, weekday: null, time: "10:30" },
+      numbers: [],
+      terms: [],
+      questions: [],
+      answered: [],
+    };
+    expect(familyMessage({ date: "2026-11-05", label: "妊娠28週", result, nextDate: "2026-11-19" }, jp)).toBe(
+      "2026-11-05の健診（妊娠28週）\n・a\n・b\n・c\n次の健診: 2026-11-19 10:30",
+    );
+    expect(familyMessage({ date: "2026-11-05", label: "妊娠28週", result: undefined, nextDate: null }, jp)).toBe("2026-11-05の健診（妊娠28週）");
   });
 });

@@ -93,14 +93,14 @@ export function HoldToTalk({ disabled, onAudio, onError }: { disabled: boolean; 
     >
       <MicIcon />
       <span className="font-display text-2xl font-bold">{on ? "話しています" : phase === "starting" ? "マイク準備中" : "話す"}</span>
-      <span className={`tabular text-xs ${on ? "text-white/90" : "text-muted"}`}>{on ? `${secs}秒・指を離すと送ります` : "押している間だけ録音"}</span>
+      <span className={`tabular text-sm ${on ? "text-white/90" : "text-muted"}`}>{on ? `${secs}秒・指を離すと送ります` : "押している間だけ録音"}</span>
     </button>
   );
 }
 
 function MicIcon() {
   return (
-    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
       <rect x="9" y="3" width="6" height="11" rx="3" />
       <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
     </svg>

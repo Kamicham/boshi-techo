@@ -177,6 +177,7 @@ export const GuideSchema = z.object({
     )
     .describe("今日回る順番"),
   unsure: z.string().nullable().describe("写真から読み取れず、受付で確かめた方がよい事。無ければ null"),
+  hospital: z.string().nullable().describe("病院の名前（写真にはっきり書いてある時だけ、書いてあるまま）。無ければ null"),
 });
 export type GuideStep = z.infer<typeof GuideSchema>["steps"][number];
 
@@ -366,6 +367,37 @@ export function looksStuck(v: Pick<VisitData, "status" | "processingSince">, now
   if (v.status !== "transcribing" && v.status !== "organizing") return false;
   if (!v.processingSince) return true;
   return now - Date.parse(v.processingSince) > limitMin * 60_000;
+}
+
+// ───────── 健診の日の段 ─────────
+
+/** 健診の日の流れ: 着く → 受付・道案内 → 診察で録音 → 帰り道に読む → 家族に送る */
+export type VisitStage = "arrive" | "guide" | "record" | "read" | "send";
+
+export const STAGES: { key: VisitStage; label: string }[] = [
+  { key: "arrive", label: "着く" },
+  { key: "guide", label: "案内" },
+  { key: "record", label: "録音" },
+  { key: "read", label: "読む" },
+  { key: "send", label: "送る" },
+];
+
+/** 開いた時の段（記録の状態から） */
+export function autoStage(v: Pick<VisitData, "status" | "takes" | "guide" | "transcript">): VisitStage {
+  if (v.status === "done" || v.status === "transcribing" || v.status === "organizing") return "read";
+  if (v.status === "failed") return v.transcript ? "read" : "record";
+  if (v.status === "recording" || v.takes?.some((t) => t.chunks > 0)) return "record";
+  if (v.guide) return v.guide.steps.length && v.guide.done.length >= v.guide.steps.length ? "record" : "guide";
+  return "arrive";
+}
+
+/** 家族へ送る短い文（3行のまとめ＋次の予約）。評価は足さない */
+export function familyMessage(v: Pick<VisitData, "date" | "label" | "result" | "nextDate">, jp: (d: string) => string): string {
+  const r = v.result;
+  const lines = [`${jp(v.date)}の健診（${v.label}）`];
+  for (const s of (r?.summary ?? []).slice(0, 3)) lines.push(`・${s}`);
+  if (v.nextDate) lines.push(`次の健診: ${jp(v.nextDate)}${r?.nextAppointment?.time ? ` ${r.nextAppointment.time}` : ""}`);
+  return lines.join("\n");
 }
 
 /** 文字起こしのヒント（専門用語） */

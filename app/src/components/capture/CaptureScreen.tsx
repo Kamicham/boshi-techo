@@ -1,9 +1,10 @@
 "use client";
 
-// ① 入力ゼロ: 話すだけ・撮るだけで、記録と予定になる
+// ① 入力ゼロ: 話すだけ・撮るだけで、記録と予定になる。
+// 開いた瞬間に出すのは「話す」「撮る」の2つだけ。記録の一覧は下に畳む。
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
-import { jpDate } from "@/components/Techo";
+import { Btn, Why } from "@/components/ui";
 import type { CaptureRecord, CaptureResult, RecordSource } from "@/lib/capture";
 import { HoldToTalk } from "./HoldToTalk";
 import { shrinkPhoto } from "./media";
@@ -11,8 +12,8 @@ import { RecordItem, Timeline } from "./Timeline";
 
 type Last = CaptureResult & { transcript?: string; source: RecordSource };
 
-/** いつも出しておく連絡先（固定の文） */
-const CALL_LINE = "急ぎの時は、かかりつけの産院（夜間も）・119。子どもの事は #8000";
+/** いつも出しておく連絡先（固定の文。消さない） */
+const CALL_LINE = "急ぎの時は 産院（夜間も）・119。子どもは #8000";
 
 /** 文字起こしまではできたが、手帳に書けなかった時のエラー */
 class VoiceError extends Error {
@@ -30,6 +31,7 @@ export function CaptureScreen() {
   const [secs, setSecs] = useState(0);
   const [error, setError] = useState("");
   const [text, setText] = useState("");
+  const [writing, setWriting] = useState(false);
   const [answer, setAnswer] = useState("");
   const [last, setLast] = useState<Last | null>(null);
   const photoInput = useRef<HTMLInputElement>(null);
@@ -66,7 +68,11 @@ export function CaptureScreen() {
       await load();
       return true;
     } catch (e) {
-      if (e instanceof VoiceError) setText((cur) => (cur.trim() ? `${cur.trim()}\n${e.transcript}` : e.transcript));
+      if (e instanceof VoiceError) {
+        // 聞き取った言葉は書く欄に入れて、送り直せるようにする
+        setText((cur) => (cur.trim() ? `${cur.trim()}\n${e.transcript}` : e.transcript));
+        setWriting(true);
+      }
       setError((e as Error).message);
       return false;
     } finally {
@@ -75,7 +81,7 @@ export function CaptureScreen() {
   };
 
   const sendVoice = (blob: Blob) =>
-    run("聞き取って、手帳に書いています", async () => {
+    run("聞き取っています", async () => {
       const r = await fetch(`/api/capture/voice?familyId=${encodeURIComponent(family.id)}&today=${today}`, {
         method: "POST",
         headers: { "content-type": blob.type || "application/octet-stream" },
@@ -84,7 +90,6 @@ export function CaptureScreen() {
       const j = (await r.json().catch(() => ({}))) as Last & { error?: string };
       if (!r.ok) {
         const msg = j.error ?? `うまくいきませんでした（${r.status}）`;
-        // 聞き取った言葉は書く欄に入れて、送り直せるようにする
         if (j.transcript) throw new VoiceError(msg, j.transcript);
         throw new Error(msg);
       }
@@ -99,7 +104,7 @@ export function CaptureScreen() {
       setError((e as Error).message);
       return;
     }
-    await run("写真の紙を読んでいます", async () => ({
+    await run("紙を読んでいます", async () => ({
       ...(await api<CaptureResult>("/api/capture/photo", { body: { familyId: family.id, today, image } })),
       source: "photo",
     }));
@@ -112,13 +117,16 @@ export function CaptureScreen() {
       ...(await api<CaptureResult>("/api/capture", { body: { familyId: family.id, today, text: t } })),
       source: "text",
     }));
-    if (ok) setText("");
+    if (ok) {
+      setText("");
+      setWriting(false);
+    }
   };
 
   const sendAnswer = async () => {
     if (!last?.oneQuestion || !answer.trim()) return;
     const prev = last;
-    await run("答えと合わせて書き直しています", async () => ({
+    await run("書き直しています", async () => ({
       ...(await api<CaptureResult>("/api/capture/answer", {
         body: { familyId: family.id, today, captureId: prev.captureId, basis: prev.basis, question: prev.oneQuestion, answer, source: prev.source },
       })),
@@ -139,15 +147,9 @@ export function CaptureScreen() {
   const hasSeed = records.some((r) => r.data.seed);
 
   return (
-    <main className="flex flex-col gap-5 px-4 pt-4">
-      <header className="flex flex-col gap-1">
-        <h1 className="font-display text-2xl font-bold">話す・撮る</h1>
-        <p className="text-sm text-muted">
-          思った事を話すだけ、届いた紙を撮るだけ。日付をつけて手帳に書き、期限は予定にします。
-          <span className="tabular">（今日 {jpDate(today)}）</span>
-        </p>
-        <p className="text-xs font-semibold text-alert">{CALL_LINE}</p>
-      </header>
+    <main className="flex flex-col gap-4 px-4 pt-4">
+      <h1 className="sr-only">話す・撮る</h1>
+      <p className="text-base text-muted">話すだけ・撮るだけで、手帳に書きます</p>
 
       <section aria-label="入れる" className="grid grid-cols-2 gap-3">
         <HoldToTalk disabled={!!busy} onAudio={(b) => void sendVoice(b)} onError={setError} />
@@ -159,7 +161,7 @@ export function CaptureScreen() {
         >
           <CameraIcon />
           <span className="font-display text-2xl font-bold">撮る</span>
-          <span className="text-xs text-muted">封筒・通知・健診の紙</span>
+          <span className="text-sm text-muted">届いた紙・健診の紙</span>
         </button>
         <input
           ref={photoInput}
@@ -175,51 +177,27 @@ export function CaptureScreen() {
         />
       </section>
 
-      <section className="flex flex-col gap-2">
-        <label htmlFor="capture-text" className="text-xs font-semibold text-muted">
-          声を出せない時は、ここに書いても
-        </label>
-        <textarea
-          id="capture-text"
-          rows={2}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="例: 来週の火曜に保育園の見学。最近よく足がつる"
-          className="w-full rounded-lg border border-line bg-card px-3 py-2 text-base"
-        />
-        <button onClick={() => void sendText()} disabled={!!busy || !text.trim()} className="self-end rounded-lg bg-ink px-4 py-1.5 text-sm font-semibold text-paper disabled:opacity-40">
-          手帳に書く
-        </button>
-      </section>
+      <p className="text-sm font-semibold text-alert">{CALL_LINE}</p>
 
       {busy && (
-        <p role="status" className="flex items-center gap-2 rounded-xl bg-sky-soft px-4 py-3 text-sm text-sky">
-          <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-sky" />
-          {busy}…<span className="tabular text-xs text-muted">{secs}秒</span>
+        <p role="status" className="flex items-center gap-2 rounded-2xl bg-sky-soft px-4 py-4 text-lg font-semibold text-sky">
+          <span className="inline-block h-3 w-3 animate-pulse rounded-full bg-sky" />
+          {busy}…<span className="tabular text-sm font-normal text-muted">{secs}秒</span>
         </p>
       )}
       {error && (
-        <div role="alert" className="flex flex-col gap-1 rounded-xl bg-alert/10 px-4 py-3 text-sm text-alert">
-          <p>{error}</p>
-          <p className="text-xs font-semibold">{CALL_LINE}</p>
-        </div>
+        <p role="alert" className="rounded-2xl bg-alert/10 px-4 py-3 text-base text-alert">
+          {error}
+        </p>
       )}
 
       {last && !busy && (
-        <section aria-label="いま書いた事" className="flex flex-col gap-3 rounded-2xl border border-rose/40 bg-rose-soft/50 p-4">
-          <p className="font-display text-base font-bold leading-relaxed">{last.reply}</p>
-          {last.transcript && <p className="text-xs text-muted">聞き取った言葉: 「{last.transcript}」</p>}
-          {last.records.length > 0 && (
-            <ul className="flex flex-col gap-2">
-              {last.records.map((r) => (
-                <RecordItem key={r.id} r={r} family={family} />
-              ))}
-            </ul>
-          )}
+        <section aria-label="いま書いた事" className="flex flex-col gap-3 rounded-2xl bg-rose-soft p-5">
+          <p className="font-display text-xl leading-relaxed font-bold">{last.reply}</p>
           {last.oneQuestion && (
             <div className="flex flex-col gap-2 rounded-xl bg-card p-3">
-              <label htmlFor="capture-answer" className="text-sm font-semibold">
-                ひとつだけ教えてください: {last.oneQuestion}
+              <label htmlFor="capture-answer" className="text-base font-semibold">
+                {last.oneQuestion}
               </label>
               <div className="flex gap-2">
                 <input
@@ -227,24 +205,65 @@ export function CaptureScreen() {
                   value={answer}
                   onChange={(e) => setAnswer(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && void sendAnswer()}
-                  className="min-w-0 flex-1 rounded-lg border border-line px-3 py-2 text-base"
+                  className="min-h-11 min-w-0 flex-1 rounded-lg border border-line px-3 text-base"
                 />
-                <button onClick={() => void sendAnswer()} disabled={!answer.trim()} className="rounded-lg bg-rose px-4 text-sm font-semibold text-white disabled:opacity-40">
+                <Btn onClick={() => void sendAnswer()} disabled={!answer.trim()}>
                   答える
-                </button>
+                </Btn>
               </div>
             </div>
+          )}
+          {last.records.length > 0 && (
+            <ul className="flex flex-col gap-2">
+              {last.records.map((r) => (
+                <RecordItem key={r.id} r={r} family={family} today={today} />
+              ))}
+            </ul>
+          )}
+          {last.transcript && (
+            <Why label="聞き取った言葉">
+              <p>「{last.transcript}」</p>
+            </Why>
           )}
         </section>
       )}
 
-      {isDemo && !hasSeed && (
-        <button onClick={() => void seed()} className="self-start rounded-full border border-line px-3 py-1 text-xs text-muted hover:border-rose hover:text-rose">
-          デモ: 作った家族の1000日の記録を入れる
-        </button>
+      {writing ? (
+        <section className="flex flex-col gap-2">
+          <label htmlFor="capture-text" className="text-sm font-semibold text-muted">
+            書いて入れる
+          </label>
+          <textarea
+            id="capture-text"
+            rows={3}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="例: 来週の火曜に保育園の見学"
+            className="w-full rounded-xl border border-line bg-card px-3 py-2 text-base"
+          />
+          <div className="flex justify-end gap-2">
+            <Btn kind="quiet" onClick={() => setWriting(false)}>
+              やめる
+            </Btn>
+            <Btn onClick={() => void sendText()} disabled={!!busy || !text.trim()}>
+              手帳に書く
+            </Btn>
+          </div>
+        </section>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <Btn kind="secondary" onClick={() => setWriting(true)}>
+            声を出せない時は書く
+          </Btn>
+          {isDemo && !hasSeed && (
+            <Btn kind="quiet" onClick={() => void seed()}>
+              デモの記録を入れる
+            </Btn>
+          )}
+        </div>
       )}
 
-      <div className="flex flex-col gap-5 pb-6">
+      <div className="flex flex-col gap-3 pb-6">
         <Timeline records={records} family={family} today={today} isDemo={isDemo} />
       </div>
     </main>
@@ -253,7 +272,7 @@ export function CaptureScreen() {
 
 function CameraIcon() {
   return (
-    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden>
+    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden>
       <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
       <circle cx="12" cy="13" r="3.5" />
     </svg>

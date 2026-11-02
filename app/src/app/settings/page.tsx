@@ -1,14 +1,21 @@
 "use client";
 
-// わが家の設定: 予定日・町・家族の呼び名。氏名や住所の番地は入れない。
+// わが家の設定: 問いに1つずつ答える形。氏名や住所の番地は入れない。
+// 「いつもの場所と人」（通う病院・職場・役所の窓口）は一度入れると、下書きや地図で自動で使う。
 import { useEffect, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
+import { jpDate } from "@/components/Techo";
+import { Btn, Fold, Pill, Why } from "@/components/ui";
+import type { Keep } from "@/lib/keep";
 import type { Family, Member } from "@/lib/demo-family";
 
 const ROLES: Member["role"][] = ["母", "パートナー", "祖父母"];
+const ROLE_WORD: Record<Member["role"], string> = { 母: "ママ（母）", パートナー: "パートナー", 祖父母: "おじいちゃん・おばあちゃん" };
+
+const field = "min-h-12 w-full rounded-xl border border-line bg-card px-3 text-base";
 
 export default function Settings() {
-  const { families, reload, setFamilyId } = useFamily();
+  const { families, family, reload, setFamilyId, me, setMeId } = useFamily();
   const mine = families.find((f) => f.id === "mine");
   const [form, setForm] = useState({ prefecture: "", city: "", dueDate: "", birthDate: "", childName: "" });
   const [members, setMembers] = useState<Member[]>(ROLES.map((role, i) => ({ id: `m${i}`, name: "", role, voice: "" })));
@@ -17,7 +24,11 @@ export default function Settings() {
   useEffect(() => {
     if (!mine) return;
     setForm({ prefecture: mine.prefecture, city: mine.city, dueDate: mine.dueDate, birthDate: mine.birthDate ?? "", childName: mine.childName ?? "" });
-    if (mine.members.length) setMembers(mine.members);
+    if (mine.members.length) {
+      // 入れていない役（例: 祖父母）も欄は残す
+      const have = new Set(mine.members.map((m) => m.role));
+      setMembers([...mine.members, ...ROLES.filter((r) => !have.has(r)).map((role, i) => ({ id: `m-new${i}`, name: "", role, voice: "" }))]);
+    }
   }, [mine]);
 
   const save = async () => {
@@ -26,31 +37,63 @@ export default function Settings() {
       await api<{ family: Family }>("/api/family", { body: { ...form, members } });
       await reload();
       setFamilyId("mine");
-      setMsg({ ok: true, text: "保存しました。上の切り替えが「わが家」になっています" });
+      setMsg({ ok: true, text: "保存しました" });
     } catch (e) {
       setMsg({ ok: false, text: `保存できませんでした: ${(e as Error).message}` });
     }
   };
 
-  const field = "w-full rounded-lg border border-line bg-card px-3 py-2";
   return (
-    <main className="flex flex-col gap-5 px-4 pt-4">
-      <header>
-        <h1 className="font-display text-2xl font-bold">わが家の設定</h1>
-        <p className="text-sm text-muted">ここに入れた事は、この機械の中だけに置きます。氏名・住所の番地は入れなくて大丈夫です。</p>
-      </header>
-      <div className="grid grid-cols-2 gap-3">
-        <label className="flex flex-col gap-1 text-sm">都道府県<input id="pref" className={field} value={form.prefecture} onChange={(e) => setForm({ ...form, prefecture: e.target.value })} placeholder="埼玉県" /></label>
-        <label className="flex flex-col gap-1 text-sm"><span>市区町村 <Req /></span><input id="city" required aria-required className={field} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="さいたま市" /></label>
-        <label className="flex flex-col gap-1 text-sm"><span>出産予定日 <Req /></span><input id="due" type="date" required aria-required className={field} value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} /></label>
-        <label className="flex flex-col gap-1 text-sm">生まれた日（まだなら空）<input id="birth" type="date" className={field} value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} /></label>
-        <label className="col-span-2 flex flex-col gap-1 text-sm">赤ちゃんの呼び名（任意）<input id="child" className={field} value={form.childName} onChange={(e) => setForm({ ...form, childName: e.target.value })} placeholder="おなかの子" /></label>
-      </div>
-      <section className="flex flex-col gap-3">
-        <h2 className="font-display text-lg font-bold">家族（呼び名でよい）</h2>
+    <main className="flex flex-col gap-4 px-4 pt-4 pb-8">
+      <h1 className="font-display text-2xl font-bold">わが家の設定</h1>
+
+      {family.members.length > 0 && (
+        <Question q="この手帳を使うのは？">
+          <div className="flex flex-wrap gap-2">
+            {family.members.map((m) => {
+              const on = me?.id === m.id;
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => setMeId(m.id)}
+                  aria-pressed={on}
+                  className={`min-h-11 rounded-full px-5 text-base font-semibold ${on ? "bg-rose text-white" : "bg-rose-soft text-rose"}`}
+                >
+                  わたしは{m.name}
+                </button>
+              );
+            })}
+          </div>
+          {family.id !== "mine" && <p className="text-sm text-muted">いま見ているデモの家族の中から選びます</p>}
+        </Question>
+      )}
+
+      <Question q="いつ生まれる予定？" n={1}>
+        <input id="due" type="date" required aria-required aria-label="出産予定日" className={field} value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+        <Fold title="もう生まれた・呼び名">
+          <label className="flex flex-col gap-1 text-base">
+            生まれた日
+            <input id="birth" type="date" className={field} value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} />
+          </label>
+          <label className="flex flex-col gap-1 text-base">
+            赤ちゃんの呼び名
+            <input id="child" className={field} value={form.childName} onChange={(e) => setForm({ ...form, childName: e.target.value })} placeholder="おなかの子" />
+          </label>
+        </Fold>
+      </Question>
+
+      <Question q="住んでいる町は？" n={2}>
+        <div className="grid grid-cols-[2fr_3fr] gap-2">
+          <input id="pref" aria-label="都道府県" className={field} value={form.prefecture} onChange={(e) => setForm({ ...form, prefecture: e.target.value })} placeholder="奈良県" />
+          <input id="city" required aria-required aria-label="市区町村" className={field} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="上牧町" />
+        </div>
+        <p className="text-sm text-muted">町の制度を、その町の物で調べます</p>
+      </Question>
+
+      <Question q="家族は？" n={3}>
         {members.map((m, i) => (
-          <div key={m.id} className="grid grid-cols-[5rem_1fr] items-center gap-2 text-sm">
-            <span className="text-muted">{m.role}</span>
+          <label key={m.id} className="flex flex-col gap-1 text-base">
+            <span className="text-sm font-semibold text-muted">{ROLE_WORD[m.role]}</span>
             <input
               id={`member-${i}`}
               className={field}
@@ -58,30 +101,145 @@ export default function Settings() {
               placeholder={m.role === "祖父母" ? "例: 鹿児島のばあば" : "呼び名"}
               onChange={(e) => setMembers(members.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
             />
-            <span />
-            <input
-              id={`member-voice-${i}`}
-              className={`${field} text-sm`}
-              value={m.voice}
-              placeholder="伝え方のヒント（例: 大きな字で、短く）"
-              onChange={(e) => setMembers(members.map((x, j) => (j === i ? { ...x, voice: e.target.value } : x)))}
-            />
-          </div>
+          </label>
         ))}
-      </section>
-      <button onClick={save} className="self-start rounded-lg bg-rose px-5 py-2 font-semibold text-white">保存する</button>
+        <Fold title="伝え方のヒント">
+          {members
+            .map((m, i) => ({ m, i }))
+            .filter(({ m }) => m.name)
+            .map(({ m, i }) => (
+              <label key={m.id} className="flex flex-col gap-1 text-base">
+                {m.name}
+                <input
+                  id={`member-voice-${i}`}
+                  className={field}
+                  value={m.voice}
+                  placeholder="例: 大きな字で、短く"
+                  onChange={(e) => setMembers(members.map((x, j) => (j === i ? { ...x, voice: e.target.value } : x)))}
+                />
+              </label>
+            ))}
+          {!members.some((m) => m.name) && <p className="text-sm text-muted">先に呼び名を入れてください</p>}
+        </Fold>
+      </Question>
+
+      <Btn onClick={() => void save()} full>
+        保存する
+      </Btn>
       {msg && (
-        <p
-          role={msg.ok ? "status" : "alert"}
-          className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-ok/10 text-ok" : "bg-alert/10 font-semibold text-alert"}`}
-        >
+        <p role={msg.ok ? "status" : "alert"} className={`rounded-xl px-4 py-3 text-base ${msg.ok ? "bg-ok/10 text-ok" : "bg-alert/10 font-semibold text-alert"}`}>
           {msg.text}
         </p>
       )}
+
+      {mine ? <KeepForm familyId="mine" /> : <p className="text-sm text-muted">保存すると「いつもの場所と人」を入れられます</p>}
+
+      <Why label="入れた事はどこに？">
+        <p>この機械の中だけに置きます。氏名・住所の番地は入れなくて大丈夫です。</p>
+      </Why>
     </main>
   );
 }
 
-function Req() {
-  return <span className="rounded bg-rose-soft px-1.5 py-0.5 text-xs font-semibold text-rose">必須</span>;
+/** 問い1つ分の大きな箱 */
+function Question({ q, n, children }: { q: string; n?: number; children: React.ReactNode }) {
+  return (
+    <section className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4">
+      <h2 className="flex items-baseline gap-2 font-display text-xl font-bold">
+        {n != null && <span className="tabular text-base text-rose">{n}</span>}
+        {q}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+/** いつもの場所と人（GET/POST /api/keep） */
+function KeepForm({ familyId }: { familyId: string }) {
+  const [keep, setKeep] = useState<Keep | null>(null);
+  const [hospital, setHospital] = useState({ name: "", phone: "" });
+  const [work, setWork] = useState({ company: "", boss: "", email: "" });
+  const [office, setOffice] = useState({ name: "", address: "" });
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    api<{ keep: Keep }>(`/api/keep?familyId=${encodeURIComponent(familyId)}`)
+      .then(({ keep: k }) => {
+        if (!alive) return;
+        setKeep(k);
+        setHospital({ name: k.hospital?.name ?? "", phone: k.hospital?.phone ?? "" });
+        setWork({ company: k.work?.company ?? "", boss: k.work?.boss ?? "", email: k.work?.email ?? "" });
+        setOffice({ name: k.office?.name ?? "", address: k.office?.address ?? "" });
+      })
+      .catch((e: Error) => alive && setMsg({ ok: false, text: e.message }));
+    return () => {
+      alive = false;
+    };
+  }, [familyId]);
+
+  const save = async () => {
+    setSaving(true);
+    setMsg(null);
+    try {
+      const r = await api<{ keep: Keep }>("/api/keep", { body: { familyId, keep: { hospital, work, office } } });
+      setKeep(r.keep);
+      setMsg({ ok: true, text: "覚えました。次から下書きや地図で使います" });
+    } catch (e) {
+      setMsg({ ok: false, text: (e as Error).message });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const guide = keep?.hospital?.guide;
+
+  return (
+    <Question q="いつもの場所と人" n={4}>
+      <p className="text-base text-muted">一度入れると、次から自動で使います</p>
+
+      <h3 className="pt-1 text-base font-bold">通う病院</h3>
+      <input aria-label="病院の名前" className={field} value={hospital.name} onChange={(e) => setHospital({ ...hospital, name: e.target.value })} placeholder="病院の名前" />
+      <div className="flex gap-2">
+        <input aria-label="病院の電話" type="tel" inputMode="tel" className={field} value={hospital.phone} onChange={(e) => setHospital({ ...hospital, phone: e.target.value })} placeholder="電話" />
+        {keep?.hospital?.phone && (
+          <Btn kind="secondary" href={`tel:${keep.hospital.phone.replace(/[^\d+]/g, "")}`}>
+            かける
+          </Btn>
+        )}
+      </div>
+      {guide ? (
+        <p className="flex flex-wrap items-center gap-2 text-base">
+          <Pill tone="ok">院内の道案内: 覚えています（{jpDate(guide.at.slice(0, 10))}に撮影）</Pill>
+          <span className="text-sm text-muted">次の健診で撮ると新しくなります</span>
+        </p>
+      ) : (
+        <p className="text-sm text-muted">院内の道案内は、健診の日に撮ると覚えます</p>
+      )}
+
+      <h3 className="pt-2 text-base font-bold">職場</h3>
+      <input aria-label="会社名" className={field} value={work.company} onChange={(e) => setWork({ ...work, company: e.target.value })} placeholder="会社名" />
+      <input aria-label="上司の名前" className={field} value={work.boss} onChange={(e) => setWork({ ...work, boss: e.target.value })} placeholder="上司の名前" />
+      <input aria-label="上司のメール" type="email" inputMode="email" className={field} value={work.email} onChange={(e) => setWork({ ...work, email: e.target.value })} placeholder="上司のメール" />
+
+      <h3 className="pt-2 text-base font-bold">役所の窓口</h3>
+      <input aria-label="窓口の名前" className={field} value={office.name} onChange={(e) => setOffice({ ...office, name: e.target.value })} placeholder="例: 町役場 こども課" />
+      <input aria-label="窓口の場所" className={field} value={office.address} onChange={(e) => setOffice({ ...office, address: e.target.value })} placeholder="場所（地図で開くため）" />
+
+      <Btn onClick={() => void save()} disabled={saving || !keep} full>
+        {saving ? "覚えています…" : "覚える"}
+      </Btn>
+      {msg && (
+        <p role={msg.ok ? "status" : "alert"} className={`rounded-xl px-4 py-3 text-base ${msg.ok ? "bg-ok/10 text-ok" : "bg-alert/10 font-semibold text-alert"}`}>
+          {msg.text}
+        </p>
+      )}
+      <Why>
+        <p>職場あての下書きの【会社名】【上司の名前】が、最初から埋まります。</p>
+        <p>役所の窓口は「地図」から地図アプリで開けます。</p>
+        <p>空にしても消えません（いまは上書きだけ）。</p>
+      </Why>
+    </Question>
+  );
 }

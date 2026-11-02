@@ -1,17 +1,23 @@
 "use client";
 
-// ⑥ 家族が育てる地図: 町の「窓口の知恵」。ある家族が確かめた事が、次の家族へ。
+// ⑥ 家族が育てる地図: 一番上は「わが町の窓口」1つ。知恵は短く並べ、確かめた家族の数は札に、注意は「なぜ？」へ。
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { jpDate } from "@/components/Techo";
+import { Btn, CopyButton, Fold, HandoffRow, NextStep, Pill, Why } from "@/components/ui";
+import type { Keep } from "@/lib/keep";
 import { MILESTONES } from "@/lib/milestones";
 import type { WisdomDoc } from "@/lib/wisdom";
 
 const titleOf = (id: string | null) => (id ? MILESTONES.find((m) => m.id === id)?.title ?? null : null);
 
+/** 町・村は「役場」、市・区は「役所」 */
+const officeWord = (city: string) => (/[町村]$/.test(city) ? "役場" : "役所");
+
 export default function MapPage() {
   const { family, today, isDemo } = useFamily();
   const [items, setItems] = useState<WisdomDoc[]>([]);
+  const [keep, setKeep] = useState<Keep>({});
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("");
   const [text, setText] = useState("");
@@ -29,6 +35,10 @@ export default function MapPage() {
     let alive = true;
     setLoading(true);
     setError("");
+    setKeep({});
+    api<{ keep: Keep }>(`/api/keep?familyId=${encodeURIComponent(family.id)}`)
+      .then((r) => alive && setKeep(r.keep))
+      .catch(() => {});
     (async () => {
       try {
         let got = await load();
@@ -47,7 +57,7 @@ export default function MapPage() {
     return () => {
       alive = false;
     };
-  }, [load, isDemo]);
+  }, [load, isDemo, family.id]);
 
   const send = async () => {
     setSending(true);
@@ -56,9 +66,9 @@ export default function MapPage() {
     try {
       const r = await api<{ added: WisdomDoc[] }>("/api/wisdom", { body: { familyId: family.id, text, today } });
       if (r.added.length === 0) {
-        setMsg("ありがとうございます。今回の話からは、次の家族に渡せる知恵は見つかりませんでした。");
+        setMsg("ありがとうございます。今回は地図に足す事が見つかりませんでした");
       } else {
-        setMsg(`${r.added.length}件の知恵を${family.city}の地図に足しました。名前など個人が分かる事は入れていません。`);
+        setMsg(`${r.added.length}件を地図に足しました`);
         setText("");
         setFresh(new Set(r.added.map((d) => d.id)));
         setItems(await load());
@@ -75,7 +85,7 @@ export default function MapPage() {
     try {
       const r = await api<{ item: WisdomDoc; already: boolean }>("/api/wisdom", { method: "PATCH", body: { familyId: family.id, id, today } });
       setItems((xs) => xs.map((x) => (x.id === id ? r.item : x)));
-      if (r.already) setMsg("この手帳では、もう確かめた事になっています。");
+      if (r.already) setMsg("もう確かめた事になっています");
     } catch (e) {
       setError((e as Error).message);
     }
@@ -85,79 +95,78 @@ export default function MapPage() {
   const shown = filter ? items.filter((i) => i.data.milestoneId === filter) : items;
   const anyDemo = items.some((i) => i.data.demo);
 
-  return (
-    <main className="flex flex-col gap-5 px-4 pt-4">
-      <header className="flex flex-col gap-1">
-        <p className="text-xs font-semibold tracking-widest text-rose">家族が育てる地図</p>
-        <h1 className="font-display text-2xl font-bold">{family.city}の窓口の知恵</h1>
-        <p className="text-sm text-muted">先に行った家族が確かめた事です。制度の中身や期限は、窓口で確かめてください。</p>
-      </header>
+  const office = keep.office?.name || `${family.city}${officeWord(family.city)}`;
+  const place = keep.office?.address || `${family.prefecture}${family.city} ${keep.office?.name || officeWord(family.city)}`;
 
-      {anyDemo && (
-        <p className="rounded-lg bg-sky-soft px-3 py-2 text-xs font-semibold text-sky">
-          デモ用の例（実在の窓口の情報ではありません）が入っています。
+  return (
+    <main className="flex flex-col gap-4 px-4 pt-4">
+      <h1 className="sr-only">{family.city}の窓口の知恵</h1>
+
+      <NextStep eyebrow="わが町の窓口" title={office} sub={items.length ? `先に行った家族の知恵 ${items.length}件` : undefined} tone="sky">
+        <HandoffRow place={place} />
+        {!keep.office?.name && (
+          <Btn kind="quiet" href="/settings">
+            いつもの窓口を入れる
+          </Btn>
+        )}
+        <div className="w-full">
+          <Why>
+            <p>ここの知恵は、先に行った家族が確かめた事です。</p>
+            <p>制度の中身や期限は、窓口で確かめてください。</p>
+            <p>名前や住所など、個人が分かる事は地図に入れません。</p>
+          </Why>
+        </div>
+      </NextStep>
+
+      {error && <p className="rounded-xl bg-alert/10 px-4 py-3 text-base text-alert">{error}</p>}
+      {msg && (
+        <p role="status" className="rounded-xl bg-ok/10 px-4 py-3 text-base text-ok">
+          {msg}
         </p>
       )}
 
-      <section className="flex flex-col gap-2 rounded-xl border border-line bg-card p-4">
-        <label htmlFor="wisdom-text" className="font-display font-bold">行ってみてどうだった？</label>
-        <p className="text-xs text-muted">持ち物・待ち時間・順番など、次の家族に役立ちそうな事を一言でも。名前や住所は書かなくて大丈夫です。</p>
-        <textarea
-          id="wisdom-text"
-          rows={4}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="例: 出生届と児童手当を同じ日に出したら一回で済んだ。口座の分かる物を忘れて出直した。"
-          className="w-full rounded-lg border border-line bg-paper px-3 py-2 text-sm"
-        />
-        <button
-          onClick={send}
-          disabled={sending || text.trim().length < 5}
-          className="self-start rounded-lg bg-rose px-5 py-2 font-semibold text-white disabled:opacity-50"
-        >
-          {sending ? "知恵を抜き出しています…" : "地図に足す"}
-        </button>
-        {sending && <p aria-live="polite" className="text-xs text-muted">話の中から、次の家族に渡せる事だけを選んでいます（10秒ほど）。</p>}
-        {msg && <p className="text-sm text-ok">{msg}</p>}
-      </section>
-
-      {error && <p className="rounded-lg bg-alert/10 px-3 py-2 text-sm text-alert">{error}</p>}
-
       {used.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-1 text-xs" aria-label="手続きで絞る">
-          <button onClick={() => setFilter("")} className={`shrink-0 rounded-full border px-3 py-1 ${!filter ? "border-rose text-rose" : "border-line text-muted"}`}>
+        <div className="flex gap-2 overflow-x-auto pb-1" aria-label="手続きで絞る">
+          <button onClick={() => setFilter("")} className={`min-h-11 shrink-0 rounded-full border px-4 text-sm font-semibold ${!filter ? "border-rose text-rose" : "border-line text-muted"}`}>
             すべて
           </button>
           {used.map((id) => (
-            <button key={id} onClick={() => setFilter(id)} className={`shrink-0 rounded-full border px-3 py-1 ${filter === id ? "border-rose text-rose" : "border-line text-muted"}`}>
+            <button key={id} onClick={() => setFilter(id)} className={`min-h-11 shrink-0 rounded-full border px-4 text-sm font-semibold ${filter === id ? "border-rose text-rose" : "border-line text-muted"}`}>
               {titleOf(id)}
             </button>
           ))}
         </div>
       )}
 
-      <section className="flex flex-col gap-3 pb-6">
-        {loading && <p className="text-sm text-muted">{family.city}の知恵を読んでいます…</p>}
-        {!loading && shown.length === 0 && <p className="text-sm text-muted">まだ知恵はありません。最初の一つを足してみませんか。</p>}
+      <section aria-label="窓口の知恵" className="flex flex-col gap-3">
+        {loading && <p className="text-base text-muted">読んでいます…</p>}
+        {!loading && shown.length === 0 && <p className="text-base text-muted">まだありません。下から最初の一つを足せます</p>}
+        {anyDemo && (
+          <p>
+            <Pill tone="sky">デモ用の例（実在の窓口ではありません）</Pill>
+          </p>
+        )}
         {shown.map((d) => {
           const w = d.data;
           const mine = w.confirmedBy.includes(family.id);
           return (
-            <article key={d.id} className={`flex flex-col gap-2 rounded-xl border bg-card p-4 ${fresh.has(d.id) ? "border-rose" : "border-line"}`}>
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="rounded-full bg-rose-soft px-2 py-0.5 font-semibold text-rose">{w.place}</span>
-                {titleOf(w.milestoneId) && <span className="text-muted">{titleOf(w.milestoneId)}</span>}
-                {w.demo && <span className="rounded-full bg-sky-soft px-2 py-0.5 text-sky">デモ用の例</span>}
+            <article key={d.id} className={`flex flex-col gap-2 rounded-2xl border bg-card p-4 ${fresh.has(d.id) ? "border-rose" : "border-line"}`}>
+              <div className="flex flex-wrap items-center gap-2">
+                <Pill tone="rose">{w.place}</Pill>
+                {titleOf(w.milestoneId) && <Pill>{titleOf(w.milestoneId)}</Pill>}
+                {w.demo && <Pill tone="sky">デモ</Pill>}
               </div>
-              <p className="leading-relaxed">{w.tip}</p>
-              <div className="flex items-center justify-between gap-2">
-                <span className="tabular text-xs text-muted">
-                  {w.confirmations}家族が確かめた・最後は{jpDate(w.lastConfirmed)}
-                </span>
+              <p className="text-base leading-relaxed">{w.tip}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Pill tone="ok">
+                  {w.confirmations}家族が確かめた・{jpDate(w.lastConfirmed)}
+                </Pill>
+                <span className="flex-1" />
+                <CopyButton text={w.tip} />
                 <button
-                  onClick={() => confirm(d.id)}
+                  onClick={() => void confirm(d.id)}
                   disabled={mine}
-                  className="shrink-0 rounded-lg border border-line px-3 py-1 text-xs font-semibold disabled:text-ok"
+                  className="inline-flex min-h-11 shrink-0 items-center rounded-full border border-ink/20 bg-card px-4 text-sm font-semibold disabled:border-ok/40 disabled:text-ok"
                 >
                   {mine ? "確かめました" : "私も確かめた"}
                 </button>
@@ -166,6 +175,25 @@ export default function MapPage() {
           );
         })}
       </section>
+
+      <div className="pb-6">
+        <Fold title="行ってみた話を足す">
+          <label htmlFor="wisdom-text" className="text-base">
+            持ち物・待ち時間・順番など、一言でも
+          </label>
+          <textarea
+            id="wisdom-text"
+            rows={4}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="例: 出生届と児童手当を同じ日に出したら一回で済んだ"
+            className="w-full rounded-xl border border-line bg-paper px-3 py-2 text-base"
+          />
+          <Btn onClick={() => void send()} disabled={sending || text.trim().length < 5}>
+            {sending ? "選んでいます…（10秒ほど）" : "地図に足す"}
+          </Btn>
+        </Fold>
+      </div>
     </main>
   );
 }

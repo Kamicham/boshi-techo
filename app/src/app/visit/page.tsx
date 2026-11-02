@@ -1,16 +1,17 @@
 "use client";
 
-// ⑤ 健診: 次の健診の準備（予約日・聞く事・前日の声かけ）と、これまでの健診。
+// ⑤ 健診: 一番上に「今やる1つ」（今日の健診／明日の健診／次の健診まであと◯日）。予約・聞く事・これまでは畳む。
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { jpDate } from "@/components/Techo";
+import { Btn, Fold, NextStep, Pill, daysUntil } from "@/components/ui";
 import { Briefing } from "@/components/visit/Briefing";
 import { StatusChip } from "@/components/visit/StatusChip";
 import { DEMO_AGENDA, DEMO_TRANSCRIPT, DEMO_VISIT_WEEKS } from "@/components/visit/demoTranscript";
 import { addDays, lmpFromDue } from "@/lib/clock";
-import { visitLabel, type AgendaItem, type VisitPlan, type VisitStatus } from "@/lib/visit";
+import { briefingDay, visitLabel, type AgendaItem, type VisitPlan, type VisitStatus } from "@/lib/visit";
 
 interface Row {
   id: string;
@@ -28,7 +29,7 @@ interface ListRes {
 }
 
 export default function VisitList() {
-  const { family, families, today, isDemo, ready, setFamilyId } = useFamily();
+  const { family, families, today, isDemo, ready, setFamilyId, me } = useFamily();
   const mine = families.find((f) => f.id === "mine");
   const router = useRouter();
   const [data, setData] = useState<ListRes | null>(null);
@@ -83,76 +84,120 @@ export default function VisitList() {
   };
 
   const ongoing = data?.visits.find((v) => v.date === today && (v.status === "ready" || v.status === "recording"));
-  const next = data?.plan.next ?? null;
+  // 過ぎた予約は「次」として扱わない
+  const next = data?.plan.next && data.plan.next.date >= today ? data.plan.next : null;
+  const when = briefingDay(today, next?.date);
+  // 母以外（パートナー・祖父母）が開いた時は、終わったばかりの健診のまとめを先に
+  const notMom = !!me && me.role !== "母";
+  const whose = notMom ? "ママの健診" : undefined;
+  // 今日録った健診（整理中・できた）は、まとめを読むのが次の一手。母以外は3日以内の健診も
+  const recent = data?.visits.find(
+    (v) => !v.demo && v.status !== "ready" && v.status !== "recording" && (v.date === today || (notMom && v.status === "done" && daysUntil(v.date, today) <= 3)),
+  );
+  const startLabel = busy === "start" ? "準備しています…" : "今日の健診を始める";
 
+  let top: React.ReactNode;
+  if (!data) {
+    top = err ? null : <p className="text-base text-muted">読み込んでいます…</p>;
+  } else if (ongoing) {
+    top = (
+      <NextStep eyebrow={`今日・${ongoing.label}`} title="今日の健診を続ける">
+        <Btn href={`/visit/${ongoing.id}`}>続ける</Btn>
+      </NextStep>
+    );
+  } else if (isDemo) {
+    // デモの家族のまま本物の健診を録らないよう、わが家への切り替えを先に出す
+    top = (
+      <NextStep eyebrow="いま見ているのはデモの家族" title="本物の健診は、わが家で" tone="sky">
+        {mine ? <Btn onClick={() => setFamilyId(mine.id)}>わが家に切り替える</Btn> : <Btn href="/settings">わが家を作る</Btn>}
+        <Btn kind="secondary" onClick={() => void demo()} disabled={!!busy}>
+          {busy === "demo" ? "作っています…（30秒ほど）" : `デモの健診を見る（${DEMO_VISIT_WEEKS}週）`}
+        </Btn>
+        <Btn kind="quiet" onClick={() => void start()} disabled={!!busy || !ready}>
+          {busy === "start" ? "準備しています…" : "デモで録音を試す"}
+        </Btn>
+      </NextStep>
+    );
+  } else if (recent) {
+    top = (
+      <NextStep eyebrow={`${recent.date === today ? "今日" : jpDate(recent.date)}・${recent.label}`} title="健診のまとめを読む" sub={recent.summary ?? undefined}>
+        <Btn href={`/visit/${recent.id}`}>{recent.status === "done" ? "読む" : "見る"}</Btn>
+      </NextStep>
+    );
+  } else if (when && next) {
+    top = (
+      <Briefing family={family} today={today} next={next} agenda={data.agenda} whose={whose}>
+        {when === "day" && (
+          <Btn onClick={() => void start()} disabled={!!busy || !ready}>
+            {startLabel}
+          </Btn>
+        )}
+      </Briefing>
+    );
+  } else if (next) {
+    top = (
+      <NextStep
+        eyebrow={whose ?? "次の健診"}
+        title={`${visitLabel(family, next.date)}の健診`}
+        days={daysUntil(today, next.date)}
+        dateLabel={`${jpDate(next.date)}${next.time ? ` ${next.time}` : ""}`}
+      >
+        <Btn kind="quiet" onClick={() => void start()} disabled={!!busy || !ready}>
+          {busy === "start" ? "準備しています…" : "今日が健診なら、始める"}
+        </Btn>
+      </NextStep>
+    );
+  } else {
+    top = (
+      <NextStep eyebrow={whose ?? "次の健診"} title="次の健診の日を入れる">
+        <NextAppointment next={null} onSave={(n) => void savePlan({ next: n })} />
+        <Btn kind="quiet" onClick={() => void start()} disabled={!!busy || !ready}>
+          {busy === "start" ? "準備しています…" : "今日が健診なら、始める"}
+        </Btn>
+      </NextStep>
+    );
+  }
+
+  const agenda = data?.agenda ?? [];
   return (
-    <main className="flex flex-col gap-6 px-4 pt-4">
-      <header className="flex flex-col gap-1">
-        <h1 className="font-display text-2xl font-bold">健診</h1>
-        <p className="text-sm text-muted">先生の話を録音して、あとで家族で読み返せる形にします。分からなかった言葉は、次に聞く質問にして残します。</p>
-      </header>
+    <main className="flex flex-col gap-4 px-4 pt-4 pb-6">
+      <h1 className="font-display text-xl font-bold">健診</h1>
 
-      {err && <p role="alert" className="rounded-lg bg-alert/10 px-3 py-2 text-sm text-alert">{err}</p>}
-
-      <section className="flex flex-col gap-3">
-        {ongoing ? (
-          <Link href={`/visit/${ongoing.id}`} className="rounded-xl bg-rose px-5 py-4 text-center font-display text-lg font-bold text-white">
-            今日の健診を続ける
-          </Link>
-        ) : isDemo ? (
-          // デモの家族のまま本物の健診を録らないよう、わが家への切り替えを先に出す
-          <div className="flex flex-col gap-2 rounded-xl border border-sky bg-sky-soft p-4">
-            <p className="text-sm font-semibold text-sky">いま見ているのはデモの家族（作った家族）です。</p>
-            {mine ? (
-              <button onClick={() => setFamilyId(mine.id)} className="rounded-xl bg-rose px-5 py-4 font-display text-lg font-bold text-white">
-                わが家に切り替えて健診を始める
-              </button>
-            ) : (
-              <Link href="/settings" className="rounded-xl bg-rose px-5 py-4 text-center font-display text-lg font-bold text-white">
-                本物の健診は、先に「わが家の設定」へ
-              </Link>
-            )}
-            <button onClick={start} disabled={!!busy || !ready} className="rounded-lg border border-line bg-card py-2 text-sm disabled:opacity-60">
-              {busy === "start" ? "準備しています…" : "デモの家族で録音を試す"}
-            </button>
-          </div>
-        ) : (
-          <button onClick={start} disabled={!!busy || !ready} className="rounded-xl bg-rose px-5 py-4 font-display text-lg font-bold text-white disabled:opacity-60">
-            {busy === "start" ? "準備しています…" : "新しい健診を始める"}
-          </button>
-        )}
-        <p className="text-center text-xs text-muted">
-          {jpDate(today)}・{visitLabel(family, today)}の健診として始めます
+      {err && (
+        <p role="alert" className="rounded-lg bg-alert/10 px-3 py-2 text-base text-alert">
+          {err}
         </p>
-        {isDemo && (
-          <button onClick={demo} disabled={!!busy} className="rounded-xl border border-sky bg-sky-soft px-5 py-3 text-sm font-semibold text-sky disabled:opacity-60">
-            {busy === "demo" ? "デモの健診を作っています…（Claude が整理中・30秒ほど）" : `デモの健診を作る（${DEMO_VISIT_WEEKS}週・作った会話）`}
-          </button>
-        )}
-      </section>
+      )}
 
-      {data && <Briefing family={family} today={today} next={next} agenda={data.agenda} />}
+      {top}
 
-      <NextAppointment next={next} onSave={(n) => savePlan({ next: n })} />
+      {data && next && (
+        <Fold title="次の健診の日">
+          <NextAppointment next={next} onSave={(n) => void savePlan({ next: n })} />
+        </Fold>
+      )}
 
-      <AskList agenda={data?.agenda ?? []} forToday={data?.agendaFor === "today"} onAdd={(t) => savePlan({ concern: t })} onRemove={(id) => savePlan({ removeConcern: id })} />
+      {data && (
+        <Fold title={data.agendaFor === "today" ? "今日聞く事" : "聞く事"} count={agenda.length}>
+          <AskList agenda={agenda} onAdd={(t) => void savePlan({ concern: t })} onRemove={(id) => void savePlan({ removeConcern: id })} />
+        </Fold>
+      )}
 
-      <section className="flex flex-col gap-3 pb-6">
-        <h2 className="font-display text-lg font-bold">これまでの健診</h2>
-        {!data && !err && <p className="text-sm text-muted">読み込んでいます…</p>}
-        {data && data.visits.length === 0 && <p className="text-sm text-muted">まだありません。健診の日に「新しい健診を始める」を押してください。</p>}
-        {data?.visits.map((v) => (
-          <Link key={v.id} href={`/visit/${v.id}`} className="flex flex-col gap-1 rounded-xl border border-line bg-card p-4 hover:border-rose">
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="tabular font-semibold">{jpDate(v.date)}</span>
-              <span className="text-sky">{v.label}</span>
-              <StatusChip status={v.status} />
-              {v.demo && <span className="rounded-full bg-sky-soft px-2 py-0.5 text-sky">デモ用の例</span>}
-            </div>
-            <p className="line-clamp-2 text-sm">{v.summary ?? (v.status === "done" ? "" : "まだ整理されていません")}</p>
-          </Link>
-        ))}
-      </section>
+      {data && data.visits.length > 0 && (
+        <Fold title="これまでの健診" count={data.visits.length}>
+          {data.visits.map((v) => (
+            <Link key={v.id} href={`/visit/${v.id}`} className="flex min-h-11 flex-col gap-1 rounded-xl border border-line bg-card p-3 hover:border-rose">
+              <span className="flex flex-wrap items-center gap-2">
+                <span className="tabular text-base font-semibold">{jpDate(v.date)}</span>
+                <span className="text-sm text-sky">{v.label}</span>
+                <StatusChip status={v.status} />
+                {v.demo && <Pill tone="sky">デモ</Pill>}
+              </span>
+              {v.summary && <span className="line-clamp-2 text-base">{v.summary}</span>}
+            </Link>
+          ))}
+        </Fold>
+      )}
     </main>
   );
 }
@@ -160,75 +205,74 @@ export default function VisitList() {
 function NextAppointment({ next, onSave }: { next: VisitPlan["next"]; onSave: (n: { date: string; time: string | null } | null) => void }) {
   const [date, setDate] = useState(next?.date ?? "");
   const [time, setTime] = useState(next?.time ?? "");
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(!next);
   useEffect(() => {
     setDate(next?.date ?? "");
     setTime(next?.time ?? "");
   }, [next?.date, next?.time]);
 
-  const field = "rounded-lg border border-line bg-card px-3 py-2 text-sm";
+  const field = "min-h-11 rounded-lg border border-line bg-card px-3 text-base";
+  if (next && !editing) {
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="tabular text-lg font-semibold">
+          {jpDate(next.date)}
+          {next.time && <span className="ml-2">{next.time}</span>}
+        </span>
+        {next.source === "visit" && next.said && <Pill tone="sky">先生「{next.said}」</Pill>}
+        <Btn kind="quiet" onClick={() => setEditing(true)}>
+          直す
+        </Btn>
+      </div>
+    );
+  }
   return (
-    <section className="flex flex-col gap-2 rounded-xl border border-line bg-card p-4">
-      <h2 className="font-display text-lg font-bold">次の健診</h2>
-      {next && !editing ? (
-        <>
-          <p className="tabular text-xl font-semibold text-sky">
-            {jpDate(next.date)}
-            {next.time && <span className="ml-2">{next.time}</span>}
-          </p>
-          {next.source === "visit" && next.said && <p className="text-xs text-muted">前回の健診で「{next.said}」と言われた日です</p>}
-          <button onClick={() => setEditing(true)} className="self-start text-xs text-muted underline">日付を直す</button>
-        </>
-      ) : (
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="flex flex-col gap-1 text-xs text-muted">
-            日付
-            <input id="next-date" type="date" className={field} value={date} onChange={(e) => setDate(e.target.value)} />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-muted">
-            時刻（任意）
-            <input id="next-time" type="time" className={field} value={time} onChange={(e) => setTime(e.target.value)} />
-          </label>
-          <button
-            disabled={!date}
-            onClick={() => {
-              onSave({ date, time: time || null });
-              setEditing(false);
-            }}
-            className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-paper disabled:opacity-40"
-          >
-            入れる
-          </button>
-          {editing && (
-            <button onClick={() => setEditing(false)} className="px-2 py-2 text-xs text-muted">やめる</button>
-          )}
-        </div>
+    <div className="flex w-full flex-wrap items-end gap-2">
+      <label className="flex flex-col gap-1 text-sm text-muted">
+        日付
+        <input id="next-date" type="date" className={field} value={date} onChange={(e) => setDate(e.target.value)} />
+      </label>
+      <label className="flex flex-col gap-1 text-sm text-muted">
+        時刻
+        <input id="next-time" type="time" className={field} value={time} onChange={(e) => setTime(e.target.value)} />
+      </label>
+      <Btn
+        disabled={!date}
+        onClick={() => {
+          onSave({ date, time: time || null });
+          if (next) setEditing(false);
+        }}
+      >
+        入れる
+      </Btn>
+      {next && (
+        <Btn kind="quiet" onClick={() => setEditing(false)}>
+          やめる
+        </Btn>
       )}
-      {!next && <p className="text-xs text-muted">予約の日を入れると、前の日と当日に持ち物と聞く事をお知らせします。</p>}
-    </section>
+    </div>
   );
 }
 
-function AskList({ agenda, forToday, onAdd, onRemove }: { agenda: AgendaItem[]; forToday: boolean; onAdd: (t: string) => void; onRemove: (id: string) => void }) {
+function AskList({ agenda, onAdd, onRemove }: { agenda: AgendaItem[]; onAdd: (t: string) => void; onRemove: (id: string) => void }) {
   const [text, setText] = useState("");
   return (
-    <section className="flex flex-col gap-3">
-      <h2 className="font-display text-lg font-bold">{forToday ? "今日の健診で聞く事" : "次の健診で聞く事"}</h2>
-      {forToday && <p className="text-xs text-muted">今日の健診が始まっているので、足した事は今日の「今日聞く事」に入ります。</p>}
-      {agenda.length === 0 && <p className="text-sm text-muted">気になっている事を書いておくと、健診の日に「今日聞く事」として出します。</p>}
-      <ul className="flex flex-col gap-2">
-        {agenda.map((a) => (
-          <li key={a.id} className="flex items-start gap-2 rounded-lg border border-line bg-card px-3 py-2 text-sm">
-            <span className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-xs ${a.from === "前回の質問" ? "bg-sky-soft text-sky" : "bg-rose-soft text-rose"}`}>{a.from}</span>
-            <span className="min-w-0 flex-1">{a.text}</span>
-            {a.from === "気がかり" && (
-              <button onClick={() => onRemove(a.id)} className="shrink-0 text-xs text-muted" aria-label={`「${a.text}」を消す`}>
-                消す
-              </button>
-            )}
-          </li>
-        ))}
-      </ul>
+    <>
+      {agenda.length > 0 && (
+        <ul className="flex flex-col gap-2">
+          {agenda.map((a) => (
+            <li key={a.id} className="flex items-center gap-2 rounded-lg border border-line bg-card px-3 py-2 text-base">
+              <Pill tone={a.from === "前回の質問" ? "sky" : "rose"}>{a.from === "前回の質問" ? "前回" : "気がかり"}</Pill>
+              <span className="min-w-0 flex-1">{a.text}</span>
+              {a.from === "気がかり" && (
+                <button type="button" onClick={() => onRemove(a.id)} className="min-h-11 shrink-0 px-2 text-sm text-muted" aria-label={`「${a.text}」を消す`}>
+                  消す
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
       <form
         className="flex gap-2"
         onSubmit={(e) => {
@@ -243,10 +287,10 @@ function AskList({ agenda, forToday, onAdd, onRemove }: { agenda: AgendaItem[]; 
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="例: 夜に足がつって目が覚める"
-          className="min-w-0 flex-1 rounded-lg border border-line bg-card px-3 py-2 text-base"
+          className="min-h-11 min-w-0 flex-1 rounded-lg border border-line bg-card px-3 text-base"
         />
-        <button className="shrink-0 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-paper">足す</button>
+        <button className="min-h-11 shrink-0 rounded-full bg-ink px-5 text-base font-semibold text-paper">足す</button>
       </form>
-    </section>
+    </>
   );
 }

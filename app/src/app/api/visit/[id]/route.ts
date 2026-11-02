@@ -2,7 +2,7 @@
 import { body, route } from "@/lib/api";
 import { patch } from "@/lib/db";
 import type { VisitData } from "@/lib/visit";
-import { deleteVisit, isRunning, requireVisit } from "../_lib/server";
+import { deleteVisit, isRunning, keptGuideFor, requireVisit } from "../_lib/server";
 
 type P = { params: Promise<{ id: string }> };
 
@@ -13,11 +13,14 @@ export const GET = route(async (_req: Request, { params }: P) => {
 
 export const PATCH = route(async (req: Request, { params }: P) => {
   const v = requireVisit((await params).id);
-  const b = await body<{ consent?: boolean; asked?: { id: string; asked: boolean }; guideDone?: number[] }>(req);
+  const b = await body<{ consent?: boolean; asked?: { id: string; asked: boolean }; guideDone?: number[]; useKeptGuide?: boolean }>(req);
   const partial: Partial<VisitData> = {};
+  // 撮らずに「いつもの順番」を使う時は、覚えている順番をこの健診に写してから済みの印を付ける
+  const guide = b.useKeptGuide && !v.data.guide ? keptGuideFor(v) : v.data.guide;
+  if (b.useKeptGuide && guide && !v.data.guide) partial.guide = guide;
   if (b.consent !== undefined) partial.consent = !!b.consent;
   if (b.asked && v.data.agenda) partial.agenda = v.data.agenda.map((a) => (a.id === b.asked!.id ? { ...a, asked: b.asked!.asked } : a));
-  if (b.guideDone && v.data.guide) partial.guide = { ...v.data.guide, done: b.guideDone.filter((n) => Number.isInteger(n)) };
+  if (b.guideDone && guide) partial.guide = { ...guide, done: b.guideDone.filter((n) => Number.isInteger(n)) };
   const d = patch<VisitData>(v.id, partial)!;
   return { visit: { id: d.id, familyId: d.familyId, ...d.data, running: isRunning(d.id) } };
 });

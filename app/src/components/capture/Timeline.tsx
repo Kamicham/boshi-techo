@@ -1,17 +1,18 @@
 "use client";
 
-// 記録の時系列: これからの予定と、これまでの記録
+// 記録の時系列: これからの予定と、これまでの記録（どちらも畳んでおく）
 import { clockAt } from "@/lib/clock";
 import type { CaptureRecord, RecordKind, RecordSource } from "@/lib/capture";
 import type { Family } from "@/lib/demo-family";
 import { jpDate } from "@/components/Techo";
+import { Countdown, daysUntil, Fold, HandoffRow, Pill } from "@/components/ui";
 
-export const KIND_STYLE: Record<RecordKind, string> = {
-  気がかり: "bg-warn/15 text-warn",
-  できごと: "bg-rose-soft text-rose",
-  予定: "bg-sky-soft text-sky",
-  書類: "bg-line text-ink",
-  メモ: "bg-paper text-muted border border-line",
+const KIND_TONE: Record<RecordKind, "warn" | "rose" | "sky" | "muted"> = {
+  気がかり: "warn",
+  できごと: "rose",
+  予定: "sky",
+  書類: "muted",
+  メモ: "muted",
 };
 
 /** 急ぎに見えた記録に添える固定の文（Claude の言葉ではなく、いつも同じ文） */
@@ -19,35 +20,35 @@ export const URGENT_NOTE = "急ぎの時はかかりつけの産院へ電話（�
 
 const SOURCE_LABEL: Record<RecordSource, string> = { voice: "話した", photo: "撮った", text: "書いた" };
 
-export function RecordItem({ r, family }: { r: CaptureRecord; family: Family }) {
-  const date = r.date ?? r.createdAt.slice(0, 10);
+const dateOf = (r: CaptureRecord) => r.date ?? r.createdAt.slice(0, 10);
+
+export function RecordItem({ r, family, today }: { r: CaptureRecord; family: Family; today: string }) {
+  const date = dateOf(r);
+  const ahead = date > today && (r.data.kind === "予定" || r.data.isDeadline);
   return (
-    <li className="flex flex-col gap-1 rounded-xl border border-line bg-card p-3">
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className={`rounded-full px-2 py-0.5 font-semibold ${KIND_STYLE[r.data.kind] ?? KIND_STYLE.メモ}`}>
-          {r.data.isDeadline ? "期限" : r.data.kind}
-        </span>
-        <span className="tabular text-sky">{jpDate(date)}</span>
-        <span className="text-muted">{clockAt(family, date).label}</span>
+    <li className="flex flex-col gap-1.5 rounded-xl border border-line bg-card p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Pill tone={r.data.isDeadline ? "alert" : KIND_TONE[r.data.kind] ?? "muted"}>{r.data.isDeadline ? "期限" : r.data.kind}</Pill>
+        {ahead ? <Countdown days={daysUntil(today, date)} dateLabel={jpDate(date)} size="sm" /> : <span className="tabular text-sm text-muted">{jpDate(date)}</span>}
       </div>
-      <p className="font-semibold leading-snug">{r.data.title}</p>
-      {r.data.detail && <p className="text-sm leading-relaxed text-ink/90">{r.data.detail}</p>}
+      <p className="text-base leading-snug font-semibold">{r.data.title}</p>
+      {r.data.detail && <p className="line-clamp-2 text-sm leading-relaxed text-ink/90">{r.data.detail}</p>}
       {r.data.urgent && (
         <p role="note" className="rounded-lg bg-alert/10 px-3 py-2 text-sm font-semibold text-alert">
           {URGENT_NOTE}
         </p>
       )}
+      {ahead && <HandoffRow calendar={{ title: r.data.title, date, details: r.data.detail }} />}
       <p className="text-xs text-muted">
-        {SOURCE_LABEL[r.data.source] ?? "記録"}
+        {clockAt(family, date).label}・{SOURCE_LABEL[r.data.source] ?? "記録"}
         {r.data.who ? `・${r.data.who}` : ""}
-        {r.data.seed ? "・デモ用の作った記録" : ""}
+        {r.data.seed ? "・デモ用" : ""}
       </p>
     </li>
   );
 }
 
 export function Timeline({ records, family, today, isDemo }: { records: CaptureRecord[]; family: Family; today: string; isDemo: boolean }) {
-  const dateOf = (r: CaptureRecord) => r.date ?? r.createdAt.slice(0, 10);
   const upcoming = records.filter((r) => dateOf(r) > today && r.data.kind === "予定").sort((a, b) => dateOf(a).localeCompare(dateOf(b)));
   // デモは早送りした「今日」より先のできごとを見せない（まだ起きていない）
   const past = records.filter((r) => dateOf(r) <= today || (!isDemo && r.data.kind !== "予定"));
@@ -55,28 +56,25 @@ export function Timeline({ records, family, today, isDemo }: { records: CaptureR
   return (
     <>
       {upcoming.length > 0 && (
-        <section className="flex flex-col gap-2">
-          <h2 className="font-display text-lg font-bold">
-            これからの予定 <span className="tabular text-sm font-normal text-muted">{upcoming.length}件</span>
-          </h2>
+        <Fold title="これからの予定" count={upcoming.length}>
           <ul className="flex flex-col gap-2">
             {upcoming.slice(0, 6).map((r) => (
-              <RecordItem key={r.id} r={r} family={family} />
+              <RecordItem key={r.id} r={r} family={family} today={today} />
             ))}
           </ul>
-        </section>
+        </Fold>
       )}
-      <section className="flex flex-col gap-2">
-        <h2 className="font-display text-lg font-bold">
-          これまでの記録 <span className="tabular text-sm font-normal text-muted">{past.length}件</span>
-        </h2>
-        {past.length === 0 && <p className="text-sm text-muted">まだ記録はありません。話すか撮ると、ここに日付つきで並びます。</p>}
-        <ul className="flex flex-col gap-2">
-          {past.slice(0, 40).map((r) => (
-            <RecordItem key={r.id} r={r} family={family} />
-          ))}
-        </ul>
-      </section>
+      {past.length > 0 ? (
+        <Fold title="これまでの記録" count={past.length}>
+          <ul className="flex flex-col gap-2">
+            {past.slice(0, 40).map((r) => (
+              <RecordItem key={r.id} r={r} family={family} today={today} />
+            ))}
+          </ul>
+        </Fold>
+      ) : (
+        <p className="text-sm text-muted">話すか撮ると、ここに日付つきで並びます</p>
+      )}
     </>
   );
 }

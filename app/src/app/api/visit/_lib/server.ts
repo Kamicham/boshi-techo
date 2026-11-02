@@ -7,6 +7,7 @@ import { get, list, patch, put, remove, filesDir, type Doc } from "@/lib/db";
 import { HttpError, requireFamily } from "@/lib/family";
 import { structured, imageBlock } from "@/lib/claude";
 import { transcribe } from "@/lib/asr";
+import { getKeep, remember } from "@/lib/keep";
 import {
   ASR_HINT,
   GuideSchema,
@@ -282,7 +283,20 @@ export async function makeGuide(v: VisitDoc, images: string[]) {
   });
   const guide = { steps: out.steps, done: [] as number[], at: new Date().toISOString(), unsure: out.unsure };
   patch<VisitData>(v.id, { guide });
+  // 院内の順番はそう変わらないので「いつもの病院」として覚え、次の健診では撮らずに出す
+  if (out.steps.length) {
+    remember(v.familyId, {
+      hospital: { name: out.hospital?.trim() || undefined, guide: { steps: out.steps, unsure: out.unsure, at: guide.at, fromVisit: v.id } },
+    });
+  }
   return guide;
+}
+
+/** 覚えている「いつもの順番」を、この健診の道案内にする（撮らずに使う） */
+export function keptGuideFor(v: VisitDoc): VisitData["guide"] | null {
+  const k = getKeep(v.familyId).hospital?.guide;
+  if (!k?.steps?.length) return null;
+  return { steps: k.steps, done: [], at: new Date().toISOString(), unsure: k.unsure ?? null };
 }
 
 /** 健診を消す（録音のファイルも）。まだ整理していない健診なら、持ち越した聞く事を元へ戻す */

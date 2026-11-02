@@ -361,21 +361,22 @@ export function Recorder({ visit, onFinished }: { visit: VisitView; onFinished: 
   const sentSome = (visit.takes ?? []).some((t) => t.chunks > 0) || counts.sent > 0;
 
   return (
-    <section aria-label="録音" className="flex flex-col gap-4 rounded-xl border border-line bg-card p-4">
-      <h2 className="font-display text-lg font-bold">先生の話を録音する</h2>
+    <section aria-label="録音" className="flex flex-col gap-4 rounded-2xl border border-line bg-card p-4">
+      {/* 録音中は止めるボタンを一番上にするため、見出しを出さない */}
+      {!(live || phase === "sending") && <h2 className="font-display text-xl font-bold">先生の話を録音する</h2>}
 
       {phase === "idle" && (
         <>
           {sentSome && (
-            <p className="rounded-lg bg-sky-soft px-3 py-2 text-sm text-sky">
-              前に録った分（{(visit.takes ?? []).reduce((n, t) => n + t.chunks, 0) * 10}秒ほど）が届いています。続きを録るか、このまま整理できます。
+            <p className="rounded-lg bg-sky-soft px-3 py-2 text-base text-sky">
+              前に録った分（{(visit.takes ?? []).reduce((n, t) => n + t.chunks, 0) * 10}秒ほど）が届いています
             </p>
           )}
           <button onClick={() => setPhase("consent")} className="rounded-full bg-rose py-5 font-display text-xl font-bold text-white">
             {sentSome ? "続きを録音する" : "録音を始める"}
           </button>
           {sentSome && (
-            <button onClick={() => void finish()} className="rounded-lg border border-ink py-2 text-sm font-semibold">
+            <button onClick={() => void finish()} className="min-h-11 rounded-full border border-ink/20 bg-card text-base font-semibold">
               録った分を整理する
             </button>
           )}
@@ -385,15 +386,15 @@ export function Recorder({ visit, onFinished }: { visit: VisitView; onFinished: 
       {phase === "consent" && (
         <div className="flex flex-col gap-3 rounded-xl bg-rose-soft p-4">
           <p className="font-display text-lg font-bold leading-snug">先生に「録音してもいいですか」と聞きましたか？</p>
-          <p className="text-sm text-muted">録音は家族があとで聞き返すためだけに使い、この手帳の中に置きます。</p>
+          <p className="text-base text-muted">家族が聞き返すためだけに使います</p>
           <div className="flex gap-2">
-            <button onClick={() => void begin()} className="flex-1 rounded-lg bg-rose py-3 font-semibold text-white">聞いた。始める</button>
-            <button onClick={() => setPhase("idle")} className="rounded-lg border border-line bg-card px-4 py-3 text-sm">まだ</button>
+            <button onClick={() => void begin()} className="min-h-12 flex-1 rounded-full bg-rose text-base font-semibold text-white">聞いた。始める</button>
+            <button onClick={() => setPhase("idle")} className="min-h-12 rounded-full border border-ink/20 bg-card px-5 text-base">まだ</button>
           </div>
         </div>
       )}
 
-      {phase === "starting" && <p className="text-sm text-muted">マイクを準備しています…</p>}
+      {phase === "starting" && <p className="text-base text-muted">マイクを準備しています…</p>}
 
       {(live || phase === "sending") && (
         <div className="flex flex-col items-center gap-3">
@@ -401,15 +402,15 @@ export function Recorder({ visit, onFinished }: { visit: VisitView; onFinished: 
           {live && (
             <div className="flex w-full gap-2">
               {phase === "recording" ? (
-                <button onClick={pause} className="rounded-lg border border-line px-4 py-3 text-sm">一時停止</button>
+                <button onClick={pause} className="min-h-12 rounded-full border border-ink/20 px-5 text-base">一時停止</button>
               ) : (
-                <button onClick={resume} className="rounded-lg border border-rose px-4 py-3 text-sm text-rose">再開</button>
+                <button onClick={resume} className="min-h-12 rounded-full border border-rose px-5 text-base font-semibold text-rose">再開</button>
               )}
-              <button onClick={stop} className="flex-1 rounded-lg bg-ink py-3 font-semibold text-paper">止めて整理する</button>
+              <button onClick={stop} className="min-h-12 flex-1 rounded-full bg-ink text-base font-semibold text-paper">止めて整理する</button>
             </div>
           )}
           <div className="flex w-full items-center justify-between gap-3">
-            <p className="flex items-center gap-2 text-sm font-semibold text-rose">
+            <p className="flex items-center gap-2 text-base font-semibold text-rose">
               <span className={`inline-block h-3 w-3 rounded-full bg-rose ${phase === "recording" ? "animate-pulse" : "opacity-40"}`} />
               {phase === "recording" ? "録音中" : phase === "paused" ? "一時停止中" : "残りを送っています…"}
             </p>
@@ -423,36 +424,40 @@ export function Recorder({ visit, onFinished }: { visit: VisitView; onFinished: 
           </p>
           {silent && (
             <p role="alert" className="w-full rounded-lg bg-alert/10 px-3 py-2 text-sm font-semibold text-alert">
-              10秒以上、音が入っていません。マイクを指で塞いでいないか、ほかのアプリ（通話・ミラーリングなど）がマイクを使っていないか確かめてください
+              10秒以上、音が入っていません。マイクを指で塞いでいないか、通話などほかのアプリがマイクを使っていないか確かめてください
             </p>
           )}
           {live && (
-            <p className="w-full rounded-lg bg-rose-soft px-3 py-2 text-sm font-semibold text-rose">
-              画面を消さない・ほかのアプリに切り替えないでください。iPhone は画面が消えると録音が止まります
+            <p className="w-full rounded-lg bg-rose-soft px-3 py-2 text-base font-semibold text-rose">
+              画面を消さない・ほかのアプリに切り替えない（iPhone は録音が止まります）
             </p>
           )}
         </div>
       )}
 
-      {phase === "importing" && <p className="text-sm text-muted">録音ファイルを送っています…（長い録音は少しかかります）</p>}
+      {phase === "importing" && <p className="text-base text-muted">録音ファイルを送っています…</p>}
 
-      {live && wakeWarn && <p className="rounded-lg bg-warn/15 px-3 py-2 text-sm text-warn">{wakeWarn}</p>}
-      {warn && <p role="status" className="rounded-lg bg-warn/15 px-3 py-2 text-sm text-warn">{warn}</p>}
-      {netErr && <p className="rounded-lg bg-warn/15 px-3 py-2 text-sm text-warn">{netErr}</p>}
-      {err && <p role="alert" className="rounded-lg bg-alert/10 px-3 py-2 text-sm text-alert">{err}</p>}
+      {live && wakeWarn && <p className="rounded-lg bg-warn/15 px-3 py-2 text-base text-warn">{wakeWarn}</p>}
+      {warn && <p role="status" className="rounded-lg bg-warn/15 px-3 py-2 text-base text-warn">{warn}</p>}
+      {netErr && <p className="rounded-lg bg-warn/15 px-3 py-2 text-base text-warn">{netErr}</p>}
+      {err && <p role="alert" className="rounded-lg bg-alert/10 px-3 py-2 text-base text-alert">{err}</p>}
 
       {backup && (
         <a
           href={backup.url}
           download={backup.name}
-          className={netErr || err ? "rounded-lg border border-ink py-2 text-center text-sm font-semibold" : "text-center text-xs text-muted underline"}
+          className={
+            netErr || err
+              ? "inline-flex min-h-11 items-center justify-center rounded-full border border-ink/20 bg-card text-base font-semibold"
+              : "inline-flex min-h-11 items-center justify-center text-sm text-muted underline"
+          }
         >
           念のため、この端末にも録音を保存する
         </a>
       )}
 
       {phase === "idle" && (
-        <label className="cursor-pointer text-center text-xs text-muted underline">
+        <label className="inline-flex min-h-11 cursor-pointer items-center justify-center text-sm text-muted underline">
           録音ファイルを取り込む（ボイスメモなど）
           <input
             type="file"

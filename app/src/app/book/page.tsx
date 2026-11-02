@@ -3,6 +3,7 @@
 // ⑦ 子どもへの贈り物: 1000日の記録が、最後に一冊になる。
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
+import { Btn, CopyButton, Fold, NextStep, Pill, ShareButton, Why } from "@/components/ui";
 import type { Book } from "@/lib/book";
 
 function jpDay(s: string) {
@@ -37,7 +38,6 @@ export default function BookPage() {
   const [making, setMaking] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [error, setError] = useState("");
-  const [note, setNote] = useState("");
   const [page, setPage] = useState(0);
 
   const load = useCallback(async () => {
@@ -62,7 +62,6 @@ export default function BookPage() {
   const make = async () => {
     setMaking(true);
     setError("");
-    setNote("");
     try {
       const r = await api<{ book: Book }>("/api/book", { body: { familyId: family.id, today } });
       setBook(r.book);
@@ -77,20 +76,8 @@ export default function BookPage() {
   const seed = async () => {
     setSeeding(true);
     setError("");
-    setNote("");
     try {
-      const r = await fetch("/api/capture/seed", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ familyId: family.id, today }),
-      });
-      if (r.status === 404) {
-        setNote("デモの記録を入れる仕組みは、まだ準備中です（「話す・撮る」の担当が作っています）");
-        return;
-      }
-      const j = (await r.json().catch(() => ({}))) as { error?: string };
-      if (!r.ok) throw new Error(j.error ?? `デモの記録を入れられませんでした（${r.status}）`);
-      setNote("デモの記録を入れました");
+      await api("/api/capture/seed", { body: { familyId: family.id, today } });
       await load();
     } catch (e) {
       setError((e as Error).message);
@@ -100,71 +87,81 @@ export default function BookPage() {
   };
 
   const child = family.childName ?? "赤ちゃん";
+  const n = count ?? 0;
 
   if (making) return <Binding child={child} />;
 
   return (
-    <main className="flex flex-col gap-5 px-4 pt-4">
-      <header>
-        <p className="text-xs font-semibold tracking-widest text-rose">子どもへの贈り物</p>
-        <h1 className="font-display text-2xl font-bold">{child}への一冊</h1>
-        <p className="text-sm text-muted">話した事・撮った事・健診で先生と話した事が、1000日の終わりに一冊の本になります。</p>
-      </header>
+    <main className="flex flex-col gap-4 px-4 pt-4">
+      <h1 className="sr-only">{child}への一冊</h1>
 
       {loading ? (
-        <p className="text-sm text-muted">本棚を見ています…</p>
+        <p className="text-base text-muted">本棚を見ています…</p>
       ) : book ? (
         <>
           <Reader book={book} page={page} setPage={setPage} />
-          <div className="flex flex-col gap-2 text-xs text-muted">
-            <p>
-              {jpDay(book.asOf)}までの記録 {book.sourceCount} 件から作りました。
-              {count != null && count > book.sourceCount && ` いまは記録が ${count} 件あります。`}
-            </p>
-            <button onClick={make} className="self-start rounded-lg border border-line bg-card px-4 py-2 text-sm font-semibold text-ink">
-              今日までの記録で作り直す
-            </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <ShareButton title={book.title} text={bookText(book)} label="家族に渡す" />
+            <CopyButton text={bookText(book)} label="全部コピー" />
           </div>
+          <Fold title="作り直す">
+            <p className="text-base">
+              {jpDay(book.asOf)}までの記録 <b className="tabular">{book.sourceCount}</b> 件から作りました
+              {count != null && count > book.sourceCount && (
+                <>
+                  {" "}
+                  <Pill tone="rose">いま {count} 件</Pill>
+                </>
+              )}
+            </p>
+            <Btn kind="secondary" onClick={() => void make()}>
+              今日までの記録で作り直す
+            </Btn>
+          </Fold>
         </>
+      ) : n === 0 && !isDemo ? (
+        <NextStep eyebrow={`${child}への一冊`} title="まず話す・撮る" sub="ふだんの記録が、そのまま本になります">
+          <Btn href="/capture">話す・撮るへ</Btn>
+          <BookWhy />
+        </NextStep>
       ) : (
-        <Empty count={count ?? 0} isDemo={isDemo} seeding={seeding} onSeed={seed} onMake={make} />
+        <NextStep eyebrow={`${child}への一冊`} title="一冊を作る" sub={n > 0 ? `いまの記録 ${n} 件から` : "デモの記録を入れてから作れます"}>
+          {isDemo && n === 0 ? (
+            <Btn onClick={() => void seed()} disabled={seeding}>
+              {seeding ? "入れています…" : "デモの記録を入れる"}
+            </Btn>
+          ) : (
+            <Btn onClick={() => void make()}>作る</Btn>
+          )}
+          <BookWhy />
+        </NextStep>
       )}
 
-      {note && <p className="rounded-lg bg-sky-soft px-3 py-2 text-sm text-sky">{note}</p>}
-      {error && <p className="rounded-lg bg-alert/10 px-3 py-2 text-sm text-alert">{error}</p>}
+      {error && <p className="rounded-xl bg-alert/10 px-4 py-3 text-base text-alert">{error}</p>}
+      <div className="pb-6" />
     </main>
   );
 }
 
-function Empty({ count, isDemo, seeding, onSeed, onMake }: { count: number; isDemo: boolean; seeding: boolean; onSeed: () => void; onMake: () => void }) {
+/** 何が本になるか（表に出さず「なぜ？」の奥へ） */
+function BookWhy() {
   return (
-    <section className="flex flex-col gap-4 rounded-2xl border border-line bg-card p-5">
-      <h2 className="font-display text-lg font-bold">まだページは白いままです</h2>
-      <p className="text-sm leading-relaxed">この本は、家族がふだん残した物からできます。新しく書く物はありません。</p>
-      <ul className="flex flex-col gap-2 text-sm leading-relaxed">
-        <li>
-          <b className="text-rose">話す・撮る</b>　胎動を感じた日、名前を考えた夜、はじめて笑った顔
-        </li>
-        <li>
-          <b className="text-rose">健診</b>　先生とどんな話をしたか（体の良し悪しは本に書きません）
-        </li>
-        <li>
-          <b className="text-rose">済んだ手続き</b>　あなたを迎えるために家族がした事の題だけ
-        </li>
-      </ul>
-      <p className="text-xs text-muted">いまの記録: {count} 件</p>
-      <div className="flex flex-wrap gap-2">
-        {isDemo && (
-          <button onClick={onSeed} disabled={seeding} className="rounded-lg border border-sky bg-sky-soft px-4 py-2 text-sm font-semibold text-sky disabled:opacity-60">
-            {seeding ? "入れています…" : "デモの記録を入れる"}
-          </button>
-        )}
-        <button onClick={onMake} disabled={count === 0} className="rounded-lg bg-rose px-4 py-2 text-sm font-semibold text-white disabled:opacity-40">
-          一冊を作る
-        </button>
-      </div>
-    </section>
+    <div className="w-full">
+      <Why label="何が本になる？">
+        <p>話す・撮る: 胎動を感じた日、はじめて笑った顔</p>
+        <p>健診: 先生と話した事（体の良し悪しは書きません）</p>
+        <p>済んだ手続き: 家族がした事の題だけ</p>
+      </Why>
+    </div>
   );
+}
+
+/** 一冊を、そのまま送れる文に */
+function bookText(book: Book): string {
+  const parts = [book.title, `${book.childName}へ`, "", book.dedication];
+  book.chapters.forEach((ch, i) => parts.push("", `第${i + 1}章　${ch.title}（${ch.period}）`, "", ch.text.trim()));
+  parts.push("", "おわりに", "", book.closing.trim(), "", jpDay(book.asOf));
+  return parts.join("\n");
 }
 
 /** 作っている間: 本が綴じられていく様子 */
@@ -192,8 +189,8 @@ function Binding({ child }: { child: string }) {
       </div>
       <div className="flex flex-col gap-2">
         <p className="font-display text-lg font-bold">一冊を綴じています</p>
-        <p className="text-sm text-ink">{WAIT_STEPS[step]}…</p>
-        <p className="tabular text-xs text-muted">{sec} 秒。ていねいに書くので、数分かかります。この画面のまま待ってください</p>
+        <p className="text-base text-ink">{WAIT_STEPS[step]}…</p>
+        <p className="tabular text-sm text-muted">{sec} 秒・数分かかります。この画面のままで</p>
       </div>
     </main>
   );
@@ -214,7 +211,7 @@ function Reader({ book, page, setPage }: { book: Book; page: number; setPage: (n
     <section className="flex flex-col gap-3">
       <div
         ref={top}
-        className="min-h-[28rem] overflow-hidden rounded-r-2xl rounded-l-md border border-line border-l-4 border-l-rose/40 bg-card px-6 py-8 shadow-[0_2px_12px_rgba(43,42,51,0.08)]"
+        className="min-h-[28rem] overflow-hidden rounded-r-2xl rounded-l-md border border-line border-l-4 border-l-rose/40 bg-card px-5 py-8 shadow-[0_2px_12px_rgba(43,42,51,0.08)]"
         onTouchStart={(e) => (touchX.current = e.touches[0].clientX)}
         onTouchEnd={(e) => {
           if (touchX.current == null) return;
@@ -224,16 +221,16 @@ function Reader({ book, page, setPage }: { book: Book; page: number; setPage: (n
         }}
       >
         <PageBody book={book} page={pages[p]} />
-        {p > 0 && <p className="tabular mt-8 text-center text-xs text-muted">— {p} —</p>}
+        {p > 0 && <p className="tabular mt-8 text-center text-sm text-muted">— {p} —</p>}
       </div>
       <nav className="flex items-center justify-between" aria-label="ページをめくる">
-        <button onClick={() => go(p - 1)} disabled={p === 0} className="rounded-full border border-line bg-card px-4 py-2 text-sm font-semibold disabled:opacity-30">
+        <button onClick={() => go(p - 1)} disabled={p === 0} className="min-h-11 rounded-full border border-line bg-card px-5 text-base font-semibold disabled:opacity-30">
           ← 前へ
         </button>
-        <span className="tabular text-xs text-muted">
+        <span className="tabular text-sm text-muted">
           {p + 1} / {pages.length}
         </span>
-        <button onClick={() => go(p + 1)} disabled={p === pages.length - 1} className="rounded-full border border-line bg-card px-4 py-2 text-sm font-semibold disabled:opacity-30">
+        <button onClick={() => go(p + 1)} disabled={p === pages.length - 1} className="min-h-11 rounded-full border border-line bg-card px-5 text-base font-semibold disabled:opacity-30">
           次へ →
         </button>
       </nav>
@@ -243,7 +240,7 @@ function Reader({ book, page, setPage }: { book: Book; page: number; setPage: (n
 
 function Paragraphs({ text }: { text: string }) {
   return (
-    <div className="flex flex-col gap-5 text-[15px] leading-[2.1] tracking-wide">
+    <div className="flex flex-col gap-5 text-[17px] leading-[2.05] tracking-wide">
       {text
         .split(/\n{2,}|\n/)
         .map((s) => s.trim())
@@ -275,7 +272,7 @@ function PageBody({ book, page }: { book: Book; page: Page }) {
     return (
       <div className="flex min-h-[24rem] flex-col justify-center gap-6">
         <p className="text-center text-xs tracking-[0.3em] text-muted">はじめに</p>
-        <p className="font-display text-lg leading-[2.2]">{book.dedication}</p>
+        <p className="font-display text-xl leading-[2.2]">{book.dedication}</p>
       </div>
     );
   }
@@ -299,10 +296,10 @@ function PageBody({ book, page }: { book: Book; page: Page }) {
       </header>
       <Paragraphs text={ch.text} />
       {ch.moments.length > 0 && (
-        <ol className="flex flex-col gap-2 border-t border-dashed border-line pt-4 text-sm">
+        <ol className="flex flex-col gap-2 border-t border-dashed border-line pt-4 text-base">
           {ch.moments.map((m, i) => (
-            <li key={i} className="grid grid-cols-[6.5rem_1fr] gap-2 leading-relaxed">
-              <span className="tabular text-xs text-sky">{/^\d{4}-\d{2}-\d{2}$/.test(m.date) ? jpDay(m.date) : m.date}</span>
+            <li key={i} className="grid grid-cols-[7.5rem_1fr] gap-2 leading-relaxed">
+              <span className="tabular text-sm text-sky">{/^\d{4}-\d{2}-\d{2}$/.test(m.date) ? jpDay(m.date) : m.date}</span>
               <span>{m.text}</span>
             </li>
           ))}
