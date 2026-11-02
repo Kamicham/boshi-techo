@@ -2,6 +2,7 @@
 // 住む町だけは実在の市にして、制度は本物を取りに行く。
 
 import type { FamilyDates } from "./clock";
+import type { Situation } from "./situation";
 
 export interface Member {
   id: string;
@@ -25,6 +26,8 @@ export interface Family extends FamilyDates {
   previousCity?: string;
   previousPrefecture?: string;
   movedOn?: string;
+  /** 家族の形（働き方・育休・上の子・里帰り・祖父母）。わからない欄は空のまま（今までどおりの予定が出る） */
+  situation?: Situation;
 }
 
 export const DEMO_FAMILY: Family = {
