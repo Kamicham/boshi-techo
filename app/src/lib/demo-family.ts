@@ -42,6 +42,20 @@ export const DEMO_FAMILY: Family = {
   previousPrefecture: "神奈川県",
   movedOn: "2027-01-18",
   childName: "ひなた",
+  // 家族の形: 美咲は会社員で育休を取る。翔太も会社員で、産後パパ育休を取る（参謀の「早く生まれた」場面で、始まる日を早める）。
+  // 初めての子で1人。和子は鹿児島から手伝いに来るので、里帰りはしない。翔太の親は書いていないので空。
+  situation: {
+    motherWork: "会社員・公務員",
+    motherLeave: "取る",
+    partnerWork: "会社員・公務員",
+    partnerLeave: "取る",
+    partnerNightShift: false,
+    partnerAway: false,
+    olderChildren: [],
+    babies: 1,
+    satogaeri: null,
+    grandparents: { mother: "遠く" },
+  },
   members: [
     { id: "misaki", name: "美咲", role: "母", voice: "初めての出産。会社員で、細かい段取りは苦手ではないが、時間がない" },
     { id: "shota", name: "翔太", role: "パートナー", voice: "やる気はあるが、何をすればいいか分からない。短く具体的に" },

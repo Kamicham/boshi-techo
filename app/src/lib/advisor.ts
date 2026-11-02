@@ -5,6 +5,7 @@ import { z } from "zod";
 import { addDays, clockAt, diffDays } from "./clock";
 import type { Family, Member } from "./demo-family";
 import { scheduleFor, statusOf, type Milestone } from "./milestones";
+import type { GrandparentPlace, Situation } from "./situation";
 
 export type TriggerKind = "birth-early" | "birth-late" | "moved" | "grandparents" | "partner-stalled";
 
@@ -18,6 +19,8 @@ export interface Trigger {
   facts: string[];
   /** 文面の宛先になる人（いれば） */
   to?: { memberId?: string; role: string };
+  /** 文面を送る人（家族の一人。その人の名前で書く） */
+  from?: { memberId: string; name: string };
   /** 町が変わった時だけ: 調べに行く */
   research?: { from: string; to: string; phase: string };
 }
@@ -61,6 +64,63 @@ function memberLine(m: Member): string {
   return `${m.name}（${m.role}）${m.voice ? `: ${m.voice}` : ""}`;
 }
 
+const GP_WORD: Record<GrandparentPlace, string> = { 同居: "同じ家に住んでいる", 近く: "近くに住んでいる", 遠く: "遠くに住んでいる", いない: "いない（亡くなった・付き合いが無いなど）" };
+
+/** 祖父母が手を貸せる近さか（同居・近く） */
+const nearGp = (p?: GrandparentPlace) => p === "同居" || p === "近く";
+
+/**
+ * 家族の形（situation）を、Claude に渡す言葉にする。わからない欄は書かない（決めつけない）。
+ * 頼める人（同居・近くの祖父母、里帰り先の実家）・平日の日中に動ける人（夜勤）・上の子・仕事の有無を入れる。
+ */
+export function situationFacts(f: Family): string[] {
+  const s: Situation | undefined = f.situation;
+  if (!s) return [];
+  const mom = f.members.find((m) => m.role === "母");
+  const partner = f.members.find((m) => m.role === "パートナー");
+  const out: string[] = [];
+  if (s.motherWork) out.push(`${mom?.name ?? "母"}の働き方: ${s.motherWork}${s.motherLeave && s.motherWork !== "仕事なし" ? `（育休: ${s.motherLeave}）` : ""}`);
+  if (partner && s.partnerWork) out.push(`${partner.name}の働き方: ${s.partnerWork}${s.partnerLeave && s.partnerWork !== "仕事なし" ? `（育休: ${s.partnerLeave}）` : ""}`);
+  if (partner && s.partnerNightShift) out.push(`${partner.name}は夜勤がある（夜勤明けや休みの平日の日中に、役所など平日の窓口へ行ける日がある。昼は眠っている時間もある）`);
+  if (partner && s.partnerAway) out.push(`${partner.name}は単身赴任で、ふだんは家にいない（電話・オンラインでできる事が向く）`);
+  if (s.olderChildren) {
+    out.push(
+      s.olderChildren.length
+        ? `上の子が${s.olderChildren.length}人（生まれた年月: ${s.olderChildren.join("・")}）。上の子の世話・送り迎え・入院中の預け先も考える`
+        : "初めての子（上の子はいない）",
+    );
+  }
+  if (s.babies && s.babies > 1) out.push(`生まれる子は${s.babies}人（双子など）`);
+  if (s.satogaeri) out.push(`里帰り出産: ${s.satogaeri.prefecture}${s.satogaeri.city}の実家へ${s.satogaeri.from ? `（${s.satogaeri.from}から${s.satogaeri.until ? `${s.satogaeri.until}まで` : ""}）` : ""}。里帰りの間は、実家の人（母方の祖父母など）が頼める人`);
+  else if (s.satogaeri === null) out.push("里帰り出産はしない");
+  const g = s.grandparents;
+  if (g?.mother) out.push(`母方の祖父母: ${GP_WORD[g.mother]}${nearGp(g.mother) ? "（頼める人）" : ""}`);
+  if (g?.partner) out.push(`パートナー方の祖父母: ${GP_WORD[g.partner]}${nearGp(g.partner) ? "（頼める人）" : ""}`);
+  return out;
+}
+
+/** 祖父母を頼める（家族に祖父母が入っている・同居か近く・里帰り先の実家） */
+function helperLine(f: Family): string {
+  const s = f.situation;
+  const gps = f.members.filter((m) => m.role === "祖父母");
+  const near: string[] = [];
+  if (nearGp(s?.grandparents?.mother)) near.push(`母方の祖父母（${s!.grandparents!.mother}）`);
+  if (nearGp(s?.grandparents?.partner)) near.push(`パートナー方の祖父母（${s!.grandparents!.partner}）`);
+  if (s?.satogaeri) near.push(`里帰り先（${s.satogaeri.prefecture}${s.satogaeri.city}）の実家の人`);
+  if (gps.length) return `祖父母: ${gps.map((g) => `${memberLine(g)}${g.visit?.from ? `（${jp(g.visit.from)}から来る予定）` : ""}`).join("／")}${near.length ? `。ほかに頼める人: ${near.join("・")}` : ""}`;
+  if (near.length) return `手帳には入っていないが、頼める人: ${near.join("・")}（家事・上の子・電話での下調べなどを頼める）`;
+  const known = s?.grandparents && (s.grandparents.mother || s.grandparents.partner);
+  return known
+    ? "祖父母は遠く・いないので、すぐには頼めない（外の手: 自治体の産前産後ヘルパー・家事支援など。町のページで調べる前提で）"
+    : "祖父母を頼めるかは、まだ分からない（家族に聞く。外の手: 自治体の産前産後ヘルパー・家事支援など。町のページで調べる前提で）";
+}
+
+/** 頼める祖父母が、手帳の家族の外にいるか（同居・近く・里帰り先） */
+function helperOutside(f: Family): boolean {
+  const s = f.situation;
+  return nearGp(s?.grandparents?.mother) || nearGp(s?.grandparents?.partner) || !!s?.satogaeri;
+}
+
 // ── 1. 予定より早く／遅く生まれた ──
 function birthShift(input: AdvisorInput, schedule: Milestone[], done: Set<string>): Trigger | null {
   const { family: f, today } = input;
@@ -97,6 +157,7 @@ function birthShift(input: AdvisorInput, schedule: Milestone[], done: Set<string
     priority: 1,
     facts,
     to: { role: "職場の上司" },
+    ...fromRole(f, "母"),
   };
 }
 
@@ -116,6 +177,7 @@ function moved(input: AdvisorInput): Trigger | null {
     priority: 2,
     facts: [`${jp(f.movedOn)}に ${from} から ${to} へ引っ越した（その時: ${clock.label}）`, `今日は引っ越して${since}日目`],
     research: { from, to, phase: clock.label },
+    ...fromRole(f, "母"),
   };
 }
 
@@ -150,6 +212,7 @@ function grandparents(input: AdvisorInput, schedule: Milestone[], done: Set<stri
       ...during.map((m) => `- ${m.title}（担当の目安: ${m.who}${m.deadlineDate ? `・${jp(m.deadlineDate)}まで` : ""}）`),
     ],
     to: { memberId: g.m.id, role: g.m.name },
+    ...fromRole(f, "母"),
   };
 }
 
@@ -173,9 +236,7 @@ function partnerStalled(input: AdvisorInput, schedule: Milestone[], done: Set<st
     ...stuck.map((m) => `- ${m.title}: ${jp(m.deadlineDate!)}まで（あと${diffDays(m.deadlineDate!, today)}日・始まって${diffDays(today, m.startDate)}日）`),
     `今の時期: ${clockAt(f, today).label}`,
     mother ? `${mother.name}（母）の担当で今動いている事: ${motherOpen}件` : "",
-    gps.length
-      ? `祖父母: ${gps.map((g) => `${memberLine(g)}${g.visit?.from ? `（${jp(g.visit.from)}から来る予定）` : ""}`).join("／")}`
-      : "祖父母は家族に入っていない（外の手: 自治体の産前産後ヘルパー・家事支援など。町のページで調べる前提で）",
+    helperLine(f),
   ].filter(Boolean);
   const g = gps[0];
   return {
@@ -183,8 +244,16 @@ function partnerStalled(input: AdvisorInput, schedule: Milestone[], done: Set<st
     key: `partner-stalled:${partner.id}:${stuck.map((m) => m.id).join(",")}`,
     priority: 4,
     facts,
-    to: g ? { memberId: g.id, role: g.name } : { role: "町の窓口" },
+    // 頼める祖父母がいれば祖父母へ（手帳の外なら「母方の祖父母」など役の言い方で）。いなければ町の窓口へ
+    to: g ? { memberId: g.id, role: g.name } : helperOutside(f) ? { role: "頼める祖父母（実家）" } : { role: "町の窓口" },
+    from: { memberId: partner.id, name: partner.name },
   };
+}
+
+/** 文面を送る人（その役の人がいれば） */
+function fromRole(f: Family, role: Member["role"]): { from?: Trigger["from"] } {
+  const p = f.members.find((m) => m.role === role);
+  return p ? { from: { memberId: p.id, name: p.name } } : {};
 }
 
 /** 今のきっかけを、出す順に並べて返す（何も無ければ空） */
@@ -218,7 +287,7 @@ export const AdviceSchema = z.object({
       to: z.string().describe("相手の役（例: 職場の上司・和子さん・町の窓口）"),
       via: z.enum(["mail", "line"]).describe("職場・役所は mail、家族は line"),
       subject: z.string().optional().describe("mail の時だけ。件名"),
-      body: z.string().describe("そのまま送れる本文。分からない名前・日付は【 】の空欄にする"),
+      body: z.string().describe("そのまま送れる本文。送る人の名前で書く。分からない名前・日付は【 】の空欄にする"),
     })
     .optional()
     .describe("そのまま渡せる文面（1通）。要らなければ省く"),

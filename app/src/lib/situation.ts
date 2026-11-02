@@ -44,3 +44,25 @@ export function partnerEmployed(s: Situation | undefined): boolean {
 export function hasOlderChildren(s: Situation | undefined): boolean {
   return !!s?.olderChildren?.length;
 }
+
+/** パートナーが育休を取るかもしれないか（取る・未定・わからない、かつ雇われて働く・わからない時は true = 今までどおり育休の事を出す） */
+export function partnerTakesLeave(s: Situation | undefined): boolean {
+  return partnerEmployed(s) && s?.partnerLeave !== "取らない";
+}
+
+/** 生まれる子の数（わからない時は 1） */
+export function babyCount(s: Situation | undefined): number {
+  return s?.babies && s.babies > 1 ? Math.floor(s.babies) : 1;
+}
+
+/**
+ * 母が国民年金の第1号・国民健康保険に入っていそうか（産前産後の保険料の免除の届けを出す人）。
+ * 自営・フリーの母。仕事なしの母は、パートナーがいない時か、パートナーも自営・仕事なしの時（会社員の扶養なら当てはまらない）。
+ * わからない時は false（出さない）。入っている保険は家族が確かめる
+ */
+export function isFirstNenkinMother(s: Situation | undefined, hasPartner: boolean): boolean {
+  if (s?.motherWork === "自営・フリー") return true;
+  if (s?.motherWork !== "仕事なし") return false;
+  if (!hasPartner) return true;
+  return s.partnerWork === "自営・フリー" || s.partnerWork === "仕事なし";
+}

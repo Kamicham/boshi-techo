@@ -10,6 +10,7 @@
 // 予定日は、今日（POP_TODAY）から見て「授かる前〜2歳過ぎ」に一様にばらける。どの家族も今日から使い始める（startedOn = 今日）。
 import { addDays, addMonths, clockAt, diffDays, lmpFromDue, secondBirthday } from "../lib/clock";
 import type { Family, Member } from "../lib/demo-family";
+import type { GrandparentPlace, Situation } from "../lib/situation";
 import type { Persona, SimFamily } from "./types";
 import {
   ART_AGE_WEIGHT,
@@ -643,7 +644,48 @@ export function makeFamily(seed: number, index: number): PopFamily {
     move,
     hearing,
   };
-  return { ...fam, persona: personaFor(r, fam, profile), profile };
+  const persona = personaFor(r, fam, profile);
+  // 家族の形は、profile を作った後で写すだけ（乱数を引かないので、1000組の顔ぶれと割合は変わらない）
+  fam.situation = situationFromProfile(profile, birthDate);
+  return { ...fam, persona, profile };
+}
+
+// ───────── profile → 家族の形（Family.situation） ─────────
+
+const GP: Record<GrandmaPlace, GrandparentPlace> = {
+  同居: "同居",
+  同じ市区町村: "近く",
+  遠く: "遠く",
+  // 国外は「遠く」に寄せた（近似。来られる時期が限られる点は同じ）
+  国外: "遠く",
+  亡くなっている: "いない",
+};
+
+/** 作った家族の profile を、アプリが読む家族の形に写す。統計で決めていない事（里帰りの期間など）は空のまま */
+export function situationFromProfile(p: PopProfile, birthDate: string): Situation {
+  const mw = p.motherWork;
+  const motherWork: Situation["motherWork"] =
+    mw.after === "退職" ? "出産で辞める" : { 正規: "会社員・公務員", 非正規: "パート・派遣", 自営など: "自営・フリー", 無職: "仕事なし" }[mw.atPregnancy] as Situation["motherWork"];
+  const s: Situation = {
+    motherWork,
+    // 育休は雇われて働く人の制度。自営・仕事なし・辞める人は「取らない」
+    motherLeave: mw.after === "育休" ? "取る" : "取らない",
+    // 上の子の生まれ年月 = この子が生まれた月から、上の子の年齢（か月）を引く
+    olderChildren: p.olderChildrenMonths.map((m) => addMonths(birthDate, -m).slice(0, 7)),
+    babies: p.twins ? 2 : 1,
+    satogaeri: p.satogaeri ? { prefecture: p.satogaeri.prefecture, city: p.satogaeri.city } : null,
+    // 統計は祖母の住む所。祖父母の住む所として使う（近似）
+    grandparents: { mother: GP[p.grandma.mother] },
+  };
+  if (p.father) {
+    // 「その他」は非正規・無職・不詳をまとめた区分。いちばん多い非正規に寄せた（近似）
+    s.partnerWork = { 正規: "会社員・公務員", 自営など: "自営・フリー", その他: "パート・派遣" }[p.father.work] as Situation["partnerWork"];
+    s.partnerLeave = p.father.leave ? "取る" : "取らない";
+    s.partnerNightShift = p.father.nightShift;
+    s.partnerAway = p.father.tanshin;
+    if (p.grandma.father) s.grandparents!.partner = GP[p.grandma.father];
+  }
+  return s;
 }
 
 // ───────── persona（なりきり用。家族の状況から機械で作る） ─────────

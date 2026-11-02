@@ -74,3 +74,32 @@ describe("窓口の表示", () => {
     expect(officeSearch({ prefecture: "奈良県", city: "上牧町", office: "上牧町役場" })).toBe("奈良県上牧町役場");
   });
 });
+
+describe("fillFamilyBlanks（家族の情報で分かる空欄）", () => {
+  const f = {
+    city: "さいたま市",
+    prefecture: "埼玉県",
+    dueDate: "2027-05-10",
+    birthDate: "2027-04-26",
+    childName: "ひなた",
+    members: [
+      { id: "a", name: "美咲", role: "母" },
+      { id: "b", name: "パパ", role: "パートナー" },
+    ],
+  };
+  it("町名・都道府県・母の名前・予定日・書き手を埋める", async () => {
+    const { fillFamilyBlanks } = await import("./blanks");
+    expect(fillFamilyBlanks("【町名】【都道府県】の窓口へ。【母の名前】・予定日【出産予定日】【名前】", f, { writer: "美咲" })).toBe(
+      "さいたま市埼玉県の窓口へ。美咲・予定日2027年5月10日美咲",
+    );
+  });
+  it("呼び名が「パパ」のパートナーは埋めず、覚えた名前があれば使う", async () => {
+    const { fillFamilyBlanks } = await import("./blanks");
+    expect(fillFamilyBlanks("【パートナーの名前】", f)).toBe("【パートナーの名前】");
+    expect(fillFamilyBlanks("【パートナーの名前】", f, { names: { b: "佐藤 翔太" } })).toBe("佐藤 翔太");
+  });
+  it("書き手が分からなければ【名前】は残す", async () => {
+    const { fillFamilyBlanks } = await import("./blanks");
+    expect(fillFamilyBlanks("【名前】", f)).toBe("【名前】");
+  });
+});

@@ -133,3 +133,41 @@ export function jpDate(iso: string): string {
 export function isRoleWord(name: string): boolean {
   return /^(ママ|パパ|母|父|妻|夫|お?かあさん|お?とうさん|お母さん|お父さん|ばあば|じいじ|祖母|祖父|おばあちゃん|おじいちゃん|わたし|私|自分|本人)$/.test(name.trim());
 }
+
+/** 家族の情報で分かる空欄を埋める時に使う家族の形（Family の一部。画面とサーバの両方で使う） */
+export interface FamilyForBlanks {
+  city: string;
+  prefecture: string;
+  dueDate: string;
+  birthDate?: string;
+  childName?: string;
+  members: { id: string; name: string; role: string }[];
+}
+
+/**
+ * 家族の情報で分かる【 】を埋める（町名・都道府県・パートナーや母の名前・赤ちゃんの名前・予定日・生まれた日）。
+ * 書き手の名前（【名前】【自分の名前】）は writer があれば入れる。分からない物（呼び名が「パパ」など）は空欄のまま。
+ * names は「いつもの」に覚えた手紙の名前（家族の id ごと）。
+ */
+export function fillFamilyBlanks(text: string, f: FamilyForBlanks, opts: { writer?: string | null; names?: Record<string, string> } = {}): string {
+  const nameOf = (role: string) => {
+    const p = f.members.find((m) => m.role === role);
+    if (!p) return undefined;
+    const kept = opts.names?.[p.id];
+    return kept || (isRoleWord(p.name) ? undefined : p.name);
+  };
+  const ymd = (d: string) => jpDate(d);
+  return text.replace(/【([^】\n]{1,40})】/g, (m, inner: string) => {
+    const s = inner.replace(/\s/g, "").replace(/様$/, "");
+    let v: string | undefined;
+    if (/^(町名|市区町村名?|市町村名?|お?住まいの(町|市区町村)|住んでいる(町|市区町村)|自治体名?|市名|区名)$/.test(s)) v = f.city;
+    else if (/^(都道府県名?|県名)$/.test(s)) v = f.prefecture || undefined;
+    else if (/^(パートナー|夫|旦那|配偶者|父親?|パパ)の?(お?名前|氏名)$/.test(s)) v = nameOf("パートナー");
+    else if (/^(母親?|妻|ママ|妊婦)の?(お?名前|氏名)$/.test(s)) v = nameOf("母");
+    else if (/^(赤ちゃん|子ども|子供|お子さん|お子様|児童)の?(お?名前|呼び名)$/.test(s)) v = f.childName;
+    else if (/^(出産)?予定日$/.test(s)) v = ymd(f.dueDate);
+    else if (/^(生まれた日|出生日|出産日|誕生日)$/.test(s)) v = f.birthDate ? ymd(f.birthDate) : undefined;
+    else if (/^(お?名前|氏名|自分の(お?名前|氏名)|差出人|送り主)$/.test(s)) v = opts.writer ?? undefined;
+    return v?.trim() ? v.trim() : m;
+  });
+}

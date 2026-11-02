@@ -11,6 +11,7 @@ import { Briefing } from "@/components/visit/Briefing";
 import { StatusChip } from "@/components/visit/StatusChip";
 import { DEMO_AGENDA, DEMO_TRANSCRIPT, DEMO_VISIT_WEEKS } from "@/components/visit/demoTranscript";
 import { addDays, lmpFromDue } from "@/lib/clock";
+import { deadlineKindOf, scheduleFor, statusOf, type Milestone, type Status } from "@/lib/milestones";
 import { briefingDay, visitLabel, type AgendaItem, type VisitPlan, type VisitStatus } from "@/lib/visit";
 
 interface Row {
@@ -173,6 +174,7 @@ export default function VisitList() {
   }
 
   const agenda = data?.agenda ?? [];
+  const born = !!family.birthDate && family.birthDate <= today;
   return (
     <main className="flex flex-col gap-4 px-4 pt-4 pb-6">
       <h1 className="font-display text-xl font-bold">健診</h1>
@@ -199,6 +201,10 @@ export default function VisitList() {
         </p>
       )}
 
+      {/* 生まれた後は、ママの健診の上に「赤ちゃんの健診・予防接種」 */}
+      {born && <BabyCheckups familyId={family.id} today={today} />}
+
+      {born && <h2 className="pt-2 text-sm font-semibold text-muted">ママの健診</h2>}
       {top}
 
       {isDemo && data && (
@@ -362,5 +368,83 @@ function AskQuick({ count, onAdd }: { count: number; onAdd: (t: string) => void 
       </form>
       {added && <p className="text-sm text-muted">足しました（聞く事 {count}件）。続けて書けます</p>}
     </div>
+  );
+}
+
+/**
+ * 赤ちゃんの健診・予防接種（予定表の「健診」で、生まれた日から数える物）。
+ * 今の物と次の物を表に、済んだ物・過ぎた物・その先は畳む。押すと今日の画面で開く（どこへ・なぜ？・済んだ）。
+ */
+function BabyCheckups({ familyId, today }: { familyId: string; today: string }) {
+  const { family } = useFamily();
+  const [done, setDone] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    let alive = true;
+    setDone(null);
+    api<{ done: string[] }>(`/api/done?familyId=${encodeURIComponent(familyId)}`)
+      .then((j) => alive && setDone(new Set(j.done)))
+      .catch(() => alive && setDone(new Set()));
+    return () => {
+      alive = false;
+    };
+  }, [familyId]);
+  if (!done) return <div className="h-32 rounded-2xl bg-sky-soft/60" aria-hidden />;
+  const items = scheduleFor(family)
+    .filter((m) => m.kind === "健診" && m.anchor === "birth")
+    .map((m) => ({ m, st: statusOf(m, today, done) }));
+  const now = items.filter((x) => x.st === "今やる" || x.st === "期限が近い" || x.st === "期限切れ");
+  const next = items.filter((x) => x.st === "まだ先");
+  const shown = [...now, ...next.slice(0, Math.max(1, 3 - now.length))];
+  const shownIds = new Set(shown.map((x) => x.m.id));
+  const rest = items.filter((x) => !shownIds.has(x.m.id));
+  return (
+    <section aria-label="赤ちゃんの健診・予防接種" className="flex flex-col gap-2 rounded-2xl bg-sky-soft p-4">
+      <h2 className="font-display text-lg font-bold">{family.childName ? `${family.childName}の` : "赤ちゃんの"}健診・予防接種</h2>
+      {shown.length === 0 && <p className="text-base text-muted">1000日の間の健診と予防接種は、ひととおり過ぎました</p>}
+      <ul className="flex flex-col">
+        {shown.map(({ m, st }) => (
+          <BabyRow key={m.id} m={m} st={st} today={today} />
+        ))}
+      </ul>
+      {rest.length > 0 && (
+        <Fold title="ほかの健診・予防接種" count={rest.length}>
+          <ul className="flex flex-col">
+            {rest.map(({ m, st }) => (
+              <BabyRow key={m.id} m={m} st={st} today={today} />
+            ))}
+          </ul>
+        </Fold>
+      )}
+      <p className="text-sm text-muted">受ける所は、町が決めた小児科など。日と場所は町の案内で確かめてください</p>
+    </section>
+  );
+}
+
+function BabyRow({ m, st, today }: { m: Milestone; st: Status; today: string }) {
+  const tone = st === "済み" ? "ok" : st === "まだ先" ? "muted" : st === "過ぎた" ? "muted" : "rose";
+  const word = st === "まだ先" ? "まだ先" : st === "済み" ? "済み" : st === "過ぎた" ? "時期を過ぎた" : "今";
+  // 日の言い方: まだ先は始まりの日、今の物は期限（法の期限でない物は目安）
+  const when =
+    st === "まだ先"
+      ? `${jpDate(m.startDate)}から`
+      : m.deadlineDate && st !== "済み"
+        ? `${deadlineKindOf(m) === "目安" ? "目安 " : ""}${jpDate(m.deadlineDate)}${deadlineKindOf(m) === "目安" ? "" : "まで"}`
+        : "";
+  void today;
+  return (
+    <li className="border-b border-line last:border-b-0">
+      <Link href={`/?focus=${encodeURIComponent(m.id)}`} className="flex min-h-12 items-center justify-between gap-3 py-2">
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span className={`text-base leading-snug ${st === "済み" || st === "過ぎた" ? "text-muted" : "font-semibold"}`}>{m.plain}</span>
+          {when && <span className="tabular text-sm text-muted">{when}</span>}
+        </span>
+        <span className="flex shrink-0 items-center gap-2">
+          <Pill tone={tone}>{word}</Pill>
+          <span className="text-muted" aria-hidden>
+            ›
+          </span>
+        </span>
+      </Link>
+    </li>
   );
 }

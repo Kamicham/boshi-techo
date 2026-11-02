@@ -25,7 +25,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { addDays, addMonths, clockAt, diffDays, lmpFromDue, secondBirthday } from "../lib/clock";
 import type { Family, Member } from "../lib/demo-family";
-import { scheduleFor, statusOf } from "../lib/milestones";
+import { PREGNANCY_ONLY, scheduleFor, statusOf } from "../lib/milestones";
+import { motherEmployed, partnerEmployed } from "../lib/situation";
 import { detectTriggers, BIRTH_SHIFT_DAYS, BIRTH_WINDOW_DAYS, GRANDPARENT_LEAD_DAYS, MOVED_WINDOW_DAYS, type TriggerKind } from "../lib/advisor";
 import { briefingDay } from "../lib/visit";
 import { NOW, planToday, whoLabel, type Task } from "../components/today/task";
@@ -55,12 +56,13 @@ const RULES = {
   e: "生まれた後に妊娠中だけの事／妊娠中に生後の事が今やるに出ない",
   f: "参謀のきっかけが起きるべき日に起き、起きるべきでない日に起きない",
   g: "今やる事が0の日も「次に来る事」が見つかる（2歳を過ぎた後を除く）",
+  h: "家族に合わない項目が出ない（仕事のない母に職場の事・パートナーのいない家族にパートナーの事・育休を取らないパートナーに育休の事）",
 } as const;
 type Rule = keyof typeof RULES;
 const RULE_IDS = Object.keys(RULES) as Rule[];
 
-/** 妊娠中だけの事（生まれた後に今やるに出てはいけない）。パパの育休は生まれた後も意味があるので入れない */
-const PREG_ONLY = new Set(["pregnancy-report", "checkup-plan", "tell-work", "checkup-biweekly", "direct-payment", "maternity-leave", "checkup-weekly", "hospital-bag"]);
+/** 妊娠中だけの事（生まれた後に今やるに出てはいけない）。期限表の pregnancyOnly の印から。パパの育休は生まれた後も意味があるので入れない */
+const PREG_ONLY = PREGNANCY_ONLY;
 
 const MAX_PLAIN = 20;
 const MAX_HINT = 40;
@@ -125,62 +127,27 @@ interface KnownGap {
 
 const hasRole = (f: Family, role: Member["role"]) => f.members.some((m) => m.role === role);
 
+/** h: この家族に合わない項目か（合わなければ理由の鍵。situation の無い家族は確かめない） */
+function misfit(t: Task, f: Family): string | null {
+  const s = f.situation;
+  if (!s) return null;
+  if (!motherEmployed(s) && t.kind === "仕事" && t.who === "母") return "mother-no-work";
+  // 生まれた事を職場に伝えるのは、母かパートナーのどちらかが雇われて働く時だけ
+  if (t.id === "tell-work-birth" && !motherEmployed(s) && !(hasRole(f, "パートナー") && partnerEmployed(s))) return "no-one-employed";
+  if (!hasRole(f, "パートナー") && (t.who === "パートナー" || t.id === "partner-leave")) return "no-partner";
+  if (s.partnerLeave === "取らない" && t.id === "partner-leave") return "partner-no-leave";
+  return null;
+}
+
+// 直った穴（2026-11-03 予定の組み方の直しで消した）: no-partner-label・no-partner-pile（パートナーの担当を母へ）、
+// preg-after-early-birth・early-birth-pile（妊娠中だけの事は生まれた日で「過ぎた」）、birth-before-born・stall-before-born・late-pile（生まれるまで「生まれたら」で「まだ先」）
 const KNOWN_GAPS: KnownGap[] = [
-  {
-    id: "no-partner-label",
-    rule: "b",
-    title: "パートナーのいない家族に、パートナーの担当が「パパ」の番として出る",
-    why: "期限表（milestones.ts）の who が役で固定され、whoLabel は役の人がいない時に「パパ」と言う。ひとり親では出生届・児童手当などが担い手不明のまま並ぶ",
-    match: (v, f) => !hasRole(f, "パートナー") && v.sig.startsWith("b:パートナー:"),
-  },
-  {
-    id: "no-partner-pile",
-    rule: "c",
-    title: "パートナーのいない家族で、パートナーの担当が誰の一番上にもならず、期限切れが積み上がる",
-    why: "planToday は me の役の事しか一番上に出さない。いない役の事を、いる人へ振り直す仕組みが無い",
-    match: (v, f) => !hasRole(f, "パートナー") && v.rule === "c",
-  },
-  {
-    id: "preg-after-early-birth",
-    rule: "e",
-    title: "早く生まれた後も、妊娠中だけの事（入院の荷物・産休・健診が毎週に・一時金の書類）が今やるに残る",
-    why: "scheduleFor は妊娠中の事を最終月経から数えるだけで、生まれた日で打ち切らない（birthDate を見ない）",
-    match: (v, f) => v.sig.startsWith("e:after:") && !!f.birthDate && diffDays(f.dueDate, f.birthDate) > 0,
-  },
-  {
-    id: "birth-before-born",
-    rule: "e",
-    title: "予定日を過ぎてまだ生まれていない間、出生届などの生まれてからの事が今やるに出る",
-    why: "scheduleFor は生まれていない時、生まれてからの事を予定日で仮置きする。予定日を過ぎたら「生まれたら」に畳む分岐が無い",
-    match: (v) => v.sig.startsWith("e:before:"),
-  },
-  {
-    id: "stall-before-born",
-    rule: "f",
-    title: "予定日を過ぎてまだ生まれていない間に、出生届などで「パートナーが止まっている」と出る",
-    why: "同じく、生まれてからの事が予定日から始まる扱いのため、まだ出せない出生届を手付かずと数える",
-    match: (v) => v.sig.startsWith("f:stall-before-born"),
-  },
   {
     id: "stall-before-start",
     rule: "f",
     title: "途中から使い始めた日に、使い始める前の日数で「パートナーが止まっている」と出る",
     why: "partnerStalled は手付かずの日数を事の始まりから数え、startedOn を見ない。使い始めた初日に、アプリが見ていなかった日を「止まっていた」と言う",
     match: (v, f) => v.sig.startsWith("f:stall-false-alarm") && !!f.startedOn && diffDays(v.date, f.startedOn) < 3,
-  },
-  {
-    id: "late-pile",
-    rule: "c",
-    title: "予定日を過ぎてまだ生まれていない間、生まれてからの事が期限切れで積み上がる",
-    why: "上と同じ（予定日で仮置きした出生届・児童手当の期限が、生まれる前に切れる）",
-    match: (v, f) => v.rule === "c" && !!f.birthDate && v.date < f.birthDate && v.date > f.dueDate,
-  },
-  {
-    id: "early-birth-pile",
-    rule: "c",
-    title: "早く生まれた家族で、妊娠中の事と生まれてからの事が重なり、期限切れが積み上がる",
-    why: "妊娠中の事が生まれた日で打ち切られない（上の preg-after-early-birth と同じ根）。母の一番上が妊娠中の事に取られ、生まれてからの事が期限を過ぎる",
-    match: (v, f) => v.rule === "c" && !!f.birthDate && diffDays(f.dueDate, f.birthDate) >= BIRTH_SHIFT_DAYS && v.date >= f.birthDate,
   },
 ];
 
@@ -371,8 +338,14 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
 
     // ── 家族全体の決まり（画面に出る今やる事・参謀） ──
     const nowTasks = tasks.filter((t) => NOW.has(t.status));
-    // c: 期限切れの積み上がり（使う人の画面。一番上と「このあと」に出る今やる事すべて）
-    const overdue = nowTasks.filter((t) => t.status === "期限切れ");
+    // c: 期限切れの積み上がり（使う人の画面。一番上と「このあと」に出る今やる事すべて。30日より多く過ぎて「済みましたか？」に畳んだ物は数えない）
+    const shownAll = planToday(tasks, day, null);
+    const overdue = [shownAll.top, ...shownAll.rest].filter((t): t is Task => !!t && t.status === "期限切れ");
+    // h: 家族に合わない項目
+    for (const t of nowTasks) {
+      const why = misfit(t, fv);
+      if (why) push("h", `${why}:${t.id}`, `家族に合わない「${t.plain}」が${t.status}（${why}）`);
+    }
     if (overdue.length > MAX_OVERDUE) push("c", "pile", `期限切れ${overdue.length}件: ${overdue.map((t) => t.plain).join("・")}`, persona?.id);
     // e: 時期に合わない事
     for (const t of nowTasks) {
@@ -427,6 +400,11 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
         for (const t of [s.top, ...s.rows]) {
           if (t && PREG_ONLY.has(t.id) && !NOW.has(t.status)) push("e", `after:${t.id}`, `生まれた後に「${t.plain}」が${s.top?.id === t.id ? "一番上の" : "このあとの"}「もうすぐ」に出る`, me.id);
         }
+      }
+      // h（使う人の画面の「もうすぐ」「このあと」）
+      for (const t of [s.top, ...s.rows]) {
+        const why = t && misfit(t, fv);
+        if (t && why) push("h", `${why}:${t.id}`, `家族に合わない「${t.plain}」が${me.name}の画面に出る（${why}）`, me.id);
       }
       // d
       const shown = s.top ?? s.calmNext;
@@ -590,7 +568,7 @@ const UNREPRESENTABLE: { label: string; why: string; hit: (f: PopFamily) => bool
   { label: "父母のどちらかが外国籍", why: "親の国の大使館への出生の届け・在留資格の手続きを表せない", hit: (f) => f.profile.nationality.mother !== "日本" || (!!f.profile.nationality.father && f.profile.nationality.father !== "日本") },
   { label: "NICU に入る", why: "入院中の出生届・医療費（未熟児養育医療）・面会の段取りを表せない", hit: (f) => f.profile.nicu },
   { label: "日本語に不安がある親がいる", why: "言葉の力を Family 型に持てない（やさしい日本語・母語への切り替えができない）", hit: (f) => f.profile.japaneseAnxious.mother || f.profile.japaneseAnxious.father },
-  { label: "ひとり親", why: "パートナーの担当が「パパ」の番として残る（既知の穴 no-partner-label / no-partner-pile）", hit: (f) => f.profile.marital === "ひとり親" },
+  { label: "ひとり親", why: "パートナーの担当は母へ移り、児童扶養手当などを足した（members から）。事実婚・離婚の途中など、ひとり親の形の違いは持てない", hit: (f) => f.profile.marital === "ひとり親" },
   { label: "双子", why: "子が1人の前提。出生届・児童手当・健診・予防接種が2人分にならない", hit: (f) => f.profile.twins },
   { label: "単身赴任", why: "パートナーが離れて暮らす事を持てない（担当を振り直す根拠が無い）", hit: (f) => !!f.profile.father?.tanshin },
   { label: "事実婚（婚姻届を出していない）", why: "認知の届け・親権・児童手当の受け取る人を表せない", hit: (f) => f.profile.marital === "事実婚" },
@@ -662,7 +640,7 @@ function writeReport() {
     for (const e of g.examples) L.push(`- 例: ${e}`);
     L.push("");
   }
-  L.push("### 家族ごと", "", "| id | 一言 | a | b | c | d | e | f | g |", "|---|---|---|---|---|---|---|---|---|");
+  L.push("### 家族ごと", "", `| id | 一言 | ${RULE_IDS.join(" | ")} |`, `|---|---|${RULE_IDS.map(() => "---").join("|")}|`);
   for (const x of results) L.push(`| ${x.r.id} | ${x.r.label} | ${RULE_IDS.map((r) => x.marks[r]).join(" | ")} |`);
   L.push("");
   for (const x of results) {

@@ -1,5 +1,5 @@
 import { body, route } from "@/lib/api";
-import { allFamilies, getFamily, HttpError, MINE_ID, saveMine } from "@/lib/family";
+import { allFamilies, cleanSituation, getFamily, HttpError, MINE_ID, saveMine } from "@/lib/family";
 import { list, put } from "@/lib/db";
 import { scheduleFor } from "@/lib/milestones";
 import type { Family } from "@/lib/demo-family";
@@ -30,6 +30,16 @@ export const POST = route(async (req: Request) => {
   const move = movedNow
     ? { previousCity: prior!.city, previousPrefecture: prior!.prefecture || undefined, movedOn: today }
     : { previousCity: prior?.previousCity, previousPrefecture: prior?.previousPrefecture, movedOn: prior?.movedOn };
+  const members = (b.members ?? [])
+    .filter((m) => m.name)
+    .map((m) => {
+      // 祖父母の来る日（来る日が無ければ持たない）
+      const visit = m.role === "祖父母" && isDay(m.visit?.from) ? { from: m.visit.from, until: isDay(m.visit.until) ? m.visit.until : undefined } : undefined;
+      return { id: m.id, name: m.name, role: m.role, voice: m.voice ?? "", ...(visit ? { visit } : {}) };
+    });
+  // 家族の形: 送られて来なければ前のままにする。パートナーの欄は、パートナーを入れた時だけ持つ
+  const hasPartner = members.some((m) => m.role === "パートナー");
+  const situation = "situation" in b ? cleanSituation(b.situation, hasPartner, Number(today.slice(0, 4))) : prior?.situation;
   const fam = saveMine({
     ...move,
     startedOn: restart ? today : prior!.startedOn,
@@ -38,19 +48,14 @@ export const POST = route(async (req: Request) => {
     dueDate: b.dueDate,
     birthDate: b.birthDate || undefined,
     childName: b.childName || undefined,
-    members: (b.members ?? [])
-      .filter((m) => m.name)
-      .map((m) => {
-        // 祖父母の来る日（来る日が無ければ持たない）
-        const visit = m.role === "祖父母" && isDay(m.visit?.from) ? { from: m.visit.from, until: isDay(m.visit.until) ? m.visit.until : undefined } : undefined;
-        return { id: m.id, name: m.name, role: m.role, voice: m.voice ?? "", ...(visit ? { visit } : {}) };
-      }),
+    members,
+    ...(situation ? { situation } : {}),
   });
   // 途中から使い始めた家族: 使い始める前に期限が過ぎた事（妊娠の届出など）は、もう済んでいるものとして扱う
   if (restart) {
     const done = new Set(list<{ milestoneId?: string }>(MINE_ID, "done").map((d) => d.data.milestoneId));
     for (const m of scheduleFor(fam)) {
-      if (m.deadlineDate && m.deadlineDate < today && !done.has(m.id)) {
+      if (m.deadlineDate && !m.awaitingBirth && m.deadlineDate < today && !done.has(m.id)) {
         put(MINE_ID, "done", { milestoneId: m.id, today, at: new Date().toISOString(), auto: "started-late" }, { id: `done:${MINE_ID}:${m.id}`, date: today });
       }
     }

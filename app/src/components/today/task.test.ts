@@ -40,3 +40,32 @@ describe("planToday", () => {
     expect(days).toEqual([...days].sort());
   });
 });
+
+describe("時期を過ぎた事を畳む", () => {
+  it("まだ生まれていない間は、予定日を過ぎても出生届を今やる・もうすぐにしない", () => {
+    const today = "2026-12-28";
+    const p = planToday(tasksAt(today, ["pregnancy-report", "tell-work", "direct-payment", "hospital-bag", "partner-leave"]), today, papa);
+    const shown = [p.top, ...p.rest].filter(Boolean).map((t) => t!.id);
+    expect(shown).not.toContain("birth-registration");
+    expect(p.upcoming.map((t) => t.id)).toContain("birth-registration");
+  });
+
+  it("生まれた後は、妊娠中だけの事を出さず、済んでいない物を stale に回す", () => {
+    const today = "2026-12-01";
+    const s = new Set<string>(["pregnancy-report", "tell-work"]);
+    const tasks = scheduleFor({ ...fam, birthDate: "2026-11-25" }).map((m) => ({ ...m, status: statusOf(m, today, s) }));
+    const p = planToday(tasks, today, mama);
+    const shown = [p.top, ...p.rest].filter(Boolean).map((t) => t!.id);
+    for (const id of ["hospital-bag", "direct-payment", "maternity-leave", "checkup-weekly"]) expect(shown).not.toContain(id);
+    expect(p.stale.map((t) => t.id)).toEqual(["direct-payment", "hospital-bag"]);
+  });
+
+  it("期限を30日より多く過ぎた事は、一番上と「このあと」から外して stale へ", () => {
+    const today = "2027-02-10";
+    const tasks = scheduleFor({ ...fam, birthDate: fam.dueDate }).map((m) => ({ ...m, status: statusOf(m, today, new Set()) }));
+    const p = planToday(tasks, today, papa);
+    const shown = [p.top, ...p.rest].filter(Boolean).map((t) => t!.id);
+    expect(shown).not.toContain("birth-registration");
+    expect(p.stale.map((t) => t.id)).toContain("birth-registration");
+  });
+});

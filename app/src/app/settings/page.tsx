@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { jpDate } from "@/components/Techo";
 import { Btn, Fold, NextStep, Pill, Why } from "@/components/ui";
+import { SituationForm, tidySituation } from "@/components/settings/SituationForm";
+import type { Situation } from "@/lib/situation";
 import type { Keep } from "@/lib/keep";
 import type { Family, Member } from "@/lib/demo-family";
 
@@ -22,10 +24,13 @@ export default function Settings() {
   const askMine = !isDemo || starting;
   const [form, setForm] = useState({ prefecture: "", city: "", dueDate: "", birthDate: "", childName: "" });
   const [members, setMembers] = useState<Member[]>(ROLES.map((role, i) => ({ id: `m${i}`, name: "", role, voice: "" })));
+  const [situation, setSituation] = useState<Situation>({});
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const hasPartner = members.some((m) => m.role === "パートナー" && m.name.trim());
 
   useEffect(() => {
     if (!mine) return;
+    setSituation(mine.situation ?? {});
     setForm({ prefecture: mine.prefecture, city: mine.city, dueDate: mine.dueDate, birthDate: mine.birthDate ?? "", childName: mine.childName ?? "" });
     if (mine.members.length) {
       // 入れていない役（例: 祖父母）も欄は残す
@@ -37,7 +42,7 @@ export default function Settings() {
   const save = async () => {
     setMsg(null);
     try {
-      await api<{ family: Family }>("/api/family", { body: { ...form, members } });
+      await api<{ family: Family }>("/api/family", { body: { ...form, members, situation: tidySituation(situation, hasPartner) } });
       await reload();
       setFamilyId("mine");
       setMsg({ ok: true, text: "保存しました" });
@@ -170,6 +175,11 @@ export default function Settings() {
             </Fold>
           </Question>
 
+          <Question q="家族の形は？" n={4}>
+            <p className="text-base text-muted">答えると、合わない予定が消えます。わからない所は、そのままで大丈夫です</p>
+            <SituationForm value={situation} onChange={setSituation} hasPartner={hasPartner} />
+          </Question>
+
           <Btn onClick={() => void save()} full>
             保存する
           </Btn>
@@ -245,7 +255,7 @@ function KeepForm({ familyId }: { familyId: string }) {
   const guide = keep?.hospital?.guide;
 
   return (
-    <Question q="いつもの場所と人" n={4}>
+    <Question q="いつもの場所と人" n={5}>
       <p className="text-base text-muted">一度入れると、次から自動で使います</p>
 
       <h3 className="pt-1 text-base font-bold">通う病院</h3>

@@ -1,6 +1,6 @@
 // 「今日」の画面で、やる事を並べる順と、誰の番かの言い方。
 import type { Family, Member } from "@/lib/demo-family";
-import { endOf, type Milestone, type Status } from "../../lib/milestones";
+import { deadlineKindOf, endOf, type Milestone, type Status } from "../../lib/milestones";
 import { diffDays } from "../../lib/clock";
 
 const daysUntil = (today: string, date: string) => diffDays(date, today);
@@ -37,8 +37,26 @@ export function sortNow(tasks: Task[], me: Member | null): Task[] {
   });
 }
 
-/** あと何日（まだ先なら始まりまで、期限があれば期限まで。期限の無いお知らせは null） */
+/** 期限をこれより多く過ぎた事は、一番上と「このあと」から外し、stale（済みましたか？）へ回す */
+export const STALE_DAYS = 30;
+
+/**
+ * 時期を過ぎて畳む事か（まだ済みにしていない物）:
+ * - 生まれた後の、妊娠中だけの事（期限のある物だけ。「健診が毎週になる」のようなお知らせは聞かずに消す）
+ * - 期限を30日より多く過ぎた事（目安の物は、過ぎたらすぐ）
+ */
+export function isStale(t: Task, today: string): boolean {
+  if (t.status === "済み") return false;
+  if (t.endsOn && today >= t.endsOn) return !!t.deadlineDate;
+  if (!t.deadlineDate || t.status !== "期限切れ") return false;
+  // 法の期限ではない「目安」は、過ぎたら赤く一番上に出さず、すぐ「済みましたか？」へ回す
+  if (deadlineKindOf(t) === "目安") return true;
+  return daysUntil(today, t.deadlineDate) < -STALE_DAYS;
+}
+
+/** あと何日（まだ先なら始まりまで、期限があれば期限まで。期限の無いお知らせと「生まれたら」の事は null） */
 export function daysLeft(t: Task, today: string): number | null {
+  if (t.awaitingBirth) return null;
   if (t.status === "まだ先") return daysUntil(today, t.startDate);
   if (t.deadlineDate) return daysUntil(today, t.deadlineDate);
   return null;
@@ -57,8 +75,14 @@ export interface TodayPlan {
   topIsSoon: boolean;
   /** このあと（日数の順） */
   rest: Task[];
-  /** まだ先（畳む。「このあと」に出した物は除く） */
+  /** まだ先（畳む。「このあと」に出した物は除く。「生まれたら」の事もここ） */
   upcoming: Task[];
+  /**
+   * 時期を過ぎて畳んだ事（まだ済みにしていない物）。画面が「済みましたか？」の箱で1回だけまとめて聞く。
+   * 中身は isStale: 生まれた後の妊娠中だけの事（期限のある物）と、期限を30日より多く過ぎた事。
+   * 並びは期限の古い順（同じ日なら id の順）
+   */
+  stale: Task[];
 }
 
 /**
@@ -68,28 +92,34 @@ export interface TodayPlan {
  * ほかの人の番は「このあと」の1行だけ。
  */
 export function planToday(tasks: Task[], today: string, me: Member | null): TodayPlan {
+  const stale = tasks
+    .filter((t) => isStale(t, today))
+    .sort((a, b) => (a.deadlineDate ?? "").localeCompare(b.deadlineDate ?? "") || a.id.localeCompare(b.id));
+  const staleIds = new Set(stale.map((t) => t.id));
+  // 生まれた後の妊娠中だけの事は、期限の有る無しにかかわらず今やるに出さない
+  const live = tasks.filter((t) => !staleIds.has(t.id) && !(t.endsOn && today >= t.endsOn));
   const now = sortNow(
-    tasks.filter((t) => NOW.has(t.status)),
+    live.filter((t) => NOW.has(t.status)),
     me,
   );
-  const later = tasks.filter((t) => t.status === "まだ先");
+  const later = live.filter((t) => t.status === "まだ先");
   if (!me) {
-    return { top: now[0] ?? null, topIsSoon: false, rest: byDays(now.slice(1), (t) => daysLeft(t, today)), upcoming: later };
+    return { top: now[0] ?? null, topIsSoon: false, rest: byDays(now.slice(1), (t) => daysLeft(t, today)), upcoming: later, stale };
   }
   const mineNow = now.filter((t) => isMine(t, me));
   const others = now.filter((t) => !isMine(t, me));
   const soon = later
-    .filter((t) => isMine(t, me) && daysUntil(today, t.startDate) <= SOON_DAYS)
+    .filter((t) => isMine(t, me) && !t.awaitingBirth && daysUntil(today, t.startDate) <= SOON_DAYS)
     .sort((a, b) => a.startDate.localeCompare(b.startDate));
   const soonIds = new Set(soon.map((t) => t.id));
   const upcoming = later.filter((t) => !soonIds.has(t.id));
   if (mineNow.length > 0) {
-    return { top: mineNow[0], topIsSoon: false, rest: byDays([...mineNow.slice(1), ...others, ...soon], (t) => daysLeft(t, today)), upcoming };
+    return { top: mineNow[0], topIsSoon: false, rest: byDays([...mineNow.slice(1), ...others, ...soon], (t) => daysLeft(t, today)), upcoming, stale };
   }
   if (soon.length > 0) {
-    return { top: soon[0], topIsSoon: true, rest: byDays([...soon.slice(1), ...others], (t) => daysLeft(t, today)), upcoming };
+    return { top: soon[0], topIsSoon: true, rest: byDays([...soon.slice(1), ...others], (t) => daysLeft(t, today)), upcoming, stale };
   }
-  return { top: null, topIsSoon: false, rest: byDays(others, (t) => daysLeft(t, today)), upcoming };
+  return { top: null, topIsSoon: false, rest: byDays(others, (t) => daysLeft(t, today)), upcoming, stale };
 }
 
 /** 担当の呼び名（家族の名前で。いなければ役の言い方） */

@@ -149,10 +149,15 @@ function DraftBody(p: Omit<PanelProps, "view" | "err" | "onRetry"> & { view: Dra
         <EditFields draft={draft} isMail={isMail} busy={saving === "save"} onSave={(e) => void send("PATCH", e, "save")} onCancel={() => setEditing(false)} />
       ) : (
         <>
+          {view.fromName && (
+            <p className="text-sm text-muted">
+              {view.fromName}さんから{isMail || draft.kind === "連絡文" ? "送る文" : "使うメモ"}
+            </p>
+          )}
           {isMail ? (
             <>
               <CopyField label="宛名" value={view.toName} />
-              <CopyField label="メールアドレス" value={view.mailTo} />
+              {view.mailTo ? <CopyField label="メールアドレス" value={view.mailTo} /> : view.mailHint && <p className="text-sm text-muted">{view.mailHint}</p>}
               {view.cc && <p className="text-sm text-muted">CC: {view.cc}</p>}
             </>
           ) : (

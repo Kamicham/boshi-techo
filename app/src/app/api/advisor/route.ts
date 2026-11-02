@@ -1,12 +1,15 @@
 // ④ 参謀の気づき: 今のきっかけを機械で見つけ（lib/advisor.ts）、気づき1つを返す。
 // GET ?familyId=&today=  … 出す1つ（閉じていないきっかけのうち一番先の物）。無ければ advice: null
+// GET ?familyId=&today=&peek=1 … 気づきが今いくつあるかだけ（Claude は呼ばない。今日の画面が場所を取っておくため）
 // POST { familyId, key }  … 「わかった」で閉じる
 // 書いた気づきは家族ごと・きっかけの鍵ごとに DB（type 'advice'）へ置き、同じ状況では Claude を呼び直さない。
 import { body, route } from "@/lib/api";
 import { detectTriggers, type Advice } from "@/lib/advisor";
 import { listRecords } from "@/lib/capture";
 import { get, list, patch, put } from "@/lib/db";
+import { fillFamilyBlanks } from "@/lib/blanks";
 import { DEMO_FAMILY } from "@/lib/demo-family";
+import { fillBlanks } from "@/lib/keep";
 import { HttpError, requireFamily } from "@/lib/family";
 import { getKeep } from "@/lib/keep";
 import { writeAdvice } from "./_lib/write";
@@ -35,6 +38,7 @@ export const GET = route(async (req: Request) => {
   const input = { family, today, done, isDemo: family.id === DEMO_FAMILY.id, records };
 
   const open = detectTriggers(input).filter((x) => !get<Advice>(adviceId(family.id, x.key))?.data.dismissedAt);
+  if (q.get("peek") === "1") return { open: open.length };
   const t = open[0];
   if (!t) return { advice: null, waiting: 0 };
 
@@ -51,9 +55,14 @@ export const GET = route(async (req: Request) => {
     advice = await p;
   }
   // 職場あてのメールは、覚えている上司のメールを宛先に入れる（DB の気づきには持たせない）
-  const work = getKeep(family.id).work;
+  const keep = getKeep(family.id);
+  const work = keep.work;
   const mailTo = advice.message?.via === "mail" && /職場|上司|人事/.test(advice.message.to) ? (work?.email ?? work?.hrEmail) : undefined;
-  return { advice, mailTo, cached, waiting: open.length - 1 };
+  // 送る人の名前・町名・会社名など、分かる【 】は埋めて返す（DB の気づきは書いたまま）
+  const sender = t.from ? keep.names?.[t.from.memberId] || t.from.name : null;
+  const fill = (x: string) => fillFamilyBlanks(fillBlanks(x, keep, { writer: sender }), family, { writer: sender, names: keep.names });
+  const shown: Advice = advice.message ? { ...advice, message: { ...advice.message, body: fill(advice.message.body), subject: advice.message.subject && fill(advice.message.subject) } } : advice;
+  return { advice: shown, mailTo, from: sender ?? undefined, cached, waiting: open.length - 1 };
 });
 
 export const POST = route(async (req: Request) => {
