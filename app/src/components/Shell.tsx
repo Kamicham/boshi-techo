@@ -20,6 +20,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const { family, families, setFamilyId, isDemo } = useFamily();
   // 録音中は別の画面へ移ると録音が止まるので、切り替えを止める
   const recording = useSyncExternalStore(subscribeRecording, recordingBusy, recordingBusyServer);
+  // 合言葉の画面では、家族の切り替えもタブも出さない
+  if (path === "/unlock") return <div className="mx-auto min-h-dvh max-w-md">{children}</div>;
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col">
       <div className="flex items-center justify-between gap-2 px-4 pt-3 text-xs">
