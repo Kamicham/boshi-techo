@@ -20,7 +20,7 @@ export const POST = route(async (req: Request) => {
   if (!text) throw new HttpError(422, "声が聞き取れませんでした。もう一度話してみてください");
   try {
     const result = await capture({ family, today, source: "voice", text });
-    return { ...result, transcript: text };
+    return { ...result, transcript: text, ...(t.demo ? { demo: true, note: "文字起こしの機械が無いので、デモの文を使いました" } : {}) };
   } catch (e) {
     // 文字起こしは済んでいるので捨てない。画面は書く欄に入れて送り直せる
     console.error(e);

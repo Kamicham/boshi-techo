@@ -3,8 +3,20 @@
 // 全画面で使う共通の部品（画面の決まり: 次の一手が1つ・あと◯日・根拠は「なぜ？」の奥・ワンタップで外へ）。
 // 新しい見た目を各画面で作らず、ここの部品を使う。
 import Link from "next/link";
-import { useState } from "react";
-import { canShare, googleCalendarUrl, icsText, lineUrl, mailtoUrl, mapUrl } from "@/lib/handoff";
+import { useState, useSyncExternalStore } from "react";
+import { canShare, googleCalendarUrl, icsText, isAppleDevice, lineUrl, mailtoUrl, mapUrl } from "@/lib/handoff";
+
+const noop = () => () => {};
+const SERVER_DEVICE = { apple: false, share: false };
+let clientDevice: { apple: boolean; share: boolean } | null = null;
+/** 端末の違い（Apple か・共有シートがあるか）。サーバと描画の初めは false、開いてから本当の値に変わる（Hydration の食い違いを出さない） */
+export function useDevice(): { apple: boolean; share: boolean } {
+  return useSyncExternalStore(
+    noop,
+    () => (clientDevice ??= { apple: isAppleDevice(), share: canShare() }),
+    () => SERVER_DEVICE,
+  );
+}
 
 /** 開いた瞬間に一番上へ出す「今やる1つ」 */
 export function NextStep({
@@ -161,6 +173,12 @@ export function CopyField({ label, value, long }: { label: string; value: string
   const [all, setAll] = useState(!long);
   if (!value) return null;
   const blanks = (value.match(/【[^】]*】/g) ?? []).length;
+  // 畳む時は行で切る（改行の多い本文でも、5行目がのぞいたり「…」だけの行が出たりしない）
+  const lines = value.replace(/\n{3,}/g, "\n\n").split("\n");
+  let head = lines.slice(0, 4).join("\n");
+  if (head.length > 160) head = head.slice(0, 160);
+  const cut = head.length < value.length;
+  if (cut) head = head.replace(/\s+$/, "") + "…";
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between gap-2">
@@ -170,8 +188,8 @@ export function CopyField({ label, value, long }: { label: string; value: string
         </span>
         <CopyButton text={value} />
       </div>
-      <p className={`whitespace-pre-wrap rounded-lg bg-paper px-3 py-2 text-base ${all ? "" : "line-clamp-4"}`}>{highlightBlanks(value)}</p>
-      {long && !all && (
+      <p className="whitespace-pre-wrap rounded-lg bg-paper px-3 py-2 text-base">{highlightBlanks(all ? value : head)}</p>
+      {long && !all && cut && (
         <button type="button" onClick={() => setAll(true)} className="self-start text-sm text-muted underline">
           全部見る
         </button>
@@ -188,7 +206,8 @@ function highlightBlanks(text: string): React.ReactNode {
 /** 共有シート（iPhone のメール・LINE・メモ・Slack などへ） */
 export function ShareButton({ title, text, url, label = "共有…", kind = "secondary" }: { title?: string; text: string; url?: string; label?: string; kind?: "primary" | "secondary" }) {
   const [msg, setMsg] = useState("");
-  if (!canShare()) return <CopyButton text={text} label="全部コピー" />;
+  const { share: can } = useDevice();
+  if (!can) return <CopyButton text={text} label="全部コピー" />;
   const share = async () => {
     try {
       await navigator.share({ title, text, url });
@@ -225,7 +244,7 @@ export function HandoffRow({
     const blob = new Blob([icsText(calendar)], { type: "text/calendar" });
     window.location.href = URL.createObjectURL(blob);
   };
-  const isApple = typeof navigator !== "undefined" && /iPhone|iPad|Macintosh/.test(navigator.userAgent);
+  const { apple: isApple } = useDevice();
   return (
     <div className="flex flex-wrap gap-2">
       {mail && (
@@ -249,7 +268,7 @@ export function HandoffRow({
           </Btn>
         ))}
       {place && (
-        <Btn href={mapUrl(place)} kind="secondary">
+        <Btn href={mapUrl(place, isApple)} kind="secondary">
           地図で開く
         </Btn>
       )}

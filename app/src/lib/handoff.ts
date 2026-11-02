@@ -58,9 +58,14 @@ export function icsText(o: { title: string; date: string; time?: string | null; 
 }
 
 /** 地図アプリで場所を開く（iPhone は Apple マップ、それ以外は Google マップ） */
-export function mapUrl(place: string): string {
-  const isApple = typeof navigator !== "undefined" && /iPhone|iPad|Macintosh/.test(navigator.userAgent);
+export function mapUrl(place: string, apple?: boolean): string {
+  const isApple = apple ?? isAppleDevice();
   return isApple ? `https://maps.apple.com/?q=${encodeURIComponent(place)}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place)}`;
+}
+
+/** Apple の端末か（画面では ui.tsx の useDevice を使う。描画の初めはサーバと同じ false にそろえるため） */
+export function isAppleDevice(): boolean {
+  return typeof navigator !== "undefined" && /iPhone|iPad|Macintosh/.test(navigator.userAgent);
 }
 
 /** iPhone の共有シートが使えるか */

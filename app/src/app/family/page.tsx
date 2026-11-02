@@ -5,8 +5,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { jpDate } from "@/components/Techo";
-import { Btn, Fold, HandoffRow, NextStep, Why } from "@/components/ui";
-import { mondayOf, type Plan } from "@/lib/roles";
+import { Btn, Countdown, daysUntil, Fold, HandoffRow, NextStep, Why } from "@/components/ui";
+import { scheduleFor } from "@/lib/milestones";
+import { mondayOf, type Plan, type PlanItem } from "@/lib/roles";
 import type { Member } from "@/lib/demo-family";
 
 type Phase = "checking" | "empty" | "thinking" | "ready" | "error";
@@ -80,7 +81,24 @@ export default function FamilyPage() {
   const isMe = me?.id === member.id;
   const who = isMe ? "わたし" : `${member.name}さん`;
   const [first, ...rest] = mine?.items ?? [];
-  const sendText = mine && mine.items.length ? [`${member.name}さんの今週`, ...mine.items.map((it) => `・${it.title}（${it.by}）`)].join("\n") : "";
+  // 題は予定表のやさしい言い方、期限は あと◯日（Claude の長い題・日付の文は「なぜ？」の奥へ）
+  const schedule = scheduleFor(family);
+  const view = (it: PlanItem) => {
+    const m = it.milestoneId ? schedule.find((x) => x.id === it.milestoneId) : undefined;
+    return { title: m?.plain ?? it.title, days: m?.deadlineDate ? daysUntil(today, m.deadlineDate) : null, deadline: m?.deadlineDate };
+  };
+  const top = first ? view(first) : null;
+  const openHref = first?.milestoneId ? `/?focus=${encodeURIComponent(first.milestoneId)}` : "/";
+  const sendText =
+    mine && mine.items.length
+      ? [
+          `${member.name}さんの今週`,
+          ...mine.items.map((it) => {
+            const v = view(it);
+            return `・${v.title}${v.deadline ? `（${jpDate(v.deadline)}まで）` : ""}`;
+          }),
+        ].join("\n")
+      : "";
 
   return (
     <main className="flex flex-col gap-4 px-4 pt-4">
@@ -123,9 +141,18 @@ export default function FamilyPage() {
       {plan && phase === "ready" && (
         <>
           <div className={big ? "text-xl leading-relaxed" : ""}>
-            {first ? (
-              <NextStep eyebrow={`${who}の今週`} title={first.title} sub={first.by}>
-                {mine?.message && <p className={`w-full ${big ? "text-xl" : "text-base"}`}>{mine.message}</p>}
+            {first && top ? (
+              <NextStep eyebrow={`${who}の今週`} title={top.title} days={top.days} dateLabel={top.deadline ? `${jpDate(top.deadline)}まで` : undefined} sub={top.days == null ? first.by : undefined}>
+                {isMe ? (
+                  <Btn href={openHref}>今日の画面で開く</Btn>
+                ) : (
+                  <>
+                    {sendText && <HandoffRow line={sendText} share={{ title: `${member.name}さんの今週`, text: sendText }} />}
+                    <Btn kind="quiet" href={openHref}>
+                      今日の画面で開く
+                    </Btn>
+                  </>
+                )}
               </NextStep>
             ) : (
               <NextStep eyebrow={`${who}の今週`} title="今週、頼む事はありません" tone="ok" />
@@ -133,26 +160,30 @@ export default function FamilyPage() {
           </div>
 
           {first && (
-            <div className="flex flex-col gap-1">
-              <Why>
-                <p>{first.why}</p>
-              </Why>
-              {!isMe && sendText && <HandoffRow line={sendText} share={{ title: `${member.name}さんの今週`, text: sendText }} />}
-            </div>
+            <Why>
+              {top?.title !== first.title && <p className="font-semibold">{first.title}</p>}
+              <p>{first.why}</p>
+              {top?.days != null && <p>{first.by}</p>}
+              {mine?.message && <p>{mine.message}</p>}
+            </Why>
           )}
 
           {rest.length > 0 && (
             <Fold title="ほかの事" count={rest.length}>
               <ul className="flex flex-col gap-3">
-                {rest.map((it, i) => (
-                  <li key={i} className="flex flex-col gap-0.5 border-b border-line pb-3 last:border-0 last:pb-0">
-                    <span className={`leading-snug font-semibold ${big ? "text-xl" : "text-base"}`}>{it.title}</span>
-                    <span className={`${big ? "text-lg" : "text-sm"} text-sky`}>{it.by}</span>
-                    <Why>
-                      <p>{it.why}</p>
-                    </Why>
-                  </li>
-                ))}
+                {rest.map((it, i) => {
+                  const v = view(it);
+                  return (
+                    <li key={i} className="flex flex-col gap-0.5 border-b border-line pb-3 last:border-0 last:pb-0">
+                      <span className={`leading-snug font-semibold ${big ? "text-xl" : "text-base"}`}>{v.title}</span>
+                      {v.days != null ? <Countdown days={v.days} size="sm" /> : <span className={`${big ? "text-lg" : "text-sm"} text-sky`}>{it.by}</span>}
+                      <Why>
+                        {v.title !== it.title && <p className="font-semibold">{it.title}</p>}
+                        <p>{it.why}</p>
+                      </Why>
+                    </li>
+                  );
+                })}
               </ul>
             </Fold>
           )}

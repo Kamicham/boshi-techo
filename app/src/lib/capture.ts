@@ -212,7 +212,7 @@ function seedItems(): SeedItem[] {
     { at: wk(28), kind: "できごと", title: "名前を「ひなた」に決めた", detail: "二人で候補を出し合って、最後は声に出して呼びやすい名前に。", who: "翔太", source: "voice" },
     { at: wk(33, 6), kind: "予定", title: "両親学級（デモ用の例）", detail: "沐浴の練習。翔太が抱っこ役。", who: "翔太", source: "photo" },
     { at: wk(35, 3), kind: "書類", title: "入院の持ち物リスト", detail: "産院の案内の紙から: 母子健康手帳・保険証・パジャマ・産褥ショーツなど（写真から要点だけ）。", who: "美咲", source: "photo" },
-    { at: birth, kind: "できごと", title: "ひなたが生まれた", detail: "予定日より2日早く。翔太が最初に名前を呼んだら、少しだけ泣き止んだ。", who: "翔太", source: "voice" },
+    { at: birth, kind: "できごと", title: "ひなたが生まれた", detail: "予定日より2週間早く。翔太が最初に名前を呼んだら、少しだけ泣き止んだ。", who: "翔太", source: "voice" },
     { at: addDays(birth, 10), kind: "書類", title: "出生届を出した", detail: "翔太が区役所へ。14日以内に間に合った。", who: "翔太", source: "text" },
     { at: addDays(birth, 46), kind: "できごと", title: "初めて笑った", detail: "おむつを替えている時に、こちらを見てにこっと。和子さんにすぐ動画を送った。", who: "美咲", source: "voice" },
     { at: addDays(birth, 63), kind: "気がかり", title: "夕方になるとよく泣く", detail: "毎日17時ごろから1時間くらい泣き続ける。抱っこで少し落ち着く。次の健診で聞く。", who: "美咲", source: "voice" },

@@ -21,6 +21,9 @@ function pagesOf(book: Book): Page[] {
   return [{ kind: "cover" }, { kind: "dedication" }, ...book.chapters.map((_, index) => ({ kind: "chapter" as const, index })), { kind: "closing" }];
 }
 
+/** これより少ない記録（妊娠中）は、まず記録を足す方を主にする */
+const FEW_RECORDS = 10;
+
 const WAIT_STEPS = [
   "記録を日付順に並べています",
   "おなかにいた日々から、時期に分けています",
@@ -88,6 +91,9 @@ export default function BookPage() {
 
   const child = family.childName ?? "赤ちゃん";
   const n = count ?? 0;
+  // 妊娠中で記録がまだ少ない時は、本を作るより記録を足すのが先
+  const born = !!family.birthDate && family.birthDate <= today;
+  const few = !born && n > 0 && n < FEW_RECORDS;
 
   if (making) return <Binding child={child} />;
 
@@ -119,6 +125,14 @@ export default function BookPage() {
             </Btn>
           </Fold>
         </>
+      ) : few ? (
+        <NextStep eyebrow={`${child}への一冊`} title="話す・撮るで記録を足す" sub={`いまの記録 ${n} 件。胎動・健診の帰り道・エコーの写真が、そのまま本になります`}>
+          <Btn href="/capture">話す・撮るへ</Btn>
+          <Btn kind="quiet" onClick={() => void make()}>
+            いまの記録で一冊を作ってみる
+          </Btn>
+          <BookWhy />
+        </NextStep>
       ) : n === 0 && !isDemo ? (
         <NextStep eyebrow={`${child}への一冊`} title="まず話す・撮る" sub="ふだんの記録が、そのまま本になります">
           <Btn href="/capture">話す・撮るへ</Btn>

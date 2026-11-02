@@ -8,16 +8,19 @@ import { get, put } from "./db";
 import type { Family } from "./demo-family";
 import { HttpError } from "./family";
 import { getKeep, remember } from "./keep";
+import { designatedCity, officeName, wardOf } from "./local-place";
 import { MILESTONES, type MilestoneDef } from "./milestones";
 
 export const LocalSchema = z.object({
   summary: z.string().describe("この町でこの事をする時の要点。やさしい言葉で2文まで"),
-  where: z.string().describe("どこへ行くか。建物と課の名前だけを短く（例: 役場1階 住民保険課）。区ごとに違う時は「住んでいる区の区役所 市民課」のように。分からなければ「確かめる」"),
-  office: z.string().describe("地図で探せる、役所そのものの名前（例: 上牧町役場、さいたま市役所）"),
+  where: z
+    .string()
+    .describe("どこへ行くか。建物と課の名前だけを1行で短く（例: 役場1階 住民保険課）。政令市など区ごとに窓口がある時は「住んでいる区の区役所 区民課」のように。電話番号・受付時間・法律の名前は書かない。分からなければ「確かめる」"),
+  office: z.string().describe("地図で探せる、役所そのものの名前（例: 上牧町役場）。政令市で区が分からない時は「さいたま市 区役所」のように、市役所本庁ではなく区役所"),
   address: z.string().describe("その役所の住所。ページに無ければ空の文字"),
   bring: z.array(z.string()).describe("持って行く物。1つずつ、15字くらいまでの短い名前（細かい注意は caution へ）"),
   online: z.string().describe("ネットで出せるか（マイナポータル・電子申請など）を1文で。分からなければ「確かめる」"),
-  deadline: z.string().describe("期限を短く（例: 生まれた日を入れて14日以内）。根拠の法律は caution へ"),
+  deadline: z.string().describe("期限を日付か日数だけで短く（例: 生まれた日を入れて14日以内）。法律の名前・条の番号は書かない（caution へ）"),
   extras: z.string().describe("この町だけの助成・上乗せ・もらえる物を1〜2文で。無い・分からなければそう書く"),
   caution: z.string().describe("気をつける事・期限の根拠・窓口に確かめる事（調べた範囲で言い切れない所）"),
 });
@@ -100,7 +103,15 @@ export async function fetchLocal(family: Family, m: MilestoneDef, force = false)
     }
   }
   const place = `${family.prefecture}${family.city}`;
-  const question = `${place}で「${m.title}」をする時について、${family.city}の公式サイトを優先して調べてください。
+  const base = designatedCity(family.city);
+  const ward = wardOf(family.city);
+  // 政令市は、届出の窓口が市役所本庁ではなく区役所
+  const wardNote = base
+    ? ward
+      ? `\n${base}は政令指定都市です。窓口は${ward}役所なので、${ward}役所の課・階・住所で答えてください（市役所本庁ではなく）。`
+      : `\n${base}は政令指定都市です。窓口は住んでいる区の区役所なので、区役所の課の名前で答えてください（市役所本庁ではなく。区ごとの住所や電話の一覧は要りません）。`
+    : "";
+  const question = `${place}で「${m.title}」をする時について、${family.city}の公式サイトを優先して調べてください。${wardNote}
 知りたい事:
 1. 窓口（どの役所の・何階の・どの課か。役所の住所。区役所ごとに違うならその事も）
 2. 必要な物・書類
@@ -114,7 +125,17 @@ export async function fetchLocal(family: Family, m: MilestoneDef, force = false)
   const shaped = await structured(
     LocalSchema,
     SHAPE_SYSTEM,
-    `町: ${place}\n事: ${m.title}\n\n調べた文章:\n${found.text}`,
+    [
+      `町: ${place}`,
+      `事: ${m.title}`,
+      base && !ward ? `政令指定都市: 窓口は住んでいる区の区役所。office は「${officeName(family.city)}」、address は空にする` : "",
+      base && ward ? `政令指定都市: 窓口は${ward}役所。office は「${officeName(family.city)}」` : "",
+      "",
+      "調べた文章:",
+      found.text,
+    ]
+      .filter((x) => x !== "")
+      .join("\n"),
     { model: LIGHT_MODEL, effort: "low", maxTokens: 4000 },
   );
   const local: LocalInfo = {

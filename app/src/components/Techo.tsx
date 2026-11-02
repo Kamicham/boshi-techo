@@ -13,13 +13,11 @@ import { Fold, NextStep, daysUntil } from "./ui";
 import { DemoClock } from "./today/DemoClock";
 import { TaskRow, TopTask } from "./today/TaskCard";
 import { jpShort } from "./today/dates";
-import { sortNow, type Task } from "./today/task";
+import { byDays, daysLeft, planToday, type Task } from "./today/task";
 import { VisitToday, visitIsTop } from "./today/VisitToday";
 
 // ほかの画面が使っている日付の言い方（中身は today/dates.ts）
 export { jpDate } from "./today/dates";
-
-const NOW = new Set(["今やる", "期限が近い", "期限切れ"]);
 
 export function Techo() {
   const { family, today, setToday, isDemo, me } = useFamily();
@@ -28,6 +26,16 @@ export function Techo() {
   const [doneError, setDoneError] = useState("");
   const [visit, setVisit] = useState<{ next: VisitPlan["next"]; agenda: number } | null>(null);
   const [keep, setKeep] = useState<Keep | null>(null);
+  // 下書きに「送った」「使った」の印が付いた事（済んだ事として扱う）
+  const [sent, setSent] = useState<Set<string>>(new Set());
+  // 済んだ印と下書きの印を読み終わるまで、一番上を出さない（済んだ事が一瞬出るのを防ぐ）
+  const [doneReady, setDoneReady] = useState(false);
+  const [sentReady, setSentReady] = useState(false);
+  // 家族の画面などから「この事を今日の画面で開く」（/?focus=<id>）
+  const [focusId, setFocusId] = useState<string | null>(null);
+  useEffect(() => {
+    setFocusId(new URLSearchParams(window.location.search).get("focus"));
+  }, []);
 
   // 済んだ印（DB の done）と、いつもの場所（病院・窓口）
   useEffect(() => {
@@ -36,15 +44,49 @@ export function Techo() {
     setLastDone(null);
     setDoneError("");
     setKeep(null);
+    setSent(new Set());
+    setDoneReady(false);
+    setSentReady(false);
     const fid = encodeURIComponent(family.id);
     api<{ done: string[] }>(`/api/done?familyId=${fid}`)
       .then((j) => alive && setMarked(new Set(j.done)))
-      .catch((e: Error) => alive && setDoneError(e.message));
+      .catch((e: Error) => alive && setDoneError(e.message))
+      .finally(() => alive && setDoneReady(true));
     api<{ keep: Keep }>(`/api/keep?familyId=${fid}`)
       .then((j) => alive && setKeep(j.keep ?? null))
       .catch(() => {});
     return () => {
       alive = false;
+    };
+  }, [family.id]);
+
+  // 下書きの印は、ほかの画面・ほかの端末でも付く。開いた時と、画面に戻ってきた時に読み直す
+  useEffect(() => {
+    let alive = true;
+    const fid = encodeURIComponent(family.id);
+    const loadSent = () =>
+      api<{ drafts: { milestoneId: string }[] }>(`/api/draft?familyId=${fid}`)
+        .then((j) => alive && setSent(new Set(j.drafts.map((d) => d.milestoneId))))
+        .catch(() => {})
+        .finally(() => alive && setSentReady(true));
+    // 戻ってきた時は済んだ印も（下書きの印を付けると、サーバ側で同時に済みになるため）
+    const load = () => {
+      void loadSent();
+      api<{ done: string[] }>(`/api/done?familyId=${fid}`)
+        .then((j) => alive && setMarked(new Set(j.done)))
+        .catch(() => {});
+    };
+    void loadSent();
+    const onVisible = () => document.visibilityState === "visible" && load();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", load);
+    // 下書きの印を付けた・外した時（同じ画面のまま、一番上から消す）
+    window.addEventListener("boshi:done", load);
+    return () => {
+      alive = false;
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", load);
+      window.removeEventListener("boshi:done", load);
     };
   }, [family.id]);
 
@@ -83,24 +125,32 @@ export function Techo() {
 
   // デモの早送り: 通り過ぎた期限の事は、家族が済ませた前提にする
   const done = useMemo(() => {
-    const s = new Set(marked);
+    const s = new Set([...marked, ...sent]);
     if (isDemo) for (const m of schedule) if (m.deadlineDate && m.deadlineDate < today) s.add(m.id);
     return s;
-  }, [marked, schedule, today, isDemo]);
+  }, [marked, sent, schedule, today, isDemo]);
 
   const tasks: Task[] = schedule.map((m) => ({ ...m, status: statusOf(m, today, done) }));
-  const now = sortNow(
-    tasks.filter((t) => NOW.has(t.status)),
-    me,
-  );
-  const upcoming = tasks.filter((t) => t.status === "まだ先");
+  const plan = planToday(tasks, today, me);
   const finished = tasks.filter((t) => t.status === "済み");
 
   const nextVisit = visit?.next ?? null;
   const visitTop = visitIsTop(today, nextVisit);
-  const top = visitTop ? null : (now[0] ?? null);
-  const rest = visitTop ? now : now.slice(1);
+  const focus = focusId ? tasks.find((t) => t.id === focusId && t.status !== "済み" && t.status !== "過ぎた") ?? null : null;
+  const top = visitTop ? null : (focus ?? plan.top);
+  // 健診が一番上の日は、一番上に出すはずだった事も「このあと」へ（あと何日の順に入れ直す）
+  const pool = visitTop && plan.top ? [plan.top, ...plan.rest] : focus && plan.top && plan.top.id !== focus.id ? [plan.top, ...plan.rest] : plan.rest;
+  const restTasks = byDays(pool.filter((t) => t.id !== focus?.id), (t) => daysLeft(t, today));
+  const visitRow = nextVisit && !visitTop && diffDays(nextVisit.date, today) > 0 ? nextVisit : null;
+  // 「このあと」は、あと何日の順だけ（次の健診の1行も同じ並びに入れる）
+  type Row = { kind: "task"; task: Task } | { kind: "visit" };
+  const rows = byDays<Row>(
+    [...restTasks.map((task) => ({ kind: "task" as const, task })), ...(visitRow ? [{ kind: "visit" as const }] : [])],
+    (r) => (r.kind === "visit" ? daysUntil(today, visitRow!.date) : daysLeft(r.task, today)),
+  );
+  const upcoming = plan.upcoming;
   const common = { today, family, me, keep };
+  const loading = !(doneReady && sentReady);
 
   return (
     <main className="flex flex-col gap-5 px-4 pt-4 pb-8">
@@ -127,30 +177,33 @@ export function Techo() {
         </p>
       )}
 
-      {visitTop && nextVisit ? (
+      {loading ? (
+        <div className="h-40 rounded-2xl bg-rose-soft/60" aria-hidden />
+      ) : visitTop && nextVisit ? (
         <VisitToday family={family} today={today} next={nextVisit} agendaCount={visit?.agenda ?? 0} keep={keep} />
       ) : top ? (
-        <TopTask key={`${family.id}:${top.id}`} task={top} {...common} onDone={() => void setDone(top, true)} />
+        <TopTask key={`${family.id}:${top.id}`} task={top} soon={!focus && plan.topIsSoon} {...common} onDone={() => void setDone(top, true)} />
       ) : (
-        <Calm upcoming={upcoming[0]} today={today} />
+        <Calm upcoming={(me && upcoming.find((t) => t.who === "家族" || t.who === me.role)) || upcoming[0]} today={today} />
       )}
 
-      {(rest.length > 0 || (nextVisit && !visitTop && diffDays(nextVisit.date, today) > 0)) && (
+      {!loading && rows.length > 0 && (
         <section aria-label="このあと" className="flex flex-col">
           <h2 className="text-sm font-semibold text-muted">このあと</h2>
-          {rest.map((t) => (
-            <TaskRow key={`${family.id}:${t.id}`} task={t} {...common} onDone={() => void setDone(t, true)} />
-          ))}
-          {nextVisit && !visitTop && diffDays(nextVisit.date, today) > 0 && (
-            <Link href="/visit" className="flex min-h-12 items-center justify-between gap-3 py-2">
-              <span className="text-base font-semibold">次の健診{nextVisit.time ? ` ${nextVisit.time}` : ""}</span>
-              <span className="flex shrink-0 items-center gap-2">
-                <span className="tabular text-sm font-semibold">あと{daysUntil(today, nextVisit.date)}日</span>
-                <span className="text-muted" aria-hidden>
-                  ›
+          {rows.map((r) =>
+            r.kind === "task" ? (
+              <TaskRow key={`${family.id}:${r.task.id}`} task={r.task} {...common} onDone={() => void setDone(r.task, true)} />
+            ) : (
+              <Link key="visit" href="/visit" className="flex min-h-12 items-center justify-between gap-3 border-b border-line py-2 last:border-b-0">
+                <span className="text-base font-semibold">次の健診{visitRow!.time ? ` ${visitRow!.time}` : ""}</span>
+                <span className="flex shrink-0 items-center gap-2">
+                  <span className="tabular text-sm font-semibold">あと{daysUntil(today, visitRow!.date)}日</span>
+                  <span className="text-muted" aria-hidden>
+                    ›
+                  </span>
                 </span>
-              </span>
-            </Link>
+              </Link>
+            ),
           )}
         </section>
       )}
@@ -159,7 +212,7 @@ export function Techo() {
         気になった事は、話す・撮るで残す ›
       </Link>
 
-      {upcoming.length > 0 && (
+      {!loading && upcoming.length > 0 && (
         <Fold title="まだ先" count={upcoming.length}>
           <div className="flex flex-col">
             {upcoming.map((t) => (
@@ -169,7 +222,7 @@ export function Techo() {
         </Fold>
       )}
 
-      {finished.length > 0 && (
+      {!loading && finished.length > 0 && (
         <Fold title="済んだ事" count={finished.length}>
           <ul className="flex flex-col">
             {finished.map((t) => (

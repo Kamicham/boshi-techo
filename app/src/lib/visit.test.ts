@@ -3,6 +3,8 @@ import {
   autoStage,
   briefingDay,
   familyMessage,
+  lineMessage,
+  summaryTooLong,
   chunkName,
   extFromMime,
   formatClock,
@@ -155,5 +157,28 @@ describe("健診の日の段", () => {
       "2026-11-05の健診（妊娠28週）\n・a\n・b\n・c\n次の健診: 2026-11-19 10:30",
     );
     expect(familyMessage({ date: "2026-11-05", label: "妊娠28週", result: undefined, nextDate: null }, jp)).toBe("2026-11-05の健診（妊娠28週）");
+  });
+
+  it("LINE に渡す文はさらに短い（まとめ2行・40字まで・次の健診）", () => {
+    const long = "あ".repeat(60);
+    const result = {
+      summary: [long, "b", "c"],
+      said: [],
+      todo: [],
+      nextAppointment: { said: "2週間後", month: null, day: null, afterWeeks: 2, afterDays: null, afterMonths: null, weekday: null, time: "10:30" },
+      numbers: [],
+      terms: [],
+      questions: [],
+      answered: [],
+    };
+    const m = lineMessage({ date: "2026-11-05", label: "妊娠28週", result, nextDate: "2026-11-19" });
+    expect(m).toBe(`11/5 健診（妊娠28週）\n${"あ".repeat(39)}…\nb\n次は 11/19 10:30`);
+    expect(m.split("\n").every((l) => l.length <= 40)).toBe(true);
+  });
+
+  it("まとめが3行×40字を超えたら長いと見る", () => {
+    expect(summaryTooLong(["a", "b", "c"])).toBe(false);
+    expect(summaryTooLong(["a", "b", "c", "d"])).toBe(true);
+    expect(summaryTooLong(["あ".repeat(41)])).toBe(true);
   });
 });

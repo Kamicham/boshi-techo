@@ -94,6 +94,9 @@ export const planId = (familyId: string) => `visit-plan:${familyId}`;
 
 // ───────── Claude に返してもらう形 ─────────
 
+/** まとめ1行の長さ（スマホで1行に収まる字数） */
+export const SUMMARY_LINE = 40;
+
 export const AppointmentSchema = z.object({
   said: z.string().describe("先生（または受付）が言ったままの言い方。例: 「2週間後の月曜」"),
   month: z.number().int().nullable().describe("日付で言われた時の月（1〜12）。言われていなければ null"),
@@ -107,7 +110,9 @@ export const AppointmentSchema = z.object({
 export type AppointmentSaid = z.infer<typeof AppointmentSchema>;
 
 export const OrganizedSchema = z.object({
-  summary: z.array(z.string()).describe("家族への3行。今日の健診で話した事を、家族の言葉で。評価はしない"),
+  summary: z
+    .array(z.string())
+    .describe(`家族への3行。1行は${SUMMARY_LINE}字まで・一文。専門の言葉は使わず、やさしい言葉に置き換える。評価はしない`),
   said: z
     .array(
       z.object({
@@ -397,6 +402,27 @@ export function familyMessage(v: Pick<VisitData, "date" | "label" | "result" | "
   const lines = [`${jp(v.date)}の健診（${v.label}）`];
   for (const s of (r?.summary ?? []).slice(0, 3)) lines.push(`・${s}`);
   if (v.nextDate) lines.push(`次の健診: ${jp(v.nextDate)}${r?.nextAppointment?.time ? ` ${r.nextAppointment.time}` : ""}`);
+  return lines.join("\n");
+}
+
+/** まとめが長すぎるか（3行×40字を超える・4行以上）。長い時、画面は1行目だけを先に見せる */
+export function summaryTooLong(summary: string[]): boolean {
+  return summary.length > 3 || summary.some((s) => s.length > SUMMARY_LINE);
+}
+
+/** 長い1行を字数で切る */
+export function clip(s: string, n: number): string {
+  const t = s.trim();
+  return t.length > n ? `${t.slice(0, n - 1)}…` : t;
+}
+
+/** LINE に渡す、さらに短い文: 「11/5 健診（妊娠28週）」＋まとめ2行（40字まで）＋次の健診 */
+export function lineMessage(v: Pick<VisitData, "date" | "label" | "result" | "nextDate">): string {
+  const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
+  const r = v.result;
+  const lines = [`${md(v.date)} 健診（${v.label}）`];
+  for (const s of (r?.summary ?? []).slice(0, 2)) lines.push(clip(s, SUMMARY_LINE));
+  if (v.nextDate) lines.push(`次は ${md(v.nextDate)}${r?.nextAppointment?.time ? ` ${r.nextAppointment.time}` : ""}`);
   return lines.join("\n");
 }
 

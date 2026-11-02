@@ -8,11 +8,12 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { recordingBusy, recordingBusyServer, subscribeRecording } from "@/lib/recording-state";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { jpDate } from "@/components/Techo";
-import { Btn, CopyField, Fold, HandoffRow, NextStep, Pill, Why } from "@/components/ui";
+import { Btn, CopyField, Fold, NextStep, Pill, ShareButton, Why } from "@/components/ui";
+import { lineUrl } from "@/lib/handoff";
 import { Guide } from "@/components/visit/Guide";
 import { Recorder } from "@/components/visit/Recorder";
 import { Results } from "@/components/visit/Results";
-import { STAGES, autoStage, bringList, familyMessage, looksStuck, type VisitStage, type VisitView } from "@/lib/visit";
+import { STAGES, autoStage, bringList, familyMessage, lineMessage, looksStuck, type VisitStage, type VisitView } from "@/lib/visit";
 
 const STAGE_KEY = (id: string) => `boshi.visitStage:${id}`;
 
@@ -124,6 +125,7 @@ export default function VisitDay() {
   const agenda = visit.agenda ?? [];
   const asked = agenda.filter((a) => a.asked).length;
   const message = familyMessage(visit, jpDate);
+  const lineText = lineMessage(visit);
 
   return (
     <main className="flex flex-col gap-4 px-4 pt-3 pb-6">
@@ -254,10 +256,12 @@ export default function VisitDay() {
       {stage === "send" &&
         (visit.status === "done" && visit.result ? (
           <>
-            <NextStep eyebrow="家族に送る" title="まとめを LINE で送る" tone="rose">
-              <HandoffRow line={message} share={{ title: `${visit.label}の健診`, text: message }} />
+            {/* 主は1つ（LINE）。共有とコピーは添えるだけ。LINE には短い文、共有・コピーは3行の全文 */}
+            <NextStep title="一緒に読んでもらう" tone="rose">
+              <Btn href={lineUrl(lineText)}>LINE で家族に送る</Btn>
+              <ShareButton title={`${visit.label}の健診`} text={message} label="ほかのアプリで" />
             </NextStep>
-            <CopyField label="送る文" value={message} />
+            <CopyField label="3行の全文" value={message} long />
           </>
         ) : (
           <NextStep title="まとめができたら送れます" tone="sky">

@@ -6,40 +6,69 @@
 import { useEffect, useState } from "react";
 import type { Milestone } from "@/lib/milestones";
 import type { LocalInfo } from "@/lib/local";
-import type { DraftView } from "@/lib/drafts";
+import type { DraftKind, DraftView } from "@/lib/drafts";
 import { api, useFamily } from "./FamilyProvider";
 import { Btn } from "./ui";
 import { DraftPanel, doneWord, type DraftBusy } from "./draft/DraftPanel";
 import { LocalPanel } from "./draft/LocalPanel";
 
-/** 下書きが意味を持つ事 */
-const DRAFTABLE = new Set([
-  "pregnancy-report",
-  "tell-work",
-  "partner-leave",
-  "direct-payment",
-  "hospital-bag",
-  "birth-registration",
-  "child-allowance",
-  "health-insurance",
-  "medical-subsidy",
-  "birth-notice",
-  "tell-work-birth",
-  "daycare-research",
-  "vaccines-start",
-  "checkup-3-4m",
-  "checkup-18m",
-]);
+/** 下書きが意味を持つ事と、作る前に見込む種類（ボタンの言葉を種類で言い分ける） */
+const DRAFTABLE: Record<string, DraftKind> = {
+  "pregnancy-report": "記入メモ",
+  "tell-work": "メール",
+  "partner-leave": "メール",
+  "direct-payment": "記入メモ",
+  "hospital-bag": "持ち物",
+  "birth-registration": "記入メモ",
+  "child-allowance": "記入メモ",
+  "health-insurance": "記入メモ",
+  "medical-subsidy": "記入メモ",
+  "birth-notice": "記入メモ",
+  "tell-work-birth": "メール",
+  "daycare-research": "質問リスト",
+  "vaccines-start": "質問リスト",
+  "checkup-3-4m": "質問リスト",
+  "checkup-18m": "質問リスト",
+};
+
+/** 下書きの呼び名（種類ごと） */
+const NOUN: Record<DraftKind, string> = {
+  メール: "職場へのメール",
+  連絡文: "家族への連絡",
+  記入メモ: "書く事のメモ",
+  持ち物: "持ち物の一覧",
+  質問リスト: "聞く事の一覧",
+};
 
 type Open = "local" | "draft" | null;
 
-export function MilestoneActions(props: { milestone: Milestone; today: string }) {
+type Props = {
+  milestone: Milestone;
+  today: string;
+  /** 一番上の動きを主ボタンの見た目にする（残りは小さな文字のリンク） */
+  primary?: boolean;
+  /** すべて小さな文字のリンクにする（2つ目からの事） */
+  compact?: boolean;
+  /** 下書きの印で、その事の済みが変わった時（今日の画面が済んだ事を読み直す） */
+  onDoneChange?: (done: boolean) => void;
+};
+
+export function MilestoneActions(props: Props) {
   const { family } = useFamily();
   // 家族を切り替えたら、開いていた結果を捨てる
   return <Actions key={family.id} {...props} />;
 }
 
-function Actions({ milestone, today }: { milestone: Milestone; today: string }) {
+/** 小さな文字のリンク（押せる所は 44px 以上） */
+function SmallLink({ children, onClick, ariaLabel }: { children: React.ReactNode; onClick: () => void; ariaLabel?: string }) {
+  return (
+    <button type="button" onClick={onClick} aria-label={ariaLabel} className="inline-flex min-h-11 items-center px-1 text-sm text-muted underline underline-offset-2">
+      {children}
+    </button>
+  );
+}
+
+function Actions({ milestone, today, primary, compact, onDoneChange }: Props) {
   const { family, me } = useFamily();
   const [open, setOpen] = useState<Open>(null);
 
@@ -52,19 +81,19 @@ function Actions({ milestone, today }: { milestone: Milestone; today: string }) 
   const [draftErr, setDraftErr] = useState("");
 
   const canLocal = milestone.needsLocal && !!family.city;
-  const canDraft = DRAFTABLE.has(milestone.id);
+  const canDraft = milestone.id in DRAFTABLE;
   const title = milestone.plain || milestone.title;
 
   // 前に作った下書き・調べた結果があるかだけ先に見る（作り・調べには行かない）
   useEffect(() => {
     let alive = true;
-    const q = new URLSearchParams({ familyId: family.id, milestoneId: milestone.id });
+    const q = new URLSearchParams({ familyId: family.id, milestoneId: milestone.id, ...(me ? { meId: me.id } : {}) });
     if (canDraft) void api<DraftView>(`/api/draft?${q}`).then((v) => alive && v.draft && setView((cur) => cur ?? v), () => {});
     if (canLocal) void api<{ local: LocalInfo | null }>(`/api/local?${q}`).then((r) => alive && r.local && setLocal((cur) => cur ?? r.local), () => {});
     return () => {
       alive = false;
     };
-  }, [family.id, milestone.id, canDraft, canLocal]);
+  }, [family.id, milestone.id, canDraft, canLocal, me]);
 
   if (!canLocal && !canDraft) return null;
 
@@ -85,7 +114,10 @@ function Actions({ milestone, today }: { milestone: Milestone; today: string }) 
     setDraftErr("");
     setDraftBusy("make");
     try {
+      const was = view?.draft?.status === "ok";
       setView(await api<DraftView>("/api/draft", { body: { familyId: family.id, milestoneId: milestone.id, today, meId: me?.id } }));
+      // 作り直すと「送った」の印と、そこから付いた済みが外れる
+      if (was) onDoneChange?.(false);
     } catch (e) {
       setDraftErr((e as Error).message);
     } finally {
@@ -97,7 +129,7 @@ function Actions({ milestone, today }: { milestone: Milestone; today: string }) 
     setDraftErr("");
     setDraftBusy("load");
     try {
-      const q = new URLSearchParams({ familyId: family.id, milestoneId: milestone.id });
+      const q = new URLSearchParams({ familyId: family.id, milestoneId: milestone.id, ...(me ? { meId: me.id } : {}) });
       const v = await api<DraftView>(`/api/draft?${q}`);
       if (v.draft) {
         setView(v);
@@ -119,22 +151,30 @@ function Actions({ milestone, today }: { milestone: Milestone; today: string }) 
   };
 
   const draft = view?.draft ?? null;
+  const noun = NOUN[draft?.kind ?? DRAFTABLE[milestone.id] ?? "記入メモ"];
   const draftLabel =
-    open === "draft" ? "下書きを閉じる" : draft ? (draft.status === "ok" ? `下書きを見る（✓ ${doneWord(draft.kind)}）` : "下書きを見る") : "下書きを作る";
-  const localLabel = open === "local" ? "閉じる" : local ? `${family.city}の窓口を見る` : `${family.city}の窓口を調べる`;
+    open === "draft" ? `${noun}を閉じる` : draft ? (draft.status === "ok" ? `${noun}を見る（✓ ${doneWord(draft.kind)}）` : `${noun}を見る`) : `${noun}を作る`;
+  const localLabel = open === "local" ? "行き先を閉じる" : "どこへ行くか見る";
+
+  // 窓口が要る事は「どこへ行くか見る」を先（主）に。下書きはその次
+  const buttons = [
+    canLocal && { id: "local" as const, label: localLabel, aria: `${title}: ${localLabel}` },
+    canDraft && { id: "draft" as const, label: draftLabel, aria: `${title}の${draftLabel}` },
+  ].filter((x): x is { id: Exclude<Open, null>; label: string; aria: string } => !!x);
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap gap-2">
-        {canDraft && (
-          <Btn kind="secondary" onClick={() => toggle("draft")} ariaLabel={`${title}の${draftLabel}`}>
-            {draftLabel}
-          </Btn>
-        )}
-        {canLocal && (
-          <Btn kind="secondary" onClick={() => toggle("local")} ariaLabel={`${title}: ${localLabel}`}>
-            {localLabel}
-          </Btn>
+      <div className={`flex flex-wrap items-center ${compact ? "gap-x-2" : "gap-2"}`}>
+        {buttons.map((b, i) =>
+          compact || (primary && i > 0) ? (
+            <SmallLink key={b.id} onClick={() => toggle(b.id)} ariaLabel={b.aria}>
+              {b.label}
+            </SmallLink>
+          ) : (
+            <Btn key={b.id} kind={primary ? "primary" : "secondary"} onClick={() => toggle(b.id)} ariaLabel={b.aria}>
+              {b.label}
+            </Btn>
+          ),
         )}
       </div>
 
@@ -142,10 +182,17 @@ function Actions({ milestone, today }: { milestone: Milestone; today: string }) 
         <DraftPanel
           familyId={family.id}
           milestoneId={milestone.id}
+          meId={me?.id ?? null}
+          today={today}
           view={view}
           busy={draftBusy}
           err={draftErr}
-          onView={setView}
+          onView={(v) => {
+            const was = view?.draft?.status === "ok";
+            setView(v);
+            const now = v.draft?.status === "ok";
+            if (was !== now) onDoneChange?.(now);
+          }}
           onRemake={() => void makeDraft()}
           onRetry={() => void (draft ? makeDraft() : openDraft())}
         />

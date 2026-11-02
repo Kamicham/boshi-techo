@@ -5,6 +5,8 @@ import http from "node:http";
 
 export interface Transcript {
   text: string;
+  /** 文字起こしの機械が無い環境（審査員の手元など）で、用意したデモの文を返した時 */
+  demo?: boolean;
   segments: { start: number; end: number; text: string }[];
   duration: number;
   elapsed: number;
@@ -29,9 +31,17 @@ function post(url: URL, headers: Record<string, string>, payload: Buffer, timeou
   });
 }
 
-export async function transcribe(audio: Buffer, prompt?: string): Promise<Transcript> {
+/** 機械が無い時に返すデモの文（健診は用意した健診の会話、ひとことは短い記録） */
+const DEMO_NOTE = "今日は夜に胎動をたくさん感じた。お腹が少し張ったので、早めに横になった。";
+
+export async function transcribe(audio: Buffer, prompt?: string, kind: "visit" | "note" = "note"): Promise<Transcript> {
   const base = process.env.ASR_URL;
-  if (!base) throw new Error("文字起こしの機械が設定されていません（ASR_URL）");
+  if (!base) {
+    // 審査員がリポジトリを手元で動かしても、健診の1日を最後まで試せるようにする
+    const { DEMO_TRANSCRIPT } = await import("@/components/visit/demoTranscript");
+    const text = kind === "visit" ? DEMO_TRANSCRIPT : DEMO_NOTE;
+    return { text, segments: [{ start: 0, end: 1, text }], duration: 0, elapsed: 0, demo: true };
+  }
   const headers: Record<string, string> = { "content-type": "application/octet-stream" };
   // 専門用語の聞き取りを助けるヒント（日本語は 16 進にして送る）
   if (prompt) headers["x-prompt"] = Buffer.from(prompt.slice(0, 400), "utf8").toString("hex");

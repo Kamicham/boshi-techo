@@ -188,7 +188,13 @@ async function runPipeline(id: string, reuseTranscript: boolean) {
       let lastErr: unknown = null;
       for (const [i, j] of joined.entries()) {
         try {
-          parts.push(await transcribe(fs.readFileSync(j.file), ASR_HINT));
+          const t = await transcribe(fs.readFileSync(j.file), ASR_HINT, "visit");
+          parts.push(t);
+          // 文字起こしの機械が無い環境（審査員の手元など）: 用意したデモの会話を1回だけ使う
+          if (t.demo) {
+            notes.push("文字起こしの機械（ASR_URL）が無いので、用意したデモの文字起こしを使いました");
+            break;
+          }
           if (j.missing.length) notes.push(`${i + 1}本目の録音の途中 ${j.missing.length * 10} 秒ほどが届いていません（通信が切れた所）`);
         } catch (e) {
           console.error("[visit] take", i, e);
@@ -250,10 +256,10 @@ const ORGANIZE_SYSTEM = `あなたの役目: 妊婦健診・乳幼児健診の�
 - todo: 先生が「次までに」「〜してきてください」と言った物だけ。自分で足さない。
 - nextAppointment: 次の予約を言った時だけ。言われた形のまま、月日・「◯週間後」・曜日・時刻に分けて入れる（日付の計算はしない）。言っていなければ null。
 - numbers: 話に出た数値を、言われたとおりの値と単位で。正常・異常・多い・少ない・順調などの評価は書かない。
-- terms: 家族が分からなかったかもしれない専門用語。plain は「それが何か／何を測るものか」だけを一般的な言葉で。今回の値が良いか悪いか、心配かどうかは書かない。
+- terms: 家族が分からなかったかもしれない専門用語（子宮頸管長・頭位・推定体重など）。plain は「それが何か／何を測るものか」だけを、中学生に話すような言葉で1〜2文。今回の値が良いか悪いか、心配かどうかは書かない。
 - questions: 話の中で意味が残った所（説明が途中で終わった・理由が言われなかった・家族が聞き返しそびれた）を、次に家族が先生へ聞ける質問の形にする。体の判断を求める形ではなく「〜はどういう意味ですか」「〜の時はどうすればいいですか」のように。
 - answered: 「今日聞く予定だった事」の一つずつに、録音の中の先生の答えを対応させる。答えが無ければ answer と quote を null に。
-- summary: 家族への3行。何をした健診か・先生が伝えた事・次までにやる事。安心させる言葉や評価（順調・問題なし など）は、先生がそう言った時だけ、引用として書く。`;
+- summary: 家族への3行（3つまで）。1行目=何をした健診か、2行目=先生が伝えた一番大事な事、3行目=次までにやる事（無ければ次の予約）。1つは一文で40字まで（スマホで1行）。数値を並べない。専門の言葉（子宮頸管長・頭位・尿蛋白など）は使わず「赤ちゃんは頭が下」「子宮の出口の長さ」のように言い換える（元の言葉は terms に入れる）。安心させる言葉や評価（順調・問題なし など）は、先生がそう言った時だけ、引用として書く。`;
 
 function organizePrompt(v: VisitData, members: string[]): string {
   const t = v.transcript!;

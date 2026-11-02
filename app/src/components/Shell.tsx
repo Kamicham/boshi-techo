@@ -65,7 +65,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       )}
-      <div className="flex-1 pb-24">{children}</div>
+      {/* 家族を読み終えるまで中身を出さない（わが家の人に、デモの家族が一瞬見えないように） */}
+      <div className="flex-1 pb-24">{ready ? children : <div className="mx-4 mt-4 h-40 rounded-2xl bg-rose-soft/60" aria-hidden />}</div>
       <nav
         aria-label="画面の切り替え"
         className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-card/95 backdrop-blur"
@@ -83,7 +84,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               <li key={t.href} className="flex-1">
                 <Link
                   href={t.href}
-                  className={`flex flex-col items-center py-3 text-xs font-semibold ${on ? "text-rose" : "text-muted"}`}
+                  className={`flex min-h-12 flex-col items-center justify-center py-1 text-xs font-semibold ${on ? "text-rose" : "text-muted"}`}
                   aria-current={on ? "page" : undefined}
                 >
                   {t.label}

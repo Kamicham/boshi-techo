@@ -1,6 +1,7 @@
 "use client";
 
 // ⑥ 家族が育てる地図: 一番上は「わが町の窓口」1つ。知恵は短く並べ、確かめた家族の数は札に、注意は「なぜ？」へ。
+import { officeSearch } from "@/lib/local-place";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { jpDate } from "@/components/Techo";
@@ -9,11 +10,16 @@ import type { Keep } from "@/lib/keep";
 import { MILESTONES } from "@/lib/milestones";
 import type { WisdomDoc } from "@/lib/wisdom";
 
-const titleOf = (id: string | null) => (id ? MILESTONES.find((m) => m.id === id)?.title ?? null : null);
+/** 札にはやさしい言い方（正式な名前は下書き・調べ物の中で使う） */
+const titleOf = (id: string | null) => (id ? (MILESTONES.find((m) => m.id === id)?.plain ?? null) : null);
 
-/** 町・村は「役場」、市・区は「役所」 */
-const officeWord = (city: string) => (/[町村]$/.test(city) ? "役場" : "役所");
+/** 政令市は、手続きの窓口が区役所になる */
+const WARD_CITIES = new Set(["札幌市", "仙台市", "さいたま市", "千葉市", "横浜市", "川崎市", "相模原市", "新潟市", "静岡市", "浜松市", "名古屋市", "京都市", "大阪市", "堺市", "神戸市", "岡山市", "広島市", "北九州市", "福岡市", "熊本市"]);
 
+/** 町・村は「役場」、政令市は「区役所」、ほかの市・区は「役所」 */
+const officeWord = (city: string) => (/[町村]$/.test(city) ? "役場" : WARD_CITIES.has(city) ? "区役所" : "役所");
+
+/** 地図で探す言葉: 空白を入れず「県＋市＋役所」。覚えた窓口の名前に町の名前が無ければ、前に足す */
 export default function MapPage() {
   const { family, today, isDemo } = useFamily();
   const [items, setItems] = useState<WisdomDoc[]>([]);
@@ -95,8 +101,9 @@ export default function MapPage() {
   const shown = filter ? items.filter((i) => i.data.milestoneId === filter) : items;
   const anyDemo = items.some((i) => i.data.demo);
 
-  const office = keep.office?.name || `${family.city}${officeWord(family.city)}`;
-  const place = keep.office?.address || `${family.prefecture}${family.city} ${keep.office?.name || officeWord(family.city)}`;
+  const ward = !keep.office?.name && WARD_CITIES.has(family.city);
+  const office = keep.office?.name || (ward ? `${family.city}の住んでいる区の区役所` : `${family.city}${officeWord(family.city)}`);
+  const place = officeSearch({ prefecture: family.prefecture, city: family.city, office: keep.office?.name, address: keep.office?.address });
 
   return (
     <main className="flex flex-col gap-4 px-4 pt-4">

@@ -45,6 +45,7 @@ npm run dev                  # http://localhost:3000
 ```
 
 - 文字起こし（健診の録音）は [asr/](asr/) の小さなサーバ（faster-whisper large-v3）を GPU の機械で動かし、`ASR_URL` で指す。音声は家のネットワークの外に出ない
+- `ASR_URL` が無い時は、用意したデモの文字起こしに自動で切り替わる（画面に「デモの文字起こし」と出る）。GPU が無くても、健診の1日を最後まで試せる
 - スマホのマイクは https でないと使えない。家の機械で動かす時は Tailscale Serve などで https の住所を付ける
 - 家族が毎日使う時は、組み立て済みの本番で動かす（`app/scripts/serve-prod.sh`・更新は `app/scripts/deploy-local.sh`）。開発サーバのままだと、コードを直した時に録音中の画面が読み直される
 - デモの家族（すべて架空・町だけ実在のさいたま市）は上の切り替えで選べる。時計を早送りできる
@@ -97,7 +98,7 @@ Claude Opus 5.5 plays seven roles (vision, structured outputs with zod, web sear
 
 ## Run
 
-See the Japanese section above (`cd app && npm install && npm run dev`, with `ANTHROPIC_API_KEY` and `ASR_URL` in `.env.local`).
+See the Japanese section above (`cd app && npm install && npm run dev`, with `ANTHROPIC_API_KEY` and `ASR_URL` in `.env.local`). Without `ASR_URL`, a bundled demo transcript is used so the whole visit flow still works without a GPU.
 
 ## License
 

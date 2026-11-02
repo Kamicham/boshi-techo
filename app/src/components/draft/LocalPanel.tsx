@@ -2,8 +2,9 @@
 
 // ② 町の調べ: 一番上に「どこへ・何を持って」。窓口は地図で開け、家族へ LINE で渡せる。
 // 出典・根拠・確かめる事は「なぜ？」の奥へ。
-import { useState } from "react";
+// 表には「どこへ」は役所と課の1行、「いつまで」は日付・日数だけ。法律の名前やくわしい窓口は「なぜ？」へ。
 import type { LocalInfo } from "@/lib/local";
+import { officeSearch, shortDeadline, shortWhere } from "@/lib/local-place";
 import { Btn, HandoffRow, Why } from "../ui";
 import { ErrorLine, Working } from "./Working";
 
@@ -20,13 +21,6 @@ function isOfficial(url: string): boolean {
 function mdDate(s: string) {
   const [, m, d] = s.slice(0, 10).split("-").map(Number);
   return `${m}月${d}日`;
-}
-
-/** 地図で探す言葉: 住所 → 役所の名前 → 町の役所 */
-function placeOf(l: LocalInfo): string {
-  if (l.address) return `${l.office} ${l.address}`.trim();
-  if (l.office) return l.office.startsWith(l.prefecture) || l.office.startsWith(l.city) ? l.office : `${l.prefecture}${l.office}`;
-  return `${l.prefecture}${l.city}${/[市区]$/.test(l.city) ? "役所" : "役場"}`;
 }
 
 export function LocalPanel(p: { city: string; title: string; local: LocalInfo | null; busy: boolean; err: string; onRetry: () => void; onRefresh: () => void }) {
@@ -51,13 +45,14 @@ export function LocalPanel(p: { city: string; title: string; local: LocalInfo | 
 }
 
 function LocalBody({ local, title, onRefresh }: { local: LocalInfo; title: string; onRefresh: () => void }) {
-  const [allWhere, setAllWhere] = useState(false);
-  const place = placeOf(local);
+  const place = officeSearch(local);
+  const where = shortWhere(local.where);
+  const deadline = shortDeadline(local.deadline);
   const text = [
     `${title}（${local.city}）`,
-    `どこへ: ${local.where}`,
+    `どこへ: ${where}`,
     local.bring.length ? `持ち物: ${local.bring.join("、")}` : "",
-    `いつまで: ${local.deadline}`,
+    `いつまで: ${deadline}`,
     local.address ? `${local.office} ${local.address}` : "",
   ]
     .filter(Boolean)
@@ -66,12 +61,7 @@ function LocalBody({ local, title, onRefresh }: { local: LocalInfo; title: strin
     <>
       <div className="flex flex-col gap-1">
         <p className="text-sm font-semibold text-muted">どこへ</p>
-        <p className={`font-display text-xl leading-snug font-bold ${allWhere ? "" : "line-clamp-3"}`}>{local.where}</p>
-        {!allWhere && local.where.length > 60 && (
-          <button type="button" onClick={() => setAllWhere(true)} className="min-h-11 self-start text-sm text-muted underline">
-            全部見る
-          </button>
-        )}
+        <p className="font-display text-xl leading-snug font-bold">{where}</p>
       </div>
 
       {local.bring.length > 0 && (
@@ -92,7 +82,7 @@ function LocalBody({ local, title, onRefresh }: { local: LocalInfo; title: strin
 
       <p className="text-base">
         <span className="mr-2 text-sm font-semibold text-muted">いつまで</span>
-        {local.deadline}
+        {deadline}
       </p>
 
       <HandoffRow place={place} line={text} share={{ title, text }} />
@@ -106,6 +96,8 @@ function LocalBody({ local, title, onRefresh }: { local: LocalInfo; title: strin
 
       <Why label="出典・確かめる事">
         <p>{local.summary}</p>
+        {where !== local.where.trim() && <p>窓口のくわしい事: {local.where}</p>}
+        {deadline !== local.deadline.trim() && <p>期限のくわしい事: {local.deadline}</p>}
         {local.caution && <p>{local.caution}</p>}
         {local.sources.length === 0 && <p>出典のページが取れませんでした。窓口で確かめてください。</p>}
         <ul className="flex flex-col gap-1">
