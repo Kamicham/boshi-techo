@@ -51,7 +51,7 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
 
   const reload = useCallback(async () => {
     try {
-      const r = await fetch("/api/family");
+      const r = await fetch(`/api/family?id=${encodeURIComponent(read("boshi.family") ?? "")}`);
       if (r.ok) {
         const list = ((await r.json()) as { families: Family[] }).families;
         setFamilies(list);
@@ -85,7 +85,7 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
   const family = families.find((f) => f.id === familyId) ?? DEMO_FAMILY;
   const isDemo = family.id === DEMO_FAMILY.id;
   // デモとシミュレーションの家族だけ、時計を進められる
-  const timeTravel = isDemo || family.id.startsWith("sim-");
+  const timeTravel = isDemo || family.id.startsWith("sim-") || family.id.startsWith("pop-");
   const today = timeTravel ? demoToday : realToday();
   const me = family.members.find((m) => m.id === meIds[family.id]) ?? null;
   void chosen;

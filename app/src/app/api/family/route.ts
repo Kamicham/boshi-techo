@@ -4,7 +4,16 @@ import { list, put } from "@/lib/db";
 import { scheduleFor } from "@/lib/milestones";
 import type { Family } from "@/lib/demo-family";
 
-export const GET = route(async () => ({ families: allFamilies() }));
+export const GET = route(async (req: Request) => {
+  const families = allFamilies();
+  // シミュレーションのサーバだけ: 1000組の家族（pop-）は一覧に入れず、開いている家族だけを足す
+  const id = new URL(req.url).searchParams.get("id") ?? "";
+  if (id.startsWith("pop-")) {
+    const f = getFamily(id);
+    if (f) families.unshift(f);
+  }
+  return { families };
+});
 
 /** 「わが家」の設定を保存する */
 export const POST = route(async (req: Request) => {

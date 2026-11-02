@@ -12,9 +12,7 @@ export const meta = {
 //   families: なりきる家族の id を直接選ぶ（今まで通り。直した画面に関わる家族を先に入れる）。pick より優先
 //   change: 今回の修正の一言（なりきり役は、そこを特によく触る）
 // 前提: app/scripts/sim-server.sh が 3100番で動いている。
-//   注意: サーバは pop- の家族を id で引ける（lib/family.ts の getFamily）が、画面の家族の一覧（/api/family）には入れていない。
-//   画面（components/FamilyProvider.tsx）が一覧に無い家族をデモに戻し、時計を進められるのを sim- の家族に限っている間は、
-//   pop- の家族のなりきりは本当の画面を触れない。その間は families に sim- の家族だけを渡す。
+//   pop- の家族は、画面が /api/family?id= で1家族だけ引き、時計も進められる（シミュレーションのサーバだけ）。
 const FALLBACK = ['sim-04', 'sim-06', 'sim-12', 'sim-16', 'sim-18', 'sim-22']
 const pick = args && args.pick && Array.isArray(args.pick.families) ? args.pick : null
 const ids = (args && args.families && args.families.length ? args.families : pick ? [...pick.families.map((f) => f.id), pick.rare] : FALLBACK).slice(0, 8)
