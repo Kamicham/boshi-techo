@@ -59,6 +59,8 @@ npm run typecheck
 
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
+修正のたびに、公的な統計の割合から作った1000家族（すべて作った家族）でアプリの1000日を早送りしています。使った割合と出典: [docs/SIM_STATS.md](docs/SIM_STATS.md)
+
 ## License
 
 MIT
@@ -95,6 +97,8 @@ The author is user #1, using it at a family member's real prenatal checkups (rea
 ## How Claude is used
 
 Claude Opus 5.5 plays seven roles (vision, structured outputs with zod, web search with citations, drafting, family planning, checkup structuring, book writing); Claude Haiku 5.5 handles light formatting. A shared charter forbids medical judgment in every call. The whole project was built with Claude Code, with parallel agents per feature; the commit history is the record.
+
+Every change is fast-forwarded through 1,000 days with 1,000 synthetic families drawn from Japanese public statistics (sources: [docs/SIM_STATS.md](docs/SIM_STATS.md), in Japanese).
 
 ## Run
 

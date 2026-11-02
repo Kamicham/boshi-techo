@@ -1,16 +1,27 @@
 export const meta = {
   name: 'simulate',
-  description: '作った家族になりきった Claude が、シミュレーションのサーバの画面を iPhone の大きさで触り、詰まった所を集める（既定6家族）',
+  description: '作った家族になりきった Claude が、シミュレーションのサーバの画面を iPhone の大きさで触り、詰まった所を集める（既定は1000組から6家族＋30家族から珍しい型1家族）',
   whenToUse: '画面や流れに関わる修正の後。「シミュレーションを回して」と言われた時',
   phases: [{ title: 'なりきり' }],
 }
-// args: { families?: string[], change?: string }
-//   families: なりきる家族の id（既定は下の6つ。直した画面に関わる家族を先に入れる）
+// args: { pick?: PickRound, families?: string[], change?: string }
+//   pick: 既定の選び方。app/src/sim/pick.json の rounds[n]（{ round, families: [6家族の persona], rare: 'sim-xx' }）をそのまま渡す。
+//         1000組（現実の割合から作った家族）から割合のまま6家族（同じ時期は2家族まで）＋30家族から珍しい型を1家族。
+//         Workflow のスクリプトはファイルを読めないので、本体（呼ぶ側の Claude）が pick.json を読み、前回の次の round を渡す
+//         （前回の round は報告の Artifact に書いておく。round は種から前もって作ってあり、毎回入れ替わる）。
+//   families: なりきる家族の id を直接選ぶ（今まで通り。直した画面に関わる家族を先に入れる）。pick より優先
 //   change: 今回の修正の一言（なりきり役は、そこを特によく触る）
 // 前提: app/scripts/sim-server.sh が 3100番で動いている。
-const DEFAULT = ['sim-04', 'sim-06', 'sim-12', 'sim-16', 'sim-18', 'sim-22']
-const ids = (args && args.families && args.families.length ? args.families : DEFAULT).slice(0, 8)
+//   注意: サーバは pop- の家族を id で引ける（lib/family.ts の getFamily）が、画面の家族の一覧（/api/family）には入れていない。
+//   画面（components/FamilyProvider.tsx）が一覧に無い家族をデモに戻し、時計を進められるのを sim- の家族に限っている間は、
+//   pop- の家族のなりきりは本当の画面を触れない。その間は families に sim- の家族だけを渡す。
+const FALLBACK = ['sim-04', 'sim-06', 'sim-12', 'sim-16', 'sim-18', 'sim-22']
+const pick = args && args.pick && Array.isArray(args.pick.families) ? args.pick : null
+const ids = (args && args.families && args.families.length ? args.families : pick ? [...pick.families.map((f) => f.id), pick.rare] : FALLBACK).slice(0, 8)
+if (!(args && args.families && args.families.length) && !pick) log('args.pick が無いので、30家族の6つで回します（既定は app/src/sim/pick.json の rounds[n] を args.pick で渡す）')
 const change = (args && args.change) || '（指定なし。ふだん使う流れを一通り）'
+/** pop- の家族の persona（ファイルに書かれていないので、ここで渡す） */
+const personaOf = (id) => (pick ? pick.families.find((f) => f.id === id) : null)
 
 const SCHEMA = {
   type: 'object',
@@ -49,8 +60,15 @@ const SCHEMA = {
   },
 }
 
+const step1 = (id) => {
+  const p = personaOf(id)
+  if (!p) return `1. まず /Users/zhang/boshi-techo/app/src/sim/families.ts から ${id} の家族と persona（label・who・literacy・goals・watch）を読む。読むのはこの家族の所だけ。アプリのソースコード（src/app・src/components・src/lib）は読まない。ふつうの使い手はコードを見られない。`
+  return `1. この家族は、現実の割合（公的な統計）から作った1000組の1組（作った家族。実在の人物ではない）。persona は次のとおり（ファイルを読まなくてよい。アプリのソースコード（src/app・src/components・src/lib）は読まない。ふつうの使い手はコードを見られない）:
+${JSON.stringify(p, null, 1)}`
+}
+
 const prompt = (id) => `あなたは、母子手帳アプリ（公開ハッカソン作品）を初めて使う家族の1人に、なりきります。家族の id は ${id} です。
-1. まず /Users/zhang/boshi-techo/app/src/sim/families.ts から ${id} の家族と persona（label・who・literacy・goals・watch）を読む。読むのはこの家族の所だけ。アプリのソースコード（src/app・src/components・src/lib）は読まない。ふつうの使い手はコードを見られない。
+${step1(id)}
 2. 画面は道具でだけ触る（Mac の Chrome は使わない）:
    cd /Users/zhang/boshi-techo/app && node src/sim/drive.mjs ${id} setup <persona.meId> <goal の日付>
    そのあと see / click <番号> / type <番号> <文字> / scroll down / open </path> / shot。画面の文字と押せる物は see の出力だけで判断する。shot の画像は Read で見てよい（見た目が分からない時だけ）。
@@ -64,4 +82,4 @@ phase('なりきり')
 const results = await parallel(ids.map((id) => () => agent(prompt(id), { label: `なりきり:${id}`, phase: 'なりきり', schema: SCHEMA, model: 'opus' })))
 const ok = results.filter(Boolean)
 if (ok.length < ids.length) log(`${ids.length - ok.length} 家族の結果が返りませんでした`)
-return { families: ids, change, results: ok }
+return { families: ids, round: pick ? pick.round : null, change, results: ok }

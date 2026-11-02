@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "sim": "vitest run src/sim",
+    "sim:full": "SIM_FULL=1 vitest run src/sim",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -1,4 +1,9 @@
-// ① 早送りの検査: 作った30家族の1000日を、「今日」の画面と同じ純関数に毎日通して、決まりを守れているかを機械で確かめる。
+// ① 早送りの検査: 作った家族の1000日を、「今日」の画面と同じ純関数に通して、決まりを守れているかを機械で確かめる。
+//   - 30家族（families.ts・珍しい型の見本）: 毎日確かめる
+//   - 現実の割合から作った1000組（population.ts）: ふだんは1週おき＋節目の日（届出・出産の前後・生後14日・1か月・3か月・1歳・2歳など）だけ確かめる。
+//     家族は毎日動く（間の日も一番上を済ませる）ので、間引くのは確かめる日だけ。SIM_FULL=1（npm run sim:full）なら毎日確かめる
+//     1000組は「授かった時から使った」扱いで1000日を全部通す（startedOn を外す）。全国に直した数（1組 = 年に約671家族）が、時期の偏りなく意味を持つように。
+//     途中から使い始める型は、30家族（startedOn のある家族）と、なりきり（サーバの pop- は今日から使い始める）で見る
 //
 // 画面（components/Techo.tsx）の組み立てをそのまま写す:
 //   scheduleFor(family) → statusOf(m, today, done) → planToday(tasks, today, me)
@@ -26,6 +31,10 @@ import { briefingDay } from "../lib/visit";
 import { NOW, planToday, whoLabel, type Task } from "../components/today/task";
 import { SIM_FAMILIES } from "./families";
 import type { SimFamily } from "./types";
+import { getPopulation, type PopFamily } from "./population";
+import { BIRTHS_2025, PER_FAMILY } from "./stats";
+
+const FULL = process.env.SIM_FULL === "1";
 
 // ───────── 決まり ─────────
 
@@ -63,6 +72,24 @@ const PACE: Record<string, Record<string, number>> = {
 /** 生まれてから10日、パートナーが手を付けられない家族（単身赴任・漁・店）。この間に「止まっている」が出るべき */
 const AWAY_AFTER_BIRTH: Record<string, string> = { "sim-08": "masaru", "sim-13": "sota", "sim-23": "kenji" };
 const AWAY_DAYS = 10;
+
+const isPop = (f: SimFamily): f is PopFamily => "profile" in f;
+
+/** 1000組の動き（30家族の表と同じ考え方を、家族の状況から当てる）: 夜勤の父は3日おき・単身赴任の父は7日おき・同居の祖父母は2日おき */
+function paceTable(f: SimFamily): Record<string, number> | undefined {
+  if (!isPop(f)) return PACE[f.id];
+  const t: Record<string, number> = {};
+  const fa = f.profile.father;
+  if (fa?.tanshin) t.partner = 7;
+  else if (fa?.nightShift) t.partner = 3;
+  if (f.members.some((m) => m.id === "sofubo")) t.sofubo = 2;
+  return t;
+}
+/** 生まれてから10日、パートナーが手を付けられない家族（30家族の表・1000組では単身赴任） */
+function awayOf(f: SimFamily): string | undefined {
+  if (!isPop(f)) return AWAY_AFTER_BIRTH[f.id];
+  return f.profile.father?.tanshin ? "partner" : undefined;
+}
 
 // ───────── 既知の穴（△）: 今の作り（型・期限表・画面の組み立て）では避けられない物 ─────────
 
@@ -167,7 +194,7 @@ function visitsOf(f: SimFamily): string[] {
 }
 
 function paceOf(f: SimFamily, m: Member, day: string): number {
-  const p = PACE[f.id]?.[m.id];
+  const p = paceTable(f)?.[m.id];
   if (m.role === "祖父母") {
     const v = m.visit;
     if (v && day >= v.from && day <= (v.until ?? addDays(v.from, 6))) return 1;
@@ -241,6 +268,8 @@ interface FamilyResult {
   label: string;
   meId: string;
   days: number;
+  /** 画面を確かめた日数（間引いた時は days より少ない） */
+  checked: number;
   start: string;
   end: string;
   /** api/family の「途中から」の済み扱いが無かったら、使い始めた日に期限切れが何件出たか */
@@ -250,7 +279,28 @@ interface FamilyResult {
   triggersSeen: Partial<Record<TriggerKind, string>>;
 }
 
-function simulate(f: SimFamily): FamilyResult {
+/** 確かめる日（間引く時）: 1週おき＋節目＋きっかけの窓（生まれた日の前後・引っ越し・祖父母が来る前・使い始め） */
+function checkDays(f: SimFamily, start: string, end: string, cps: Checkpoint[]): Set<string> {
+  const days = new Set<string>();
+  const add = (d: string, n = 1) => {
+    for (let i = 0; i < n; i++) {
+      const x = addDays(d, i);
+      if (x >= start && x <= end) days.add(x);
+    }
+  };
+  for (let d = start; d <= end; d = addDays(d, 7)) days.add(d);
+  add(end);
+  for (const c of cps) add(c.date);
+  add(start, 4);
+  if (f.birthDate) add(addDays(f.birthDate, -1), AWAY_DAYS + 6);
+  add(addDays(f.dueDate, -1), 5);
+  if (f.movedOn) add(addDays(f.movedOn, -1), 4);
+  if (f.movedOn) add(addDays(f.movedOn, MOVED_WINDOW_DAYS), 2);
+  for (const m of f.members) if (m.visit) add(addDays(m.visit.from, -GRANDPARENT_LEAD_DAYS - 1), GRANDPARENT_LEAD_DAYS + 3);
+  return days;
+}
+
+function simulate(f: SimFamily, sampled = false): FamilyResult {
   const lmp = lmpFromDue(f.dueDate);
   const start = f.startedOn ?? lmp;
   const end = addDays(secondBirthday(f), 30);
@@ -272,18 +322,32 @@ function simulate(f: SimFamily): FamilyResult {
   const triggersSeen: Partial<Record<TriggerKind, string>> = {};
   let stallSeenAfterBirth = false;
   const partner = f.members.find((m) => m.role === "パートナー");
-  const partnerPace = partner ? (PACE[f.id]?.[partner.id] ?? 1) : 0;
+  const partnerPace = partner ? (paceTable(f)?.[partner.id] ?? 1) : 0;
+  const away = awayOf(f);
+  const toCheck = sampled ? checkDays(f, start, end, cps) : null;
+  // 期限表は、生まれた日と引っ越しを知っているかだけで変わる（同じ形なら作り直さない）
+  const schedules = new Map<string, ReturnType<typeof scheduleFor>>();
+  const scheduleOf = (fv: Family) => {
+    const key = `${fv.birthDate ?? ""}|${fv.movedOn ?? ""}`;
+    let s = schedules.get(key);
+    if (!s) schedules.set(key, (s = scheduleFor(fv)));
+    return s;
+  };
 
   let days = 0;
   for (let day = start; day <= end; day = addDays(day, 1)) {
     days++;
     const fv = viewAt(f, day);
     const isBorn = born(f, day);
-    const at = clockAt(fv, day).label;
-    const schedule = scheduleFor(fv);
+    const schedule = scheduleOf(fv);
     const tasksNow = (): Task[] => schedule.map((m) => ({ ...m, status: statusOf(m, day, done) }));
-    const tasks = tasksNow();
     const nextVisit = visits.find((d) => d >= day) ?? null;
+    if (toCheck && !toCheck.has(day)) {
+      act(day, isBorn, tasksNow, nextVisit);
+      continue;
+    }
+    const at = clockAt(fv, day).label;
+    const tasks = tasksNow();
     const push = (rule: Rule, sig: string, detail: string, meId?: string) => violations.push({ familyId: f.id, rule, date: day, at, meId, sig: `${rule}:${sig}`, detail });
 
     // ── 家族全体の決まり（画面に出る今やる事・参謀） ──
@@ -321,10 +385,10 @@ function simulate(f: SimFamily): FamilyResult {
         const ids = stall.key.split(":")[2]?.split(",") ?? [];
         const birthIds = ids.filter((id) => schedule.find((m) => m.id === id)?.anchor === "birth");
         if (!isBorn && birthIds.length) push("f", "stall-before-born", `まだ生まれていないのに「止まっている」（${birthIds.join("・")}）`);
-        else if (isBorn && partnerPace === 1 && AWAY_AFTER_BIRTH[f.id] !== partner?.id) push("f", "stall-false-alarm", `パートナーが毎日動いているのに「止まっている」（${ids.join("・")}）`);
+        else if (isBorn && partnerPace === 1 && away !== partner?.id) push("f", "stall-false-alarm", `パートナーが毎日動いているのに「止まっている」（${ids.join("・")}）`);
         if (isBorn && f.birthDate && diffDays(day, f.birthDate) <= AWAY_DAYS) stallSeenAfterBirth = true;
       }
-      if (partner && AWAY_AFTER_BIRTH[f.id] === partner.id && f.birthDate && day === addDays(f.birthDate, AWAY_DAYS) && !stallSeenAfterBirth) {
+      if (partner && away === partner.id && f.birthDate && day === addDays(f.birthDate, AWAY_DAYS) && !stallSeenAfterBirth) {
         push("f", "missing:partner-stalled", `パートナーが生まれてから${AWAY_DAYS}日手を付けられないのに、「止まっている」が出なかった`);
       }
     }
@@ -371,10 +435,14 @@ function simulate(f: SimFamily): FamilyResult {
       checkpoints.push({ ...c, clock: at, top, rows: s.rows.length, overdue: overdue.length, triggers: [...kinds] });
     }
 
-    // ── 家族が動く（一人ずつ、動く日に自分の一番上を1つ済ませる） ──
+    act(day, isBorn, tasksNow, nextVisit);
+  }
+
+  /** 家族が動く（一人ずつ、動く日に自分の一番上を1つ済ませる） */
+  function act(day: string, isBorn: boolean, tasksNow: () => Task[], nextVisit: string | null) {
     for (const m of f.members) {
       const pace = paceOf(f, m, day);
-      if (AWAY_AFTER_BIRTH[f.id] === m.id && f.birthDate && isBorn && diffDays(day, f.birthDate) < AWAY_DAYS) continue;
+      if (away === m.id && f.birthDate && isBorn && diffDays(day, f.birthDate) < AWAY_DAYS) continue;
       if (pace <= 0 || diffDays(day, start) % pace !== 0) continue;
       const s = screenFor(tasksNow(), day, m, nextVisit);
       if (s.visitTop || !s.top || s.topIsSoon || !NOW.has(s.top.status)) continue;
@@ -383,7 +451,7 @@ function simulate(f: SimFamily): FamilyResult {
     }
   }
 
-  return { id: f.id, label: f.persona.label, meId: f.persona.meId, days, start, end, startPileWithoutSeed, violations, checkpoints, triggersSeen };
+  return { id: f.id, label: f.persona.label, meId: f.persona.meId, days, checked: toCheck ? toCheck.size : days, start, end, startPileWithoutSeed, violations, checkpoints, triggersSeen };
 }
 
 // ───────── まとめ ─────────
@@ -425,10 +493,18 @@ function group(f: SimFamily, vs: Violation[]): Group[] {
   });
 }
 
-const results: { f: SimFamily; r: FamilyResult; groups: Group[]; marks: Record<Rule, "○" | "△" | "×"> }[] = [];
+type Mark = "○" | "△" | "×";
+interface Result {
+  f: SimFamily;
+  r: FamilyResult;
+  groups: Group[];
+  marks: Record<Rule, Mark>;
+}
+const results: Result[] = [];
+const popResults: Result[] = [];
 
-function marksOf(groups: Group[]): Record<Rule, "○" | "△" | "×"> {
-  const out = {} as Record<Rule, "○" | "△" | "×">;
+function marksOf(groups: Group[]): Record<Rule, Mark> {
+  const out = {} as Record<Rule, Mark>;
   for (const r of RULE_IDS) {
     const gs = groups.filter((g) => g.rule === r);
     out[r] = gs.some((g) => g.mark === "×") ? "×" : gs.length ? "△" : "○";
@@ -436,16 +512,63 @@ function marksOf(groups: Group[]): Record<Rule, "○" | "△" | "×"> {
   return out;
 }
 
+function run(f: SimFamily, sampled: boolean): Result {
+  const r = simulate(f, sampled);
+  const groups = group(f, r.violations);
+  return { f, r, groups, marks: marksOf(groups) };
+}
+
+const brokenOf = (x: Result) => x.groups.filter((g) => g.mark === "×").map((g) => `${g.rule} ${g.first}（${g.firstAt}）${g.days}日: ${g.detail}`);
+
 const OUT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../sim/out");
+
+const countOf = (rs: Result[]) => {
+  const count = Object.fromEntries(RULE_IDS.map((r) => [r, { "○": 0, "△": 0, "×": 0 }])) as Record<Rule, Record<Mark, number>>;
+  for (const x of rs) for (const r of RULE_IDS) count[r][x.marks[r]]++;
+  return count;
+};
+const gapsOf = (rs: Result[]) =>
+  KNOWN_GAPS.map((k) => {
+    const gs = rs.flatMap((x) => x.groups.filter((g) => g.gap === k.id));
+    return { ...k, match: undefined, families: gs.map((g) => g.familyId), familyDays: gs.reduce((n, g) => n + g.days, 0), examples: gs.slice(0, 3).map((g) => `${g.familyId} ${g.first}（${g.firstAt}）: ${g.detail}`) };
+  });
+
+/** 全国に直す（1000組の1組 = 年に約671家族） */
+const nation = (n: number) => `約${(n * PER_FAMILY).toLocaleString("ja-JP")}`;
+
+/** 今のアプリ（Family 型・期限表）が表せない状況。profile から数える */
+const UNREPRESENTABLE: { label: string; why: string; hit: (f: PopFamily) => boolean }[] = [
+  { label: "上の子がいる（第2子以降）", why: "Family 型に上の子が無い。入院中の預け先・きょうだいの健診や保育園と重なる事を表せない", hit: (f) => f.profile.order !== "第1子" },
+  { label: "里帰り出産をする", why: "里帰り先の町・期間を持てない。里帰り先での健診（補助券の償還）・出生届の出し先を表せない", hit: (f) => !!f.profile.satogaeri },
+  { label: "近くに祖父母がいない（同居・同じ市区町村のどちらにもいない）", why: "祖父母は members に入れた人だけ。手を借りられない家族を区別できない", hit: (f) => !["同居", "同じ市区町村"].includes(f.profile.grandma.mother) && !["同居", "同じ市区町村"].includes(f.profile.grandma.father ?? "") },
+  { label: "母が育休なしで働き続ける・自営", why: "期限表の「産休」「育休を職場に伝える」が全員に出る。育休の無い働き方を表せない", hit: (f) => f.profile.motherWork.after === "育休なしで継続" },
+  { label: "帝王切開", why: "入院が長い・退院後に動けない期間を、担当の割り振りに入れられない", hit: (f) => f.profile.cesarean },
+  { label: "父に夜勤がある", why: "パートナーが動ける時間帯を持てない（夜勤明けに窓口へ行けない等）", hit: (f) => !!f.profile.father?.nightShift },
+  { label: "同じ市区町村の中で引っ越す", why: "住所が変わっても町は同じなので、Family 型では引っ越しにならない（転居届・郵便・保険証の住所変更が出ない）", hit: (f) => f.profile.move?.kind === "同じ市区町村の中" },
+  { label: "体外受精など（生殖補助医療）", why: "授かる前・妊娠初期の治療と、クリニックから産院への移り方を表せない", hit: (f) => f.profile.art },
+  { label: "妊娠37週未満で生まれる", why: "生まれた日は持てるが、早産に合わせた健診・予防接種の数え方（修正月齢）を持てない", hit: (f) => f.profile.weeks < 37 },
+  { label: "自営（母か父）で育休が無い", why: "自営の家族に「職場に伝える」「育休」がそのまま出る。国民健康保険の産前産後の免除などを表せない", hit: (f) => f.profile.motherWork.atPregnancy === "自営など" || f.profile.father?.work === "自営など" },
+  { label: "父母のどちらかが外国籍", why: "親の国の大使館への出生の届け・在留資格の手続きを表せない", hit: (f) => f.profile.nationality.mother !== "日本" || (!!f.profile.nationality.father && f.profile.nationality.father !== "日本") },
+  { label: "NICU に入る", why: "入院中の出生届・医療費（未熟児養育医療）・面会の段取りを表せない", hit: (f) => f.profile.nicu },
+  { label: "日本語に不安がある親がいる", why: "言葉の力を Family 型に持てない（やさしい日本語・母語への切り替えができない）", hit: (f) => f.profile.japaneseAnxious.mother || f.profile.japaneseAnxious.father },
+  { label: "ひとり親", why: "パートナーの担当が「パパ」の番として残る（既知の穴 no-partner-label / no-partner-pile）", hit: (f) => f.profile.marital === "ひとり親" },
+  { label: "双子", why: "子が1人の前提。出生届・児童手当・健診・予防接種が2人分にならない", hit: (f) => f.profile.twins },
+  { label: "単身赴任", why: "パートナーが離れて暮らす事を持てない（担当を振り直す根拠が無い）", hit: (f) => !!f.profile.father?.tanshin },
+  { label: "事実婚（婚姻届を出していない）", why: "認知の届け・親権・児童手当の受け取る人を表せない", hit: (f) => f.profile.marital === "事実婚" },
+  { label: "祖父母がだれもいない・国外（両方の母が亡くなっている・国外）", why: "外の手（産前産後ヘルパー・ファミサポ）へ振る根拠が無い", hit: (f) => ["亡くなっている", "国外"].includes(f.profile.grandma.mother) && (!f.profile.grandma.father || ["亡くなっている", "国外"].includes(f.profile.grandma.father)) },
+  { label: "国外から引っ越してくる", why: "前の町が国外の時の手続き（転入・母子手帳の取り直し）を表せない", hit: (f) => f.profile.move?.kind === "国外から" },
+  { label: "耳が聞こえにくい親", why: "健診の録音・電話の予約が前提の所がある。筆談・文字の連絡を表せない", hit: (f) => !!f.profile.hearing },
+  { label: "離島に住む", why: "島外の産院へ移る（出産前の滞在）・船の時刻を表せない", hit: (f) => f.profile.placeType === "離島" },
+];
 
 function writeReport() {
   fs.mkdirSync(OUT, { recursive: true });
-  const count = Object.fromEntries(RULE_IDS.map((r) => [r, { "○": 0, "△": 0, "×": 0 }])) as Record<Rule, Record<"○" | "△" | "×", number>>;
-  for (const x of results) for (const r of RULE_IDS) count[r][x.marks[r]]++;
-  const gapsSeen = KNOWN_GAPS.map((k) => {
-    const gs = results.flatMap((x) => x.groups.filter((g) => g.gap === k.id));
-    return { ...k, match: undefined, families: gs.map((g) => g.familyId), familyDays: gs.reduce((n, g) => n + g.days, 0), examples: gs.slice(0, 3).map((g) => `${g.familyId} ${g.first}（${g.firstAt}）: ${g.detail}`) };
-  });
+  const count = countOf(results);
+  const gapsSeen = gapsOf(results);
+  const pcount = countOf(popResults);
+  const pgaps = gapsOf(popResults);
+  const pop = popResults.map((x) => x.f as PopFamily);
+  const unrep = UNREPRESENTABLE.map((u) => ({ label: u.label, why: u.why, n: pop.filter(u.hit).length })).sort((a, b) => b.n - a.n);
   const json = {
     generatedFor: "① 早送りの検査",
     families: results.length,
@@ -453,26 +576,58 @@ function writeReport() {
     count,
     knownGaps: gapsSeen,
     results: results.map((x) => ({ id: x.r.id, label: x.r.label, meId: x.r.meId, start: x.r.start, end: x.r.end, days: x.r.days, startPileWithoutSeed: x.r.startPileWithoutSeed, marks: x.marks, triggersSeen: x.r.triggersSeen, groups: x.groups, checkpoints: x.r.checkpoints })),
+    population: popResults.length
+      ? {
+          families: popResults.length,
+          mode: FULL ? "毎日" : "1週おき＋節目",
+          perFamily: PER_FAMILY,
+          count: pcount,
+          knownGaps: pgaps.map((g) => ({ id: g.id, rule: g.rule, title: g.title, families: g.families.length, nationwide: g.families.length * PER_FAMILY })),
+          unrepresentable: unrep.map((u) => ({ ...u, nationwide: u.n * PER_FAMILY })),
+          results: popResults.map((x) => ({ id: x.r.id, label: x.r.label, days: x.r.days, checked: x.r.checked, marks: x.marks, gaps: [...new Set(x.groups.map((g) => g.gap ?? `×${g.sig}`))] })),
+        }
+      : undefined,
   };
   fs.writeFileSync(path.join(OUT, "fastforward.json"), JSON.stringify(json, null, 2));
 
   const L: string[] = [];
-  L.push("# 早送りの検査（30家族 × 1000日）", "");
+  L.push("# 早送りの検査（1000組＋30家族 × 1000日）", "");
+  if (popResults.length) {
+    const days = popResults.reduce((n, x) => n + x.r.days, 0);
+    const checked = popResults.reduce((n, x) => n + x.r.checked, 0);
+    L.push("## 現実の割合から作った1000組", "");
+    L.push(`1000組（\`population.ts\`・割合と出典は docs/SIM_STATS.md）が、授かった時から使い始めて2歳の誕生日の30日後まで（全国に直すため、どの家族も1000日を全部通す）。のべ ${days.toLocaleString("ja-JP")}日、うち画面を確かめた日 ${checked.toLocaleString("ja-JP")}日（${FULL ? "毎日" : "1週おき＋節目の日。家族は毎日動く"}）。`);
+    L.push(`全国に直す時は、1組 = 年に約${PER_FAMILY}家族（2025年の出生 ${BIRTHS_2025.toLocaleString("ja-JP")}人 ÷ 1000。双子の家族も1家族）。`, "");
+    L.push("### 決まりごとの数（1000組）", "", "| 決まり | 中身 | ○ | △ | × | △×の家族を全国に直すと（年） |", "|---|---|---|---|---|---|");
+    for (const r of RULE_IDS) L.push(`| ${r} | ${RULES[r]} | ${pcount[r]["○"]} | ${pcount[r]["△"]} | ${pcount[r]["×"]} | ${nation(pcount[r]["△"] + pcount[r]["×"])}家族 |`);
+    L.push("", "### 既知の穴（1000組で当たった家族の多い順）", "", "| 穴 | 決まり | 中身 | 1000組 | 全国（年） | 例 |", "|---|---|---|---|---|---|");
+    for (const g of [...pgaps].sort((a, b) => b.families.length - a.families.length)) L.push(`| △ ${g.id} | ${g.rule} | ${g.title} | ${g.families.length} | ${nation(g.families.length)}家族 | ${g.examples[0] ?? "—"} |`);
+    const broken = popResults.filter((x) => x.groups.some((g) => g.mark === "×"));
+    if (broken.length) {
+      L.push("", "### × 新しい破れ（既知の穴に無い）", "");
+      for (const x of broken.slice(0, 20)) L.push(`- ${x.r.id} ${x.r.label}: ${brokenOf(x).join(" ／ ")}`);
+    }
+    L.push("", "### 今のアプリが表せない状況（1000組の人数と全国換算）", "", "今の Family 型・期限表では持てない状況。困る人の多い順に、作る物の優先順位を決められる。", "", "| 状況 | 1000組 | 全国（年） | 何が表せないか |", "|---|---|---|---|");
+    for (const u of unrep) L.push(`| ${u.label} | ${u.n} | ${nation(u.n)}家族 | ${u.why} |`);
+    L.push("");
+  }
+
+  L.push("## 30家族（珍しい型の見本・毎日確かめる）", "");
   L.push(`家族 ${results.length}組・のべ ${results.reduce((n, x) => n + x.r.days, 0)}日。○ = 守れた／△ = 既知の穴（直さずに登録）／× = 新しい破れ（テストが落ちる）`, "");
-  L.push("## 決まりごとの数", "", "| 決まり | 中身 | ○ | △ | × |", "|---|---|---|---|---|");
+  L.push("### 決まりごとの数", "", "| 決まり | 中身 | ○ | △ | × |", "|---|---|---|---|---|");
   for (const r of RULE_IDS) L.push(`| ${r} | ${RULES[r]} | ${count[r]["○"]} | ${count[r]["△"]} | ${count[r]["×"]} |`);
-  L.push("", "## 既知の穴（重い順 = 当たった家族・日数）", "");
+  L.push("", "### 既知の穴（重い順 = 当たった家族・日数）", "");
   for (const g of [...gapsSeen].sort((a, b) => b.familyDays - a.familyDays)) {
-    L.push(`### △ ${g.id}（決まり ${g.rule}）${g.families.length ? `— ${g.families.length}家族・のべ${g.familyDays}日` : " — 今回は当たらず（直った？）"}`, "", g.title, "", `- なぜ: ${g.why}`);
+    L.push(`#### △ ${g.id}（決まり ${g.rule}）${g.families.length ? `— ${g.families.length}家族・のべ${g.familyDays}日` : " — 今回は当たらず（直った？）"}`, "", g.title, "", `- なぜ: ${g.why}`);
     if (g.families.length) L.push(`- 家族: ${g.families.join("・")}`);
     for (const e of g.examples) L.push(`- 例: ${e}`);
     L.push("");
   }
-  L.push("## 家族ごと", "", "| id | 一言 | a | b | c | d | e | f | g |", "|---|---|---|---|---|---|---|---|---|");
+  L.push("### 家族ごと", "", "| id | 一言 | a | b | c | d | e | f | g |", "|---|---|---|---|---|---|---|---|---|");
   for (const x of results) L.push(`| ${x.r.id} | ${x.r.label} | ${RULE_IDS.map((r) => x.marks[r]).join(" | ")} |`);
   L.push("");
   for (const x of results) {
-    L.push(`### ${x.r.id} ${x.r.label}`, "", `使う人: ${x.r.meId}／${x.r.start} 〜 ${x.r.end}（${x.r.days}日）／参謀が最初に出た日: ${Object.entries(x.r.triggersSeen).map(([k, d]) => `${k} ${d}`).join("・") || "無し"}${x.r.startPileWithoutSeed ? `／途中からの済み扱いが無ければ、使い始めた日に期限切れ${x.r.startPileWithoutSeed}件` : ""}`, "");
+    L.push(`#### ${x.r.id} ${x.r.label}`, "", `使う人: ${x.r.meId}／${x.r.start} 〜 ${x.r.end}（${x.r.days}日）／参謀が最初に出た日: ${Object.entries(x.r.triggersSeen).map(([k, d]) => `${k} ${d}`).join("・") || "無し"}${x.r.startPileWithoutSeed ? `／途中からの済み扱いが無ければ、使い始めた日に期限切れ${x.r.startPileWithoutSeed}件` : ""}`, "");
     if (x.groups.length) {
       L.push("| 印 | 決まり | 最初の日 | 時期 | 日数 | 使う人 | 中身 |", "|---|---|---|---|---|---|---|");
       for (const g of [...x.groups].sort((a, b) => (a.mark === b.mark ? a.first.localeCompare(b.first) : a.mark === "×" ? -1 : 1)))
@@ -486,7 +641,7 @@ function writeReport() {
   fs.writeFileSync(path.join(OUT, "fastforward.md"), L.join("\n"));
 }
 
-describe("① 早送りの検査: 30家族の1000日", () => {
+describe("① 早送りの検査: 30家族の1000日（毎日）", () => {
   it("30家族そろっている（id は sim- で始まり、重ならない）", () => {
     expect(SIM_FAMILIES).toHaveLength(30);
     const ids = SIM_FAMILIES.map((f) => f.id);
@@ -500,15 +655,31 @@ describe("① 早送りの検査: 30家族の1000日", () => {
 
   for (const f of SIM_FAMILIES) {
     it(`${f.id} ${f.persona.label}`, () => {
-      const r = simulate(f);
-      const groups = group(f, r.violations);
-      results.push({ f, r, groups, marks: marksOf(groups) });
-      const broken = groups.filter((g) => g.mark === "×").map((g) => `${g.rule} ${g.first}（${g.firstAt}）${g.days}日: ${g.detail}`);
+      const x = run(f, false);
+      results.push(x);
+      const broken = brokenOf(x);
       expect(broken, `新しい破れ（既知の穴に無い）:\n${broken.join("\n")}`).toEqual([]);
     });
   }
+});
 
-  afterAll(() => {
-    if (results.length) writeReport();
-  });
+describe(`① 早送りの検査: 現実の割合から作った1000組（${FULL ? "毎日" : "1週おき＋節目"}）`, () => {
+  const pop = getPopulation();
+  // 100組ずつ回す（1000個の it に分けると、報告が長くなりすぎる）
+  for (let i = 0; i < pop.length; i += 100) {
+    const chunk = pop.slice(i, i + 100);
+    it(`${chunk[0].id}〜${chunk[chunk.length - 1].id}`, () => {
+      const broken: string[] = [];
+      for (const f of chunk) {
+        const x = run({ ...f, startedOn: undefined }, !FULL);
+        popResults.push(x);
+        for (const b of brokenOf(x)) broken.push(`${f.id}（${f.persona.label}）${b}`);
+      }
+      expect(broken, `新しい破れ（既知の穴に無い）:\n${broken.slice(0, 30).join("\n")}`).toEqual([]);
+    }, 120_000);
+  }
+});
+
+afterAll(() => {
+  if (results.length || popResults.length) writeReport();
 });
