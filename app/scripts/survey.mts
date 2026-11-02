@@ -66,17 +66,33 @@ const Item = z.object({
 });
 const AnswerSchema = z.object({
   q1_worst: Item.describe("一番不便だった事"),
-  q2_hard: z.array(Item).max(3).describe("使いづらかった所・分からなかった言葉（3つまで）"),
-  q3_mismatch: z.array(Item).max(3).describe("自分の家族に合っていないと感じた事（3つまで。無ければ空）"),
-  q4_wants: z.array(z.object({ text: z.string().describe("欲しい機能を本人の言葉で"), why: z.string().describe("なぜ欲しいか（自分の状況から）") })).max(3),
-  q5_good: z.array(z.string()).max(2).describe("助かった事（2つまで）"),
-  q6_sus: z.array(z.number().int().min(1).max(5)).length(10).describe("使いやすさの10問。1=まったくそう思わない〜5=とてもそう思う"),
-  q7_recommend: z.number().int().min(0).max(10).describe("友だちに勧めたいか 0〜10"),
-  q8_tools: z.array(z.enum(TOOLS)).describe("このアプリと一緒に使っていた物"),
+  q2_hard: z.array(Item).describe("使いづらかった所・分からなかった言葉（3つまで）"),
+  q3_mismatch: z.array(Item).describe("自分の家族に合っていないと感じた事（3つまで。無ければ空）"),
+  q4_wants: z.array(z.object({ text: z.string().describe("欲しい機能を本人の言葉で"), why: z.string().describe("なぜ欲しいか（自分の状況から）") })),
+  q5_good: z.array(z.string()).describe("助かった事（2つまで）"),
+  q6_sus: z.array(z.number().int()).describe("使いやすさの10問（ちょうど10個）。1=まったくそう思わない〜5=とてもそう思う"),
+  q7_recommend: z.number().int().describe("友だちに勧めたいか 0〜10"),
+  q8_tools: z.array(z.string()).describe(`このアプリと一緒に使っていた物（次から選ぶ: ${TOOLS.join("・")}）`),
   q9_continue: z.enum(["使い続ける", "たぶん使い続ける", "たぶんやめる", "やめた"]),
   q9_why: z.string().describe("使い続ける／やめる理由と、やめるならいつ頃か（一言）"),
 });
 type Answer = z.infer<typeof AnswerSchema>;
+/** 形を緩めて受け取り、ここで整える（数の上限・範囲・選びの外れで落とさない） */
+function tidy(a: Answer): Answer {
+  const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, Math.round(n)));
+  const sus = a.q6_sus.slice(0, 10).map((n) => clamp(n, 1, 5));
+  while (sus.length < 10) sus.push(3);
+  return {
+    ...a,
+    q2_hard: a.q2_hard.slice(0, 3),
+    q3_mismatch: a.q3_mismatch.slice(0, 3),
+    q4_wants: a.q4_wants.slice(0, 3),
+    q5_good: a.q5_good.slice(0, 2),
+    q6_sus: sus,
+    q7_recommend: clamp(a.q7_recommend, 0, 10),
+    q8_tools: a.q8_tools.filter((t): t is (typeof TOOLS)[number] => (TOOLS as readonly string[]).includes(t)),
+  };
+}
 
 // アプリの画面の説明（答える人が「あった機能・無かった機能」を取り違えないように）
 const APP_GUIDE = `このアプリ「母子手帳を、再発明する」（試作）の画面:
@@ -175,7 +191,7 @@ await pool(pop, CONCURRENCY, async (f) => {
   const d = diaries[f.id]?.diary ?? [];
   const content = `【あなた】\n${profileText(f)}\n\n【日記: 1000日の間に、今日の画面で見た物（画面が変わった日だけ）】\n${d.join("\n")}\n\nこの1000日を振り返って、アンケートに答えてください。`;
   try {
-    const answer = await ask(ANSWER_MODEL, AnswerSchema, ANSWER_SYSTEM, content, "survey-answer");
+    const answer = tidy(await ask(ANSWER_MODEL, AnswerSchema, ANSWER_SYSTEM, content, "survey-answer"));
     const saved: Saved = { id: f.id, source: "pop", label: f.persona.label, answer };
     fs.writeFileSync(answerPath(f.id), JSON.stringify(saved));
   } catch (e) {
@@ -213,7 +229,7 @@ if (touched.length) {
     if (fs.existsSync(answerPath(id))) return;
     const popF = getPopulation().find((f) => f.id === t.family);
     const content = `【あなた】\n${popF ? profileText(popF) : t.label}\n\n【あなたが実際にアプリの画面を触った記録（iPhone の大きさ）】\n目的:\n${t.goals.map((g) => `- ${g.want} → ${g.reached ? "着いた" : "着けなかった"}（${g.taps}回押した）${g.note ? `: ${g.note}` : ""}`).join("\n")}\n困った事:\n${t.findings.map((x) => `- [${x.level}] ${x.screen}: ${x.what}`).join("\n")}\n良かった事:\n${t.good.map((g) => `- ${g}`).join("\n")}\n\n実際に触った人として、アンケートに答えてください（日記の代わりに、この記録が根拠）。`;
-    const answer = await ask(TOUCHED_MODEL, AnswerSchema, ANSWER_SYSTEM, content, "survey-touched");
+    const answer = tidy(await ask(TOUCHED_MODEL, AnswerSchema, ANSWER_SYSTEM, content, "survey-touched"));
     fs.writeFileSync(answerPath(id), JSON.stringify({ id, source: "touched", label: t.label, answer } satisfies Saved));
   });
 }
@@ -399,7 +415,7 @@ const summary: Summary = {
     .filter(([, ids]) => ids.length >= 10)
     .map(([group, ids]) => ({ group, n: ids.length, sus: avg(ids.map((id) => susOf(ansById.get(id)!.q6_sus))), nps: npsOf(ids.map((id) => ansById.get(id)!.q7_recommend)) }))
     .sort((a, b) => a.sus - b.sus),
-  tools: TOOLS.map((name) => ({ name, n: popAns.filter((a) => a.answer.q8_tools.includes(name)).length })).sort((a, b) => b.n - a.n),
+  tools: TOOLS.map((name) => ({ name, n: popAns.filter((a) => (a.answer.q8_tools as string[]).includes(name)).length })).sort((a, b) => b.n - a.n),
   quit: popAns.filter((a) => a.answer.q9_continue.includes("やめ")).slice(0, 12).map((a) => ({ id: a.id, why: a.answer.q9_why })),
   good: all.flatMap((a) => a.answer.q5_good.map((text) => ({ text, id: a.id }))).filter((_, i) => i % 37 === 0).slice(0, 10),
 };
