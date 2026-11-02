@@ -1,10 +1,13 @@
 "use client";
 
 // 「今日」の画面: 家族の時計と、今やる事・この先。
-import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { addDays, clockAt, conceptionDate, diffDays, totalDays } from "@/lib/clock";
+import type { Family } from "@/lib/demo-family";
 import { scheduleFor, statusOf, type Milestone, type Status } from "@/lib/milestones";
-import { useFamily } from "./FamilyProvider";
+import { briefingDay, type VisitPlan } from "@/lib/visit";
+import { api, useFamily } from "./FamilyProvider";
 import { MilestoneActions } from "./MilestoneActions";
 
 const STATUS_STYLE: Record<Status, string> = {
@@ -28,6 +31,55 @@ export function Techo() {
   const total = totalDays(family);
   const day = diffDays(today, start) + 1;
   const [marked, setMarked] = useState<Set<string>>(new Set());
+  const [lastDone, setLastDone] = useState<{ id: string; title: string } | null>(null);
+  const [doneError, setDoneError] = useState("");
+  const [nextVisit, setNextVisit] = useState<VisitPlan["next"]>(null);
+
+  // 済んだ印（DB の done）を読む
+  useEffect(() => {
+    let alive = true;
+    setMarked(new Set());
+    setLastDone(null);
+    setDoneError("");
+    api<{ done: string[] }>(`/api/done?familyId=${encodeURIComponent(family.id)}`)
+      .then((j) => alive && setMarked(new Set(j.done)))
+      .catch((e: Error) => alive && setDoneError(e.message));
+    return () => {
+      alive = false;
+    };
+  }, [family.id]);
+
+  // 次の健診の日（健診の画面と同じ GET /api/visit の plan.next）
+  useEffect(() => {
+    let alive = true;
+    setNextVisit(null);
+    api<{ plan: VisitPlan }>(`/api/visit?familyId=${encodeURIComponent(family.id)}`)
+      .then((j) => alive && setNextVisit(j.plan?.next ?? null))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [family.id]);
+
+  const setDone = useCallback(
+    async (m: Milestone, on: boolean) => {
+      setDoneError("");
+      const prev = marked;
+      const next = new Set(marked);
+      if (on) next.add(m.id);
+      else next.delete(m.id);
+      setMarked(next);
+      setLastDone(on ? { id: m.id, title: m.title } : null);
+      try {
+        await api("/api/done", { method: on ? "POST" : "DELETE", body: { familyId: family.id, milestoneId: m.id, today } });
+      } catch (e) {
+        setMarked(prev);
+        setLastDone(null);
+        setDoneError((e as Error).message);
+      }
+    },
+    [marked, family.id, today],
+  );
 
   const clock = clockAt(family, today);
   const schedule = useMemo(() => scheduleFor(family), [family]);
@@ -88,13 +140,45 @@ export function Techo() {
         </section>
       )}
 
+      <VisitNudge family={family} today={today} next={nextVisit} />
+
+      <Link
+        href="/capture"
+        className="flex items-center justify-between gap-3 rounded-xl border border-sky/40 bg-sky-soft px-4 py-3 text-sky"
+      >
+        <span className="flex flex-col">
+          <span className="font-display text-base font-bold">話す・撮る</span>
+          <span className="text-xs text-muted">気になった事を話すだけ、届いた紙を撮るだけで手帳に書きます</span>
+        </span>
+        <span aria-hidden className="text-xl">›</span>
+      </Link>
+
       <section className="flex flex-col gap-3">
         <h2 className="font-display text-lg font-bold">
           今やる事 <span className="tabular text-sm font-normal text-muted">{now.length}件</span>
         </h2>
+        {lastDone && (
+          <p role="status" className="flex items-center justify-between gap-3 rounded-lg bg-ok/10 px-3 py-2 text-sm text-ok">
+            <span className="min-w-0">「{lastDone.title}」を済みにしました</span>
+            <button
+              onClick={() => {
+                const m = schedule.find((x) => x.id === lastDone.id);
+                if (m) void setDone(m, false);
+              }}
+              className="shrink-0 rounded-lg border border-ok/40 px-3 py-1 text-xs font-semibold"
+            >
+              戻す
+            </button>
+          </p>
+        )}
+        {doneError && (
+          <p role="alert" className="rounded-lg bg-alert/10 px-3 py-2 text-sm text-alert">
+            済んだ印を保存できませんでした: {doneError}
+          </p>
+        )}
         {now.length === 0 && <p className="text-sm text-muted">今日やる事はありません。次の事は手帳から声をかけます。</p>}
         {now.map((m) => (
-          <Card key={m.id} m={m} status={statusOf(m, today, done)} today={today} onDone={() => setMarked(new Set(marked).add(m.id))} />
+          <Card key={m.id} m={m} status={statusOf(m, today, done)} today={today} onDone={() => void setDone(m, true)} />
         ))}
       </section>
 
@@ -108,6 +192,24 @@ export function Techo() {
         ))}
       </section>
     </main>
+  );
+}
+
+/** 次の健診の前日・当日だけ出す、短い声かけ（くわしくは健診の画面） */
+function VisitNudge({ family, today, next }: { family: Family; today: string; next: VisitPlan["next"] }) {
+  const when = briefingDay(today, next?.date);
+  if (!when || !next) return null;
+  const c = clockAt(family, next.date);
+  const what = c.phase === "pregnant" ? `${c.pregnancyWeek}週の健診` : "健診";
+  return (
+    <section aria-label="健診の声かけ" className="flex flex-col gap-2 rounded-xl border-2 border-rose bg-rose-soft p-4">
+      <p className="font-display text-lg font-bold leading-snug">
+        {when === "eve" ? "明日" : "今日"}は{what}です{next.time ? `（${next.time}）` : ""}。先生の説明を録音しましょう
+      </p>
+      <Link href="/visit" className="self-start rounded-lg bg-rose px-4 py-1.5 text-sm font-semibold text-white">
+        健診を開く
+      </Link>
+    </section>
   );
 }
 

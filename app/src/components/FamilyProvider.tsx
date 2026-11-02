@@ -10,6 +10,8 @@ interface Ctx {
   family: Family;
   families: Family[];
   isDemo: boolean;
+  /** 家族の一覧が届いたか（届くまでは一瞬デモの家族に見えるので、録音などは押せなくする） */
+  ready: boolean;
   today: string;
   setToday: (d: string) => void;
   setFamilyId: (id: string) => void;
@@ -39,11 +41,18 @@ function write(key: string, v: string) {
 export function FamilyProvider({ children }: { children: React.ReactNode }) {
   const [families, setFamilies] = useState<Family[]>([DEMO_FAMILY]);
   const [familyId, setFamilyIdState] = useState<string>(DEMO_FAMILY.id);
+  const [ready, setReady] = useState(false);
   const [demoToday, setDemoToday] = useState<string>(addDays(conceptionDate(DEMO_FAMILY), 41));
 
   const reload = useCallback(async () => {
-    const r = await fetch("/api/family");
-    if (r.ok) setFamilies(((await r.json()) as { families: Family[] }).families);
+    try {
+      const r = await fetch("/api/family");
+      if (r.ok) setFamilies(((await r.json()) as { families: Family[] }).families);
+    } catch {
+      // 電波が無い時はデモの家族のまま
+    } finally {
+      setReady(true);
+    }
   }, []);
 
   useEffect(() => {
@@ -62,6 +71,7 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
     family,
     families,
     isDemo,
+    ready,
     today,
     setToday: (d) => {
       if (!isDemo) return;
@@ -85,11 +95,17 @@ export function useFamily(): Ctx {
 
 /** API を JSON で呼ぶ小さな道具（エラーは日本語の文で投げる） */
 export async function api<T>(url: string, init?: { method?: string; body?: unknown }): Promise<T> {
-  const r = await fetch(url, {
-    method: init?.method ?? (init?.body !== undefined ? "POST" : "GET"),
-    headers: init?.body !== undefined ? { "content-type": "application/json" } : undefined,
-    body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
-  });
+  let r: Response;
+  try {
+    r = await fetch(url, {
+      method: init?.method ?? (init?.body !== undefined ? "POST" : "GET"),
+      headers: init?.body !== undefined ? { "content-type": "application/json" } : undefined,
+      body: init?.body !== undefined ? JSON.stringify(init.body) : undefined,
+    });
+  } catch {
+    // Safari は「Load failed」、Chrome は「Failed to fetch」と英語で出るので言い換える
+    throw new Error("通信できませんでした。電波を確かめて、もう一度押してください");
+  }
   const j = (await r.json().catch(() => ({}))) as T & { error?: string };
   if (!r.ok) throw new Error(j.error ?? `うまくいきませんでした（${r.status}）`);
   return j;

@@ -12,7 +12,7 @@ export default function Settings() {
   const mine = families.find((f) => f.id === "mine");
   const [form, setForm] = useState({ prefecture: "", city: "", dueDate: "", birthDate: "", childName: "" });
   const [members, setMembers] = useState<Member[]>(ROLES.map((role, i) => ({ id: `m${i}`, name: "", role, voice: "" })));
-  const [msg, setMsg] = useState("");
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     if (!mine) return;
@@ -21,14 +21,14 @@ export default function Settings() {
   }, [mine]);
 
   const save = async () => {
-    setMsg("");
+    setMsg(null);
     try {
       await api<{ family: Family }>("/api/family", { body: { ...form, members } });
       await reload();
       setFamilyId("mine");
-      setMsg("保存しました。上の切り替えが「わが家」になっています");
+      setMsg({ ok: true, text: "保存しました。上の切り替えが「わが家」になっています" });
     } catch (e) {
-      setMsg((e as Error).message);
+      setMsg({ ok: false, text: `保存できませんでした: ${(e as Error).message}` });
     }
   };
 
@@ -41,8 +41,8 @@ export default function Settings() {
       </header>
       <div className="grid grid-cols-2 gap-3">
         <label className="flex flex-col gap-1 text-sm">都道府県<input id="pref" className={field} value={form.prefecture} onChange={(e) => setForm({ ...form, prefecture: e.target.value })} placeholder="埼玉県" /></label>
-        <label className="flex flex-col gap-1 text-sm">市区町村<input id="city" className={field} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="さいたま市" /></label>
-        <label className="flex flex-col gap-1 text-sm">出産予定日<input id="due" type="date" className={field} value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} /></label>
+        <label className="flex flex-col gap-1 text-sm"><span>市区町村 <Req /></span><input id="city" required aria-required className={field} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="さいたま市" /></label>
+        <label className="flex flex-col gap-1 text-sm"><span>出産予定日 <Req /></span><input id="due" type="date" required aria-required className={field} value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} /></label>
         <label className="flex flex-col gap-1 text-sm">生まれた日（まだなら空）<input id="birth" type="date" className={field} value={form.birthDate} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} /></label>
         <label className="col-span-2 flex flex-col gap-1 text-sm">赤ちゃんの呼び名（任意）<input id="child" className={field} value={form.childName} onChange={(e) => setForm({ ...form, childName: e.target.value })} placeholder="おなかの子" /></label>
       </div>
@@ -61,7 +61,7 @@ export default function Settings() {
             <span />
             <input
               id={`member-voice-${i}`}
-              className={`${field} text-xs`}
+              className={`${field} text-sm`}
               value={m.voice}
               placeholder="伝え方のヒント（例: 大きな字で、短く）"
               onChange={(e) => setMembers(members.map((x, j) => (j === i ? { ...x, voice: e.target.value } : x)))}
@@ -70,7 +70,18 @@ export default function Settings() {
         ))}
       </section>
       <button onClick={save} className="self-start rounded-lg bg-rose px-5 py-2 font-semibold text-white">保存する</button>
-      {msg && <p className="text-sm">{msg}</p>}
+      {msg && (
+        <p
+          role={msg.ok ? "status" : "alert"}
+          className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-ok/10 text-ok" : "bg-alert/10 font-semibold text-alert"}`}
+        >
+          {msg.text}
+        </p>
+      )}
     </main>
   );
+}
+
+function Req() {
+  return <span className="rounded bg-rose-soft px-1.5 py-0.5 text-xs font-semibold text-rose">必須</span>;
 }

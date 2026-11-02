@@ -2,10 +2,11 @@
 import { body, route } from "@/lib/api";
 import { requireFamily } from "@/lib/family";
 import { nextAgenda, type VisitData } from "@/lib/visit";
-import { createVisit, getPlan, visitsOf } from "./_lib/server";
+import { createVisit, getPlan, ongoingVisit, visitsOf } from "./_lib/server";
 
 export const GET = route(async (req: Request) => {
-  const fam = requireFamily(new URL(req.url).searchParams.get("familyId"));
+  const q = new URL(req.url).searchParams;
+  const fam = requireFamily(q.get("familyId"));
   const docs = visitsOf(fam.id);
   const plan = getPlan(fam.id);
   const visits = docs.map((d) => ({
@@ -26,7 +27,10 @@ export const GET = route(async (req: Request) => {
     const last = docs.find((d) => d.data.status === "done" && d.data.nextDate);
     if (last) plan.next = { date: last.data.nextDate!, time: last.data.result?.nextAppointment?.time ?? null, source: "visit", visitId: last.id, said: last.data.result?.nextAppointment?.said };
   }
-  return { visits, plan, agenda: items };
+  // 今日の健診が始まっていれば、聞く事はその健診の物を見せる
+  const ongoing = ongoingVisit(fam.id, q.get("today") ?? undefined);
+  if (ongoing) return { visits, plan, agenda: ongoing.data.agenda ?? [], agendaFor: "today" as const };
+  return { visits, plan, agenda: items, agendaFor: "next" as const };
 });
 
 export const POST = route(async (req: Request) => {

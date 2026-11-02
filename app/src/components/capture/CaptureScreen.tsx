@@ -11,6 +11,18 @@ import { RecordItem, Timeline } from "./Timeline";
 
 type Last = CaptureResult & { transcript?: string; source: RecordSource };
 
+/** いつも出しておく連絡先（固定の文） */
+const CALL_LINE = "急ぎの時は、かかりつけの産院（夜間も）・119。子どもの事は #8000";
+
+/** 文字起こしまではできたが、手帳に書けなかった時のエラー */
+class VoiceError extends Error {
+  transcript: string;
+  constructor(message: string, transcript: string) {
+    super(message);
+    this.transcript = transcript;
+  }
+}
+
 export function CaptureScreen() {
   const { family, today, isDemo } = useFamily();
   const [records, setRecords] = useState<CaptureRecord[]>([]);
@@ -54,6 +66,7 @@ export function CaptureScreen() {
       await load();
       return true;
     } catch (e) {
+      if (e instanceof VoiceError) setText((cur) => (cur.trim() ? `${cur.trim()}\n${e.transcript}` : e.transcript));
       setError((e as Error).message);
       return false;
     } finally {
@@ -69,7 +82,12 @@ export function CaptureScreen() {
         body: blob,
       });
       const j = (await r.json().catch(() => ({}))) as Last & { error?: string };
-      if (!r.ok) throw new Error(j.error ?? `うまくいきませんでした（${r.status}）`);
+      if (!r.ok) {
+        const msg = j.error ?? `うまくいきませんでした（${r.status}）`;
+        // 聞き取った言葉は書く欄に入れて、送り直せるようにする
+        if (j.transcript) throw new VoiceError(msg, j.transcript);
+        throw new Error(msg);
+      }
       return { ...j, source: "voice" };
     });
 
@@ -128,6 +146,7 @@ export function CaptureScreen() {
           思った事を話すだけ、届いた紙を撮るだけ。日付をつけて手帳に書き、期限は予定にします。
           <span className="tabular">（今日 {jpDate(today)}）</span>
         </p>
+        <p className="text-xs font-semibold text-alert">{CALL_LINE}</p>
       </header>
 
       <section aria-label="入れる" className="grid grid-cols-2 gap-3">
@@ -166,7 +185,7 @@ export function CaptureScreen() {
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="例: 来週の火曜に保育園の見学。最近よく足がつる"
-          className="w-full rounded-lg border border-line bg-card px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-line bg-card px-3 py-2 text-base"
         />
         <button onClick={() => void sendText()} disabled={!!busy || !text.trim()} className="self-end rounded-lg bg-ink px-4 py-1.5 text-sm font-semibold text-paper disabled:opacity-40">
           手帳に書く
@@ -180,9 +199,10 @@ export function CaptureScreen() {
         </p>
       )}
       {error && (
-        <p role="alert" className="rounded-xl bg-alert/10 px-4 py-3 text-sm text-alert">
-          {error}
-        </p>
+        <div role="alert" className="flex flex-col gap-1 rounded-xl bg-alert/10 px-4 py-3 text-sm text-alert">
+          <p>{error}</p>
+          <p className="text-xs font-semibold">{CALL_LINE}</p>
+        </div>
       )}
 
       {last && !busy && (
@@ -207,7 +227,7 @@ export function CaptureScreen() {
                   value={answer}
                   onChange={(e) => setAnswer(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && void sendAnswer()}
-                  className="min-w-0 flex-1 rounded-lg border border-line px-3 py-2 text-sm"
+                  className="min-w-0 flex-1 rounded-lg border border-line px-3 py-2 text-base"
                 />
                 <button onClick={() => void sendAnswer()} disabled={!answer.trim()} className="rounded-lg bg-rose px-4 text-sm font-semibold text-white disabled:opacity-40">
                   答える

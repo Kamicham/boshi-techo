@@ -3,7 +3,8 @@
 // ⑤ 健診の当日: 録音 → 文字起こし → 整理、今日聞く事、院内の道案内。
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { recordingBusy, recordingBusyServer, subscribeRecording } from "@/lib/recording-state";
 import { api } from "@/components/FamilyProvider";
 import { jpDate } from "@/components/Techo";
 import { Guide } from "@/components/visit/Guide";
@@ -25,6 +26,7 @@ export default function VisitDay() {
   const [visit, setVisit] = useState<VisitView | null>(null);
   const [err, setErr] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const recording = useSyncExternalStore(subscribeRecording, recordingBusy, recordingBusyServer);
 
   const load = useCallback(async () => {
     try {
@@ -91,7 +93,7 @@ export default function VisitDay() {
 
   return (
     <main className="flex flex-col gap-5 px-4 pt-4 pb-6">
-      <Link href="/visit" className="text-sm text-muted">← 健診の一覧</Link>
+      {recording ? <span className="text-sm text-muted">録音中</span> : <Link href="/visit" className="text-sm text-muted">← 健診の一覧</Link>}
       <header className="flex flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
           <StatusChip status={visit.status} />
@@ -162,7 +164,7 @@ export default function VisitDay() {
 
       <Guide visit={visit} onChange={(guide) => setVisit({ ...visit, guide })} />
 
-      <div className="flex justify-end pt-2">
+      <div className={`flex justify-end pt-2 ${recording ? "hidden" : ""}`}>
         {confirmDelete ? (
           <div className="flex items-center gap-2 text-xs">
             <span>録音も一緒に消えます。</span>

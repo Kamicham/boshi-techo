@@ -73,7 +73,18 @@ function str(v: unknown): string | null {
 
 function strList(v: unknown): string | null {
   if (Array.isArray(v)) {
-    const xs = v.map((x) => (typeof x === "string" ? x : typeof x === "object" && x ? str((x as Record<string, unknown>).text) ?? str((x as Record<string, unknown>).said) : null)).filter(Boolean);
+    const xs = v
+      .map((x) => {
+        if (typeof x === "string") return x;
+        if (typeof x !== "object" || !x) return null;
+        const o = x as Record<string, unknown>;
+        // 健診の said は { point, quote }。元の言葉（quote）を添える
+        const point = str(o.point);
+        const quote = str(o.quote);
+        if (point) return quote && quote !== point ? `${point}（「${quote}」）` : point;
+        return str(o.text) ?? str(o.said) ?? quote;
+      })
+      .filter(Boolean);
     return xs.length ? xs.join(" / ") : null;
   }
   return str(v);
@@ -102,13 +113,17 @@ function recordText(data: Record<string, unknown>): string | null {
 }
 
 function visitText(data: Record<string, unknown>): string | null {
-  const summary = strList(data.summary);
-  const said = strList(data.said);
+  // 健診の整理は VisitData.result にある（lib/visit.ts）。終わった健診だけを使う
+  if (data.kind !== "visit" || data.status !== "done") return null;
+  const result = data.result && typeof data.result === "object" ? (data.result as Record<string, unknown>) : null;
+  if (!result) return null;
+  const summary = strList(result.summary);
+  const said = strList(result.said);
   const parts = [summary && `整理: ${summary}`, said && `先生の言葉: ${said}`].filter(Boolean);
   return parts.length ? parts.join(" ") : null;
 }
 
-const CONFIRMED = new Set(["確定", "済み", "送った", "done", "confirmed", "sent", "approved", "final"]);
+const CONFIRMED = new Set(["ok", "確定", "済み", "送った", "done", "confirmed", "sent", "approved", "final"]);
 
 function draftText(data: Record<string, unknown>): string | null {
   const status = str(data.status);

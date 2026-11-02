@@ -1,6 +1,7 @@
 "use client";
 
 // ④ 家族全体の参謀: 一人ずつの「今週のあなたの事」と、負担の偏り・組み替えの提案。
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { jpDate } from "@/components/Techo";
@@ -66,7 +67,10 @@ export default function FamilyPage() {
     return (
       <main className="flex flex-col gap-3 px-4 pt-4">
         <h1 className="font-display text-2xl font-bold">家族</h1>
-        <p className="text-sm text-muted">「わが家の設定」で家族の呼び名を入れると、一人ずつの今週が出ます。</p>
+        <p className="text-sm text-muted">
+          <Link href="/settings" className="font-semibold text-rose underline underline-offset-2">「わが家の設定」</Link>
+          で家族の呼び名を入れると、一人ずつの今週が出ます。
+        </p>
       </main>
     );
   }

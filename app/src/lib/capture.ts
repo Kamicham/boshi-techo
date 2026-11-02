@@ -29,6 +29,8 @@ export interface RecordData {
   captureId?: string;
   /** デモ用に入れた作った記録 */
   seed?: boolean;
+  /** その日のうちに医療機関へ連絡した方がよさそうに見えた（判断ではなく、連絡を勧める印） */
+  urgent?: boolean;
 }
 
 export type CaptureRecord = Doc<RecordData>;
@@ -47,7 +49,16 @@ const Schema = z.object({
       date: z.string().describe("YYYY-MM-DD。その事が起きた日・起きる日。分からなければ今日"),
       kind: z.enum(RECORD_KINDS),
       title: z.string().describe("短い見出し（20字くらいまで）"),
-      detail: z.string().describe("家族の言葉を残した中身。気がかりは「次の健診で聞く」と添える"),
+      detail: z
+        .string()
+        .describe(
+          "家族の言葉を残した中身。気がかりは最後に「次の健診で聞く」と添える。urgent が true の時だけ、最後は「次の健診で聞く」ではなく「その日のうちに産院へ電話」と添える（子どもの事なら「その日のうちにかかりつけへ電話。迷ったら #8000」）",
+        ),
+      urgent: z
+        .boolean()
+        .describe(
+          "その日のうちに医療機関へ連絡した方がよさそうに見える時だけ true（出血・強い痛み・胎動が少ない・破水らしい・子どもの高熱やぐったり など）。体の判断ではなく連絡を勧める印。それ以外は false",
+        ),
       who: z.string().nullable().describe("誰の事・誰が話したか（家族の呼び名）。分からなければ null"),
     }),
   ),
@@ -69,7 +80,8 @@ const SYSTEM = `あなたの役割は「入力ゼロ」の書記です。家族�
 - 「来週の火曜」「月末」「3日後」などは、今日の日付から実際の日付（YYYY-MM-DD）に直す。
 - 提出・申込・支払いの締切は deadlines に入れる（source に出どころ）。同じ事を records の予定に重ねて書かない。
 - 写真なら、写っている紙（役所の封筒・通知、健診の結果の紙、母子手帳のページ、保育園の案内など）を読み、gist に要点を書く。個人番号・住所の番地・電話番号は書き写さない。
-- 気がかりは体の判断をせず、家族の言葉のまま記録し、detail の最後に「次の健診で聞く」と添える。急ぎに見える時だけ、reply でかかりつけ・#8000・119 を案内する。
+- 気がかりは体の判断をせず、家族の言葉のまま記録し、detail の最後に「次の健診で聞く」と添える。
+- 出血・強い痛み・胎動が少ない・破水らしい・子どもの高熱やぐったり など、その日のうちに医療機関へ連絡した方がよさそうに見える時は、その記録の urgent を true にし、detail の最後は「次の健診で聞く」ではなく「その日のうちに産院へ電話」と添える（子どもの事なら「その日のうちにかかりつけへ電話。迷ったら #8000」）。大丈夫・心配ないとは言わず、診断もせず、連絡を勧める言い方にする。reply でも連絡先を案内する: 妊娠中・産後の体はかかりつけの産院（夜間も）・119、子どもは #8000（子ども医療電話相談）。
 - 健診の結果の紙でも、数値の良い・悪いは言わない。書いてある項目と日付だけ記録する。
 - 足りない事は推測で埋めず、どうしても必要な1つだけを oneQuestion で聞く。日付が分からないだけなら今日として記録し、聞かない。
 - reply は家族の側に立った短い話し言葉。押し付けない（「〜しましょう」より「手帳に書いておきました」）。`;
@@ -142,6 +154,7 @@ export async function capture(input: CaptureInput, replaceCaptureId?: string): P
   for (const r of out.records) {
     const data: RecordData = { kind: r.kind, title: r.title, detail: r.detail, source, captureId };
     if (r.who) data.who = r.who;
+    if (r.urgent) data.urgent = true;
     records.push(put<RecordData>(family.id, "record", data, { date: isDate(r.date) ? r.date : today }));
   }
   for (const d of out.deadlines) {

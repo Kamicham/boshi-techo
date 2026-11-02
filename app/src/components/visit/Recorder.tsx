@@ -3,11 +3,26 @@
 // 健診の録音。10秒ごとに一切れずつサーバへ送るので、途中でページが閉じても送れた所までは残る。
 import { useEffect, useRef, useState } from "react";
 import { extFromMime, extFromName, formatClock, pickMime, type VisitView } from "@/lib/visit";
+import { setRecordingBusy } from "@/lib/recording-state";
 
 type Phase = "idle" | "consent" | "starting" | "recording" | "paused" | "sending" | "importing";
 
 const TIMESLICE = 10_000;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const WAKE_WARN = "この端末は画面を消さない設定が使えません。自動ロックで画面が消えると録音が止まります。設定 > 画面表示と明るさ > 自動ロック を「なし」にしてください";
+
+/** 新しい録音の番号をサーバで確保する。電波が無い時は手元の番号で進める */
+async function reserveTake(visitId: string, fallback: number): Promise<number> {
+  try {
+    const r = await fetch(`/api/visit/${visitId}/take`, { method: "POST", signal: AbortSignal.timeout(8000) });
+    const j = (await r.json().catch(() => ({}))) as { take?: number; error?: string };
+    if (r.status === 409) throw Object.assign(new Error(j.error ?? "この健診はもう文字起こしを始めています"), { fatal: true });
+    if (r.ok && typeof j.take === "number") return Math.max(j.take, fallback);
+  } catch (e) {
+    if ((e as { fatal?: boolean }).fatal) throw e;
+  }
+  return fallback;
+}
 
 export function Recorder({ visit, onFinished }: { visit: VisitView; onFinished: () => void }) {
   const [phase, setPhase] = useState<Phase>("idle");
@@ -17,21 +32,36 @@ export function Recorder({ visit, onFinished }: { visit: VisitView; onFinished: 
   const [level, setLevel] = useState(0);
   const [counts, setCounts] = useState({ made: 0, sent: 0 });
   const [backup, setBackup] = useState<{ url: string; name: string } | null>(null);
+  const [warn, setWarn] = useState("");
+  const [wakeWarn, setWakeWarn] = useState("");
 
   const rec = useRef<MediaRecorder | null>(null);
   const stream = useRef<MediaStream | null>(null);
   const audioCtx = useRef<AudioContext | null>(null);
   const wake = useRef<WakeLockSentinel | null>(null);
-  const queue = useRef<{ seq: number; blob: Blob }[]>([]);
+  const queue = useRef<{ take: number; seq: number; blob: Blob }[]>([]);
   const all = useRef<Blob[]>([]);
   const pumping = useRef(false);
   const seq = useRef(0);
   const take = useRef(0);
+  /** 次に使ってよい録音の番号（画面の情報が古くても前の録音を上書きしないため） */
+  const nextTake = useRef(0);
+  /** 本人が「止める」を押したか（着信などで止められた時と分ける） */
+  const userStopped = useRef(false);
+  const hiddenAt = useRef(0);
   const mime = useRef("");
   const startedAt = useRef(0);
   const before = useRef(0);
   const phaseRef = useRef<Phase>("idle");
   phaseRef.current = phase;
+
+  const live = phase === "recording" || phase === "paused";
+
+  // 録音中・送り中は、下のタブなどで別の画面へ移れないようにする
+  useEffect(() => {
+    setRecordingBusy(live || phase === "sending");
+  }, [live, phase]);
+  useEffect(() => () => setRecordingBusy(false), []);
 
   const elapsed = () => (before.current + (phase === "recording" && startedAt.current ? Date.now() - startedAt.current : 0)) / 1000;
 
@@ -48,7 +78,19 @@ export function Recorder({ visit, onFinished }: { visit: VisitView; onFinished: 
       if (phaseRef.current === "recording" || phaseRef.current === "paused" || queue.current.length) e.preventDefault();
     };
     const onVis = () => {
-      if (document.visibilityState === "visible" && (phaseRef.current === "recording" || phaseRef.current === "paused")) void lockScreen();
+      const on = phaseRef.current === "recording" || phaseRef.current === "paused";
+      if (!on) return;
+      if (document.visibilityState === "hidden") {
+        hiddenAt.current = Date.now();
+        return;
+      }
+      void lockScreen();
+      // iPhone は画面が隠れている間マイクを止めるので、録れていない時間を知らせる
+      if (hiddenAt.current && phaseRef.current === "recording") {
+        const sec = Math.round((Date.now() - hiddenAt.current) / 1000);
+        if (sec >= 3) setWarn(`画面が消えていた・ほかのアプリにいた ${sec >= 60 ? `${Math.floor(sec / 60)}分${sec % 60}秒` : `${sec}秒`}ほどは、録れていないかもしれません`);
+      }
+      hiddenAt.current = 0;
     };
     window.addEventListener("beforeunload", onBefore);
     document.addEventListener("visibilitychange", onVis);
@@ -63,9 +105,12 @@ export function Recorder({ visit, onFinished }: { visit: VisitView; onFinished: 
 
   async function lockScreen() {
     try {
-      wake.current = (await navigator.wakeLock?.request("screen")) ?? null;
+      if (!navigator.wakeLock) throw new Error("no wake lock");
+      wake.current = await navigator.wakeLock.request("screen");
+      setWakeWarn("");
     } catch {
-      // 画面の鍵が取れなくても録音は続ける
+      // 画面の鍵が取れなくても録音は続けるが、自動ロックで止まる事を知らせる
+      setWakeWarn(WAKE_WARN);
     }
   }
 
@@ -82,18 +127,27 @@ export function Recorder({ visit, onFinished }: { visit: VisitView; onFinished: 
   async function pump() {
     if (pumping.current) return;
     pumping.current = true;
+    let refused = 0;
     while (queue.current.length) {
       const c = queue.current[0];
       try {
-        const r = await fetch(`/api/visit/${visit.id}/chunk?seq=${c.seq}&take=${take.current}&ext=${extFromMime(mime.current)}`, {
+        const r = await fetch(`/api/visit/${visit.id}/chunk?seq=${c.seq}&take=${c.take}&ext=${extFromMime(mime.current)}`, {
           method: "POST",
           headers: { "content-type": mime.current || "application/octet-stream" },
           body: c.blob,
+          // 電波の切り替わりで通信が固まっても、30秒で見切って送り直す
+          signal: AbortSignal.timeout(30_000),
         });
         if (r.status >= 400 && r.status < 500) {
           const j = (await r.json().catch(() => ({}))) as { error?: string };
+          // 頭の一切れが抜けると録音全体が読めなくなるので、何回か送り直す
+          if (c.seq === 0 && r.status !== 409 && ++refused < 5) {
+            await sleep(2000);
+            continue;
+          }
+          refused = 0;
           queue.current.shift();
-          setErr(j.error ?? `録音の一部を受け取ってもらえませんでした（${r.status}）`);
+          setErr(j.error ?? `録音の一部を受け取ってもらえませんでした（${r.status}）。念のため、下の「この端末にも録音を保存する」を押してください`);
           continue;
         }
         if (!r.ok) throw new Error(String(r.status));
@@ -101,7 +155,11 @@ export function Recorder({ visit, onFinished }: { visit: VisitView; onFinished: 
         setCounts((n) => ({ ...n, sent: n.sent + 1 }));
         setNetErr("");
       } catch {
-        setNetErr("いま送れていません。録音は続いていて、電波が戻ったら自動で送ります");
+        setNetErr(
+          phaseRef.current === "recording" || phaseRef.current === "paused"
+            ? "いま送れていません。録音は続いていて、電波が戻ったら自動で送ります"
+            : "残りを送れていません。電波が戻ったら自動で送ります。急ぐ時は下の「この端末にも録音を保存する」を押してください",
+        );
         await sleep(3000);
       }
     }
@@ -110,6 +168,7 @@ export function Recorder({ visit, onFinished }: { visit: VisitView; onFinished: 
 
   async function begin() {
     setErr("");
+    setWarn("");
     setPhase("starting");
     try {
       if (typeof MediaRecorder === "undefined" || !navigator.mediaDevices?.getUserMedia) throw new Error("この機械のブラウザでは録音ができません。下の「録音ファイルを取り込む」を使ってください");
@@ -119,21 +178,33 @@ export function Recorder({ visit, onFinished }: { visit: VisitView; onFinished: 
       mime.current = m ?? "";
       const r = new MediaRecorder(s, { ...(m ? { mimeType: m } : {}), audioBitsPerSecond: 64_000 });
       if (!m) mime.current = r.mimeType;
-      take.current = visit.takes?.length ?? 0;
+      take.current = await reserveTake(visit.id, Math.max(visit.takes?.length ?? 0, nextTake.current));
+      nextTake.current = take.current + 1;
       seq.current = 0;
-      queue.current = [];
+      userStopped.current = false;
       all.current = [];
       setCounts({ made: 0, sent: 0 });
+      const thisTake = take.current;
       r.ondataavailable = (e) => {
         if (!e.data.size) return;
         if (!mime.current && e.data.type) mime.current = e.data.type;
-        queue.current.push({ seq: seq.current++, blob: e.data });
+        queue.current.push({ take: thisTake, seq: seq.current++, blob: e.data });
         all.current.push(e.data);
         setCounts((n) => ({ ...n, made: n.made + 1 }));
         void pump();
       };
-      r.onstop = () => void afterStop();
+      r.onstop = () => void (userStopped.current ? afterStop() : afterInterrupt());
       r.onerror = () => setErr("録音が止まりました。送れた所までは残っています");
+      // マイクが取り上げられた（着信・ほかのアプリ）時は、録音を区切って続きを録れるようにする
+      for (const t of s.getAudioTracks()) {
+        t.onended = () => {
+          if (rec.current === r && r.state !== "inactive") r.stop();
+        };
+        t.onmute = () => {
+          if (rec.current === r && r.state === "recording") setWarn("マイクが止められています（画面が消えた・ほかのアプリ・着信など）。この画面に戻ると続きを録ります");
+        };
+        t.onunmute = () => setWarn((w) => (w.startsWith("マイクが止められて") ? "" : w));
+      }
       rec.current = r;
       r.start(TIMESLICE);
       startedAt.current = Date.now();
@@ -199,32 +270,58 @@ export function Recorder({ visit, onFinished }: { visit: VisitView; onFinished: 
     if (!rec.current || rec.current.state === "inactive") return;
     if (startedAt.current) before.current += Date.now() - startedAt.current;
     startedAt.current = 0;
+    userStopped.current = true;
     setPhase("sending");
     rec.current.stop();
+  }
+
+  function keepBackup() {
+    if (!all.current.length) return;
+    const name = `健診-${visit.date}-${take.current + 1}.${extFromMime(mime.current)}`;
+    setBackup({ url: URL.createObjectURL(new Blob(all.current, { type: mime.current })), name });
   }
 
   async function afterStop() {
     release();
     setLevel(0);
-    if (all.current.length) {
-      const name = `健診-${visit.date}.${extFromMime(mime.current)}`;
-      setBackup({ url: URL.createObjectURL(new Blob(all.current, { type: mime.current })), name });
-    }
+    keepBackup();
     // 最後の一切れが届くまで待つ
     await sleep(50);
     while (queue.current.length || pumping.current) await sleep(500);
     await finish();
   }
 
+  /** 着信・画面のロックなどで録音が止められた時: 整理は始めず、続きを録れるようにする */
+  async function afterInterrupt() {
+    release();
+    setLevel(0);
+    keepBackup();
+    if (startedAt.current) before.current += Date.now() - startedAt.current;
+    startedAt.current = 0;
+    setWarn("");
+    setErr("録音が途切れました（着信・ほかのアプリ・画面のロックなど）。録れた所までは残っています。「続きを録音する」で続けられます");
+    setPhase("idle");
+    await sleep(50);
+    while (queue.current.length || pumping.current) await sleep(500);
+    onFinished();
+  }
+
   async function finish() {
     try {
-      const r = await fetch(`/api/visit/${visit.id}/finish`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+      let r: Response;
+      try {
+        r = await fetch(`/api/visit/${visit.id}/finish`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}", signal: AbortSignal.timeout(30_000) });
+      } catch {
+        throw new Error("通信できませんでした。電波が戻ったら「録った分を整理する」を押してください");
+      }
       const j = (await r.json().catch(() => ({}))) as { error?: string };
       if (!r.ok) throw new Error(j.error ?? `うまくいきませんでした（${r.status}）`);
       onFinished();
     } catch (e) {
       setErr(`文字起こしを始められませんでした: ${(e as Error).message}`);
       setPhase("idle");
+      // 画面の健診の情報を読み直す（届いた録音があれば「録った分を整理する」が出る）
+      onFinished();
     }
   }
 
@@ -233,7 +330,8 @@ export function Recorder({ visit, onFinished }: { visit: VisitView; onFinished: 
     setPhase("importing");
     try {
       const ext = extFromName(file.name) ?? extFromMime(file.type);
-      const t = visit.takes?.length ?? 0;
+      const t = await reserveTake(visit.id, Math.max(visit.takes?.length ?? 0, nextTake.current));
+      nextTake.current = t + 1;
       const r = await fetch(`/api/visit/${visit.id}/chunk?seq=0&take=${t}&ext=${ext}`, {
         method: "POST",
         headers: { "content-type": file.type || "application/octet-stream" },
@@ -248,8 +346,7 @@ export function Recorder({ visit, onFinished }: { visit: VisitView; onFinished: 
     }
   }
 
-  const sentSome = (visit.takes ?? []).some((t) => t.chunks > 0);
-  const live = phase === "recording" || phase === "paused";
+  const sentSome = (visit.takes ?? []).some((t) => t.chunks > 0) || counts.sent > 0;
 
   return (
     <section aria-label="録音" className="flex flex-col gap-4 rounded-xl border border-line bg-card p-4">
@@ -297,8 +394,13 @@ export function Recorder({ visit, onFinished }: { visit: VisitView; onFinished: 
             <div className="h-full rounded-full bg-rose transition-[width] duration-150" style={{ width: `${Math.round(level * 100)}%` }} />
           </div>
           <p className="tabular text-xs text-muted">
-            送った {counts.sent} / 録った {counts.made}（10秒ずつ）・画面はつけたままでOK
+            送った {counts.sent} / 録った {counts.made}（10秒ずつ）
           </p>
+          {live && (
+            <p className="w-full rounded-lg bg-rose-soft px-3 py-2 text-sm font-semibold text-rose">
+              画面を消さない・ほかのアプリに切り替えないでください。iPhone は画面が消えると録音が止まります
+            </p>
+          )}
           {live && (
             <div className="flex w-full gap-2">
               {phase === "recording" ? (
@@ -314,11 +416,17 @@ export function Recorder({ visit, onFinished }: { visit: VisitView; onFinished: 
 
       {phase === "importing" && <p className="text-sm text-muted">録音ファイルを送っています…（長い録音は少しかかります）</p>}
 
+      {live && wakeWarn && <p className="rounded-lg bg-warn/15 px-3 py-2 text-sm text-warn">{wakeWarn}</p>}
+      {warn && <p role="status" className="rounded-lg bg-warn/15 px-3 py-2 text-sm text-warn">{warn}</p>}
       {netErr && <p className="rounded-lg bg-warn/15 px-3 py-2 text-sm text-warn">{netErr}</p>}
       {err && <p role="alert" className="rounded-lg bg-alert/10 px-3 py-2 text-sm text-alert">{err}</p>}
 
       {backup && (
-        <a href={backup.url} download={backup.name} className="text-center text-xs text-muted underline">
+        <a
+          href={backup.url}
+          download={backup.name}
+          className={netErr || err ? "rounded-lg border border-ink py-2 text-center text-sm font-semibold" : "text-center text-xs text-muted underline"}
+        >
           念のため、この端末にも録音を保存する
         </a>
       )}

@@ -24,10 +24,12 @@ interface ListRes {
   visits: Row[];
   plan: VisitPlan;
   agenda: AgendaItem[];
+  agendaFor?: "today" | "next";
 }
 
 export default function VisitList() {
-  const { family, today, isDemo } = useFamily();
+  const { family, families, today, isDemo, ready, setFamilyId } = useFamily();
+  const mine = families.find((f) => f.id === "mine");
   const router = useRouter();
   const [data, setData] = useState<ListRes | null>(null);
   const [err, setErr] = useState("");
@@ -35,12 +37,12 @@ export default function VisitList() {
 
   const load = useCallback(async () => {
     try {
-      setData(await api<ListRes>(`/api/visit?familyId=${encodeURIComponent(family.id)}`));
+      setData(await api<ListRes>(`/api/visit?familyId=${encodeURIComponent(family.id)}&today=${today}`));
       setErr("");
     } catch (e) {
       setErr((e as Error).message);
     }
-  }, [family.id]);
+  }, [family.id, today]);
 
   useEffect(() => {
     void load();
@@ -92,15 +94,30 @@ export default function VisitList() {
 
       {err && <p role="alert" className="rounded-lg bg-alert/10 px-3 py-2 text-sm text-alert">{err}</p>}
 
-      {data && <Briefing family={family} today={today} next={next} agenda={data.agenda} />}
-
       <section className="flex flex-col gap-3">
         {ongoing ? (
           <Link href={`/visit/${ongoing.id}`} className="rounded-xl bg-rose px-5 py-4 text-center font-display text-lg font-bold text-white">
             今日の健診を続ける
           </Link>
+        ) : isDemo ? (
+          // デモの家族のまま本物の健診を録らないよう、わが家への切り替えを先に出す
+          <div className="flex flex-col gap-2 rounded-xl border border-sky bg-sky-soft p-4">
+            <p className="text-sm font-semibold text-sky">いま見ているのはデモの家族（作った家族）です。</p>
+            {mine ? (
+              <button onClick={() => setFamilyId(mine.id)} className="rounded-xl bg-rose px-5 py-4 font-display text-lg font-bold text-white">
+                わが家に切り替えて健診を始める
+              </button>
+            ) : (
+              <Link href="/settings" className="rounded-xl bg-rose px-5 py-4 text-center font-display text-lg font-bold text-white">
+                本物の健診は、先に「わが家の設定」へ
+              </Link>
+            )}
+            <button onClick={start} disabled={!!busy || !ready} className="rounded-lg border border-line bg-card py-2 text-sm disabled:opacity-60">
+              {busy === "start" ? "準備しています…" : "デモの家族で録音を試す"}
+            </button>
+          </div>
         ) : (
-          <button onClick={start} disabled={!!busy} className="rounded-xl bg-rose px-5 py-4 font-display text-lg font-bold text-white disabled:opacity-60">
+          <button onClick={start} disabled={!!busy || !ready} className="rounded-xl bg-rose px-5 py-4 font-display text-lg font-bold text-white disabled:opacity-60">
             {busy === "start" ? "準備しています…" : "新しい健診を始める"}
           </button>
         )}
@@ -114,9 +131,11 @@ export default function VisitList() {
         )}
       </section>
 
+      {data && <Briefing family={family} today={today} next={next} agenda={data.agenda} />}
+
       <NextAppointment next={next} onSave={(n) => savePlan({ next: n })} />
 
-      <AskList agenda={data?.agenda ?? []} onAdd={(t) => savePlan({ concern: t })} onRemove={(id) => savePlan({ removeConcern: id })} />
+      <AskList agenda={data?.agenda ?? []} forToday={data?.agendaFor === "today"} onAdd={(t) => savePlan({ concern: t })} onRemove={(id) => savePlan({ removeConcern: id })} />
 
       <section className="flex flex-col gap-3 pb-6">
         <h2 className="font-display text-lg font-bold">これまでの健診</h2>
@@ -190,11 +209,12 @@ function NextAppointment({ next, onSave }: { next: VisitPlan["next"]; onSave: (n
   );
 }
 
-function AskList({ agenda, onAdd, onRemove }: { agenda: AgendaItem[]; onAdd: (t: string) => void; onRemove: (id: string) => void }) {
+function AskList({ agenda, forToday, onAdd, onRemove }: { agenda: AgendaItem[]; forToday: boolean; onAdd: (t: string) => void; onRemove: (id: string) => void }) {
   const [text, setText] = useState("");
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="font-display text-lg font-bold">次の健診で聞く事</h2>
+      <h2 className="font-display text-lg font-bold">{forToday ? "今日の健診で聞く事" : "次の健診で聞く事"}</h2>
+      {forToday && <p className="text-xs text-muted">今日の健診が始まっているので、足した事は今日の「今日聞く事」に入ります。</p>}
       {agenda.length === 0 && <p className="text-sm text-muted">気になっている事を書いておくと、健診の日に「今日聞く事」として出します。</p>}
       <ul className="flex flex-col gap-2">
         {agenda.map((a) => (
@@ -223,7 +243,7 @@ function AskList({ agenda, onAdd, onRemove }: { agenda: AgendaItem[]; onAdd: (t:
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="例: 夜に足がつって目が覚める"
-          className="min-w-0 flex-1 rounded-lg border border-line bg-card px-3 py-2 text-sm"
+          className="min-w-0 flex-1 rounded-lg border border-line bg-card px-3 py-2 text-base"
         />
         <button className="shrink-0 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-paper">足す</button>
       </form>

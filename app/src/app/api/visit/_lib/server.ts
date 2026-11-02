@@ -77,6 +77,12 @@ export function createVisit(familyId: string, date: string, opts: { demo?: boole
   return doc;
 }
 
+/** 今日始めた、まだ録音中の健診（デモは除く）。健診を始めた後に足した気がかりは、ここへ入れる */
+export function ongoingVisit(familyId: string, today: string | undefined): VisitDoc | null {
+  if (!today || !/^\d{4}-\d{2}-\d{2}$/.test(today)) return null;
+  return visitsOf(familyId).find((v) => v.data.date === today && !v.data.demo && (v.data.status === "ready" || v.data.status === "recording")) ?? null;
+}
+
 // ───────── 録音 ─────────
 
 function visitDir(v: VisitDoc, ...sub: string[]) {
@@ -91,6 +97,10 @@ export function saveChunk(v: VisitDoc, take: number, seq: number, ext: string, m
   if (!data.length) throw new HttpError(400, "録音が空でした");
   if (v.data.status === "transcribing" || v.data.status === "organizing") throw new HttpError(409, "この健診はもう文字起こしを始めています");
   const dir = visitDir(v, takeDirName(take));
+  // 頭の一切れがもう一度来た時、続きの切れ端まであるなら別の録音の上書きなので断る
+  if (seq === 0 && fs.readdirSync(dir).some((f) => /^chunk-\d+\./.test(f) && !f.startsWith("chunk-0000."))) {
+    throw new HttpError(409, "この番号の録音はもう届いています（上書きしません）");
+  }
   fs.writeFileSync(path.join(dir, chunkName(seq, ext)), data);
   // 今の v は古いかもしれないので、書く直前に読み直す
   const cur = requireVisit(v.id);
@@ -100,6 +110,17 @@ export function saveChunk(v: VisitDoc, take: number, seq: number, ext: string, m
   takes[take] = { mime: t.mime || mime, ext: t.ext || ext, chunks: Math.max(t.chunks, seq + 1), bytes: t.bytes + data.length };
   patch<VisitData>(v.id, { takes, status: "recording", consent: true });
   return takes;
+}
+
+/** 新しい録音の番号を確保する（空の take を1つ足す） */
+export function reserveTake(v: VisitDoc): number {
+  if (v.data.status === "transcribing" || v.data.status === "organizing") throw new HttpError(409, "この健診はもう文字起こしを始めています");
+  const cur = requireVisit(v.id);
+  const takes = [...(cur.data.takes ?? [])];
+  if (takes.length > 99) throw new HttpError(400, "録音の数が多すぎます");
+  takes.push({ mime: "", ext: "", chunks: 0, bytes: 0 });
+  patch<VisitData>(v.id, { takes });
+  return takes.length - 1;
 }
 
 /** take ごとに chunk を順につないで recording.<拡張子> を作る */
@@ -160,15 +181,27 @@ async function runPipeline(id: string, reuseTranscript: boolean) {
     if (!reuseTranscript) {
       const joined = joinTakes(v);
       if (!joined.length) throw new Error("録音のファイルが見つかりません");
+      // 読めない録音（頭の一切れが届かなかった等）があっても、読める録音だけで続ける
       const parts = [];
-      for (const j of joined) parts.push(await transcribe(fs.readFileSync(j.file), ASR_HINT));
+      const notes: string[] = [];
+      let lastErr: unknown = null;
+      for (const [i, j] of joined.entries()) {
+        try {
+          parts.push(await transcribe(fs.readFileSync(j.file), ASR_HINT));
+          if (j.missing.length) notes.push(`${i + 1}本目の録音の途中 ${j.missing.length * 10} 秒ほどが届いていません（通信が切れた所）`);
+        } catch (e) {
+          console.error("[visit] take", i, e);
+          lastErr = e;
+          notes.push(`${i + 1}本目の録音が読めませんでした（端末に保存した録音があれば「録音ファイルを取り込む」で足せます）`);
+        }
+      }
+      if (!parts.length) throw lastErr instanceof Error ? lastErr : new Error("録音を読めませんでした");
       const transcript = mergeTranscripts(parts);
       if (!transcript.text.trim()) throw new Error("録音から言葉を聞き取れませんでした（マイクが遠い・無音の可能性）");
-      const missing = joined.reduce((n, j) => n + j.missing.length, 0);
       v = patch<VisitData>(id, {
         transcript,
         status: "organizing",
-        warning: missing ? `途中の ${missing * 10} 秒ほどが届いていません（通信が切れた所）` : undefined,
+        warning: notes.length ? notes.join("。") : undefined,
       })!;
     }
     stage = "organize";
@@ -191,7 +224,7 @@ async function runPipeline(id: string, reuseTranscript: boolean) {
     }
   } catch (e) {
     console.error("[visit]", e);
-    const msg = e instanceof Error ? e.message : "うまくいきませんでした";
+    const msg = friendlyError(e);
     patch<VisitData>(id, {
       status: "failed",
       failedAt: stage,
@@ -199,6 +232,15 @@ async function runPipeline(id: string, reuseTranscript: boolean) {
       error: stage === "transcribe" ? `文字起こしができませんでした: ${msg}` : `整理ができませんでした: ${msg}`,
     });
   }
+}
+
+/** 機械の英語のエラーを、家族が読める日本語にする */
+function friendlyError(e: unknown): string {
+  const m = e instanceof Error ? e.message : String(e);
+  if (/ECONNREFUSED|EHOSTUNREACH|ETIMEDOUT|ENOTFOUND|socket hang up|ECONNRESET/i.test(m)) return "家の文字起こしの機械につながりませんでした。少し待ってから「もう一度やってみる」を押してください";
+  if (/overloaded|529|rate|429/i.test(m)) return "Claude が混み合っています。少し待ってから「もう一度やってみる」を押してください";
+  if (/[ぁ-んァ-ン一-龥]/.test(m)) return m;
+  return "うまくいきませんでした。少し待ってから「もう一度やってみる」を押してください";
 }
 
 const ORGANIZE_SYSTEM = `あなたの役目: 妊婦健診・乳幼児健診の録音の文字起こしを、家族があとで読み返せる形に整理する。

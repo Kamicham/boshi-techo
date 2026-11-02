@@ -14,6 +14,9 @@ export const KIND_STYLE: Record<RecordKind, string> = {
   メモ: "bg-paper text-muted border border-line",
 };
 
+/** 急ぎに見えた記録に添える固定の文（Claude の言葉ではなく、いつも同じ文） */
+export const URGENT_NOTE = "急ぎの時はかかりつけの産院へ電話（夜間も）。迷ったら119";
+
 const SOURCE_LABEL: Record<RecordSource, string> = { voice: "話した", photo: "撮った", text: "書いた" };
 
 export function RecordItem({ r, family }: { r: CaptureRecord; family: Family }) {
@@ -29,6 +32,11 @@ export function RecordItem({ r, family }: { r: CaptureRecord; family: Family }) 
       </div>
       <p className="font-semibold leading-snug">{r.data.title}</p>
       {r.data.detail && <p className="text-sm leading-relaxed text-ink/90">{r.data.detail}</p>}
+      {r.data.urgent && (
+        <p role="note" className="rounded-lg bg-alert/10 px-3 py-2 text-sm font-semibold text-alert">
+          {URGENT_NOTE}
+        </p>
+      )}
       <p className="text-xs text-muted">
         {SOURCE_LABEL[r.data.source] ?? "記録"}
         {r.data.who ? `・${r.data.who}` : ""}

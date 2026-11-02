@@ -42,3 +42,10 @@ body {
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+
+/* iOS は 16px 未満の入力欄を押すと画面を拡大するので、入力欄は 16px 以上にする */
+input,
+select,
+textarea {
+  font-size: max(16px, 1em);
+}
