@@ -35,6 +35,15 @@ import { getPopulation, type PopFamily } from "./population";
 import { BIRTHS_2025, PER_FAMILY } from "./stats";
 
 const FULL = process.env.SIM_FULL === "1";
+/** アンケート用の日記（1000組が1000日の間に見た物）を sim/out/diary.json に書き出す（npm run survey が使う） */
+const DIARY = process.env.SIM_DIARY === "1";
+const TRIGGER_LABEL: Record<TriggerKind, string> = {
+  "birth-early": "参謀の気づき「予定より早く生まれた・組み直し」",
+  "birth-late": "参謀の気づき「予定より遅く生まれた・組み直し」",
+  "partner-stalled": "参謀の気づき「パートナーの手続きが止まっている」",
+  moved: "参謀の気づき「町が変わった・引き継がれない制度」",
+  grandparents: "参謀の気づき「祖父母が来る・任せられる事」",
+};
 
 // ───────── 決まり ─────────
 
@@ -277,6 +286,8 @@ interface FamilyResult {
   violations: Violation[];
   checkpoints: CheckpointRow[];
   triggersSeen: Partial<Record<TriggerKind, string>>;
+  /** アンケート用の日記（DIARY の時だけ。persona の使う人の画面が変わった日だけ） */
+  diary: string[];
 }
 
 /** 確かめる日（間引く時）: 1週おき＋節目＋きっかけの窓（生まれた日の前後・引っ越し・祖父母が来る前・使い始め） */
@@ -332,6 +343,14 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
     let s = schedules.get(key);
     if (!s) schedules.set(key, (s = scheduleFor(fv)));
     return s;
+  };
+
+  const diary: string[] = [];
+  let diarySig = "";
+  const when = (t: Task, day: string) => {
+    if (!t.deadlineDate) return t.status;
+    const n = diffDays(t.deadlineDate, day);
+    return n < 0 ? `${-n}日過ぎ` : `あと${n}日`;
   };
 
   let days = 0;
@@ -422,6 +441,26 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
       if (!s.visitTop && !s.top && !s.calmNext && day <= lastDay) push("g", "nothing-next", `${me.name}の画面に、今やる事も次に来る事も無い`, me.id);
     }
 
+    // ── 日記（アンケート用。persona の使う人の画面が変わった日だけ書く） ──
+    if (DIARY && isPop(f)) {
+      const s = screenFor(tasks, day, persona, nextVisit);
+      const top = s.visitTop
+        ? `${briefingDay(day, nextVisit) === "eve" ? "明日" : "今日"}の健診の準備`
+        : s.top
+          ? `${s.topIsSoon ? "もうすぐ: " : ""}${s.top.plain}（${whoLabel(s.top, fv, persona)}・${when(s.top, day)}）`
+          : s.calmNext
+            ? `今週は何もしなくて大丈夫 → 次は「${s.calmNext.plain}」`
+            : "今週は何もしなくて大丈夫";
+      const rows = s.rows.slice(0, 5).map((t) => `${t.plain}（${whoLabel(t, fv, persona)}・${when(t, day)}）`);
+      const sig = `${top}|${s.rows.map((t) => t.id + t.status).join(",")}|${[...kinds].join(",")}`;
+      if (sig !== diarySig) {
+        diarySig = sig;
+        diary.push(
+          `${day}（${at}）一番上: ${top}${rows.length ? `／このあと: ${rows.join("・")}${s.rows.length > 5 ? ` ほか${s.rows.length - 5}件` : ""}` : ""}${overdue.length ? `／期限切れ${overdue.length}件` : ""}${kinds.size ? `／${[...kinds].map((k) => TRIGGER_LABEL[k]).join("・")}` : ""}`,
+        );
+      }
+    }
+
     // ── 節目の記録（persona の使う人の画面） ──
     for (const c of cpByDate.get(day) ?? []) {
       const s = screenFor(tasks, day, persona, nextVisit);
@@ -451,7 +490,7 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
     }
   }
 
-  return { id: f.id, label: f.persona.label, meId: f.persona.meId, days, checked: toCheck ? toCheck.size : days, start, end, startPileWithoutSeed, violations, checkpoints, triggersSeen };
+  return { id: f.id, label: f.persona.label, meId: f.persona.meId, days, checked: toCheck ? toCheck.size : days, start, end, startPileWithoutSeed, violations, checkpoints, triggersSeen, diary };
 }
 
 // ───────── まとめ ─────────
@@ -682,4 +721,9 @@ describe(`① 早送りの検査: 現実の割合から作った1000組（${FULL
 
 afterAll(() => {
   if (results.length || popResults.length) writeReport();
+  if (DIARY && popResults.length) {
+    const out = Object.fromEntries(popResults.map((x) => [x.f.id, { label: x.f.persona.label, start: x.r.start, end: x.r.end, diary: x.r.diary }]));
+    fs.mkdirSync(OUT, { recursive: true });
+    fs.writeFileSync(path.join(OUT, "diary.json"), JSON.stringify(out));
+  }
 });

@@ -22,4 +22,5 @@
 - **② なりきり（画面や流れに関わる修正の後）**: `app/scripts/sim-server.sh`（3100番・DB は `app/sim-data/`）を立て、Workflow `simulate`（`.claude/workflows/simulate.js`）を回す。既定は6家族、直した画面に関わる家族を先に入れる。道具は `app/src/sim/drive.mjs`（Playwright・iPhone の大きさ）。
 - 結果は毎回、報告の Artifact に「重い順の気づき・前回より良くなった／悪くなった所・家族ごとの ○△×」で足す。見つかった事は勝手に全部直さず、次の修正の案に入れて社長に出す。
 - シミュレーションは、わが家（`app/data/`）・本番（3210番）に触らない。
+- **アンケート（`/survey`）は社長が言った時だけ**（2026-11-03 本人指示）。1000組と画面を触った家族に、不便・使いづらさ・欲しい機能を聞き、全国に直して前回と比べる。手順は `.claude/skills/survey/SKILL.md`。答える役は Sonnet 以上（品質を重視し、クレジットは惜しまない）。
 - **検査・シミュレーションの後は毎回、Claude API のクレジットを出す**（2026-11-03 本人指示）: `node app/scripts/spend.mjs` の「今回・今日・残り」を報告の先頭に載せる。回す前に `date -u +%FT%TZ > app/sim-data/run-start` で区切る。1回の上限は `BOSHI_SIM_BUDGET_USD`（既定 $5）。なりきり役の Claude（Claude Code）は Max プランの枠で、API の残高は減らない（使ったトークンは Workflow の結果から別の行で出す）。

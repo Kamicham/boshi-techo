@@ -10,7 +10,9 @@
     "test": "vitest run",
     "sim": "vitest run src/sim",
     "sim:full": "SIM_FULL=1 vitest run src/sim",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "survey:diary": "SIM_DIARY=1 vitest run src/sim/fastforward.test.ts",
+    "survey": "NODE_OPTIONS=--conditions=react-server tsx scripts/survey.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",
@@ -32,6 +34,7 @@
     "eslint-config-next": "15.5.4",
     "playwright": "^1.58.2",
     "tailwindcss": "^4",
+    "tsx": "^4.19.2",
     "typescript": "^5",
     "vitest": "^5.0.5"
   }
