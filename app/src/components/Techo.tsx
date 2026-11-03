@@ -15,6 +15,7 @@ import { TaskRow, TopTask, type ShownTask } from "./today/TaskCard";
 import { StaleBox } from "./today/StaleBox";
 import { jpShort } from "./today/dates";
 import { AdvisorCard } from "./today/AdvisorCard";
+import { ConsultAsk } from "./today/ConsultAsk";
 import { byDays, daysLeft, planToday, type Task } from "./today/task";
 import { VisitToday, visitIsTop } from "./today/VisitToday";
 
@@ -255,6 +256,9 @@ export function Techo() {
         気になった事は、話す・撮るで残す ›
       </Link>
 
+      {/* 手帳の毎回の問い「相談できる人はいますか」（時期ごとに1回。答えた時期は出さない） */}
+      {!loading && <ConsultAsk key={`${family.id}:consult`} family={family} today={today} meName={me?.name} />}
+
       {!loading && upcoming.length > 0 && (
         <Fold title="まだ先" count={upcoming.length}>
           <div className="flex flex-col">
@@ -281,6 +285,11 @@ export function Techo() {
           </ul>
         </Fold>
       )}
+
+      {/* 急ぎの時（窒息・心肺蘇生・119）。通信が無くても開けるよう、ふつうのリンクで開く（sw.js がこのページだけ取っておく） */}
+      <a href="/emergency" className="inline-flex min-h-11 items-center gap-1 self-start text-base font-semibold text-alert underline-offset-2 hover:underline">
+        急ぎの時（のどに詰まった・息をしていない）›
+      </a>
 
       {isDemo && <DemoClock family={family} today={today} setToday={setToday} />}
     </main>

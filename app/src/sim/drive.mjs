@@ -9,6 +9,12 @@
 //   node src/sim/drive.mjs <家族id> type <番号> <文字>                入れる
 //   node src/sim/drive.mjs <家族id> scroll <down|up>                  1画面ぶん動かす
 //   node src/sim/drive.mjs <家族id> shot                              画面を撮る（画像の場所を出す）
+//   node src/sim/drive.mjs <家族id> tab <today|visit|capture|techo|emergency>   下のタブ・急ぎの時の画面へ（/・/visit・/capture・/techo・/emergency）
+//   node src/sim/drive.mjs <家族id> upload <番号> <画像>              写真を選ぶ欄（input type=file）に画像を入れる（撮るの代わり）
+//   node src/sim/drive.mjs <家族id> page <kind>                       作った手帳のページの画像を作る（kind: checkup / vaccine / growth。中身は作った値）
+//   node src/sim/drive.mjs <家族id> offline [/path]                   電波を切ってその画面を開き直す（急ぎの時が通信なしで開けるか）。終わると電波は戻る
+//
+// 撮るの試しには、page で作った画像だけを使う（本物の手帳・本物の家族の写真は使わない）。
 import { chromium } from "playwright";
 import fs from "node:fs";
 import path from "node:path";
@@ -17,7 +23,7 @@ const BASE = process.env.SIM_URL ?? "http://127.0.0.1:3100";
 const OUT = path.join(path.dirname(new URL(import.meta.url).pathname), "..", "..", "sim", "out");
 const [, , fam, cmd, ...args] = process.argv;
 if (!fam || !cmd) {
-  console.error("使い方: node src/sim/drive.mjs <家族id> <setup|open|see|click|type|scroll|shot> …");
+  console.error("使い方: node src/sim/drive.mjs <家族id> <setup|open|tab|see|click|type|upload|scroll|shot|page|offline> …");
   process.exit(2);
 }
 const profile = path.join(OUT, "profiles", fam);
@@ -25,8 +31,53 @@ const urlFile = profile + ".url";
 const scrollFile = profile + ".scroll";
 fs.mkdirSync(profile, { recursive: true });
 
+const TABS = { today: "/", visit: "/visit", capture: "/capture", techo: "/techo", emergency: "/emergency" };
+
+/** 作った手帳のページ（紙の手帳を撮った写真の代わり）。値はすべて作った物。手書きに見えるよう少し崩す */
+function fakePageHtml(kind) {
+  const hand = "font-family:'Klee One','Hiragino Maru Gothic ProN',cursive;color:#1f2a6b;transform:rotate(-0.6deg)";
+  const rows = {
+    checkup: {
+      title: "妊娠中の経過",
+      head: ["診察月日", "妊娠週数", "子宮底長", "血圧", "体重", "尿蛋白", "尿糖"],
+      body: [
+        ["11/5", "24週3日", "21cm", "112/68", "56.4kg", "−", "−"],
+        ["11/19", "26週3日", "23cm", "108/66", "57.0kg", "−", "−"],
+      ],
+    },
+    vaccine: {
+      title: "予防接種の記録",
+      head: ["ワクチンの種類", "接種年月日", "メーカー/ロット", "接種者署名"],
+      body: [
+        ["五種混合 1回目", "R9.6.26", "（作った）A123", "（作った）こどもクリニック"],
+        ["小児用肺炎球菌 1回目", "R9.6.26", "（作った）B456", "（作った）こどもクリニック"],
+      ],
+    },
+    growth: {
+      title: "1か月児健康診査",
+      head: ["", ""],
+      body: [
+        ["体重", "4,120 g"],
+        ["身長", "53.6 cm"],
+        ["胸囲", "36.8 cm"],
+        ["頭囲", "36.9 cm"],
+      ],
+    },
+  }[kind];
+  if (!rows) throw new Error(`知らない page: ${kind}（checkup / vaccine / growth）`);
+  const cell = (c, i, isHead) => `<${isHead ? "th" : "td"} style="border:1px solid #888;padding:6px 8px;${isHead || i === 0 ? "" : hand}">${c}</${isHead ? "th" : "td"}>`;
+  return `<!doctype html><meta charset="utf-8"><body style="margin:0;background:#d9cdb8;padding:24px;font-family:'Hiragino Mincho ProN',serif">
+<div style="background:#fffdf6;padding:20px;box-shadow:0 2px 8px #0003;transform:rotate(1.2deg)">
+<p style="margin:0 0 4px;font-size:12px;color:#a33">作った手帳のページ（試し用・実在の記録ではない）</p>
+<h1 style="font-size:20px;margin:0 0 12px">${rows.title}</h1>
+<table style="border-collapse:collapse;font-size:15px;width:100%">${rows.head.some(Boolean) ? `<tr>${rows.head.map((c, i) => cell(c, i, true)).join("")}</tr>` : ""}${rows.body.map((r) => `<tr>${r.map((c, i) => cell(c, i, false)).join("")}</tr>`).join("")}</table>
+</div></body>`;
+}
+
 const ctx = await chromium.launchPersistentContext(profile, {
   headless: true,
+  // 急ぎの時の service worker（本番だけ登録）を試せるように
+  serviceWorkers: "allow",
   viewport: { width: 390, height: 844 },
   deviceScaleFactor: 2,
   isMobile: true,
@@ -154,6 +205,55 @@ try {
       await page.evaluate((d) => window.scrollBy(0, d === "up" ? -700 : 700), args[0]);
       await page.waitForTimeout(300);
       await see();
+    } else if (cmd === "tab") {
+      const to = TABS[args[0]];
+      if (!to) throw new Error(`知らないタブ: ${args[0]}（${Object.keys(TABS).join(" / ")}）`);
+      await page.goto(BASE + to);
+      await settle();
+      await see();
+    } else if (cmd === "upload") {
+      await mark();
+      const [n, file] = args;
+      if (!file || !fs.existsSync(file)) throw new Error(`画像が見つかりません: ${file}（page で作った画像を使う）`);
+      let el = page.locator(`[data-sim="${n}"]`);
+      if (!(await el.count())) throw new Error(`[${n}] が見つかりません。see で番号を見直してください`);
+      // 押す物が label やボタンなら、その中かすぐ近くの input type=file を探す
+      if ((await el.evaluate((x) => x.tagName)) !== "INPUT") {
+        const inner = el.locator('input[type="file"]');
+        el = (await inner.count()) ? inner.first() : page.locator('input[type="file"]').first();
+      }
+      if (!(await el.count())) throw new Error("写真を選ぶ欄（input type=file）が見つかりません");
+      await el.setInputFiles(file);
+      await settle();
+      await page.waitForTimeout(1500);
+      await see();
+    } else if (cmd === "page") {
+      const kind = args[0] ?? "checkup";
+      const file = path.join(OUT, "fixtures", `${kind}.png`);
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      const p2 = await ctx.newPage();
+      await p2.setViewportSize({ width: 390, height: 520 });
+      await p2.setContent(fakePageHtml(kind));
+      await p2.screenshot({ path: file });
+      await p2.close();
+      console.log(file);
+    } else if (cmd === "offline") {
+      const to = args[0] ?? "/emergency";
+      // 一度電波のある時に開いて（service worker が取っておく）、電波を切って開き直す
+      await page.goto(BASE + to);
+      await settle();
+      await page.waitForTimeout(4000);
+      await ctx.setOffline(true);
+      try {
+        await page.goto(BASE + to, { waitUntil: "domcontentloaded", timeout: 10_000 });
+        await page.waitForTimeout(500);
+        console.log("（電波を切って開き直しました）");
+        await see();
+      } catch (e) {
+        console.log(`電波が無いと開けませんでした: ${String(e.message).slice(0, 120)}（開発サーバでは service worker を登録しないので、本番の作りで試す）`);
+      } finally {
+        await ctx.setOffline(false);
+      }
     } else if (cmd === "shot") {
       const file = path.join(OUT, "shots", `${fam}-${Date.now()}.png`);
       fs.mkdirSync(path.dirname(file), { recursive: true });

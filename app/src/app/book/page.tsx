@@ -1,6 +1,7 @@
 "use client";
 
 // ⑦ 子どもへの贈り物: 1000日の記録が、最後に一冊になる。
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn, CopyButton, Fold, NextStep, Pill, ShareButton, Why } from "@/components/ui";
@@ -100,6 +101,9 @@ export default function BookPage() {
   return (
     <main className="flex flex-col gap-4 px-4 pt-4">
       <h1 className="sr-only">{child}への一冊</h1>
+      <Link href="/techo" className="inline-flex min-h-11 items-center self-start text-sm text-muted underline-offset-2 hover:underline">
+        ‹ 手帳へ
+      </Link>
 
       {loading ? (
         <p className="text-base text-muted">本棚を見ています…</p>

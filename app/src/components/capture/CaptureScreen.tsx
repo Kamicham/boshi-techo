@@ -5,9 +5,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn, Why } from "@/components/ui";
-import type { CaptureRecord, CaptureResult, RecordSource } from "@/lib/capture";
+import type { CaptureRecord, CaptureResult, RecordSource, TechoPhotoResult } from "@/lib/capture";
 import { HoldToTalk } from "./HoldToTalk";
 import { shrinkPhoto } from "./media";
+import { TechoCandidates } from "./TechoCandidates";
 import { RecordItem, Timeline } from "./Timeline";
 
 type Last = CaptureResult & { transcript?: string; source: RecordSource };
@@ -35,6 +36,7 @@ export function CaptureScreen() {
   const [answer, setAnswer] = useState("");
   const [last, setLast] = useState<Last | null>(null);
   const photoInput = useRef<HTMLInputElement>(null);
+  const pageInput = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     try {
@@ -110,6 +112,21 @@ export function CaptureScreen() {
     }));
   };
 
+  /** 紙の母子手帳のページを撮る → どのページか・行を読んで、手帳の候補にする */
+  const sendPage = async (file: File) => {
+    let image: string;
+    try {
+      image = await shrinkPhoto(file, 2000);
+    } catch (e) {
+      setError((e as Error).message);
+      return;
+    }
+    await run("手帳のページを読んでいます", async () => {
+      const r = await api<TechoPhotoResult>("/api/techo/photo", { body: { familyId: family.id, today, image } });
+      return { captureId: r.captureId, records: [], deadlines: [], oneQuestion: null, reply: r.reply, basis: "", techo: r.techo, source: "photo" };
+    });
+  };
+
   const sendText = async () => {
     const t = text.trim();
     if (!t) return;
@@ -177,6 +194,28 @@ export function CaptureScreen() {
         />
       </section>
 
+      <button
+        type="button"
+        disabled={!!busy}
+        onClick={() => pageInput.current?.click()}
+        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-sky/40 bg-card px-4 text-base font-semibold text-sky disabled:opacity-50"
+      >
+        <BookIcon />
+        紙の母子手帳のページを撮る
+      </button>
+      <input
+        ref={pageInput}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = "";
+          if (f) void sendPage(f);
+        }}
+      />
+
       <p className="text-sm font-semibold text-alert">{CALL_LINE}</p>
 
       {busy && (
@@ -220,6 +259,7 @@ export function CaptureScreen() {
               ))}
             </ul>
           )}
+          {last.techo?.length > 0 && <TechoCandidates key={last.captureId} familyId={family.id} items={last.techo} />}
           {last.transcript && (
             <Why label="聞き取った言葉">
               <p>「{last.transcript}」</p>
@@ -267,6 +307,15 @@ export function CaptureScreen() {
         <Timeline records={records} family={family} today={today} isDemo={isDemo} />
       </div>
     </main>
+  );
+}
+
+function BookIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden>
+      <path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z" />
+      <path d="M5 17a3 3 0 0 1 3-3h11" />
+    </svg>
   );
 }
 

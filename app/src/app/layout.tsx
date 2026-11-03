@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Zen_Maru_Gothic, Noto_Sans_JP } from "next/font/google";
-import { FamilyProvider } from "@/components/FamilyProvider";
-import { Shell } from "@/components/Shell";
+import { AppFrame, RegisterEmergencySW } from "./emergency/Frame";
 import "./globals.css";
 
 const display = Zen_Maru_Gothic({ variable: "--font-display", weight: ["500", "700"], subsets: ["latin"] });
@@ -24,9 +23,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="ja">
       <body className={`${display.variable} ${body.variable} antialiased`}>
-        <FamilyProvider>
-          <Shell>{children}</Shell>
-        </FamilyProvider>
+        {/* 急ぎの時（/emergency）だけは家族の読み込みを待たずに出す。ほかは FamilyProvider と Shell で包む */}
+        <AppFrame>{children}</AppFrame>
+        {/* 急ぎの時のページを通信が無くても開けるように（本番だけ。sw.js は /emergency とその部品しか扱わない） */}
+        <RegisterEmergencySW />
       </body>
     </html>
   );

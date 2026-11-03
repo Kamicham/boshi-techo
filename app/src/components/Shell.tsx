@@ -1,6 +1,6 @@
 "use client";
 
-// 画面の枠: 上に家族の切り替え、下にタブ（今日・健診・話す撮る・一冊）。
+// 画面の枠: 上に家族の切り替えと「急ぎの時」、下にタブ（今日・健診・話す撮る・手帳）。一冊は手帳の最後から入る。
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
@@ -11,7 +11,7 @@ const TABS = [
   { href: "/", label: "今日" },
   { href: "/visit", label: "健診" },
   { href: "/capture", label: "話す・撮る" },
-  { href: "/book", label: "一冊" },
+  { href: "/techo", label: "手帳" },
 ];
 
 export function Shell({ children }: { children: React.ReactNode }) {
@@ -44,6 +44,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
           {isDemo && <span className="rounded-full bg-sky-soft px-2 py-0.5 font-semibold text-sky">デモ</span>}
           <Link href="/settings" className="flex min-h-11 items-center px-2 text-muted underline-offset-2 hover:underline">わが家の設定</Link>
         </div>
+        {/* 急ぎの案内は録音中でも隠さない（産院・119・#8000 への橋） */}
+        <Link href="/emergency" className="flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-full px-2 font-semibold text-alert underline-offset-2 hover:underline">
+          急ぎの時
+        </Link>
       </div>
       {/* 家族を読み終えるまで中身を出さない（わが家の人に、デモの家族が一瞬見えないように） */}
       <div className="flex-1 pb-24">{ready ? children : <div className="mx-4 mt-4 h-40 rounded-2xl bg-rose-soft/60" aria-hidden />}</div>
@@ -59,7 +63,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
         )}
         <ul className={`mx-auto flex max-w-md justify-between px-2 ${recording ? "hidden" : ""}`}>
           {TABS.map((t) => {
-            const on = t.href === "/" ? path === "/" : path.startsWith(t.href);
+            // 一冊（/book）は手帳の中の1ページとして「手帳」を光らせる
+            const on = t.href === "/" ? path === "/" : path.startsWith(t.href) || (t.href === "/techo" && path.startsWith("/book"));
             return (
               <li key={t.href} className="flex-1">
                 <Link

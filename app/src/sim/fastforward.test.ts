@@ -34,6 +34,9 @@ import { SIM_FAMILIES } from "./families";
 import type { SimFamily } from "./types";
 import { getPopulation, type PopFamily } from "./population";
 import { BIRTHS_2025, PER_FAMILY } from "./stats";
+import { birthFacts, birthWeightMedian, growthMedian, seedTecho } from "../lib/techo-seed";
+import { DEMO_FAMILY } from "../lib/demo-family";
+import type { TechoEntry } from "../lib/techo";
 
 const FULL = process.env.SIM_FULL === "1";
 /** アンケート用の日記（1000組が1000日の間に見た物）を sim/out/diary.json に書き出す（npm run survey が使う） */
@@ -617,6 +620,7 @@ function writeReport() {
     for (const c of x.r.checkpoints) L.push(`| ${c.date} | ${c.label} | ${c.clock} | ${c.top} | ${c.rows} | ${c.overdue} | ${c.triggers.join("・") || "—"} |`);
     L.push("");
   }
+  L.push(...techoReport);
   fs.writeFileSync(path.join(OUT, "fastforward.md"), L.join("\n"));
 }
 
@@ -657,6 +661,129 @@ describe(`① 早送りの検査: 現実の割合から作った1000組（${FULL
       expect(broken, `新しい破れ（既知の穴に無い）:\n${broken.slice(0, 30).join("\n")}`).toEqual([]);
     }, 120_000);
   }
+});
+
+// ───────── 手帳の記録（作った家族の記録・seedTecho） ─────────
+// 作った家族（デモ・30家族・1000組）に入れる記録の決まり。体の数字は家族のデータか出典の中央値の近くだけ。判定の言葉を持たない。
+const TECHO_RULES = {
+  t1: "今日より後の日付の記録が無い",
+  t2: "生まれる前に、生まれた後の記録が無い",
+  t3: "出生体重は家族のデータ（1000組は population.ts の値）か、週数の中央値の±10%",
+  t4: "生まれた後の体重・身長・頭囲は、発育調査の中央値の0.5〜1.5倍（早く生まれた子は修正月齢で）",
+  t5: "妊婦健診は標準の14回まで・週数の順",
+  t6: "判定の言葉（異常・正常・大丈夫）を含まない",
+  t7: "みな source が seed で、候補（pending）ではない",
+  t8: "わが家（mine）には何も無い",
+} as const;
+type TechoRule = keyof typeof TECHO_RULES;
+const AFTER_BIRTH = new Set(["birth", "newborn", "stool", "postpartum", "growth", "development", "child-checkup", "vaccine"]);
+const JUDGE = /異常|正常|大丈夫/;
+const techoReport: string[] = [];
+
+function techoBroken(f: Family, today: string, es: TechoEntry[]): string[] {
+  const bad: string[] = [];
+  const born = f.birthDate && f.birthDate <= today ? f.birthDate : null;
+  const { gestDays, weightsG } = birthFacts(f);
+  const pop = isPop(f as SimFamily) ? (f as PopFamily) : null;
+  const early = born && gestDays < 259 ? Math.max(0, diffDays(f.dueDate, born)) : 0;
+  let checkups = 0;
+  let lastWeek = -1;
+  for (const e of es) {
+    const tag = `${today} ${e.page} ${e.date} ${e.title}`;
+    if (e.date > today) bad.push(`t1 ${tag}`);
+    if (AFTER_BIRTH.has(e.page) && (!born || e.date < born)) bad.push(`t2 ${tag}`);
+    if (e.page === "birth") {
+      const g = Number(e.values.weightG);
+      if (pop) {
+        if (!pop.profile.weights.includes(g)) bad.push(`t3 ${tag} ${g}g が家族のデータ ${pop.profile.weights.join("・")}g に無い`);
+      } else {
+        const med = birthWeightMedian(gestDays) * (weightsG.length > 1 ? 0.9 : 1);
+        if (Math.abs(g / med - 1) > 0.1) bad.push(`t3 ${tag} ${g}g（中央値 ${Math.round(med)}g）`);
+      }
+    }
+    if (e.page === "growth" && born) {
+      const m = Math.max(0, diffDays(e.date, born) / 30.4 - early / 30.4);
+      const med = growthMedian(m);
+      for (const [k, v] of [["kg", e.values.weightKg], ["cm", e.values.heightCm], ["head", e.values.headCm]] as const) {
+        const r = Number(v) / med[k];
+        if (!(r >= 0.5 && r <= 1.5)) bad.push(`t4 ${tag} ${k}=${v}（中央値 ${med[k].toFixed(1)}）`);
+      }
+    }
+    if (e.page === "pregnancy-checkup") {
+      checkups++;
+      const w = parseInt(String(e.values.week), 10);
+      if (!(w > lastWeek)) bad.push(`t5 ${tag} 週数が戻った`);
+      lastWeek = w;
+    }
+    if (JUDGE.test(JSON.stringify(e))) bad.push(`t6 ${tag}`);
+    if (e.source !== "seed" || e.pending) bad.push(`t7 ${tag}`);
+  }
+  if (checkups > 14) bad.push(`t5 ${today} 妊婦健診が${checkups}回`);
+  return bad;
+}
+
+/** 確かめる日: 授かって2か月・予定日・生まれて100日・2歳の誕生日・使い始めた日 */
+function techoDays(f: Family): string[] {
+  const lmp = lmpFromDue(f.dueDate);
+  const birth = f.birthDate ?? f.dueDate;
+  return [...new Set([addDays(lmp, 60), f.dueDate, addDays(birth, 100), addMonths(birth, 9), secondBirthday(f), ...(f.startedOn ? [f.startedOn] : [])])];
+}
+
+describe("① 早送りの検査: 手帳の記録（作った家族の記録）", () => {
+  const rows: { id: string; label: string; n: number; pages: number; bad: string[] }[] = [];
+  const count: Record<TechoRule, number> = { t1: 0, t2: 0, t3: 0, t4: 0, t5: 0, t6: 0, t7: 0, t8: 0 };
+  const check = (f: Family, label: string) => {
+    const bad: string[] = [];
+    let n = 0;
+    const pages = new Set<string>();
+    for (const d of techoDays(f)) {
+      const es = seedTecho(f, d);
+      n = Math.max(n, es.length);
+      es.forEach((e) => pages.add(e.page));
+      bad.push(...techoBroken(f, d, es));
+    }
+    for (const b of bad) count[b.slice(0, 2) as TechoRule]++;
+    rows.push({ id: f.id, label, n, pages: pages.size, bad });
+    return bad;
+  };
+
+  it("t8 わが家（mine）には何も作らない", () => {
+    const mine: Family = { ...DEMO_FAMILY, id: "mine" };
+    for (const d of techoDays(mine)) expect(seedTecho(mine, d)).toEqual([]);
+    // 作った家族の印の無い家族にも作らない
+    expect(seedTecho({ ...DEMO_FAMILY, id: "family-x" }, "2028-01-01")).toEqual([]);
+  });
+
+  it("デモの家族（2歳まで、ページがそろう）", () => {
+    const bad = check(DEMO_FAMILY, "デモ（作った家族）");
+    expect(bad).toEqual([]);
+    const all = seedTecho(DEMO_FAMILY, secondBirthday(DEMO_FAMILY));
+    const pages = new Set(all.map((e) => e.page));
+    for (const p of ["pregnancy-checkup", "birth", "newborn", "growth", "development", "vaccine", "feeling"]) expect(pages.has(p as TechoEntry["page"]), p).toBe(true);
+  });
+
+  it("30家族", () => {
+    const bad = SIM_FAMILIES.flatMap((f) => check(f, f.persona.label).map((b) => `${f.id} ${b}`));
+    expect(bad.slice(0, 30)).toEqual([]);
+  });
+
+  it("1000組", () => {
+    const bad = getPopulation().flatMap((f) => check(f, f.persona.label).map((b) => `${f.id} ${b}`));
+    expect(bad.slice(0, 30)).toEqual([]);
+  }, 120_000);
+
+  afterAll(() => {
+    if (!rows.length) return;
+    const pop = rows.filter((r) => r.id.startsWith("pop-"));
+    const others = rows.filter((r) => !r.id.startsWith("pop-"));
+    techoReport.push("## 手帳の記録（作った家族の記録・seedTecho）", "");
+    techoReport.push(`デモ・30家族・1000組の ${rows.length}家族を、授かって2か月・予定日・生まれて100日・9か月・2歳の誕生日・使い始めた日で確かめた。`, "");
+    techoReport.push("| 決まり | 中身 | 破れ |", "|---|---|---|");
+    for (const k of Object.keys(TECHO_RULES) as TechoRule[]) techoReport.push(`| ${k} | ${TECHO_RULES[k]} | ${count[k]} |`);
+    techoReport.push("", "| id | 一言 | 2歳までの記録の数 | ページの種類 | 破れ |", "|---|---|---|---|---|");
+    for (const r of others) techoReport.push(`| ${r.id} | ${r.label} | ${r.n} | ${r.pages} | ${r.bad.length ? r.bad.slice(0, 2).join("／") : "○"} |`);
+    techoReport.push(`| 1000組 | 現実の割合から作った家族 | 平均 ${Math.round(pop.reduce((n, r) => n + r.n, 0) / Math.max(1, pop.length))} | — | ${pop.filter((r) => r.bad.length).length}家族 |`, "");
+  });
 });
 
 afterAll(() => {
