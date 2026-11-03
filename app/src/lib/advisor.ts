@@ -87,7 +87,8 @@ function birthShift(input: AdvisorInput, schedule: Milestone[], done: Set<string
   const leaveStart = addDays(f.birthDate, 57);
   const leaveStartByDue = addDays(f.dueDate, 57);
   const facts = [
-    `予定日 ${jp(f.dueDate)}、生まれた日 ${jp(f.birthDate)}（${n}日${early ? "早く" : "遅く"}生まれた）`,
+    // 「早く／遅く生まれた」は体の評価に聞こえるので言わない（37〜41週は正期産。安心のデザイン #8）
+    `予定日 ${jp(f.dueDate)}、生まれた日 ${jp(f.birthDate)}（予定日との差 ${n}日。生まれた日に合わせて日付を数え直す）`,
     `産後休業（労働基準法第65条・生まれた日の翌日から8週間）は ${jp(postEnd)} まで（予定日で数えると ${jp(postEndByDue)} だった）`,
     `母の育休が始まる日は ${jp(leaveStart)}（予定日で数えると ${jp(leaveStartByDue)}。${n}日${early ? "早まる" : "遅くなる"}）。職場へ伝えた日付の直しが要る`,
   ];
@@ -150,14 +151,14 @@ export function detectTriggers(input: AdvisorInput): Trigger[] {
 export function advisorMoments(f: Family): { label: string; date: string }[] {
   const out: { label: string; date: string }[] = [];
   if (f.movedOn) out.push({ label: "引っ越した", date: addDays(f.movedOn, 1) });
-  if (f.birthDate && Math.abs(diffDays(f.dueDate, f.birthDate)) >= BIRTH_SHIFT_DAYS) out.push({ label: "早く生まれた", date: addDays(f.birthDate, 1) });
+  if (f.birthDate && Math.abs(diffDays(f.dueDate, f.birthDate)) >= BIRTH_SHIFT_DAYS) out.push({ label: "生まれた日", date: addDays(f.birthDate, 1) });
   return out.sort((a, b) => a.date.localeCompare(b.date));
 }
 
 // ── Claude に書かせる形（画面とサーバの両方で使う） ──
 
 export const AdviceSchema = z.object({
-  title: z.string().describe("気づいた事を1文で。30字まで。家族の言葉で（例: 予定より2週間早く生まれ、職場への連絡が早まります）"),
+  title: z.string().describe("気づいた事を1文で。30字まで。家族の言葉で（例: 生まれた日に合わせて、育休の始まりを数え直しました）"),
   why: z.string().describe("なぜ気づいたか。この家族の状況（日付・人・件数）を使って2行まで"),
   plan: z.array(z.string().describe("次の一手。40字まで。何を・いつまでに")).max(3).describe("次にする事。3つまで"),
   message: z

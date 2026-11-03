@@ -9,7 +9,9 @@ import type { Keep } from "@/lib/keep";
 import { scheduleFor, statusOf, type Milestone } from "@/lib/milestones";
 import type { VisitPlan } from "@/lib/visit";
 import { api, useFamily } from "./FamilyProvider";
-import { Fold, NextStep, daysUntil } from "./ui";
+import { Btn, Fold, NextStep, Notice, daysUntil } from "./ui";
+import { HelpPlaces } from "./today/HelpPlaces";
+import { jpShort } from "./today/dates";
 import { DemoClock } from "./today/DemoClock";
 import { TaskRow, TopTask, type ShownTask } from "./today/TaskCard";
 import { StaleBox } from "./today/StaleBox";
@@ -20,7 +22,7 @@ import { byDays, dateWord, daysLeft, planToday, type Task } from "./today/task";
 import { VisitToday, visitIsTop } from "./today/VisitToday";
 
 /** 「済んだにしました・もどす」を出しておく長さ */
-const UNDO_MS = 6000;
+const UNDO_MS = 20000;
 
 // ほかの画面が使っている日付の言い方（中身は today/dates.ts）
 export { jpDate } from "./today/dates";
@@ -28,7 +30,9 @@ export { jpDate } from "./today/dates";
 export function Techo() {
   const { family, today, setToday, isDemo, me } = useFamily();
   const [marked, setMarked] = useState<Set<string>>(new Set());
-  const [lastDone, setLastDone] = useState<{ id: string; title: string } | null>(null);
+  const [lastDone, setLastDone] = useState<{ id: string; title: string; ids?: string[] } | null>(null);
+  // 静かにする家族でも、いつもの今日の画面を見たい時に開ける
+  const [showAll, setShowAll] = useState(false);
   // 手帳の記録（接種・健診など）から済みにした事（/api/done の fromTecho。無い版では空）。「戻す」は出さない
   const [fromTecho, setFromTecho] = useState<Set<string>>(new Set());
   const [doneError, setDoneError] = useState("");
@@ -171,7 +175,8 @@ export function Techo() {
       const prev = marked;
       setMarked(new Set([...marked, ...ids]));
       const one = ids.length === 1 ? schedule.find((x) => x.id === ids[0]) : undefined;
-      setLastDone(one ? { id: one.id, title: one.plain } : null);
+      // まとめて済んだにした時も「もどす」を出す（安心のデザイン #6）
+      setLastDone(one ? { id: one.id, title: one.plain } : ids.length > 1 ? { id: ids[0], title: `${ids.length}つ`, ids } : null);
       try {
         for (const id of ids) await api("/api/done", { body: { familyId: family.id, milestoneId: id, today } });
       } catch (e) {
@@ -181,6 +186,24 @@ export function Techo() {
       }
     },
     [marked, schedule, family.id, today],
+  );
+
+  const undoMany = useCallback(
+    async (ids: string[]) => {
+      setDoneError("");
+      const prev = marked;
+      const next = new Set(marked);
+      for (const id of ids) next.delete(id);
+      setMarked(next);
+      setLastDone(null);
+      try {
+        for (const id of ids) await api("/api/done", { method: "DELETE", body: { familyId: family.id, milestoneId: id, today } });
+      } catch (e) {
+        setMarked(prev);
+        setDoneError((e as Error).message);
+      }
+    },
+    [marked, family.id, today],
   );
 
   // デモの早送り: 通り過ぎた期限の事は、家族が済ませた前提にする
@@ -213,26 +236,30 @@ export function Techo() {
   const upcoming = plan.upcoming;
   const common = { today, family, me, keep };
   const loading = !(doneReady && sentReady && advisorOpen !== null);
+  const quiet = family.situation?.quiet;
+
+  if (quiet && !showAll) return <QuietDay family={family} quiet={quiet} onShowAll={() => setShowAll(true)} />;
 
   return (
     <main className="flex flex-col gap-5 px-4 pt-4 pb-8">
       <WeekBand family={family} today={today} />
 
       {doneError && (
-        <p role="alert" className="rounded-lg bg-alert/10 px-3 py-2 text-base text-alert">
-          保存できませんでした: {doneError}
-        </p>
+        <Notice title="済んだの印を、まだ保存できていません" safe="押した印は元に戻しました。電波のある所で、もう一度押してください。" detail={doneError} />
       )}
       {/* 押した場所から見える所（下のタブの上）に、数秒だけ出す */}
       {lastDone && (
         <div className="pointer-events-none fixed inset-x-0 bottom-20 z-20 flex justify-center px-4" style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}>
           <p role="status" className="pointer-events-auto flex w-full max-w-md items-center justify-between gap-3 rounded-xl bg-ink px-4 text-base text-white shadow-lg">
-            <span className="min-w-0 py-3">「{lastDone.title}」を済んだにしました</span>
+            <span className="min-w-0 py-3">{lastDone.ids ? `${lastDone.title}を済んだにしました` : `「${lastDone.title}」を済んだにしました`}</span>
             <button
               type="button"
               onClick={() => {
-                const m = schedule.find((x) => x.id === lastDone.id);
-                if (m) void setDone(m, false);
+                if (lastDone.ids) void undoMany(lastDone.ids);
+                else {
+                  const m = schedule.find((x) => x.id === lastDone.id);
+                  if (m) void setDone(m, false);
+                }
               }}
               className="min-h-11 shrink-0 px-2 font-semibold underline underline-offset-2"
             >
@@ -251,7 +278,7 @@ export function Techo() {
       ) : top ? (
         <TopTask key={`${family.id}:${top.id}`} task={top} soon={!focus && plan.topIsSoon} {...common} onDone={() => void setDone(top, true)} />
       ) : (
-        <Calm upcoming={(me && upcoming.find((t) => t.who === "家族" || t.who === me.role)) || upcoming[0]} today={today} />
+        <Calm upcoming={me ? upcoming.filter((t) => t.who === "家族" || t.who === me.role) : upcoming} today={today} />
       )}
 
       {!loading && rows.length > 0 && (
@@ -288,7 +315,7 @@ export function Techo() {
       {!loading && <ConsultAsk key={`${family.id}:consult`} family={family} today={today} meName={me?.name} />}
 
       {!loading && upcoming.length > 0 && (
-        <Fold title="まだ先" count={upcoming.length}>
+        <Fold title="先の予定" note="時期が来たら、ここの一番上に出します">
           <div className="flex flex-col">
             {upcoming.map((t) => (
               <TaskRow key={`${family.id}:${t.id}`} task={t} {...common} muted onDone={() => void setDone(t, true)} />
@@ -319,8 +346,10 @@ export function Techo() {
       )}
 
       {/* 急ぎの時（窒息・心肺蘇生・119）。通信が無くても開けるよう、ふつうのリンクで開く（sw.js がこのページだけ取っておく） */}
-      <a href="/emergency" className="inline-flex min-h-11 items-center gap-1 self-start text-base font-semibold text-alert underline-offset-2 hover:underline">
-        急ぎの時（のどに詰まった・息をしていない）›
+      {/* 赤は命の橋だけ。ふだんは墨色の字と小さな赤い点（安心のデザイン #3） */}
+      <a href="/emergency" className="inline-flex min-h-11 items-center gap-2 self-start text-base font-semibold text-ink underline-offset-2 hover:underline">
+        <span className="inline-block h-1.5 w-1.5 rounded-full bg-alert" aria-hidden />
+        急ぎの時 ›
       </a>
 
       {isDemo && <DemoClock family={family} today={today} setToday={setToday} />}
@@ -334,7 +363,8 @@ function WeekBand({ family, today }: { family: Family; today: string }) {
   const toDue = diffDays(family.dueDate, today);
   let main: string;
   if (c.phase === "pregnant") {
-    const due = toDue > 0 ? `予定日まであと${toDue}日` : toDue === 0 ? "今日が予定日" : `予定日から${-toDue}日`;
+    // 予定日を過ぎても数え上げない（一番身構える週に、数字を増やさない）
+    const due = toDue > 0 ? `予定日まであと${toDue}日` : toDue === 0 ? "今日が予定日" : "予定日のころ";
     main = `${c.pregnancyWeek}週 ・ ${due}`;
   } else if (c.phase === "trying") {
     main = "授かる前";
@@ -351,16 +381,82 @@ function WeekBand({ family, today }: { family: Family; today: string }) {
   );
 }
 
-/** 今やる事が無い時: 休んでいい、と次に来る事 */
-function Calm({ upcoming, today }: { upcoming?: Task; today: string }) {
-  if (!upcoming) return <NextStep tone="ok" title="今週は何もしなくて大丈夫" />;
+/**
+ * 今やる事が無い時: 休んでいい、と次に動く日（安心のデザイン #2）。
+ * 「大丈夫」を一番大きく。日数は数えず日付で。見張っている近い3件を見せ、見落としの不安を減らす。
+ * 町の予定まで確かめたとは書かない（期限表から決まる事だけ）。
+ */
+function Calm({ upcoming, today }: { upcoming: Task[]; today: string }) {
+  const title = "今週は、何もしなくて大丈夫";
+  const next = upcoming[0];
+  if (!next) return <NextStep tone="ok" title={title} />;
+  const when = (t: Task) => (t.awaitingPregnancy ? "授かったら" : t.awaitingBirth ? "生まれたら" : `${dateWord(t.startDate, today)}ごろから`);
+  const watch = upcoming.slice(0, 3);
   return (
-    <NextStep
-      tone="ok"
-      eyebrow="今週は何もしなくて大丈夫"
-      title={`次は「${upcoming.plain}」`}
-      days={upcoming.awaitingPregnancy ? undefined : daysUntil(today, upcoming.startDate)}
-      dateLabel={upcoming.awaitingPregnancy ? "授かったら" : `${dateWord(upcoming.startDate, today)}から`}
-    />
+    <NextStep tone="ok" title={title} sub={`次に動くのは「${next.plain}」（${when(next)}）。近づいたら、ここの一番上に出します。`}>
+      <div className="flex w-full flex-col gap-1">
+        <p className="text-sm text-muted">見張っている事</p>
+        <ul className="flex flex-col gap-0.5">
+          {watch.map((t) => (
+            <li key={t.id} className="flex items-baseline justify-between gap-3 text-base">
+              <span className="min-w-0">{t.plain}</span>
+              <span className="tabular shrink-0 text-sm text-muted">{t.awaitingPregnancy || t.awaitingBirth ? when(t) : jpShort(t.startDate)}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </NextStep>
+  );
+}
+
+/**
+ * 静かにする家族の今日（安心のデザイン #5）。日数・週数・「次は」・お知らせ・祝いの言葉を出さない。色は紙と墨だけ。
+ * 体の判断はせず、本当に要る手続きと、話せる所への橋だけを置く。記録は消さない。
+ * 出典: 死産の届出に関する規程 第4条（死産後7日以内）。労働基準法第65条（妊娠4か月以上の分娩は死産も含み、産後休業の対象）。
+ * 健康保険法第101条（出産育児一時金。妊娠85日以上の分娩は死産・流産も含む）。母子保健法第20条（養育医療）。戸籍法第49条（出生届14日以内）。
+ */
+function QuietDay({ family, quiet, onShowAll }: { family: Family; quiet: "loss" | "nicu"; onShowAll: () => void }) {
+  const loss = quiet === "loss";
+  return (
+    <main className="flex flex-col gap-5 px-4 pt-4 pb-8">
+      <section className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-5">
+        <h1 className="font-display text-2xl leading-snug font-bold">今は、何もしなくて大丈夫です</h1>
+        <p className="text-base">
+          {loss
+            ? "手帳の予定とお知らせは止めています。記録はそのまま残っています。"
+            : "今は赤ちゃんと、ご自分の体を一番に。手帳の予定とお知らせは止めています。"}
+        </p>
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h2 className="text-sm font-semibold text-muted">要る手続き（今日でなくて大丈夫です）</h2>
+        <ul className="flex flex-col gap-2 text-base">
+          {loss ? (
+            <>
+              <li>妊娠12週を過ぎてからの時は、7日以内に役所へ死産の届け出があります。多くは病院が書類を用意し、家族の代わりの人が出せます。</li>
+              <li>妊娠12週（85日）を過ぎてからの時は、出産育児一時金と、働いている人は産後の休業の対象です。健康保険と職場に聞いてください。</li>
+              <li>分からない事は、病院の相談の窓口（医療ソーシャルワーカー）に聞けます。</li>
+            </>
+          ) : (
+            <>
+              <li>出生届は、生まれた日から14日以内です。赤ちゃんが入院中でも出せます。家族が代わりに出せます。</li>
+              <li>入院の費用を助ける制度（養育医療）があります。病院の相談の窓口（医療ソーシャルワーカー）に聞いてください。</li>
+              <li>健診や予防接種の時期は、退院の時に病院と相談して決めます。</li>
+            </>
+          )}
+        </ul>
+      </section>
+
+      <HelpPlaces family={family} />
+
+      <div className="flex flex-wrap gap-2">
+        <Btn kind="quiet" onClick={onShowAll}>
+          いつもの今日の画面を見る
+        </Btn>
+        <Btn kind="quiet" href="/settings">
+          静かにするのをやめる
+        </Btn>
+      </div>
+    </main>
   );
 }

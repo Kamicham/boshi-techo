@@ -5,7 +5,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
-import { Btn, Why } from "@/components/ui";
+import { Btn, Notice, plainError, Why } from "@/components/ui";
 import { KeepButtons } from "@/components/album/KeepButtons";
 import type { CaptureRecord, CaptureResult, RecordSource, TechoPhotoResult } from "@/lib/capture";
 import { HoldToTalk } from "./HoldToTalk";
@@ -18,8 +18,41 @@ type Last = CaptureResult & { transcript?: string; source: RecordSource };
 /** まだ答えていない聞き返し（サーバに残っている。開き直しても答える欄を出す） */
 type Ask = { captureId: string; question: string; basis: string; source: RecordSource };
 
-/** いつも出しておく連絡先（固定の文。消さない） */
-const CALL_LINE = "急ぎの時は 産院（夜間も）・119。子どもは #8000";
+/** いつも出しておく道しるべ（固定の文。消さない）。赤は命の橋に取っておくので、ここは muted で「急ぎの時」の画面を指すだけ */
+const CALL_LINE = "急ぐ時は上の『急ぎの時』から";
+
+/** 仕組みの都合の知らせ（何が起きたか／書いた事は無事か／原文） */
+type Fail = { title: string; safe?: string; detail?: string };
+
+/**
+ * 失敗の知らせを、何を送っていたかで言い分ける。「残っています」と書くのは、本当に残る時だけ:
+ * - 書いた文・答え: 送れた時だけ欄を空にするので、欄に残る
+ * - 話した: 聞き取れていれば書く欄に入れる（VoiceError）。聞き取る前に落ちた時は録音は残らない
+ * - 撮った: 写真はこの画面に取っておかない
+ */
+type FailKind = "load" | "voice" | "photo" | "page" | "text" | "answer" | "skip" | "seed";
+function failOf(kind: FailKind, e: unknown): Fail {
+  const detail = plainError(e);
+  switch (kind) {
+    case "load":
+      return { title: "記録を読み込めませんでした", safe: "手帳の記録は消えていません。電波のある所で開き直してください", detail };
+    case "voice":
+      return e instanceof VoiceError && e.transcript
+        ? { title: "まだ送れていません", safe: "聞き取った言葉は、下の書く欄に残っています。そのまま送り直せます", detail }
+        : { title: "まだ送れていません", safe: "録音は残っていません。もう一度話してください", detail };
+    case "photo":
+    case "page":
+      return { title: "まだ読めていません", safe: "写真はここに残っていません。もう一度撮ってください", detail };
+    case "text":
+      return { title: "まだ送れていません", safe: "書いた事は、この電話の下の欄に残っています。そのまま送り直せます", detail };
+    case "answer":
+      return { title: "まだ送れていません", safe: "答えは欄に残っています。そのまま送り直せます", detail };
+    case "skip":
+      return { title: "まだ手帳に届いていません", safe: "記録はそのままです", detail };
+    case "seed":
+      return { title: "デモの記録を入れられませんでした", detail };
+  }
+}
 
 /** 文字起こしまではできたが、手帳に書けなかった時のエラー */
 class VoiceError extends Error {
@@ -35,7 +68,7 @@ export function CaptureScreen() {
   const [records, setRecords] = useState<CaptureRecord[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [secs, setSecs] = useState(0);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<Fail | null>(null);
   const [text, setText] = useState("");
   const [writing, setWriting] = useState(false);
   const [answer, setAnswer] = useState("");
@@ -68,7 +101,7 @@ export function CaptureScreen() {
       setRecords(j.records);
       setAsk(j.ask ?? null);
     } catch (e) {
-      setError((e as Error).message);
+      setError(failOf("load", e));
     }
     void loadPending();
   }, [family.id, today, loadPending]);
@@ -108,8 +141,8 @@ export function CaptureScreen() {
   }, [busy]);
 
   /** 待ちの長い処理を、いま何をしているかを出しながら走らせる */
-  const run = async (label: string, fn: () => Promise<Last>) => {
-    setError("");
+  const run = async (label: string, kind: FailKind, fn: () => Promise<Last>) => {
+    setError(null);
     setBusy(label);
     try {
       const r = await fn();
@@ -123,7 +156,7 @@ export function CaptureScreen() {
         setText((cur) => (cur.trim() ? `${cur.trim()}\n${e.transcript}` : e.transcript));
         setWriting(true);
       }
-      setError((e as Error).message);
+      setError(failOf(kind, e));
       return false;
     } finally {
       setBusy(null);
@@ -131,7 +164,7 @@ export function CaptureScreen() {
   };
 
   const sendVoice = (blob: Blob) =>
-    run("聞き取っています", async () => {
+    run("聞き取っています", "voice", async () => {
       const r = await fetch(`/api/capture/voice?familyId=${encodeURIComponent(family.id)}&today=${today}`, {
         method: "POST",
         headers: { "content-type": blob.type || "application/octet-stream" },
@@ -151,10 +184,10 @@ export function CaptureScreen() {
     try {
       image = await shrinkPhoto(file);
     } catch (e) {
-      setError((e as Error).message);
+      setError(failOf("photo", e));
       return;
     }
-    await run("紙を読んでいます", async () => ({
+    await run("紙を読んでいます", "photo", async () => ({
       ...(await api<CaptureResult>("/api/capture/photo", { body: { familyId: family.id, today, image } })),
       source: "photo",
     }));
@@ -166,10 +199,10 @@ export function CaptureScreen() {
     try {
       image = await shrinkPhoto(file, 2000);
     } catch (e) {
-      setError((e as Error).message);
+      setError(failOf("page", e));
       return;
     }
-    await run("手帳のページを読んでいます", async () => {
+    await run("手帳のページを読んでいます", "page", async () => {
       const r = await api<TechoPhotoResult>("/api/techo/photo", { body: { familyId: family.id, today, image } });
       return { captureId: r.captureId, records: [], deadlines: [], oneQuestion: null, reply: r.reply, basis: "", techo: r.techo, source: "photo" };
     });
@@ -178,7 +211,7 @@ export function CaptureScreen() {
   const sendText = async () => {
     const t = text.trim();
     if (!t) return;
-    const ok = await run("手帳に書いています", async () => ({
+    const ok = await run("手帳に書いています", "text", async () => ({
       ...(await api<CaptureResult>("/api/capture", { body: { familyId: family.id, today, text: t } })),
       source: "text",
     }));
@@ -191,7 +224,7 @@ export function CaptureScreen() {
   const sendAnswer = async () => {
     if (!ask || !answer.trim()) return;
     const prev = ask;
-    await run("書き直しています", async () => ({
+    await run("書き直しています", "answer", async () => ({
       ...(await api<CaptureResult>("/api/capture/answer", {
         body: { familyId: family.id, today, captureId: prev.captureId, basis: prev.basis, question: prev.question, answer, source: prev.source },
       })),
@@ -208,17 +241,17 @@ export function CaptureScreen() {
     try {
       await api(`/api/capture?familyId=${encodeURIComponent(family.id)}&captureId=${encodeURIComponent(id)}`, { method: "DELETE" });
     } catch (e) {
-      setError((e as Error).message);
+      setError(failOf("skip", e));
     }
   };
 
   const seed = async () => {
-    setError("");
+    setError(null);
     try {
       await api("/api/capture/seed", { body: { familyId: family.id } });
       await load();
     } catch (e) {
-      setError((e as Error).message);
+      setError(failOf("seed", e));
     }
   };
 
@@ -230,7 +263,7 @@ export function CaptureScreen() {
       <p className="text-base text-muted">話すだけ・撮るだけで、手帳に書きます</p>
 
       {pending > 0 && (
-        <Link href="/techo" className="flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-warn/40 bg-warn/10 px-4 py-2">
+        <Link href="/techo" className="flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-sky/40 bg-sky-soft px-4 py-2">
           <span className="text-base font-semibold">OK 待ち {pending}件</span>
           <span className="shrink-0 text-base font-semibold text-sky">手帳で見る ›</span>
         </Link>
@@ -241,7 +274,7 @@ export function CaptureScreen() {
 
       <section aria-label="入れる" className="grid grid-cols-2 gap-3">
         <div ref={talkBox} className={from === "voice" ? "rounded-3xl ring-4 ring-rose/40" : undefined}>
-          <HoldToTalk disabled={!!busy} onAudio={(b) => void sendVoice(b)} onError={setError} />
+          <HoldToTalk disabled={!!busy} onAudio={(b) => void sendVoice(b)} onError={(m) => setError({ title: m })} />
         </div>
         <button
           type="button"
@@ -297,7 +330,7 @@ export function CaptureScreen() {
         <KeepButtons highlight={keepFrom} />
       </div>
 
-      <p className="text-sm font-semibold text-alert">{CALL_LINE}</p>
+      <p className="text-sm text-muted">{CALL_LINE}</p>
 
       {busy && (
         <p role="status" className="flex items-center gap-2 rounded-2xl bg-sky-soft px-4 py-4 text-lg font-semibold text-sky">
@@ -305,11 +338,7 @@ export function CaptureScreen() {
           {busy}…<span className="tabular text-sm font-normal text-muted">{secs}秒</span>
         </p>
       )}
-      {error && (
-        <p role="alert" className="rounded-2xl bg-alert/10 px-4 py-3 text-base text-alert">
-          {error}
-        </p>
-      )}
+      {error && <Notice title={error.title} safe={error.safe} detail={error.detail} />}
 
       {last && !busy && (
         <section aria-label="いま書いた事" className="flex flex-col gap-3 rounded-2xl bg-rose-soft p-5">

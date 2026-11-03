@@ -4,6 +4,7 @@
 // GET は { techo: Doc<TechoEntry>[] }。念のため平らな形（id つきの TechoEntry）も読む。
 import { useCallback, useEffect, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
+import { plainError } from "@/components/ui";
 import type { TechoEntry } from "@/lib/techo";
 
 export type TechoItem = TechoEntry & { id: string; dateUnsure?: "guess" | "none" };
@@ -43,7 +44,7 @@ export function useTecho() {
       list.sort((a, b) => a.date.localeCompare(b.date));
       setItems(list);
     } catch (e) {
-      setError((e as Error).message);
+      setError(plainError(e));
     } finally {
       setLoading(false);
     }
@@ -72,5 +73,14 @@ export function useTecho() {
     [family.id, today, load],
   );
 
-  return { items, loading, error, reload: load, confirm, add };
+  /** 候補・記録を消す（押し間違い・読み違いを戻す。OK した後の記録も消せる） */
+  const remove = useCallback(
+    async (ids: string[]) => {
+      await api(`/api/techo`, { body: { familyId: family.id, today, action: "remove", ids } });
+      await load();
+    },
+    [family.id, today, load],
+  );
+
+  return { items, loading, error, reload: load, confirm, add, remove };
 }

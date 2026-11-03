@@ -19,6 +19,19 @@ export interface Situation {
   babies?: number;
   /** 里帰り出産。true = する、false = しない、undefined = わからない */
   satogaeri?: boolean;
+  /**
+   * 静かにする（安心のデザイン #5）。loss = 流産・死産など、つらい別れがあった。nicu = 赤ちゃんが入院している。
+   * 選ぶと今日の画面は日数・週数・「次は」・お知らせを止め、橋と本当に要る物だけを出す。記録は消さない。設定で戻せる
+   */
+  quiet?: Quiet;
+}
+
+export type Quiet = "loss" | "nicu";
+export const QUIETS: Quiet[] = ["loss", "nicu"];
+
+/** 保存された値から「静かにする」を読む（決まりに無い値は捨てる） */
+export function cleanQuiet(v: unknown): Quiet | undefined {
+  return typeof v === "string" && (QUIETS as string[]).includes(v) ? (v as Quiet) : undefined;
 }
 
 /** 母が雇われて働いているか（わからない時は true = 今までどおり職場の事を出す） */

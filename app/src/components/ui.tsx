@@ -4,6 +4,7 @@
 // 新しい見た目を各画面で作らず、ここの部品を使う。
 import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
+import { countdownLook } from "./countdown";
 import { canShare, googleCalendarUrl, icsText, isAppleDevice, lineUrl, mailtoUrl, mapUrl } from "@/lib/handoff";
 
 const noop = () => () => {};
@@ -26,6 +27,7 @@ export function NextStep({
   days,
   dateLabel,
   tone = "rose",
+  daysKind = "deadline",
   children,
 }: {
   eyebrow?: string;
@@ -35,6 +37,8 @@ export function NextStep({
   days?: number | null;
   dateLabel?: string;
   tone?: "rose" | "sky" | "ok";
+  /** days が期限か、始まりの日か */
+  daysKind?: "deadline" | "start";
   children?: React.ReactNode;
 }) {
   const bg = tone === "sky" ? "bg-sky-soft" : tone === "ok" ? "bg-ok/10" : "bg-rose-soft";
@@ -42,23 +46,62 @@ export function NextStep({
     <section className={`flex flex-col gap-3 rounded-2xl ${bg} p-5`}>
       {eyebrow && <p className="text-sm font-semibold text-muted">{eyebrow}</p>}
       <h2 className="font-display text-2xl leading-snug font-bold text-balance">{title}</h2>
-      {days != null && <Countdown days={days} dateLabel={dateLabel} />}
+      {days != null && <Countdown days={days} dateLabel={dateLabel} kind={daysKind} />}
       {sub && <p className="text-base">{sub}</p>}
       {children && <div className="flex flex-wrap gap-2 pt-1">{children}</div>}
     </section>
   );
 }
 
-/** あと◯日を大きく。近いほど強い色 */
-export function Countdown({ days, dateLabel, size = "lg" }: { days: number; dateLabel?: string; size?: "lg" | "sm" }) {
-  const color = days < 0 ? "text-alert" : days <= 3 ? "text-alert" : days <= 14 ? "text-warn" : "text-ink";
-  const text = days < 0 ? `${-days}日過ぎています` : days === 0 ? "今日まで" : days === 1 ? "あした" : `あと${days}日`;
+/**
+ * あと◯日。赤は「法で決まった期限で、残り1日以下」だけ（安心のデザイン: 赤は命の橋と本当の期限に取っておく）。
+ * kind="start" は始まりの日（「◯日後から」）で、色を付けない。過ぎた物は責めずに「今からでも」と次の一手で言う。
+ */
+export function Countdown({
+  days,
+  dateLabel,
+  size = "lg",
+  kind = "deadline",
+}: {
+  days: number;
+  dateLabel?: string;
+  size?: "lg" | "sm";
+  kind?: "deadline" | "start";
+}) {
+  const { color, text } = countdownLook(days, kind);
+  const big = size === "lg" && !(kind === "deadline" && days < 0) ? "text-4xl" : size === "lg" ? "text-2xl" : "text-lg";
   return (
-    <p className="flex items-baseline gap-2">
-      <span className={`font-display font-bold ${color} ${size === "lg" ? "text-4xl" : "text-lg"}`}>{text}</span>
-      {dateLabel && <span className="text-sm text-muted">{dateLabel}</span>}
+    <p className="flex flex-wrap items-baseline gap-x-2">
+      <span className={`font-display font-bold ${color} ${big}`}>{text}</span>
+      {dateLabel && <span className="text-sm text-muted">{kind === "deadline" && days < 0 ? `期限は${dateLabel}でした` : dateLabel}</span>}
     </p>
   );
+}
+
+/**
+ * 仕組みの都合の知らせ（通信の失敗・保存の失敗）。体の警告と見分けるため、赤を使わない。
+ * 文は3段: 何が起きたか（title）／記録は無事か（safe）／次の一手（children のボタン）。エラーの原文は「なぜ？」の奥。
+ */
+export function Notice({ title, safe, detail, children }: { title: string; safe?: string; detail?: string; children?: React.ReactNode }) {
+  return (
+    <div role="status" className="flex flex-col gap-1 rounded-xl border-l-[3px] border-muted bg-paper px-4 py-3">
+      <p className="font-semibold">{title}</p>
+      {safe && <p className="text-base">{safe}</p>}
+      {children && <div className="flex flex-wrap gap-2 pt-1">{children}</div>}
+      {detail && (
+        <Why label="くわしく">
+          <p>{detail}</p>
+        </Why>
+      )}
+    </div>
+  );
+}
+
+/** エラーの原文を、家族に分かる言葉に（Safari の「Load failed」・Chrome の「Failed to fetch」など） */
+export function plainError(e: unknown): string {
+  const m = e instanceof Error ? e.message : String(e ?? "");
+  if (e instanceof TypeError || /load failed|failed to fetch|networkerror|network request failed/i.test(m)) return "通信できませんでした";
+  return m || "うまくいきませんでした";
 }
 
 /** 大きなボタン（主）・枠だけのボタン（副）。押せる所は 44px 以上 */
@@ -115,13 +158,14 @@ export function Why({ children, label = "なぜ？" }: { children: React.ReactNo
 }
 
 /** 2つ目以降を畳んでおく箱 */
-export function Fold({ title, count, children, open }: { title: string; count?: number; children: React.ReactNode; open?: boolean }) {
+export function Fold({ title, count, children, open, note }: { title: string; count?: number; children: React.ReactNode; open?: boolean; note?: string }) {
   return (
     <details className="group rounded-2xl border border-line bg-card" open={open}>
       <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-4 font-display text-lg font-bold">
         <span>
           {title}
           {count != null && <span className="ml-2 text-sm font-normal text-muted">{count}件</span>}
+          {note && <span className="block text-sm font-normal text-muted">{note}</span>}
         </span>
         <span className="text-muted transition-transform group-open:rotate-90" aria-hidden>›</span>
       </summary>

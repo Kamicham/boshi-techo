@@ -6,7 +6,8 @@
 // 並びは国の様式のまま。開いた時は子の今の時期の部まで送り、過ぎた時期のページは畳む（開けば見られる。記録は消さない）。
 import { useEffect, useRef, useState } from "react";
 import { useFamily } from "@/components/FamilyProvider";
-import { Btn, Why } from "@/components/ui";
+import { HelpPlaces } from "@/components/today/HelpPlaces";
+import { Btn, Notice } from "@/components/ui";
 import { DevelopmentList } from "@/components/techo/DevelopmentList";
 import { EntryCard } from "@/components/techo/EntryCard";
 import { FeelingList } from "@/components/techo/FeelingList";
@@ -47,7 +48,7 @@ function periodOf(birthDate: string | undefined, today: string): { part: string;
 
 export default function TechoPage() {
   const { family, today } = useFamily();
-  const { items, loading, error, reload, confirm, add } = useTecho();
+  const { items, loading, error, reload, confirm, add, remove } = useTecho();
   const child = family.childName ?? "子ども";
   const pending = items.filter((i) => i.pending);
   const byPage = (id: TechoPageId) => items.filter((i) => i.page === id && !i.pending);
@@ -103,16 +104,15 @@ export default function TechoPage() {
       </header>
 
       {error && (
-        <div className="flex flex-col gap-2 rounded-xl bg-alert/10 p-3">
-          <p className="text-base text-alert">{error}</p>
+        <Notice title="手帳を開けませんでした" safe="記録は消えていません。電波のよい所で、もう一度読んでください。" detail={error}>
           <Btn kind="secondary" onClick={() => void reload()}>
             もう一度読む
           </Btn>
-        </div>
+        </Notice>
       )}
       {loading && <p className="text-base text-muted">手帳を開いています…</p>}
 
-      <PendingBox items={pending} onConfirm={confirm} />
+      <PendingBox items={pending} onConfirm={confirm} onRemove={remove} />
 
       {PARTS.map((part) => (
         <section key={part} id={partId(part)} className="flex scroll-mt-4 flex-col gap-3">
@@ -121,7 +121,7 @@ export default function TechoPage() {
             const list = byPage(p.id);
             const body = (
               <>
-                <PageBody id={p.id} list={list} all={confirmed} today={today} add={add} />
+                <PageBody id={p.id} list={list} all={confirmed} today={today} add={add} remove={remove} />
                 {(!DIRECT.includes(p.id) || p.id === "growth" || p.id === "vaccine") && list.length === 0 && <CaptureLinks />}
               </>
             );
@@ -170,7 +170,7 @@ export default function TechoPage() {
 
 /** 記録の多いページは、新しい3件だけ出して、前の物は押すと出す */
 const SHOWN = 3;
-function RecentList({ list }: { list: TechoItem[] }) {
+function RecentList({ list, onRemove }: { list: TechoItem[]; onRemove: Remove }) {
   const [all, setAll] = useState(false);
   const hidden = all ? 0 : Math.max(0, list.length - SHOWN);
   return (
@@ -181,7 +181,7 @@ function RecentList({ list }: { list: TechoItem[] }) {
         </button>
       )}
       {list.slice(hidden).map((it) => (
-        <EntryCard key={it.id} item={it} />
+        <EntryCard key={it.id} item={it} onRemove={onRemove} />
       ))}
     </div>
   );
@@ -202,11 +202,13 @@ function CaptureLinks() {
 }
 
 type Add = ReturnType<typeof useTecho>["add"];
+type Remove = ReturnType<typeof useTecho>["remove"];
 
-function PageBody({ id, list, all, today, add }: { id: TechoPageId; list: TechoItem[]; all: TechoItem[]; today: string; add: Add }) {
+function PageBody({ id, list, all, today, add, remove }: { id: TechoPageId; list: TechoItem[]; all: TechoItem[]; today: string; add: Add; remove: Remove }) {
+  const { family } = useFamily();
   switch (id) {
     case "stool":
-      return <StoolCard items={list} today={today} onAdd={(colorNo, date) => add({ page: "stool", date, title: `便の色 ${colorNo}番`, values: { colorNo } })} />;
+      return <StoolCard items={list} today={today} onRemove={remove} onAdd={(colorNo, date) => add({ page: "stool", date, title: `便の色 ${colorNo}番`, values: { colorNo } })} />;
     case "growth":
       return <GrowthChart items={all} onAdd={(values, date) => add({ page: "growth", date, title: "身長・体重など（紙から写した）", values })} />;
     case "development":
@@ -229,12 +231,7 @@ function PageBody({ id, list, all, today, add }: { id: TechoPageId; list: TechoI
           {id === "consult" && (
             <>
               <p className="text-base font-semibold">{CONSULT_QUESTION}</p>
-              <Why label="相談できる所">
-                <p>子どもの急な病気で迷う時: #8000（こども医療でんわ相談）</p>
-                <p>命に関わりそうな時: 119</p>
-                <p>妊娠中・産後の体の事: かかっている産院</p>
-                <p>子育ての困りごと: 住んでいる町の保健センター・こども家庭センター</p>
-              </Why>
+              <HelpPlaces family={family} />
               <div className="flex flex-wrap gap-2">
                 <Btn href="/emergency" kind="secondary">
                   急ぎの時
@@ -242,7 +239,7 @@ function PageBody({ id, list, all, today, add }: { id: TechoPageId; list: TechoI
               </div>
             </>
           )}
-          {list.length > 0 && <RecentList list={list} />}
+          {list.length > 0 && <RecentList list={list} onRemove={remove} />}
         </>
       );
   }

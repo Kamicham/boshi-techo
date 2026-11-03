@@ -13,7 +13,8 @@ describe("気づいた事: きっかけを機械で見つける", () => {
   it("予定より2週間早く生まれた翌日: 組み直し（産後休業・育休の始まりがずれる）", () => {
     const t = first(at("2027-04-27"));
     expect(t.kind).toBe("birth-early");
-    expect(t.facts[0]).toContain("14日早く");
+    expect(t.facts[0]).toContain("予定日との差 14日");
+    expect(t.facts[0]).not.toMatch(/早く生まれ|遅く生まれ/); // 体の評価に聞こえる言い方をしない（安心のデザイン #8）
     expect(t.facts.join("\n")).toContain("6月22日"); // 母の育休が始まる日（生まれた日 + 57日）
     expect(t.to?.role).toBe("職場の上司");
   });
@@ -50,7 +51,7 @@ describe("気づいた事: きっかけを機械で見つける", () => {
 
   it("デモの早送りのボタンの日に、それぞれの気づきが一番上に出る", () => {
     const m = advisorMoments(DEMO_FAMILY);
-    expect(m.map((x) => x.label)).toEqual(["引っ越した", "早く生まれた"]);
+    expect(m.map((x) => x.label)).toEqual(["引っ越した", "生まれた日"]);
     expect(m.map((x) => first(at(x.date)).kind)).toEqual(["moved", "birth-early"]);
   });
 

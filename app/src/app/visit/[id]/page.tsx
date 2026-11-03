@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { recordingBusy, recordingBusyServer, subscribeRecording } from "@/lib/recording-state";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { jpDate } from "@/components/Techo";
-import { Btn, CopyField, Fold, NextStep, Pill, ShareButton, Why } from "@/components/ui";
+import { Btn, CopyField, Fold, NextStep, Notice, Pill, plainError, ShareButton, Why } from "@/components/ui";
 import { lineUrl } from "@/lib/handoff";
 import { Guide } from "@/components/visit/Guide";
 import { Recorder } from "@/components/visit/Recorder";
@@ -43,7 +43,7 @@ export default function VisitDay() {
       setVisit(r.visit);
       setErr("");
     } catch (e) {
-      setErr((e as Error).message);
+      setErr(plainError(e));
     }
   }, [id]);
 
@@ -64,7 +64,7 @@ export default function VisitDay() {
       await api(`/api/visit/${id}/finish`, { body: {} });
       await load();
     } catch (e) {
-      setErr((e as Error).message);
+      setErr(plainError(e));
     }
   };
 
@@ -74,7 +74,7 @@ export default function VisitDay() {
     try {
       await api(`/api/visit/${id}`, { method: "PATCH", body: { asked: { id: itemId, asked } } });
     } catch (e) {
-      setErr((e as Error).message);
+      setErr(plainError(e));
     }
   };
 
@@ -83,7 +83,7 @@ export default function VisitDay() {
       await api(`/api/visit/${id}`, { method: "DELETE" });
       router.push("/visit");
     } catch (e) {
-      setErr((e as Error).message);
+      setErr(plainError(e));
     }
   };
 
@@ -94,9 +94,11 @@ export default function VisitDay() {
           ← 健診
         </Link>
         {err ? (
-          <p role="alert" className="text-base text-alert">
-            {err}
-          </p>
+          <Notice title="健診の記録を開けませんでした" safe="記録は消えていません。電波のある所で開き直してください" detail={err}>
+            <Btn kind="secondary" onClick={() => void load()}>
+              もう一度開く
+            </Btn>
+          </Notice>
         ) : (
           <p className="text-base text-muted">読み込んでいます…</p>
         )}
@@ -121,6 +123,8 @@ export default function VisitDay() {
   const stageIdx = STAGES.findIndex((s) => s.key === stage);
 
   const stuck = processing && !visit.running && looksStuck(visit, Date.now(), 3);
+  /** 録音（か文字起こし）が手帳に届いているか。届いていれば、まとめだけ作り直せる */
+  const hasAudio = !!visit.transcript || !!visit.takes?.some((t) => t.chunks > 0);
   const canRecord = visit.status === "ready" || visit.status === "recording" || (visit.status === "failed" && !visit.transcript);
   const agenda = visit.agenda ?? [];
   const asked = agenda.filter((a) => a.asked).length;
@@ -163,11 +167,7 @@ export default function VisitDay() {
         </nav>
       )}
 
-      {err && (
-        <p role="alert" className="rounded-lg bg-alert/10 px-3 py-2 text-base text-alert">
-          {err}
-        </p>
-      )}
+      {err && <Notice title="今の操作が、まだ手帳に届いていません" safe="録音と記録は消えていません。電波のある所でもう一度押してください" detail={err} />}
 
       {/* ① 着く */}
       {stage === "arrive" && (
@@ -190,9 +190,11 @@ export default function VisitDay() {
       {canRecord && (
         <div className={stage === "record" ? "flex flex-col gap-3" : "hidden"}>
           {visit.status === "failed" && visit.error && (
-            <p role="alert" className="rounded-lg bg-alert/10 px-3 py-2 text-base text-alert">
-              {visit.error}
-            </p>
+            <Notice
+              title={hasAudio ? "まとめを作れませんでした" : "録音が手帳に届きませんでした"}
+              safe={hasAudio ? "録音は消えていません。まとめは「読む」から作り直せます" : "もう一度録音してください"}
+              detail={visit.error}
+            />
           )}
           <Recorder visit={visit} onFinished={() => void load()} />
           {agenda.length > 0 && !recording && (
@@ -236,12 +238,13 @@ export default function VisitDay() {
             </section>
           )}
           {visit.status === "failed" && (
-            <NextStep title="うまくいきませんでした" sub={visit.error ?? undefined}>
-              {(visit.transcript || visit.takes?.some((t) => t.chunks > 0)) && <Btn onClick={() => void retry()}>もう一度やってみる</Btn>}
-              <Why label="録音は？">
-                <p>録音はこの手帳の中に残っています。</p>
-              </Why>
-            </NextStep>
+            <Notice
+              title="まとめを作れませんでした"
+              safe={hasAudio ? "録音は消えていません。まとめだけ作り直します" : "録音が手帳に届いていません。もう一度録音してください"}
+              detail={visit.error ?? undefined}
+            >
+              {hasAudio ? <Btn onClick={() => void retry()}>まとめを作り直す</Btn> : <Btn onClick={() => go("record")}>録音へ</Btn>}
+            </Notice>
           )}
           {visit.status === "done" && <Results visit={visit} today={today} onSend={() => go("send")} />}
           {(visit.status === "ready" || visit.status === "recording") && (

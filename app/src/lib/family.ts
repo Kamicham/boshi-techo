@@ -5,7 +5,7 @@ import { get, put } from "./db";
 import { scheduleFor } from "./milestones";
 import { birthFacts, isMadeFamily } from "./techo-seed";
 import { listTecho } from "./techo-store";
-import type { Leave, MotherWork, Situation, Work } from "./situation";
+import { cleanQuiet, type Leave, type MotherWork, type Situation, type Work } from "./situation";
 import { HttpError } from "./http-error";
 
 export const MINE_ID = "mine";
@@ -189,6 +189,7 @@ export function cleanSituation(x: unknown, hasPartner: boolean): Situation | und
   s.olderChildren = yesNo(r.olderChildren);
   if (typeof r.babies === "number" && Number.isInteger(r.babies) && r.babies >= 1 && r.babies <= 5) s.babies = r.babies;
   s.satogaeri = yesNo(r.satogaeri);
+  s.quiet = cleanQuiet(r.quiet);
   // わからない欄（undefined）は持たない
   const out = Object.fromEntries(Object.entries(s).filter(([, v]) => v !== undefined)) as Situation;
   return Object.keys(out).length ? out : undefined;

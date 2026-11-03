@@ -56,7 +56,15 @@ export function TopTask(p: Common & { soon?: boolean }) {
   const guide = when && "guide" in when ? when : null;
   const far = when && "far" in when ? when.far : null;
   return (
-    <NextStep eyebrow={eyebrow} title={t.plain} sub={t.hint} days={counted?.days} dateLabel={counted?.label} tone="rose">
+    <NextStep
+      eyebrow={eyebrow}
+      title={t.plain}
+      sub={t.hint}
+      days={counted?.days}
+      dateLabel={counted ? (t.status === "まだ先" ? counted.label : jpShort(t.deadlineDate!)) : undefined}
+      daysKind={t.status === "まだ先" ? "start" : "deadline"}
+      tone="rose"
+    >
       <div className="flex w-full flex-col gap-2">
         {guide && <GuideLine guide={guide.guide} past={guide.past} />}
         {far && <span className="tabular text-sm text-muted">{far}</span>}
@@ -123,9 +131,22 @@ function GuideLine({ guide, past }: { guide: string; past: boolean }) {
 /** 下書きの印で済みが変わった事を、今日の画面へ知らせる（Techo が済んだ事を読み直す） */
 const notifyDone = () => window.dispatchEvent(new Event("boshi:done"));
 
+/** 1行の日数。赤は法の期限の残り1日以下だけ。過ぎた事は責めずに「今からでも」（安心のデザイン #1） */
 function RowDays({ days, upcoming }: { days: number; upcoming: boolean }) {
-  const color = upcoming ? "text-muted" : days < 0 || days <= 3 ? "text-alert" : days <= 14 ? "text-warn" : "text-ink";
-  const text = days < 0 ? `${-days}日過ぎ` : days === 0 ? "今日" : days === 1 ? "あした" : `あと${days}日`;
+  const color = upcoming ? "text-muted" : days < 0 ? "text-ink" : days <= 1 ? "text-alert" : days <= 3 ? "text-warn" : "text-ink";
+  const text = upcoming
+    ? days <= 0
+      ? "今日から"
+      : days === 1
+        ? "あしたから"
+        : `${days}日後から`
+    : days < 0
+      ? "今からでも"
+      : days === 0
+        ? "今日まで"
+        : days === 1
+          ? "あしたまで"
+          : `あと${days}日`;
   return <span className={`tabular text-sm font-semibold whitespace-nowrap ${color}`}>{text}</span>;
 }
 

@@ -3,7 +3,10 @@
 // 「困った時に相談できる人はいますか？」を、時期ごとに1回だけ聞く（母子健康手帳の保護者の記録で、毎回聞かれる問い）。
 // 府令様式（母子保健法施行規則 様式第三号）の保護者の記録: 妊娠中・産後・1か月・3〜4か月・6〜7か月・1歳・1歳6か月 などの各ページに
 // 「相談できる人はいますか」の問いがある。答えは page "consult" に残る（POST /api/techo action add）。
-// 「いない」と答えた時は、責めずに、町の相談先への橋だけを出す（体や心の判断はしない）。
+// 答えは4つ（いる／いるけど頼みにくい／いない／今は答えない）。答えた人ごとに聞く（母が答えても、パートナーには別に聞く）。
+// 「いない」「頼みにくい」の時は、責めずに、町の相談先への橋だけを出す（体や心の判断はしない）。開き直しても、
+// この位置に小さな「頼れる所（いつでも開けます）›」を出し続ける。「今は答えない」はその時期は二度と聞かない印。
+// 判定は consult-answer.ts（純粋な関数・試験つき）、頼れる所の中身は HelpPlaces.tsx（手帳・気持ちの記録と共通）。
 // 出典: こども家庭庁「母子健康手帳について」（府令様式 2026年）／こども家庭センター（児童福祉法 2024年4月〜）／
 //       こども医療電話相談 #8000（こども家庭庁）／児童相談所 相談専用ダイヤル 0120-189-783（こども家庭庁）
 // 日本語以外で相談できる所（2026-11-03 に出入国在留管理庁の一次の出典で実在を確かめた）:
@@ -17,10 +20,11 @@
 import { useEffect, useState } from "react";
 import { addDays, addMonths, clockAt, lmpFromDue } from "@/lib/clock";
 import type { Family } from "@/lib/demo-family";
-import { mapUrl } from "@/lib/handoff";
 import { CONSULT_QUESTION, type TechoEntry } from "@/lib/techo";
 import { api } from "../FamilyProvider";
-import { useDevice, Why } from "../ui";
+import { Notice, plainError, Why } from "../ui";
+import { consultAnswerFor, consultValues, needsBridge, type ConsultAnswer } from "./consult-answer";
+import { HelpPlaces } from "./HelpPlaces";
 
 /** 聞く区切り（手帳のページの時期）。from〜to の間に答えがあれば、その区切りは聞かない */
 interface Period {
@@ -64,65 +68,74 @@ function entriesOf(j: unknown): TechoEntry[] {
 
 export function ConsultAsk({ family, today, meName }: { family: Family; today: string; meName?: string }) {
   const period = consultPeriod(family, today);
-  // null = 読み込み中、true = この区切りでは答えた
-  const [answered, setAnswered] = useState<boolean | null>(null);
+  // undefined = 読み込み中、null = この人はこの区切りでまだ答えていない
+  const [answered, setAnswered] = useState<ConsultAnswer | null | undefined>(undefined);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  // 今この画面で答えた結果（「いない」の時は橋を出したままにする）
-  const [justSaid, setJustSaid] = useState<boolean | null>(null);
+  // 今この画面で答えた結果（「いない」「頼みにくい」の時は橋を開いたまま出す）
+  const [justSaid, setJustSaid] = useState<ConsultAnswer | null>(null);
 
   useEffect(() => {
     let alive = true;
-    setAnswered(null);
+    setAnswered(undefined);
     setJustSaid(null);
     setError("");
     if (!period) return;
     api<unknown>(`/api/techo?familyId=${encodeURIComponent(family.id)}&today=${today}`)
       .then((j) => {
         if (!alive) return;
-        const hit = entriesOf(j).some((e) => e.page === "consult" && !e.pending && e.date >= period.from && e.date <= period.to);
-        setAnswered(hit);
+        setAnswered(consultAnswerFor(entriesOf(j), period, meName));
       })
       // 読めない時は聞かない（目立たせない問いなので、エラーで画面を埋めない）
-      .catch(() => alive && setAnswered(true));
+      .catch(() => alive && setAnswered("skip"));
     return () => {
       alive = false;
     };
-    // period は日付から決まるので、family と today だけ見る
+    // period は日付から決まるので、family と today と答える人だけ見る
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [family.id, today, period?.key]);
+  }, [family.id, today, period?.key, meName]);
 
   if (!period) return null;
-  if (justSaid === false) return <Bridge family={family} period={period} />;
-  if (justSaid === true)
+  if (justSaid && needsBridge(justSaid)) return <Bridge family={family} />;
+  if (justSaid === "yes")
     return (
       <p role="status" className="rounded-lg bg-ok/10 px-3 py-2 text-base text-ok">
         手帳の「相談した記録」に残しました
       </p>
     );
-  if (answered !== false) return null;
+  if (justSaid === "skip")
+    return (
+      <p role="status" className="rounded-lg bg-paper px-3 py-2 text-sm text-muted">
+        わかりました。{period.label}のあいだは、もう聞きません
+      </p>
+    );
+  if (answered === undefined) return null;
+  // 「いない」「頼みにくい」と答えた後は、開き直しても小さく出し続ける
+  if (needsBridge(answered)) return <HelpPlaces family={family} compact label="頼れる所（いつでも開けます）" />;
+  if (answered !== null) return null;
 
-  const answer = async (has: boolean) => {
+  const answer = async (a: ConsultAnswer) => {
     setSaving(true);
     setError("");
     const entry: TechoEntry = {
       page: "consult",
       date: today,
       title: `相談できる人（${period.label}）`,
-      values: { has },
+      values: consultValues(a),
       who: meName,
       source: "text",
     };
     try {
       await api("/api/techo", { body: { familyId: family.id, action: "add", entries: [entry], today } });
-      setJustSaid(has);
+      setJustSaid(a);
     } catch (e) {
-      setError((e as Error).message);
+      setError(plainError(e));
     } finally {
       setSaving(false);
     }
   };
 
+  const btn = "min-h-11 rounded-full border border-ink/20 bg-card px-4 text-base font-semibold disabled:opacity-50";
   return (
     <section aria-label="相談できる人" className="flex flex-col gap-2 rounded-2xl border border-line bg-card px-4 py-3">
       <p className="text-base">
@@ -130,96 +143,39 @@ export function ConsultAsk({ family, today, meName }: { family: Family; today: s
         <br />
         {CONSULT_QUESTION}
       </p>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          disabled={saving}
-          onClick={() => void answer(true)}
-          className="min-h-11 flex-1 rounded-full border border-ink/20 bg-card px-4 text-base font-semibold disabled:opacity-50"
-        >
+      <div className="grid grid-cols-2 gap-2">
+        <button type="button" disabled={saving} onClick={() => void answer("yes")} className={btn}>
           いる
         </button>
-        <button
-          type="button"
-          disabled={saving}
-          onClick={() => void answer(false)}
-          className="min-h-11 flex-1 rounded-full border border-ink/20 bg-card px-4 text-base font-semibold disabled:opacity-50"
-        >
+        <button type="button" disabled={saving} onClick={() => void answer("no")} className={btn}>
           いない
         </button>
+        <button type="button" disabled={saving} onClick={() => void answer("hard")} className={`${btn} col-span-2`}>
+          いるけど頼みにくい
+        </button>
       </div>
-      {error && (
-        <p role="alert" className="text-sm text-alert">
-          保存できませんでした: {error}
-        </p>
-      )}
+      <button
+        type="button"
+        disabled={saving}
+        onClick={() => void answer("skip")}
+        className="inline-flex min-h-11 items-center self-start text-sm text-muted underline underline-offset-2 disabled:opacity-50"
+      >
+        今は答えない
+      </button>
+      {error && <Notice title="まだ手帳に残せていません" safe="もう一度押してください" detail={error} />}
       <Why>
-        <p>紙の母子手帳も、健診のたびに同じことを聞きます。一人で抱えないための問いです。答えは手帳の「相談した記録」に残り、ほかの人には送られません。</p>
+        <p>紙の母子手帳も、健診のたびに同じことを聞きます。一人で抱えないための問いです。答えは手帳の「相談した記録」に残り、ほかの人には送られません。家族の一人ひとりに聞きます。</p>
       </Why>
     </section>
   );
 }
 
-/** 「いない」と答えた時の橋（責めない。連絡先だけを短く） */
-function Bridge({ family, period }: { family: Family; period: Period }) {
-  const { apple } = useDevice();
-  const born = period.key !== "pregnancy";
-  const town = `${family.prefecture}${family.city}`;
-  // 町の窓口の電話番号は、確かな物が手元に無いので出さない（地図と調べる道だけ）
-  const rows: { title: string; sub: string; href: string; label: string }[] = [
-    {
-      title: `${family.city}のこども家庭センター・保健センター`,
-      sub: "妊娠中から子育てまで、何でも聞ける町の窓口です（保健師さんがいます）",
-      href: mapUrl(`${town} こども家庭センター`, apple),
-      label: "地図で探す",
-    },
-    {
-      title: "町の窓口の電話番号を調べる",
-      sub: `「${family.city} こども家庭センター」で調べると、町の公式のページに電話番号があります`,
-      href: `https://www.google.com/search?q=${encodeURIComponent(`${town} こども家庭センター 電話`)}`,
-      label: "調べる",
-    },
-    ...(born && ["2w", "1m", "3m", "6m"].includes(period.key)
-      ? [{ title: "産後ケア", sub: "助産師さんに泊まりや通いで手伝ってもらえます（町の事業）", href: mapUrl(`${town} 産後ケア`, apple), label: "地図で探す" }]
-      : []),
-    ...(born ? [{ title: "子どもの急な病気 #8000", sub: "夜や休みの日に、小児科の先生や看護師さんに電話で聞けます", href: "tel:%238000", label: "電話する" }] : []),
-    { title: "子育ての相談 0120-189-783", sub: "児童相談所の相談の電話です（無料）。つらい時も", href: "tel:0120189783", label: "電話する" },
-    {
-      title: "日本語以外で相談したい時（English・中文・Tiếng Việt など）",
-      sub: "住んでいる県の、外国の人のための相談窓口を、言葉で探せます（出入国在留管理庁）",
-      href: "https://www.moj.go.jp/isa/support/portal/12_00227.html",
-      label: "探す",
-    },
-  ];
+/** 「いない」「頼みにくい」と答えた時の橋（責めない。連絡先だけを短く。中身は HelpPlaces と共通） */
+function Bridge({ family }: { family: Family }) {
   return (
     <section aria-label="相談できる所" className="flex flex-col gap-2 rounded-2xl border border-line bg-card px-4 py-3">
       <p className="text-base">答えてくれてありがとう。一人で抱えずに頼れる所が、町にあります。</p>
-      <ul className="flex flex-col">
-        {rows.map((r) => (
-          <li key={r.title} className="flex items-center justify-between gap-3 border-b border-line py-2 last:border-b-0">
-            <span className="min-w-0">
-              <span className="block text-base font-semibold">{r.title}</span>
-              <span className="block text-sm text-muted">{r.sub}</span>
-            </span>
-            <a
-              href={r.href}
-              target={r.href.startsWith("http") ? "_blank" : undefined}
-              rel="noreferrer"
-              className="inline-flex min-h-11 shrink-0 items-center rounded-full border border-ink/20 px-3 text-sm font-semibold"
-            >
-              {r.label}
-            </a>
-          </li>
-        ))}
-      </ul>
-      <p className="text-sm text-muted">{born ? "命に関わる時は 119。" : "おなかの痛み・出血など体の急ぎは、かかりつけの産院（夜間も）・119。"}</p>
-      <Why>
-        <p>こども家庭センターは、2024年4月から全国の市区町村に置かれている相談の窓口です（児童福祉法）。産後ケアは市区町村の事業で、使える人や料金は町ごとに違います。</p>
-        <p>#8000 はこども医療電話相談（こども家庭庁）、0120-189-783 は児童相談所の相談専用ダイヤル（こども家庭庁）です。</p>
-        <p>
-          日本語以外の相談先は、出入国在留管理庁の「外国人生活支援ポータルサイト」で、都道府県・言葉・相談のしかた（窓口・電話・メール・LINE）から探せます。在留の手続きの質問は、外国人在留総合インフォメーションセンター（0570-013904・平日。英語・中国語・ベトナム語など11の言葉）でも聞けます（2026年に確かめました）。
-        </p>
-      </Why>
+      <HelpPlaces family={family} />
     </section>
   );
 }

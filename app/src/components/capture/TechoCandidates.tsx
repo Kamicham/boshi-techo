@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { vaccineLabel } from "@/components/techo/labels";
-import { Btn, Pill, Why } from "@/components/ui";
+import { Btn, Notice, Pill, plainError, Why } from "@/components/ui";
 import { DEVELOPMENT_NOTE, GROWTH_NOTE, STOOL_COLORS, STOOL_NOTE, TECHO_PAGES, type TechoEntry } from "@/lib/techo";
 import type { TechoDoc } from "@/lib/techo-store";
 import { DateCheck, initialDate } from "./DateCheck";
@@ -139,7 +139,7 @@ export function TechoCandidates({ familyId, items, onChange }: { familyId: strin
       if (action === "confirm") setDone((n) => n + ids.length);
       onChange?.();
     } catch (e) {
-      setError((e as Error).message);
+      setError(plainError(e));
     } finally {
       setBusy(false);
     }
@@ -156,17 +156,13 @@ export function TechoCandidates({ familyId, items, onChange }: { familyId: strin
           </Btn>
         )}
       </div>
-      {left.length > 0 && <p className="text-sm text-muted">合っていれば OK。数字は話した・書いてあるとおりだけ写しています。OK は後で手帳の上からもできます</p>}
+      {left.length > 0 && <p className="text-sm text-muted">合っていれば OK。数字は話した・書いてあるとおりだけ写しています。OK は後で手帳の上からもできます。OK した後も手帳から消せます</p>}
       {done > 0 && (
         <p role="status" className="text-sm font-semibold text-ok">
           {done}件を手帳に入れました
         </p>
       )}
-      {error && (
-        <p role="alert" className="text-sm text-alert">
-          {error}
-        </p>
-      )}
+      {error && <Notice title="手帳に届きませんでした" safe="候補はそのまま残っています。もう一度押してください。" detail={error} />}
       {left.length > 0 && (
         <ul className="flex flex-col gap-2">
           {left.map((d) => (
@@ -187,6 +183,7 @@ export function TechoCandidates({ familyId, items, onChange }: { familyId: strin
         <Why>
           <p>撮った・話した事は、すぐには手帳に入れず候補にします。家族が OK した物だけが記録になります（紙の手帳が正本のまま）。</p>
           <p>読めなかった・言っていない数字は空のままにしています。手帳のページで足してください。</p>
+          <p>OK した後も、手帳の記録の「消す」で消せます。</p>
           <p>紙に日付が無い時は、今日の日付にせず、ページの題（1か月児健診など）と生まれた日から推した日を出します。違う時は直してから OK してください。</p>
         </Why>
       )}

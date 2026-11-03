@@ -2,20 +2,41 @@
 
 // 便色カード: 国の7色を番号つきで並べ、親が押して選んだ番号を記録する。AI は色を判定しない。
 // 出典: 母子健康手帳 府令様式の便色カード（こども家庭庁「母子健康手帳について」2026年版）。
+// 色: ふだんは空色の情報箱（手帳の決まりの説明）。最新の記録が1〜3番の時と、1〜3番を選んだ・入れた直後だけ赤くし、
+//   #8000 と かかりつけへの電話を主ボタンにする（赤は命の橋だけ。判断の言葉は足さず、手帳の決まりをそのまま言う）。
 // 画面の見本の色は印刷の色の近似。画面では色が変わるので、実物は紙の手帳のカードで見比べる。
-import { useState } from "react";
-import { Btn, Why } from "@/components/ui";
+import { useEffect, useState } from "react";
+import { api, useFamily } from "@/components/FamilyProvider";
+import { Btn, Notice, plainError, Why } from "@/components/ui";
 import { STOOL_COLORS, STOOL_NOTE } from "@/lib/techo";
+import { RemoveRow } from "./EntryCard";
 import { jpDay } from "./labels";
 import type { TechoItem } from "./useTecho";
 
-export function StoolCard({ items, today, onAdd }: { items: TechoItem[]; today: string; onAdd: (colorNo: number, date: string) => Promise<void> }) {
+export function StoolCard({
+  items,
+  today,
+  onAdd,
+  onRemove,
+}: {
+  items: TechoItem[];
+  today: string;
+  onAdd: (colorNo: number, date: string) => Promise<void>;
+  /** 押し間違いを消す（消す前に1段確かめる） */
+  onRemove?: (ids: string[]) => Promise<void>;
+}) {
   const [picked, setPicked] = useState<number | null>(null);
   const [date, setDate] = useState(today);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState("");
+  // いま入れた番号（入れた直後の案内を、その場で赤くするため）
+  const [savedNo, setSavedNo] = useState<number | null>(null);
   const done = items.filter((i) => !i.pending && typeof i.values.colorNo === "number");
+  const latest = done.length ? (done[done.length - 1].values.colorNo as number) : null;
+  const near = (n: number | null) => n != null && n >= 1 && n <= 3;
+  const urgent = near(picked) || near(savedNo) || near(latest);
+  const clinic = useClinic();
 
   const save = async () => {
     if (picked == null) return;
@@ -24,9 +45,10 @@ export function StoolCard({ items, today, onAdd }: { items: TechoItem[]; today: 
     try {
       await onAdd(picked, date);
       setSaved(`${jpDay(date)}に ${picked}番 を入れました`);
+      setSavedNo(picked);
       setPicked(null);
     } catch (e) {
-      setError((e as Error).message);
+      setError(plainError(e));
     } finally {
       setBusy(false);
     }
@@ -71,19 +93,50 @@ export function StoolCard({ items, today, onAdd }: { items: TechoItem[]; today: 
         </div>
       )}
       {saved && <p className="text-sm text-muted" aria-live="polite">{saved}</p>}
-      {error && <p className="text-sm text-alert">{error}</p>}
-      {/* 急ぎの案内は消さない（手帳の文言の要約） */}
-      <p className="rounded-xl bg-alert/10 px-3 py-2 text-base font-semibold text-alert">{STOOL_NOTE}</p>
-      <div className="flex flex-wrap gap-2">
-        <Btn href="tel:%238000" kind="secondary">
-          #8000 に電話
-        </Btn>
-      </div>
+      {error && <Notice title="記録に届きませんでした" safe="選んだ番号はまだ入っていません。もう一度「記録する」を押してください。" detail={error} />}
+      {/* 手帳の決まり（便色カードの説明）は消さない。ふだんは情報、1〜3番の時だけ赤い橋 */}
+      {urgent ? (
+        <div role="alert" className="flex flex-col gap-2 rounded-xl border-l-4 border-alert bg-alert/10 px-3 py-3">
+          <p className="text-base font-semibold text-alert">{STOOL_NOTE}</p>
+          <div className="flex flex-col gap-2">
+            <a href="tel:%238000" className="inline-flex min-h-12 items-center justify-center rounded-full bg-alert px-5 text-base font-semibold text-white">
+              #8000 に電話（こども医療でんわ相談）
+            </a>
+            {clinic?.tel ? (
+              <a href={`tel:${clinic.tel}`} className="inline-flex min-h-12 items-center justify-center rounded-full bg-alert px-5 text-base font-semibold text-white">
+                かかりつけ{clinic.name ? `（${clinic.name}）` : ""}に電話
+              </a>
+            ) : (
+              <p className="text-base">かかりつけの小児科へ電話してください（電話番号は設定の「通う病院」に入れておくと、ここから押せます）。</p>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2 rounded-xl bg-sky-soft px-3 py-2">
+          <p className="text-base">便色カードの決まり: 1〜3番に近い色の時は、1日も早く小児科へ。迷う時は #8000。</p>
+          <div className="flex flex-wrap gap-2">
+            <Btn href="tel:%238000" kind="secondary">
+              #8000 に電話
+            </Btn>
+          </div>
+        </div>
+      )}
       {done.length > 0 && (
         <ul className="flex flex-col gap-0.5 text-base">
           {done.map((i) => (
-            <li key={i.id}>
-              {jpDay(i.date)}　{String(i.values.colorNo)}番
+            <li key={i.id} className="flex flex-col">
+              <span>
+                {jpDay(i.date)}　{String(i.values.colorNo)}番
+              </span>
+              {onRemove && (
+                <RemoveRow
+                  id={i.id}
+                  onRemove={async (ids) => {
+                    await onRemove(ids);
+                    if (savedNo != null) setSavedNo(null);
+                  }}
+                />
+              )}
             </li>
           ))}
         </ul>
@@ -95,4 +148,24 @@ export function StoolCard({ items, today, onAdd }: { items: TechoItem[]; today: 
       </Why>
     </div>
   );
+}
+
+/** 設定の「通う病院」の名前と電話（入っていれば、1〜3番の時にここから押せる） */
+function useClinic(): { name: string; tel: string } | null {
+  const { family } = useFamily();
+  const [clinic, setClinic] = useState<{ name: string; tel: string } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    api<{ keep?: { hospital?: { name?: string; phone?: string } } }>(`/api/keep?familyId=${encodeURIComponent(family.id)}`)
+      .then((r) => {
+        if (!alive) return;
+        const tel = (r.keep?.hospital?.phone ?? "").replace(/[^\d+]/g, "");
+        setClinic(tel ? { name: r.keep?.hospital?.name ?? "", tel } : null);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [family.id]);
+  return clinic;
 }

@@ -1,11 +1,12 @@
 "use client";
 
-// 発育曲線: 国の調査（令和5年）の 3〜97 パーセンタイルの帯と 50 の線に、家族の記録の点を打つ。
+// 発育曲線: 国の調査（令和5年）の 3〜97 パーセンタイルの帯に、家族の記録の点を打つ。50 の線は「真ん中の線も見る」で出す（既定は描かない＝真ん中と比べさせない）。
+// 在胎37週未満で生まれた子は、修正月齢で見るのを既定にする（その子の線の伸びで見る）。
 // 点の位置で良し悪しを言わない。手帳と同じ注意書き（GROWTH_NOTE）をそのまま出す。
 // 帯の男女は家族ごとに覚える（/api/keep の childSex）。早く生まれた子は、修正月齢で見る切り替えを出す。
 import { useEffect, useMemo, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
-import { Btn, Why } from "@/components/ui";
+import { Btn, Notice, plainError, Why } from "@/components/ui";
 import { diffDays } from "@/lib/clock";
 import {
   bandAt,
@@ -74,7 +75,9 @@ export function GrowthChart({ items, onAdd }: { items: TechoItem[]; onAdd: (valu
   const [measure, setMeasure] = useState<GrowthMeasure>("weight");
   // undefined = まだ読んでいる。null = まだ選んでいない
   const [sex, setSex] = useState<GrowthSex | null | undefined>(undefined);
-  const [corrected, setCorrected] = useState(false);
+  // null = 家族がまだ切り替えていない（早く生まれた子は修正月齢を既定にする）
+  const [correctedPick, setCorrectedPick] = useState<boolean | null>(null);
+  const [showMid, setShowMid] = useState(false);
   // 帯の男女は家族ごとに覚える（どの端末から開いても、一度選べば次から聞かない）
   useEffect(() => {
     let alive = true;
@@ -109,6 +112,8 @@ export function GrowthChart({ items, onAdd }: { items: TechoItem[]; onAdd: (valu
 
   const gest = useMemo(() => birthGestWeeks(items), [items]);
   const preterm = gest != null && gest < PRETERM_WEEKS;
+  const corrected = correctedPick ?? preterm;
+  const setCorrected = setCorrectedPick;
   const shift = preterm && corrected ? correctionMonths(gest) : 0;
 
   const birth = family.birthDate && diffDays(today, family.birthDate) >= 0 ? family.birthDate : null;
@@ -173,7 +178,11 @@ export function GrowthChart({ items, onAdd }: { items: TechoItem[]; onAdd: (valu
         </div>
       ) : (
         <>
-          <Chart measure={measure} sex={sex} points={drawn} corrected={shift > 0} />
+          <Chart measure={measure} sex={sex} points={drawn} corrected={shift > 0} showMid={showMid} />
+          <label className="flex min-h-11 items-center gap-2 self-start text-sm text-muted">
+            <input type="checkbox" checked={showMid} onChange={(e) => setShowMid(e.target.checked)} className="size-5" />
+            真ん中の線も見る
+          </label>
           <p className="flex flex-wrap items-center gap-x-3 text-sm text-muted">
             <span>{sex === "boy" ? "男の子" : "女の子"}の帯</span>
             <button type="button" className="min-h-11 underline" onClick={() => chooseSex(sex === "boy" ? "girl" : "boy")}>
@@ -203,7 +212,7 @@ export function GrowthChart({ items, onAdd }: { items: TechoItem[]; onAdd: (valu
 
       <Why label="帯の出どころ">
         <p>
-          {GROWTH_SOURCE.title}（{GROWTH_SOURCE.year}年調査・{GROWTH_SOURCE.published.slice(0, 4)}年公表）の、3・50・97 パーセンタイル値。100人のうち、3人目から97人目までが帯の中に入る、という幅です。
+          {GROWTH_SOURCE.title}（{GROWTH_SOURCE.year}年調査・{GROWTH_SOURCE.published.slice(0, 4)}年公表）の、3・50・97 パーセンタイル値。帯は、同じ月齢の子の94%が入る幅（3〜97パーセンタイル）です。小さく生まれた子は、その子の線の伸びで見ます。
         </p>
         <p>{GROWTH_APPROX_NOTE}</p>
         <p>
@@ -216,7 +225,7 @@ export function GrowthChart({ items, onAdd }: { items: TechoItem[]; onAdd: (valu
   );
 }
 
-function Chart({ measure, sex, points, corrected }: { measure: GrowthMeasure; sex: GrowthSex; points: GrowthPoint[]; corrected: boolean }) {
+function Chart({ measure, sex, points, corrected, showMid }: { measure: GrowthMeasure; sex: GrowthSex; points: GrowthPoint[]; corrected: boolean; showMid: boolean }) {
   const { band, mid, yMin, yMax } = useMemo(() => {
     const steps: { m: number; p: number[] }[] = [];
     for (let m = 0; m <= X_MAX + 1e-9; m += 0.25) {
@@ -244,7 +253,7 @@ function Chart({ measure, sex, points, corrected }: { measure: GrowthMeasure; se
 
   return (
     <figure className="flex flex-col gap-1">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`${GROWTH_LABELS[measure]}の発育曲線。帯は国の調査の3から97パーセンタイル、線は50パーセンタイル。点は記録（${shown.length}件）`}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`${GROWTH_LABELS[measure]}の発育曲線。帯は国の調査の3から97パーセンタイル${showMid ? "、線は50パーセンタイル" : ""}。点は記録（${shown.length}件）`}>
         {yTicks.map((v) => (
           <g key={v}>
             <line x1={PAD.l} x2={W - PAD.r} y1={y(v)} y2={y(v)} stroke="currentColor" className="text-line" strokeWidth={0.5} />
@@ -265,7 +274,7 @@ function Chart({ measure, sex, points, corrected }: { measure: GrowthMeasure; se
           {unit}
         </text>
         <polygon points={[...upper, ...lower].join(" ")} fill="currentColor" className="text-sky" fillOpacity={0.18} />
-        <polyline points={mid.map((s) => `${x(s.m)},${y(s.v)}`).join(" ")} fill="none" stroke="currentColor" className="text-sky" strokeWidth={1.2} />
+        {showMid && <polyline points={mid.map((s) => `${x(s.m)},${y(s.v)}`).join(" ")} fill="none" stroke="currentColor" className="text-sky" strokeWidth={1.2} />}
         {shown.length > 1 && (
           <polyline points={shown.map((p) => `${x(p.month)},${y(p.value)}`).join(" ")} fill="none" stroke="currentColor" className="text-rose" strokeWidth={1.5} />
         )}
@@ -274,7 +283,7 @@ function Chart({ measure, sex, points, corrected }: { measure: GrowthMeasure; se
         ))}
       </svg>
       <figcaption className="text-sm text-muted">
-        帯: 国の調査の 3〜97　線: 50　点: わが家の記録{shown.length === 0 ? "（まだありません）" : ""}
+        帯: 同じ月齢の子の94%が入る幅（3〜97）{showMid ? "　線: 50" : ""}　点: わが家の記録{shown.length === 0 ? "（まだありません）" : ""}
       </figcaption>
     </figure>
   );
@@ -289,6 +298,8 @@ function AddFromPaper({ today, onAdd }: { today: string; onAdd: (values: Record<
   const [hd, setHd] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // 通信・保存の失敗か（入れ忘れの声かけとは見せ方を分ける）
+  const [failed, setFailed] = useState(false);
   if (!open) {
     return (
       <Btn kind="secondary" onClick={() => setOpen(true)}>
@@ -305,6 +316,7 @@ function AddFromPaper({ today, onAdd }: { today: string; onAdd: (values: Record<
     if (ph > 0) values.heightCm = ph;
     if (phd > 0) values.headCm = phd;
     if (Object.keys(values).length === 0) {
+      setFailed(false);
       setError("数字を1つ以上入れてください");
       return;
     }
@@ -317,7 +329,8 @@ function AddFromPaper({ today, onAdd }: { today: string; onAdd: (values: Record<
       setHd("");
       setOpen(false);
     } catch (e) {
-      setError((e as Error).message);
+      setFailed(true);
+      setError(plainError(e));
     } finally {
       setBusy(false);
     }
@@ -344,7 +357,12 @@ function AddFromPaper({ today, onAdd }: { today: string; onAdd: (values: Record<
         </label>
       </div>
       <p className="text-sm text-muted">紙に書いてある数字だけを入れてください。分からない欄は空のままで。</p>
-      {error && <p className="text-sm text-alert">{error}</p>}
+      {error &&
+        (failed ? (
+          <Notice title="手帳に届きませんでした" safe="入れた数字は消えていません。もう一度「入れる」を押してください。" detail={error} />
+        ) : (
+          <p className="text-sm font-semibold">{error}</p>
+        ))}
       <div className="flex gap-2">
         <Btn onClick={() => void save()} disabled={busy}>
           {busy ? "入れています…" : "入れる"}

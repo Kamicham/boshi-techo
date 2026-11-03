@@ -63,6 +63,30 @@ export function SituationForm({ value, onChange, hasPartner, disabled }: { value
       <Ask label="里帰り出産は？">
         <YesNo yes="する" no="しない" value={value.satogaeri} onPick={(v) => set({ satogaeri: v })} name="satogaeri" />
       </Ask>
+
+      {/* 静かにする（安心のデザイン #5）。目立たせず、一番下に畳んでおく */}
+      <details className="group" open={value.quiet !== undefined}>
+        <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-base text-muted">
+          <span className="underline underline-offset-2">赤ちゃんの事で、伝えたい事がある時</span>
+          <span className="transition-transform group-open:rotate-90" aria-hidden>›</span>
+        </summary>
+        <div className="flex flex-col gap-3 pt-2">
+          <p className="text-base text-muted">選ぶと、今日の画面の日数・週数・お知らせを止めて、静かにします。手帳の記録は消えません。いつでもここで戻せます。</p>
+          <div className="flex flex-wrap gap-2" role="group">
+            <Chip on={value.quiet === "nicu"} onClick={() => set({ quiet: value.quiet === "nicu" ? undefined : "nicu" })} id="quiet-nicu" quiet>
+              赤ちゃんが入院している
+            </Chip>
+            <Chip on={value.quiet === "loss"} onClick={() => set({ quiet: value.quiet === "loss" ? undefined : "loss" })} id="quiet-loss" quiet>
+              つらい別れがあった
+            </Chip>
+            {value.quiet !== undefined && (
+              <Chip on={false} onClick={() => set({ quiet: undefined })} id="quiet-off" quiet>
+                いつもの画面に戻す
+              </Chip>
+            )}
+          </div>
+        </div>
+      </details>
     </fieldset>
   );
 }
@@ -106,7 +130,7 @@ function YesNo<Y extends string, N extends string>({ yes, no, value, onPick, nam
 }
 
 function Chip({ on, onClick, children, id, quiet }: { on: boolean; onClick: () => void; children: React.ReactNode; id: string; quiet?: boolean }) {
-  const look = on ? "bg-rose text-white" : quiet ? "border border-line bg-card text-muted" : "bg-rose-soft text-rose";
+  const look = on && quiet && id.startsWith("quiet-") ? "bg-ink text-paper" : on ? "bg-rose text-white" : quiet ? "border border-line bg-card text-muted" : "bg-rose-soft text-rose";
   return (
     <button type="button" id={id} aria-pressed={on} onClick={onClick} className={`min-h-11 rounded-full px-4 text-base font-semibold ${look}`}>
       {children}

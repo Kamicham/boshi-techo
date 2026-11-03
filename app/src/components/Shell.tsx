@@ -47,8 +47,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
           {isDemo && <span className="rounded-full bg-sky-soft px-2 py-0.5 font-semibold text-sky">デモ</span>}
           <Link href="/settings" className="flex min-h-11 items-center px-2 text-muted underline-offset-2 hover:underline">わが家の設定</Link>
         </div>
-        {/* 急ぎの案内は録音中でも隠さない（産院・119・#8000 への橋） */}
-        <Link href="/emergency" className="flex min-h-11 shrink-0 items-center whitespace-nowrap rounded-full px-2 font-semibold text-alert underline-offset-2 hover:underline">
+        {/* 急ぎの案内は録音中でも隠さない（産院・119・#8000 への橋）。
+            いつも見える所を赤で塗ると、夜中に開くたびに緊張させるので、文字は ink・赤は直径6pxの点だけ（赤は命の橋の印） */}
+        <Link href="/emergency" className="flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2 font-semibold text-ink underline-offset-2 hover:underline">
+          <span aria-hidden className="inline-block size-1.5 shrink-0 rounded-full bg-alert" />
           急ぎの時
         </Link>
       </div>

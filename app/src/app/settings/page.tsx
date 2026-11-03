@@ -10,7 +10,7 @@
 import { useEffect, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { jpDate } from "@/components/Techo";
-import { Btn, Fold, NextStep, Pill, Why } from "@/components/ui";
+import { Btn, Fold, NextStep, Pill, Why, plainError } from "@/components/ui";
 import { SituationForm, tidySituation } from "@/components/settings/SituationForm";
 import type { Situation } from "@/lib/situation";
 import type { Keep } from "@/lib/keep";
@@ -65,7 +65,7 @@ export default function Settings() {
       if (targetId) setFamilyId(targetId);
       setMsg({ ok: true, text: "保存しました" });
     } catch (e) {
-      setMsg({ ok: false, text: `保存できませんでした: ${(e as Error).message}` });
+      setMsg({ ok: false, text: `まだ保存できていません。入れた事は画面に残っています（${plainError(e)}）` });
     }
   };
 
@@ -168,7 +168,7 @@ export default function Settings() {
             </Btn>
           )}
           {msg && (
-            <p role={msg.ok ? "status" : "alert"} className={`rounded-xl px-4 py-3 text-base ${msg.ok ? "bg-ok/10 text-ok" : "bg-alert/10 font-semibold text-alert"}`}>
+            <p role={msg.ok ? "status" : "alert"} className={`rounded-xl px-4 py-3 text-base ${msg.ok ? "bg-ok/10 text-ok" : "border-l-[3px] border-muted bg-paper font-semibold text-ink"}`}>
               {msg.text}
             </p>
           )}
@@ -227,7 +227,7 @@ function KeepForm({ familyId }: { familyId: string }) {
         setWork({ company: k.work?.company ?? "", boss: k.work?.boss ?? "", email: k.work?.email ?? "" });
         setOffice({ name: k.office?.name ?? "", address: k.office?.address ?? "" });
       })
-      .catch((e: Error) => alive && setMsg({ ok: false, text: e.message }));
+      .catch((e: Error) => alive && setMsg({ ok: false, text: plainError(e) }));
     return () => {
       alive = false;
     };
@@ -241,7 +241,7 @@ function KeepForm({ familyId }: { familyId: string }) {
       setKeep(r.keep);
       setMsg({ ok: true, text: "覚えました。次から下書きやカレンダーで使います" });
     } catch (e) {
-      setMsg({ ok: false, text: (e as Error).message });
+      setMsg({ ok: false, text: plainError(e) });
     } finally {
       setSaving(false);
     }
@@ -285,7 +285,7 @@ function KeepForm({ familyId }: { familyId: string }) {
         {saving ? "覚えています…" : "覚える"}
       </Btn>
       {msg && (
-        <p role={msg.ok ? "status" : "alert"} className={`rounded-xl px-4 py-3 text-base ${msg.ok ? "bg-ok/10 text-ok" : "bg-alert/10 font-semibold text-alert"}`}>
+        <p role={msg.ok ? "status" : "alert"} className={`rounded-xl px-4 py-3 text-base ${msg.ok ? "bg-ok/10 text-ok" : "border-l-[3px] border-muted bg-paper font-semibold text-ink"}`}>
           {msg.text}
         </p>
       )}

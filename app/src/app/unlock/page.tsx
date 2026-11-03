@@ -2,6 +2,7 @@
 
 // 合言葉の画面。家族だけが手帳を開けるように。
 import { useState } from "react";
+import { plainError } from "@/components/ui";
 
 export default function Unlock() {
   const [code, setCode] = useState("");
@@ -18,7 +19,8 @@ export default function Unlock() {
       // 家族の一覧を読み直すため、ページごと開き直す
       window.location.href = "/";
     } catch (e) {
-      setErr(e instanceof TypeError ? "通信できませんでした。電波を確かめてください" : (e as Error).message);
+      const m = plainError(e);
+      setErr(m === "通信できませんでした" ? "通信できませんでした。電波のある所でもう一度押してください" : m);
       setBusy(false);
     }
   };
@@ -40,7 +42,7 @@ export default function Unlock() {
           {busy ? "確かめています…" : "開く"}
         </button>
       </form>
-      {err && <p role="alert" className="rounded-lg bg-alert/10 px-3 py-2 text-sm text-alert">{err}</p>}
+      {err && <p role="alert" className="rounded-lg border-l-[3px] border-muted bg-paper px-3 py-2 text-base">{err}</p>}
     </main>
   );
 }

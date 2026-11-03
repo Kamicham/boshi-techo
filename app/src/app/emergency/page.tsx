@@ -1,6 +1,6 @@
 // 急ぎの時: のどに物が詰まった（窒息）・反応が無い（心肺蘇生）。紙の母子手帳の終わりの方にある「救急の手当」のページの考え方を、短く自分の言葉で。
 // 通信が無くても開けるよう、public/sw.js がこのページと部品を取っておく。家族の読み込みを待たずに出す（emergency/Frame.tsx）。
-// 体の判断はしない。手当の手順と、119・#8000 への橋だけ。迷ったら 119（通報すると、電話の向こうで手当を教えてもらえる）。
+// 体の判断はしない。手当の手順と、119・#8000・かかっている産院（妊娠中の体の急ぎ）への橋だけ。迷ったら 119（通報すると、電話の向こうで手当を教えてもらえる）。
 //
 // 出典（原文は写さず、要点を自分の言葉でまとめた）:
 // - こども家庭庁「母子健康手帳 任意様式」2026-01-16版 p.72-73「子どもの事故の手当」（監修: 日本小児呼吸器学会・日本小児救急医学会）
@@ -9,7 +9,7 @@
 // - こども家庭庁「こども医療電話相談事業（#8000）」https://www.cfa.go.jp/policies/boshihoken/8000/
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChokeOrder } from "./ChokeOrder";
+import { ChokeOrder, PregnancyUrgent } from "./ChokeOrder";
 
 export const metadata: Metadata = { title: "急ぎの時 | 母子手帳" };
 // 通信が無くても開けるよう、作る時に1回だけ組み立てる（家族の情報は何も入らない）
@@ -70,7 +70,10 @@ export default function EmergencyPage() {
         <span className="text-xs text-muted">電波が無くても開けます</span>
       </div>
 
-      {/* 一番上は、迷ったら 119 */}
+      {/* 妊娠中の家族では、産院への電話を一番上に（ほかの家族ではページの下） */}
+      <PregnancyUrgent slot="top" />
+
+      {/* 迷ったら 119 */}
       <a
         href="tel:119"
         className="flex min-h-24 flex-col items-center justify-center gap-1 rounded-2xl bg-alert px-4 py-4 text-center text-white"
@@ -135,6 +138,12 @@ export default function EmergencyPage() {
         >
           反応が無い・息をしていない
         </a>
+        <a
+          href="#pregnancy"
+          className="inline-flex min-h-11 items-center rounded-full border border-ink/20 bg-card px-4 text-base font-semibold"
+        >
+          妊娠中の体の急ぎ
+        </a>
       </nav>
 
       <Card id="choke" title="のどに物が詰まった" sub="窒息（ちっそく）">
@@ -143,7 +152,7 @@ export default function EmergencyPage() {
           は、せきを続けさせます。口の中に見える物だけを取ります。指で奥を探ると、もっと奥へ押し込むことがあります。
         </p>
         <p className="text-base font-semibold text-alert">
-          声が出ない・息ができない・顔色が悪くなってきた時は、すぐに119（そばの人に頼む）。そして手当を始めます。
+          声が出ない・息ができない・顔色が悪くなってきた時は、すぐに119（そばに人がいれば頼む）。一人なら、スマホをスピーカーにして119。話しながら手当を始めます。
         </p>
 
         {/* 子の月齢に合う方を先に出す（ChokeOrder。妊娠中・分からない時は「1歳になる前」が先） */}
@@ -203,7 +212,7 @@ export default function EmergencyPage() {
           </Step>
           <Step n={2}>
             <b>人を呼ぶ</b>: 反応が無ければ、大声で人を呼び、119 と AED
-            を頼みます。一人なら、スマホをスピーカーにして119へ。
+            を頼みます。一人なら、スマホをスピーカーにして119。話しながら手当を始めます。
           </Step>
           <Step n={3}>
             <b>息を見る</b>:
@@ -224,6 +233,8 @@ export default function EmergencyPage() {
           <Step n={7}>救急隊に代わるまで、押すのを続けます。</Step>
         </ol>
       </Card>
+
+      <PregnancyUrgent slot="bottom" />
 
       <section className="flex flex-col gap-2 text-sm text-muted">
         <p>
