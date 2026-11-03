@@ -96,6 +96,9 @@ npm run typecheck
 
 修正のたびに、公的な統計の割合から作った1000家族（すべて作った家族）でアプリの1000日を早送りしています。使った割合と出典: [docs/SIM_STATS.md](docs/SIM_STATS.md)
 
+- 結果（早送りの決まり・なりきりで見つかった事と直したコミット・アンケートの前回比）: [docs/SIMULATION_RESULTS.md](docs/SIMULATION_RESULTS.md)
+- Claude Code でどう作ったか（統計 → 1000組 → 早送り → Opus のなりきり → Sonnet のアンケート → 直す）: [docs/BUILT_WITH_CLAUDE_CODE.md](docs/BUILT_WITH_CLAUDE_CODE.md)
+
 ## License
 
 MIT
@@ -155,7 +158,7 @@ The author is user #1, using it at a family member's real prenatal checkups (rea
 
 Claude Opus 5.5 plays seven roles (vision, structured outputs with zod, web search with citations, drafting, replanning when the baby comes early or late or the family moves, checkup structuring, book writing); "Ask the handbook" (the floating button on every screen) is a tool-using agent: Opus 5.5 looks up the family's schedule, records, official town pages and an in-app screen map, then answers and attaches actions (open the right screen, draft, mark done, add a checkup question, record, a ready-to-send message). Nothing is written until the family taps. Body, mental-health and nutrition questions get no judgment, only a bridge: a dated record, a question for the doctor, and phone numbers; urgent words always add 119/#8000 by rule, and a Haiku guard rewrites any judgment it finds. Claude Haiku 5.5 handles light formatting. A shared charter forbids medical judgment in every call. The whole project was built with Claude Code, with parallel agents per feature; the commit history is the record.
 
-Every change is fast-forwarded through 1,000 days with 1,000 synthetic families drawn from Japanese public statistics (sources: [docs/SIM_STATS.md](docs/SIM_STATS.md), in Japanese).
+Every change is fast-forwarded through 1,000 days with 1,000 synthetic families drawn from Japanese public statistics (sources: [docs/SIM_STATS.md](docs/SIM_STATS.md), in Japanese). Results: [docs/SIMULATION_RESULTS.md](docs/SIMULATION_RESULTS.md). How it was built with Claude Code: [docs/BUILT_WITH_CLAUDE_CODE.md](docs/BUILT_WITH_CLAUDE_CODE.md).
 
 ## Run
 
