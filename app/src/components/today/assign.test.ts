@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { DEMO_FAMILY } from "@/lib/demo-family";
-import { MILESTONES } from "@/lib/milestones";
+import { scheduleFor } from "@/lib/milestones";
 import { isMine, withAssignee } from "./task";
 
-const shared = MILESTONES.find((m) => m.who === "家族")!;
+const shared = scheduleFor(DEMO_FAMILY, "2027-05-12").find((m) => m.who === "家族")!;
 const mom = DEMO_FAMILY.members.find((m) => m.role === "母")!;
 const partner = DEMO_FAMILY.members.find((m) => m.role === "パートナー")!;
 
