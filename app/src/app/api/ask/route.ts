@@ -1,11 +1,11 @@
 // 手帳に聞く: 家族の問いに、この家族の今を見てから答え、動きを添える（lib/ask/agent.ts）。
 // GET ?familyId=                 … これまでの会話 { turns }
 // POST { familyId, today, text, path?, meId? } … 答えを NDJSON で流す（status の行がいくつか → 最後に done か error）
-// PATCH { familyId, at, index }   … 押した動きに印を付ける（同じ記録を2回入れない）
+// 返事の下の動き（記録・健診で聞く事・済み）を押した時は /api/ask/act（押した印をサーバが先に付ける）
 // DELETE ?familyId=              … 会話を消して新しく始める
 // 窓を閉じても答えは最後まで作って残す。作っている間の問いは pending として GET が返す（画面は開き直した時に待って拾う）
 import { body, route } from "@/lib/api";
-import { ask, clearChat, getChat, getPending, markActionUsed, saveChat, setPending } from "@/lib/ask/agent";
+import { ask, clearChat, getChat, getPending, saveChat, setPending } from "@/lib/ask/agent";
 import type { AskEvent, ChatTurn } from "@/lib/ask/types";
 import { sendingAs } from "@/lib/claude";
 import { HttpError } from "@/lib/http-error";
@@ -20,13 +20,6 @@ export const GET = route(async (req: Request) => {
   return { turns: getChat(family.id), pending: busy.has(family.id) ? getPending(family.id) : null };
 });
 
-export const PATCH = route(async (req: Request) => {
-  const b = await body<{ familyId?: string; at?: string; index?: number }>(req);
-  const { family } = await familyFor(req, b.familyId, "record:write");
-  if (typeof b.at !== "string" || typeof b.index !== "number") throw new HttpError(400, "どの動きか読めません");
-  return { ok: markActionUsed(family.id, b.at, b.index) };
-});
-
 export const DELETE = route(async (req: Request) => {
   const { family } = await familyFor(req, new URL(req.url).searchParams.get("familyId"), "record:write");
   clearChat(family.id);
@@ -37,7 +30,7 @@ export const DELETE = route(async (req: Request) => {
 const busy = new Set<string>();
 
 export const POST = route(async (req: Request) => {
-  const b = await body<{ familyId?: string; today?: string; text?: string; path?: string; meId?: string }>(req);
+  const b = await body<{ familyId?: string; today?: string; text?: string; path?: string; meId?: string; retry?: boolean }>(req);
   // 答えるために家族の今を Claude に送り、道具で予定などを書くので、書く権限と送る権限の両方が要る
   const h = await familyFor(req, b.familyId, WRITE_AND_SEND);
   const family = h.family;
@@ -51,7 +44,9 @@ export const POST = route(async (req: Request) => {
   const who = member ? { name: keep.names?.[member.id] || member.name, role: member.role } : undefined;
   const path = typeof b.path === "string" ? b.path.slice(0, 120) : undefined;
 
-  const history = getChat(family.id);
+  // 聞き直し（前の問いに答えが付かなかった時）: 答えの無い最後の問いを外してから聞く（同じ問いを2つ並べない）
+  const saved = getChat(family.id);
+  const history = b.retry && saved[saved.length - 1]?.role === "user" ? saved.slice(0, -1) : saved;
   const mine: ChatTurn = { role: "user", text, today, at: new Date().toISOString(), ...(who ? { who: who.name } : {}) };
 
   busy.add(family.id);

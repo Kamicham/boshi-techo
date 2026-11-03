@@ -191,12 +191,20 @@ export const TOOLS: Anthropic.Beta.BetaToolUnion[] = [
   },
   {
     name: "add_checkup_question",
-    description: "体や様子で気になる事を、次の健診で先生に聞く事に足すボタンを出す（押すのは家族）。家族の言葉を残した1文の質問にする。",
-    input_schema: { type: "object", properties: { text: { type: "string", description: "先生への質問（例: 便の色が白っぽく見えた日がある。見てほしい）" } }, required: ["text"] },
+    description: "体や様子で気になる事を、次の健診で先生に聞く事に足すボタンを出す（押すのは家族）。家族の言葉を残した1文の質問にする。子の事は for=child（子の健診へ）、妊娠中・産後のママの体は for=mother（ママの健診へ）。",
+    input_schema: {
+      type: "object",
+      properties: {
+        text: { type: "string", description: "先生への質問（例: 便の色が白っぽく見えた日がある。見てほしい）" },
+        for: { type: "string", enum: ["child", "mother"], description: "だれの事か" },
+      },
+      required: ["text", "for"],
+    },
   },
   {
     name: "add_record",
-    description: "家族が話した出来事・気になる事・予定を、日付つきで手帳に記録するボタンを出す（押すのは家族。手帳のページに入る物は候補になる）。",
+    description:
+      "家族が話した出来事・気になる事・予定を、日付つきで記録に残すボタンを出す（押すのは家族）。入るのは話す・撮るの「これまでの記録」（一冊には入らない）。手帳のページ（成長・できた日など）に入る物は候補になり、手帳のタブで OK を待つ。文では「記録に残す」と言い、「手帳に記録」と言わない。",
     input_schema: { type: "object", properties: { text: { type: "string", description: "記録する事を家族の言葉のまま" } }, required: ["text"] },
   },
   {
@@ -278,8 +286,12 @@ export async function runTool(name: string, input: Record<string, unknown>, ctx:
     case "add_checkup_question": {
       const text = str(input.text, 300);
       if (!text) return "質問が空です";
-      actions.push({ type: "concern", text });
-      return "健診で聞く事に足すボタンを出しました（まだ足していません）";
+      const c = clockAt(family, today);
+      const who = input.for === "mother" || c.phase === "pregnant" ? "mother" : "child";
+      actions.push({ type: "concern", text, for: who });
+      return who === "child"
+        ? `${family.childName ?? "子"}の次の健診で聞く事に足すボタンを出しました（まだ足していません。健診のタブの「${family.childName ?? "赤ちゃん"}の健診・予防接種」に並びます）`
+        : "ママの次の健診で聞く事に足すボタンを出しました（まだ足していません）";
     }
     case "add_record": {
       const text = str(input.text, 1000);

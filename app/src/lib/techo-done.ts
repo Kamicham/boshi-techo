@@ -146,6 +146,7 @@ export function doneFromTecho(entries: Rec[], today: string): Set<string> {
   if (atLeast("hepb", 3)) out.add("vaccines-7m");
   if (atLeast("bcg", 1)) out.add("bcg");
   if (atLeast("mr", 1) && atLeast("var", 1)) out.add("first-birthday-vaccines");
+  if (atLeast("five", 4)) out.add("five-booster");
   if (atLeast("var", 2)) out.add("vaccines-18m");
   if (atLeast("mr", 2)) out.add("mr-vaccine-2");
   if (atLeast("je", 2)) out.add("je-vaccine-1");

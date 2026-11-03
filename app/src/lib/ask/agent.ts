@@ -43,7 +43,7 @@ export const ASK_RULES = `あなたは今、家族からの問いに答えてい
 - 予定の「担当」を見る。聞いた人の番でない事を、聞いた人の期限として書かない（「職場に伝えるのは◯日まで、パートナー（翔太さん）の育休の連絡は◯日まで」と分ける）。
 - 窓口・受ける所を文で言う時は、look_up_town の結果に合わせる。調べていない時は、窓口の名前を推し量って書かない。
 - 受付の始まりの日を締切として書かない。町のページと予定の期限が違う時は、両方を書いて「窓口に確かめる」と書く。
-- ボタンの名前を「」で書かない（名前は画面が決める）。「押すと〜が出ます」と、起きる事だけ書く。「済んだ事」を見たい時は、今日の画面の一番下の「済んだ事」と文で案内する（ボタンは出さない）。
+- ボタンの名前を「」で書かない（名前は画面が決める）。「押すと〜が出ます」と、起きる事だけ書く。「もう一つは」「もう一方を」とボタンを数で指さない。「済んだ事」を見たい時は、今日の画面の一番下の「済んだ事」と文で案内する（ボタンは出さない）。
 - 記録の文（add_record）・健診で聞く事は、家族が言った事だけで作る。「電話した」「受診した」など、家族がしていない事を足さない。
 - 外へは何も送らない。文を作っても、送るのは家族（「送りました」と言わない）。ボタンを出しただけの時は「押すと〜します」と言う。
 体・心・栄養の問い（橋をかける）:
@@ -103,13 +103,21 @@ export function setPending(familyId: string, turn: ChatTurn): void {
 export function saveChat(familyId: string, turns: ChatTurn[]): void {
   put<ChatDoc>(familyId, "chat", { turns: turns.slice(-KEEP_TURNS) }, { id: chatId(familyId) });
 }
-/** 押した動きに印を付ける（窓を開き直しても、同じ記録を2回入れないように） */
-export function markActionUsed(familyId: string, at: string, index: number): boolean {
-  const turns = getChat(familyId);
+/**
+ * 押した動きに印を付ける・外す（窓を開き直しても、同じ記録を2回入れないように）。
+ * 印は押した時点で付ける（記録し終わるのを待たない。第30回で、記録の途中で閉じると二度押しできた）。失敗したら外す。
+ * 答えを作っている間（pending）に呼ばれても、pending を消さない。
+ */
+export function markActionUsed(familyId: string, at: string, index: number, on = true): boolean {
+  const doc = get<ChatDoc>(chatId(familyId))?.data;
+  const turns = doc?.turns ?? [];
   const t = turns.find((x) => x.role === "assistant" && x.at === at);
   if (!t?.actions?.[index]) return false;
-  t.used = [...new Set([...(t.used ?? []), index])];
-  saveChat(familyId, turns);
+  const used = new Set(t.used ?? []);
+  if (on) used.add(index);
+  else used.delete(index);
+  t.used = [...used];
+  put<ChatDoc>(familyId, "chat", { turns, ...(doc?.pending ? { pending: doc.pending } : {}) }, { id: chatId(familyId) });
   return true;
 }
 export function clearChat(familyId: string): void {
@@ -341,10 +349,14 @@ function actionWord(a: AskAction): string {
  */
 export function fixButtonNames(text: string, actions: AskAction[]): string {
   const labels = actions.flatMap((a) => ("label" in a && a.label ? [a.label] : []));
-  return text.replace(/「([^「」]{1,24})」(ボタン)?を押(す|して|せば|すと)/g, (all, name: string, _b, tail: string) => {
+  let out = text.replace(/「([^「」]{1,24})」(ボタン)?を押(す|して|せば|すと)/g, (all, name: string, _b, tail: string) => {
     if (labels.some((l) => l.includes(name) || name.includes(l))) return all;
     return `ボタンを押${tail}`;
   });
+  // 「もう一つは、押すと…」のように2つ目のボタンを指す文は、電話以外のボタンが2つ以上ある時だけ残す（第30回で、1つしか無いのに書いた）
+  const buttons = actions.filter((a) => a.type !== "call").length;
+  if (buttons < 2) out = out.replace(/[^。\n]*(もう一つ|もう一方|もう1つ|もうひとつ)[^。\n]*。?/g, "").replace(/\n{3,}/g, "\n\n").trim();
+  return out;
 }
 
 function dedupe(actions: AskAction[]): AskAction[] {

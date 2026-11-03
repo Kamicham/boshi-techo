@@ -23,13 +23,15 @@ export const LocalSchema = z.object({
   address: z.string().describe("その役所の住所。ページに無ければ空の文字"),
   bring: z.array(z.string()).describe("持って行く物。1つずつ、15字くらいまでの短い名前（細かい注意は caution へ）"),
   online: z.string().describe("ネットで出せるか（マイナポータル・電子申請など）を1文で。分からなければ「確かめる」"),
-  deadline: z.string().describe("締切を日付か日数だけで短く（例: 生まれた日を入れて14日以内・11月28日まで）。受付の始まりの日を締切と書かない（始まりしか分からない時は「11月4日から受付・締切は確かめる」）。法律の名前・条の番号は書かない（caution へ）"),
+  deadline: z.string().describe("締切を日付か日数だけで短く（例: 生まれた日を入れて14日以内・11月28日まで）。受付の始まりの日を締切と書かない（始まりしか分からない時は「11月4日から受付・締切は確かめる」）。去年度の募集の日程しか見つからない時は、その日を書かず「今年度の日程は確かめる」。法律の名前・条の番号は書かない（caution へ）"),
   extras: z.string().describe("この町だけの助成・上乗せ・もらえる物を1〜2文で。無い・分からなければそう書く"),
   caution: z.string().describe("気をつける事・期限の根拠・窓口に確かめる事（調べた範囲で言い切れない所）"),
 });
 export type LocalFields = z.infer<typeof LocalSchema>;
 
 export interface LocalInfo extends LocalFields {
+  /** 調べ方の版（LOCAL_FORMAT）。前の版の調べには無い */
+  format?: number;
   milestoneId: string;
   title: string;
   prefecture: string;
@@ -68,8 +70,13 @@ export function findMilestone(id: unknown): MilestoneDef {
 }
 
 /** DB にある調べ結果（無ければ null） */
+/** 調べ方を変えた時に上げる。古い調べのうち、日程が年ごとに変わる物（保育園）は調べ直す */
+const LOCAL_FORMAT = 2;
+const YEARLY = new Set(["daycare-apply", "daycare-research"]);
+
 export function getLocal(family: Family, milestoneId: string): LocalInfo | null {
-  const d = get<LocalInfo>(localId(family.city, milestoneId))?.data;
+  const d = get<LocalInfo & { format?: number }>(localId(family.city, milestoneId))?.data;
+  if (d && YEARLY.has(milestoneId) && (d.format ?? 1) < LOCAL_FORMAT) return null;
   // 前の形で調べた物には office・address が無い
   return d ? { ...d, office: d.office ?? "", address: d.address ?? "", sources: officialFirst(d.sources) } : null;
 }
@@ -99,8 +106,20 @@ function rememberOffice(familyId: string, local: LocalInfo) {
 }
 
 /** 町の制度を取りに行く。DB にあればそれを返す（force で調べ直す） */
+/** 調べている途中の物（同じ町・同じ手続きを同時に2回調べない。開き直して押し直しても、前の調べを待つ） */
+const inflight = new Map<string, Promise<{ local: LocalInfo; cached: boolean }>>();
+
 export async function fetchLocal(family: Family, m: MilestoneDef, force = false): Promise<{ local: LocalInfo; cached: boolean }> {
   if (!family.city) throw new HttpError(400, "わが家の設定で、住んでいる市区町村を入れてください");
+  const key = localId(family.city, m.id);
+  const running = inflight.get(key);
+  if (running) return running;
+  const p = fetchLocalOnce(family, m, force).finally(() => inflight.delete(key));
+  inflight.set(key, p);
+  return p;
+}
+
+async function fetchLocalOnce(family: Family, m: MilestoneDef, force: boolean): Promise<{ local: LocalInfo; cached: boolean }> {
   if (!force) {
     const hit = getLocal(family, m.id);
     if (hit) {
@@ -151,6 +170,7 @@ export async function fetchLocal(family: Family, m: MilestoneDef, force = false)
     prefecture: family.prefecture,
     city: family.city,
     sources: officialFirst(found.sources).slice(0, 8),
+    format: LOCAL_FORMAT,
     researchedAt: jstToday(),
   };
   put(PUBLIC_ID, "local", local, { id: localId(family.city, m.id), date: local.researchedAt });

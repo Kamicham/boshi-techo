@@ -85,7 +85,8 @@ export type VisitView = VisitData & { id: string; familyId: string; running?: bo
 export interface VisitPlan {
   kind: "plan";
   next?: { date: string; time?: string | null; source: "manual" | "visit"; visitId?: string; said?: string } | null;
-  concerns: { id: string; text: string; date: string }[];
+  /** for: "child" は子の健診で聞く事（ママの健診の聞く事には入れない。健診のタブの子の欄に並ぶ） */
+  concerns: { id: string; text: string; date: string; for?: "child" }[];
   /** 前回の質問を、どの健診まで持ち越したか */
   carriedFrom?: string;
 }
@@ -363,7 +364,7 @@ export function nextAgenda(
   if (last && last.id !== plan.carriedFrom) {
     last.result!.questions.forEach((q, i) => items.push({ id: `${last.id}:q${i}`, text: q.question, from: "前回の質問" }));
   }
-  for (const c of plan.concerns) items.push({ id: c.id, text: c.text, from: "気がかり" });
+  for (const c of plan.concerns) if (c.for !== "child") items.push({ id: c.id, text: c.text, from: "気がかり" });
   return { items, fromVisit: last && last.id !== plan.carriedFrom ? last.id : null };
 }
 

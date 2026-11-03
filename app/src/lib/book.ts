@@ -121,6 +121,8 @@ function dateOf(d: Doc): string {
 }
 
 function recordText(data: Record<string, unknown>): string | null {
+  // 気がかり（体・様子の心配）は子に渡す一冊に書かない（「何が本になる？」の約束。第30回で言葉の心配が本に入った）
+  if (data.kind === "気がかり") return null;
   const parts: string[] = [];
   const who = str(data.who) ?? str(data.by) ?? str(data.author);
   const main = str(data.text) ?? str(data.transcript) ?? str(data.said) ?? str(data.note) ?? str(data.body);

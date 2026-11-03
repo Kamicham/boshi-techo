@@ -131,7 +131,7 @@ function AskSheet({ onClose }: { onClose: () => void }) {
   }, [turns, status]);
 
   const send = useCallback(
-    async (q: string) => {
+    async (q: string, retry = false) => {
       const question = q.trim();
       if (!question || sending || waiting) return;
       setSending(true);
@@ -139,12 +139,13 @@ function AskSheet({ onClose }: { onClose: () => void }) {
       setStatus("考えています");
       setText("");
       const mine: ChatTurn = { role: "user", text: question, today, at: new Date().toISOString(), ...(me ? { who: me.name } : {}) };
-      setTurns((t) => [...(t ?? []), mine]);
+      // 聞き直しは、答えの無い最後の問いを置き換える
+      setTurns((t) => [...(retry ? (t ?? []).slice(0, -1) : (t ?? [])), mine]);
       try {
         const r = await fetch("/api/ask", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ familyId: family.id, today, text: question, path, meId: me?.id }),
+          body: JSON.stringify({ familyId: family.id, today, text: question, path, meId: me?.id, ...(retry ? { retry: true } : {}) }),
         });
         if (r.status === 409) {
           // 前の問いの答えを作っている（窓を閉じて開き直した時など）。二度目は作らず、前の答えを待つ
@@ -209,9 +210,8 @@ function AskSheet({ onClose }: { onClose: () => void }) {
   const markUsed = useCallback(
     (at: string, index: number) => {
       setTurns((ts) => (ts ?? []).map((t) => (t.at === at && t.role === "assistant" ? { ...t, used: [...new Set([...(t.used ?? []), index])] } : t)));
-      void api("/api/ask", { method: "PATCH", body: { familyId: family.id, at, index } }).catch(() => {});
     },
-    [family.id],
+    [],
   );
 
   const pregnant = !family.birthDate || family.birthDate > today;
@@ -267,6 +267,15 @@ function AskSheet({ onClose }: { onClose: () => void }) {
             </details>
           )}
           {newTurns.map(renderTurn)}
+          {/* 答えの付かなかった問い（前に失敗した・止まった）。聞き直せるようにする */}
+          {!sending && !waiting && !status && newTurns.length > 0 && newTurns[newTurns.length - 1].role === "user" && (
+            <div className="flex flex-col items-start gap-1 self-start">
+              <p className="text-sm text-muted">この問いには、答えを作れませんでした。</p>
+              <Btn kind="secondary" onClick={() => void send(newTurns[newTurns.length - 1].text, true)}>
+                もう一度聞く
+              </Btn>
+            </div>
+          )}
           {waiting && <UserBubble turn={waiting} />}
           {(status || waiting) && (
             <p className="flex items-center gap-2 self-start text-sm text-muted" role="status">
@@ -329,7 +338,7 @@ function Answer({ turn, onNavigate, onUsed }: { turn: ChatTurn; onNavigate: () =
       {turn.actions && turn.actions.length > 0 && (
         <div className="flex flex-col gap-2">
           {turn.actions.map((a, i) => (
-            <Action key={i} action={a} today={turn.today} onNavigate={onNavigate} used={turn.used?.includes(i) ?? false} onUsed={() => onUsed(turn.at, i)} />
+            <Action key={i} action={a} at={turn.at} index={i} today={turn.today} onNavigate={onNavigate} used={turn.used?.includes(i) ?? false} onUsed={() => onUsed(turn.at, i)} />
           ))}
         </div>
       )}
@@ -356,12 +365,17 @@ function hostOf(u: string): string {
 
 function Action({
   action: a,
+  at,
+  index,
   today,
   onNavigate,
   used,
   onUsed,
 }: {
   action: AskAction;
+  /** 会話の中のどの動きか（サーバが読み直して行う） */
+  at: string;
+  index: number;
   today: string;
   onNavigate: () => void;
   /** もう押して済んだ（開き直しても同じ記録を2回入れない） */
@@ -386,6 +400,11 @@ function Action({
       setNote(e instanceof Error ? e.message : "うまくいきませんでした");
       setState("");
     }
+  };
+  const act = async () => {
+    const r = await api<{ note: string; done?: boolean }>("/api/ask/act", { body: { familyId: family.id, at, index } });
+    if (r.done) window.dispatchEvent(new Event("boshi:done"));
+    return r.note;
   };
   const doneNote = note ? (
     <p className={`text-sm ${state === "ok" ? "text-ok" : "text-alert"}`}>{note}</p>
@@ -427,17 +446,14 @@ function Action({
     case "concern":
       return (
         <div className="flex flex-col gap-1 rounded-xl bg-sky-soft p-3">
-          <p className="text-sm text-muted">次の健診で先生に聞く事</p>
+          <p className="text-sm text-muted">{a.for === "mother" ? "ママの次の健診で先生に聞く事" : `${family.childName ? `${family.childName}の` : ""}次の健診で先生に聞く事`}</p>
           <p className="text-base">{a.text}</p>
           {can && (
             <Btn
               kind="secondary"
               disabled={state === "busy"}
               onClick={() =>
-                void run(async () => {
-                  await api("/api/visit/plan", { body: { familyId: family.id, concern: a.text, today } });
-                  return "✓ 健診で聞く事に足しました（健診のタブに並びます）";
-                })
+                void run(act)
               }
             >
               健診で聞く事に足す
@@ -449,20 +465,17 @@ function Action({
     case "record":
       return (
         <div className="flex flex-col gap-1 rounded-xl bg-rose-soft/60 p-3">
-          <p className="text-sm text-muted">手帳に記録する事</p>
+          <p className="text-sm text-muted">記録に残す事（話す・撮るの「これまでの記録」に日付つきで。一冊には入りません）</p>
           <p className="text-base whitespace-pre-wrap">{a.text}</p>
           {can && (
             <Btn
               kind="secondary"
               disabled={state === "busy"}
               onClick={() =>
-                void run(async () => {
-                  const r = await api<{ reply: string; techo?: unknown[] }>("/api/capture", { body: { familyId: family.id, today, text: a.text } });
-                  return `✓ ${r.reply}${r.techo && r.techo.length > 0 ? "（手帳のタブで OK を待っています）" : ""}`;
-                })
+                void run(act)
               }
             >
-              {state === "busy" ? "記録しています…" : "手帳に記録する"}
+              {state === "busy" ? "記録しています…" : "記録に残す"}
             </Btn>
           )}
           {doneNote}
@@ -476,11 +489,7 @@ function Action({
               kind="secondary"
               disabled={state === "busy"}
               onClick={() =>
-                void run(async () => {
-                  await api("/api/done", { body: { familyId: family.id, milestoneId: a.milestoneId, today } });
-                  window.dispatchEvent(new Event("boshi:done"));
-                  return `✓ 「${a.label}」を済みにしました（今日の画面の「済んだ事」から戻せます）`;
-                })
+                void run(act)
               }
             >
               「{a.label}」を済みにする

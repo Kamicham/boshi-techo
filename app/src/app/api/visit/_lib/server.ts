@@ -70,11 +70,12 @@ export function createVisit(familyId: string, date: string, opts: { demo?: boole
       status: "ready",
       agenda: items,
       demo: opts.demo || undefined,
-      carried: opts.demo ? undefined : { prevCarriedFrom: plan.carriedFrom, concerns: plan.concerns },
+      carried: opts.demo ? undefined : { prevCarriedFrom: plan.carriedFrom, concerns: plan.concerns.filter((c) => c.for !== "child") },
     },
     { date },
   );
-  if (!opts.demo) savePlan(familyId, { ...plan, concerns: [], carriedFrom: fromVisit ?? plan.carriedFrom });
+  // ママの健診を始めても、子の健診で聞く事は残す
+  if (!opts.demo) savePlan(familyId, { ...plan, concerns: plan.concerns.filter((c) => c.for === "child"), carriedFrom: fromVisit ?? plan.carriedFrom });
   return doc;
 }
 

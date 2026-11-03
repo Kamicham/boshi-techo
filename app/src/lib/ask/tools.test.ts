@@ -104,3 +104,38 @@ describe("第29回の直し", () => {
     expect(getChat(id)[1].used).toEqual([0]);
   });
 });
+
+describe("第30回の直し", () => {
+  it("押した印は付けたり外したりでき、作っている途中の問いを消さない", () => {
+    const id = "ask-test-family-2";
+    const a = { role: "assistant" as const, text: "答え", today: "2027-04-27", at: "2027-04-27T01:00:00.000Z", actions: [{ type: "record" as const, text: "笑った" }] };
+    saveChat(id, [a]);
+    setPending(id, { role: "user", text: "次の問い", today: "2027-04-27", at: new Date().toISOString() });
+    expect(markActionUsed(id, a.at, 0, true)).toBe(true);
+    expect(getPending(id)?.text).toBe("次の問い");
+    markActionUsed(id, a.at, 0, false);
+    expect(getChat(id)[0].used).toEqual([]);
+  });
+
+  it("ボタンが1つしか無いのに「もう一つは」と書いた文は消す", () => {
+    const one = [{ type: "milestone" as const, milestoneId: "x", label: "日本脳炎" }];
+    expect(fixButtonNames("押すと窓口が出ます。もう一つは、押すと記録が開きます。", one)).toBe("押すと窓口が出ます。");
+    const two = [...one, { type: "open" as const, href: "/techo", label: "手帳へ" }];
+    expect(fixButtonNames("押すと窓口が出ます。もう一つは、押すと記録が開きます。", two)).toMatch(/もう一つ/);
+  });
+
+  it("子の気がかりは子の健診へ（ママの健診の聞く事に入らない）", async () => {
+    const c = ctx("2027-05-10");
+    await runTool("add_checkup_question", { text: "首がまだすわらない", for: "child" }, c);
+    expect(c.actions[0]).toMatchObject({ type: "concern", for: "child" });
+    const { nextAgenda } = await import("../visit");
+    const r = nextAgenda([], { concerns: [{ id: "1", text: "子の事", date: "2027-05-10", for: "child" }, { id: "2", text: "ママの事", date: "2027-05-10" }] });
+    expect(r.items.map((i) => i.text)).toEqual(["ママの事"]);
+  });
+
+  it("妊娠中はママの健診へ", async () => {
+    const c = ctx("2027-01-20");
+    await runTool("add_checkup_question", { text: "張りが気になる", for: "child" }, c);
+    expect(c.actions[0]).toMatchObject({ type: "concern", for: "mother" });
+  });
+});

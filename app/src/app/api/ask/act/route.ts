@@ -1,0 +1,63 @@
+// 手帳に聞くの返事の下の動きを押した時（記録に残す・健診で聞く事に足す・済みにする）。
+// POST { familyId, at, index } … 会話に残っている動きを、サーバが読み直して行う（画面から来た文は使わない）。
+// 押した印は、動く前に付ける（記録の途中で窓を閉じて開き直しても、二度目は押せない＝第30回で同じ記録が2件入った）。失敗したら外す。
+import { body, route } from "@/lib/api";
+import { getChat, markActionUsed } from "@/lib/ask/agent";
+import { capture } from "@/lib/capture";
+import { sendingAs } from "@/lib/claude";
+import { HttpError } from "@/lib/http-error";
+import { patch } from "@/lib/db";
+import type { VisitData } from "@/lib/visit";
+import { familyFor, WRITE_AND_SEND } from "../../_lib/household";
+import { markDone } from "../../done/_lib/done";
+import { getPlan, newId, ongoingVisit, savePlan } from "../../visit/_lib/server";
+
+export const maxDuration = 120;
+
+export const POST = route(async (req: Request) => {
+  const b = await body<{ familyId?: string; at?: string; index?: number }>(req);
+  // 記録は Claude で手帳の候補に分けるので、書く権限と送る権限の両方が要る
+  const h = await familyFor(req, b.familyId, WRITE_AND_SEND);
+  const family = h.family;
+  if (typeof b.at !== "string" || typeof b.index !== "number") throw new HttpError(400, "どの動きか読めません");
+  const turn = getChat(family.id).find((t) => t.role === "assistant" && t.at === b.at);
+  const a = turn?.actions?.[b.index];
+  if (!turn || !a) throw new HttpError(404, "その動きが見つかりません。窓を開き直してください");
+  if (turn.used?.includes(b.index)) return { ok: true, already: true, note: "✓ もう済んでいます" };
+  if (a.type !== "record" && a.type !== "concern" && a.type !== "done") throw new HttpError(400, "この動きはここでは行いません");
+
+  markActionUsed(family.id, turn.at, b.index, true);
+  try {
+    if (a.type === "record") {
+      const r = await sendingAs(h.who, () => capture({ family, today: turn.today, source: "text", text: a.text }));
+      const techo = r.techo?.length ?? 0;
+      // 記録した後の文は、Claude の言い換えを出さず決まった文にする（第30回で「今すぐ産院へ」が「今日のうちに」に弱まった）
+      return { ok: true, note: `✓ 記録に残しました（話す・撮るの「これまでの記録」）${techo ? "。手帳のページに入る物は、手帳のタブで OK を待っています" : ""}` };
+    }
+    if (a.type === "concern") {
+      const date = turn.today;
+      if (a.for === "child") {
+        const plan = getPlan(family.id);
+        savePlan(family.id, { ...plan, concerns: [...plan.concerns, { id: newId(), text: a.text, date, for: "child" }] });
+        return { ok: true, note: `✓ ${family.childName ?? "赤ちゃん"}の次の健診で聞く事に足しました（健診のタブの「${family.childName ? `${family.childName}の` : "赤ちゃんの"}健診・予防接種」に並びます）` };
+      }
+      const c = { id: newId(), text: a.text, date };
+      const v = ongoingVisit(family.id, turn.today);
+      if (v) {
+        patch<VisitData>(v.id, {
+          agenda: [...(v.data.agenda ?? []), { id: c.id, text: c.text, from: "気がかり" }],
+          carried: { prevCarriedFrom: v.data.carried?.prevCarriedFrom, concerns: [...(v.data.carried?.concerns ?? []), c] },
+        });
+      } else {
+        const plan = getPlan(family.id);
+        savePlan(family.id, { ...plan, concerns: [...plan.concerns, c] });
+      }
+      return { ok: true, note: "✓ ママの次の健診で聞く事に足しました（健診のタブの「聞く事」に並びます）" };
+    }
+    markDone(family.id, a.milestoneId, turn.today);
+    return { ok: true, done: true, note: `✓ 「${a.label}」を済みにしました（今日の画面の「済んだ事」から戻せます）` };
+  } catch (e) {
+    markActionUsed(family.id, turn.at, b.index, false);
+    throw e;
+  }
+});

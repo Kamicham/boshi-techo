@@ -202,7 +202,14 @@ export default function VisitList() {
       )}
 
       {/* 生まれた後は、ママの健診の上に「赤ちゃんの健診・予防接種」 */}
-      {born && <BabyCheckups familyId={family.id} today={today} />}
+      {born && (
+        <BabyCheckups
+          familyId={family.id}
+          today={today}
+          asks={(data?.plan.concerns ?? []).filter((c) => c.for === "child")}
+          onRemove={(id) => void savePlan({ removeConcern: id })}
+        />
+      )}
 
       {born && <h2 className="pt-2 text-sm font-semibold text-muted">ママの健診</h2>}
       {top}
@@ -375,7 +382,18 @@ function AskQuick({ count, onAdd }: { count: number; onAdd: (t: string) => void 
  * 赤ちゃんの健診・予防接種（予定表の「健診」で、生まれた日から数える物）。
  * 今の物と次の物を表に、済んだ物・過ぎた物・その先は畳む。押すと今日の画面で開く（どこへ・なぜ？・済んだ）。
  */
-function BabyCheckups({ familyId, today }: { familyId: string; today: string }) {
+function BabyCheckups({
+  familyId,
+  today,
+  asks,
+  onRemove,
+}: {
+  familyId: string;
+  today: string;
+  /** 子の次の健診で聞く事（「聞く」の「健診で聞く事に足す」から） */
+  asks: VisitPlan["concerns"];
+  onRemove: (id: string) => void;
+}) {
   const { family } = useFamily();
   const [done, setDone] = useState<Set<string> | null>(null);
   useEffect(() => {
@@ -392,7 +410,9 @@ function BabyCheckups({ familyId, today }: { familyId: string; today: string }) 
   if (!done) return <div className="h-32 rounded-2xl bg-sky-soft/60" aria-hidden />;
   const items = scheduleFor(family)
     .filter((m) => m.kind === "健診" && m.anchor === "birth")
-    .map((m) => ({ m, st: statusOf(m, today, done) }));
+    .map((m) => ({ m, st: statusOf(m, today, done) }))
+    // 目安の日を30日より過ぎた物（1歳を過ぎた赤ちゃん訪問など）は「今」に並べず、時期を過ぎた物として畳む
+    .map(({ m, st }) => ({ m, st: st === "期限切れ" && deadlineKindOf(m) === "目安" && m.deadlineDate && daysUntil(today, m.deadlineDate) < -30 ? ("過ぎた" as Status) : st }));
   const now = items.filter((x) => x.st === "今やる" || x.st === "期限が近い" || x.st === "期限切れ");
   const next = items.filter((x) => x.st === "まだ先");
   const shown = [...now, ...next.slice(0, Math.max(1, 3 - now.length))];
@@ -415,6 +435,21 @@ function BabyCheckups({ familyId, today }: { familyId: string; today: string }) 
             ))}
           </ul>
         </Fold>
+      )}
+      {asks.length > 0 && (
+        <div className="flex flex-col gap-1 rounded-xl bg-card p-3">
+          <p className="text-sm font-semibold">次の健診で聞く事（{asks.length}）</p>
+          <ul className="flex flex-col">
+            {asks.map((c) => (
+              <li key={c.id} className="flex items-start justify-between gap-2 border-b border-line py-1 last:border-b-0">
+                <span className="min-w-0 text-base">{c.text}</span>
+                <button type="button" onClick={() => onRemove(c.id)} className="min-h-11 shrink-0 px-2 text-sm text-muted underline underline-offset-2">
+                  消す
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       <p className="text-sm text-muted">受ける所は、町が決めた小児科など。日と場所は町の案内で確かめてください</p>
     </section>

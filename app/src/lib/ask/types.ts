@@ -4,9 +4,9 @@
 export type AskAction =
   /** 画面へ連れて行く（画面の地図にある行き先だけ） */
   | { type: "open"; href: string; label: string }
-  /** 次の健診で聞く事に足す（押すと /api/visit/plan） */
-  | { type: "concern"; text: string }
-  /** 手帳に記録する（押すと /api/capture。手帳のページに入る物は今どおり候補になる） */
+  /** 次の健診で聞く事に足す（押すと /api/ask/act。子の事は子の健診、ママの事はママの健診へ） */
+  | { type: "concern"; text: string; for?: "child" | "mother" }
+  /** 記録に残す（押すと /api/ask/act → 話す・撮るの記録。手帳のページに入る物は今どおり候補になる） */
   | { type: "record"; text: string }
   /** やる事を済みにする（押すと /api/done） */
   | { type: "done"; milestoneId: string; label: string }
