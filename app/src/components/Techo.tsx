@@ -447,7 +447,7 @@ function QuietDay({ family, quiet, onShowAll }: { family: Family; quiet: "loss" 
         </ul>
       </section>
 
-      <HelpPlaces family={family} />
+      <HelpPlaces family={family} loss={loss} />
 
       <div className="flex flex-wrap gap-2">
         <Btn kind="quiet" onClick={onShowAll}>

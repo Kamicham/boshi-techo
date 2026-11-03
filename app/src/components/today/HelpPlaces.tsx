@@ -26,9 +26,11 @@ interface Row {
 }
 
 /** 頼れる所の行（町の窓口は、確かな番号が手元に無いので地図と調べる道だけ。番号は tel: で押せば電話がかかる） */
-export function helpRows(family: Pick<Family, "prefecture" | "city">, apple: boolean): Row[] {
+export function helpRows(family: Pick<Family, "prefecture" | "city">, apple: boolean, loss = false): Row[] {
   const town = `${family.prefecture}${family.city}`;
-  return [
+  // つらい別れのあと（静かにする loss）は、赤ちゃんがいる前提の行（産後ケア・子育ての電話・#8000）を出さない
+  const forBaby = new Set(["産後ケア", "子育てがつらい時に話せる電話 0120-189-783", "子どもの急な病気 #8000"]);
+  const rows: Row[] = [
     {
       title: `${family.city}のこども家庭センター・保健センター`,
       sub: "妊娠中から子育てまで、何でも聞ける町の窓口です（保健師さんがいます）",
@@ -72,14 +74,15 @@ export function helpRows(family: Pick<Family, "prefecture" | "city">, apple: boo
       label: "探す",
     },
   ];
+  return loss ? rows.filter((r) => !forBaby.has(r.title)) : rows;
 }
 
-function List({ family }: { family: Family }) {
+function List({ family, loss }: { family: Family; loss?: boolean }) {
   const { apple } = useDevice();
   return (
     <>
       <ul className="flex flex-col">
-        {helpRows(family, apple).map((r) => (
+        {helpRows(family, apple, loss).map((r) => (
           <li key={r.title} className="flex items-center justify-between gap-3 border-b border-line py-2 last:border-b-0">
             <span className="min-w-0">
               <span className="block text-base font-semibold">{r.title}</span>
@@ -118,7 +121,7 @@ function List({ family }: { family: Family }) {
  * 頼れる所。compact は1行の「頼れる所 ›」で開く畳み（label で言い方を変えられる）。
  * 例: <HelpPlaces family={family} compact />（手帳の「相談した記録」・気持ちの記録から）
  */
-export function HelpPlaces({ family, compact, label = "頼れる所" }: { family: Family; compact?: boolean; label?: string }) {
+export function HelpPlaces({ family, compact, label = "頼れる所", loss }: { family: Family; compact?: boolean; label?: string; loss?: boolean }) {
   if (compact) {
     return (
       <details className="group rounded-2xl border border-line bg-card px-4">
@@ -129,14 +132,14 @@ export function HelpPlaces({ family, compact, label = "頼れる所" }: { family
           </span>
         </summary>
         <div className="flex flex-col gap-2 pb-3">
-          <List family={family} />
+          <List family={family} loss={loss} />
         </div>
       </details>
     );
   }
   return (
     <section aria-label="頼れる所" className="flex flex-col gap-2">
-      <List family={family} />
+      <List family={family} loss={loss} />
     </section>
   );
 }
