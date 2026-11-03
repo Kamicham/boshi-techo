@@ -129,7 +129,8 @@ export function PregnancyUrgent({ slot }: { slot: "top" | "bottom" }) {
       alive = false;
     };
   }, []);
-  const pregnant = !!state?.pregnant;
+  // 妊娠中と産後8週までは、ママの体の急ぎを一番上に（なりきり sim-15: 産後の急ぎが一番下で見つからなかった）
+  const pregnant = !!state?.pregnant || !!state?.postpartum;
   if ((slot === "top") !== pregnant) return null;
   const digits = state?.phone?.replace(/[^\d+]/g, "") ?? "";
   return (
