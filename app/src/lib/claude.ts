@@ -20,6 +20,12 @@ import { checkBudget, checkHouseholdBudget, checkSimHouseholdBudget, recordSpend
 export const MODEL = "claude-opus-5-5";
 /** 言い換え・整形など軽い仕事 */
 export const LIGHT_MODEL = "claude-haiku-5-5";
+/**
+ * 町の制度の調べ物（web 検索の結果を読んで、公式ページの事実を書き出す仕事）。
+ * 1回に検索の結果を約8万トークン読むので、Opus だと1回 $0.49 かかっていた（11/3 の費用の3割）。
+ * 書き出した文は後で決まった形に整え、出典の URL も残すので、Sonnet で質を保てる（2026-11-03）
+ */
+export const RESEARCH_MODEL = "claude-sonnet-5-5";
 
 const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 
@@ -153,12 +159,16 @@ export interface SearchResult {
 }
 
 /** web 検索を使って調べ、文章と出典を返す（自治体の制度など） */
-export async function research(system: string, question: string, opts: AskOptions & { domains?: string[] } = {}): Promise<SearchResult> {
+export async function research(
+  system: string,
+  question: string,
+  opts: AskOptions & { domains?: string[]; /** 1回に使う web 検索の数の上限（既定 6） */ maxUses?: number } = {},
+): Promise<SearchResult> {
   const tools = [
     {
       type: "web_search_20260209" as const,
       name: "web_search" as const,
-      max_uses: 6,
+      max_uses: opts.maxUses ?? 6,
       user_location: { type: "approximate" as const, country: "JP", timezone: "Asia/Tokyo" },
       ...(opts.domains ? { allowed_domains: opts.domains } : {}),
     },

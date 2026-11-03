@@ -15,15 +15,16 @@ description: 母子手帳の家族アンケート。現実の統計から作っ�
 4. **画面を触った家族を集める**: 前回のアンケートより後に回したなりきり（Workflow `simulate`）の journal を探す。
    `ls -t ~/.claude/projects/-Users-zhang-boshi-techo/*/subagents/workflows/*/journal.jsonl`
    中身に `"findings"` と `pop-`/`sim-` の家族がある物だけを使う（前回の日付は `app/sim/out/survey/` の一番新しいフォルダ名）。
-5. **アンケートを取る**（裏で回す。`run_in_background`）:
-   `npm run survey -- --touched <journal1> [--touched <journal2> …]`
-   - 1000組は Sonnet 5.5、触った家族と束ね方は Opus 5.5（作り手の指示「品質を重視・クレジットは惜しまない」。下のモデルに落とさない）
+5. **見込みの額を出して OK をもらう**: `npm run survey -- --touched <journal1> [--touched <journal2> …]` を `--yes` なしで流すと、見込みの額だけ出して止まる。その額を作り手に見せ、「OK」をもらう（2026-11-03 の決まり。1000組の2回で $58 かかり、API の残高が尽きたため）
+   - 既定は200組（約 $6）。1000組（約 $29）は作り手が言った時だけ `--limit 1000`
+6. **アンケートを取る**（裏で回す。`run_in_background`）: 同じ引数に `--yes` を足して流す
+   - 答える役は Sonnet 5.5、触った家族と束ね方は Opus 5.5（下のモデルに落とさない）
    - 上限は `BOSHI_SIM_BUDGET_USD`（この台本の既定は $50）。超えたら止まる
    - 途中で止まった時は `--resume app/sim/out/survey/<フォルダ>` で、答えていない家族だけ聞き直す
    - 試すだけなら `--limit 3`
-6. **報告を出す**: `app/sim/out/survey/<日時>/report.html` を、アンケートの Artifact に出し直す（URL は `app/sim/out/survey/artifact-url` に1行。無ければ新しく出して、そのファイルに書く）。報告には前回比が自動で入る。
-7. **会話に出す**: 先頭に `node scripts/spend.mjs` の「今回・今日・残り」の3行。続けて URL と要点2行（SUS・NPS・使い続ける%の前回比、不便の1位）。
-8. 見つかった事は勝手に直さない。不便の上位から、次の修正の案（プランの Artifact）に入れて作り手に出す。
+7. **報告を出す**: `app/sim/out/survey/<日時>/report.html` を、アンケートの Artifact に出し直す（URL は `app/sim/out/survey/artifact-url` に1行。無ければ新しく出して、そのファイルに書く）。報告には前回比が自動で入る。
+8. **会話に出す**: 先頭に `node scripts/spend.mjs` の「今回・今日・残り」の3行。続けて URL と要点2行（SUS・NPS・使い続ける%の前回比、不便の1位）。
+9. 見つかった事は勝手に直さない。不便の上位から、次の修正の案（プランの Artifact）に入れて作り手に出す。
 
 ## 中身（変える時はここを読む）
 

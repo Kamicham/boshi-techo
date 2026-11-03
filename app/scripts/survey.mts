@@ -5,7 +5,8 @@
 //   答えを束ね、全国に直し（1組 = 年に約671家族）、前回と比べて、報告の HTML を書く。どれも作った家族の声（近似）。
 //
 //   使い方（.claude/skills/survey/SKILL.md が呼ぶ）:
-//     npm run survey -- [--touched <journal.jsonl> ...] [--limit 50] [--model sonnet|opus] [--resume <dir>]
+//     npm run survey -- [--touched <journal.jsonl> ...] [--limit 200] [--model sonnet|opus] [--resume <dir>] [--yes]
+//     --yes が無い時は、見込みの額を出して止まる（作り手の OK を取ってから --yes で回す。2026-11-03）
 //   費用は lib/spend.ts に記録し、BOSHI_SIM_BUDGET_USD（既定 $50）を超えたら止まる。わが家（app/data）と本番には触らない。
 import fs from "node:fs";
 import path from "node:path";
@@ -32,7 +33,9 @@ const opt = (k: string) => {
 };
 const touchedFiles: string[] = [];
 argv.forEach((a, i) => a === "--touched" && argv[i + 1] && touchedFiles.push(argv[i + 1]));
-const LIMIT = Number(opt("--limit") ?? 1000);
+// 既定は1000組から200組（作る順に統計の分布から1組ずつ引いているので、先頭の200組がそのまま無作為の200組になる）。
+// 割合の誤差はおよそ ±7%（95%）。1000組は作り手が言った時だけ --limit 1000（1回 約 $29。2026-11-03 の2回で $58）
+const LIMIT = Number(opt("--limit") ?? 200);
 const MODELS: Record<string, string> = { sonnet: "claude-sonnet-5-5", opus: "claude-opus-5-5" };
 const ANSWER_MODEL = MODELS[opt("--model") ?? "sonnet"] ?? MODELS.sonnet;
 const TOUCHED_MODEL = MODELS.opus;
@@ -42,7 +45,6 @@ const CONCURRENCY = Number(opt("--concurrency") ?? 12);
 const SURVEY_ROOT = path.join(APP, "sim", "out", "survey");
 const stamp = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 16).replace(/[-:T]/g, "").replace(/^(\d{8})/, "$1-");
 const DIR = opt("--resume") ?? path.join(SURVEY_ROOT, stamp);
-fs.mkdirSync(path.join(DIR, "answers"), { recursive: true });
 
 // ───────── 質問 ─────────
 const SUS = [
@@ -189,6 +191,17 @@ const diaryFile = path.join(APP, "sim", "out", "diary.json");
 if (!fs.existsSync(diaryFile)) throw new Error("日記がありません。先に SIM_DIARY=1 npx vitest run src/sim/fastforward.test.ts を流してください");
 const diaries = JSON.parse(fs.readFileSync(diaryFile, "utf8")) as Record<string, { diary: string[] }>;
 const pop = getPopulation().slice(0, LIMIT);
+
+// 回す前に見込みの額を出す。11/3 の実績: 答え $0.022/組・束ねる $0.0061/組・束の名付け 約 $1.2・触った家族 $0.065/家族
+{
+  const est = pop.length * (0.022 + 0.0061) + 1.3 + touchedFiles.length * 6 * 0.065;
+  console.log(`見込み: 約 $${est.toFixed(2)}（${pop.length}組${touchedFiles.length ? `・なりきりの journal ${touchedFiles.length}本` : ""}）`);
+  if (!argv.includes("--yes")) {
+    console.log("まだ回していません。作り手の OK をもらったら、同じ引数に --yes を足して回してください。");
+    process.exit(0);
+  }
+}
+fs.mkdirSync(path.join(DIR, "answers"), { recursive: true });
 
 console.log(`1000組のアンケート: ${pop.length}組（${ANSWER_MODEL}・${CONCURRENCY}本ずつ）→ ${DIR}`);
 let failed = 0;

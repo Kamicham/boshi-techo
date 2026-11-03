@@ -1,0 +1,59 @@
+// 町の調べ物の試験: 同じ町・同じ手続きは、2家族目から Claude を呼ばない（町×手続きで使い回す）。
+// 1回の重さを抑える: 調べ物は Sonnet（RESEARCH_MODEL）・web 検索は4回まで（2026-11-03、調べ物が1回 $0.49・費用の3割だったため）。
+// Claude は呼ばない（偽の答えを返す）。DB は一時フォルダに作る（わが家の app/data には触らない）。
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("server-only", () => ({}));
+
+const researchCalls: { question: string; opts: unknown }[] = [];
+vi.mock("./claude", async () => {
+  const actual = await vi.importActual<typeof import("./claude")>("./claude");
+  return {
+    ...actual,
+    research: vi.fn(async (_system: string, question: string, opts: unknown) => {
+      researchCalls.push({ question, opts });
+      return { text: "窓口は町役場1階の住民課。", sources: [{ title: "町の公式", url: "https://www.town.example.lg.jp/a" }] };
+    }),
+    structured: vi.fn(async () => ({
+      summary: "町役場で出します。",
+      where: "町役場1階 住民課",
+      office: "例町役場",
+      address: "",
+      bring: ["届出書"],
+      online: "確かめる",
+      deadline: "生まれた日を入れて14日以内",
+      extras: "確かめる",
+      caution: "確かめる",
+    })),
+  };
+});
+
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), "boshi-local-test-"));
+process.env.BOSHI_DATA_DIR = dir;
+delete process.env.BOSHI_SIM;
+
+describe("町の調べ物", () => {
+  it("同じ町・同じ手続きは2家族目から調べ直さず、調べる時は Sonnet・検索4回まで", async () => {
+    const { fetchLocal } = await import("./local");
+    const { RESEARCH_MODEL } = await import("./claude");
+    const { DEMO_FAMILY } = await import("./demo-family");
+    const { MILESTONES } = await import("./milestones");
+    const m = MILESTONES.find((x) => x.id === "birth-registration") ?? MILESTONES[0];
+    const a = { ...DEMO_FAMILY, id: "local-test-a", prefecture: "北海道", city: "東川町" };
+    const b = { ...DEMO_FAMILY, id: "local-test-b", prefecture: "北海道", city: "東川町" };
+
+    const first = await fetchLocal(a, m);
+    expect(first.cached).toBe(false);
+    expect(researchCalls).toHaveLength(1);
+    expect(researchCalls[0].opts).toMatchObject({ model: RESEARCH_MODEL, maxUses: 4 });
+    expect(RESEARCH_MODEL).toMatch(/sonnet/);
+
+    const second = await fetchLocal(b, m);
+    expect(second.cached).toBe(true);
+    expect(second.local.where).toBe("町役場1階 住民課");
+    expect(researchCalls).toHaveLength(1);
+  });
+});

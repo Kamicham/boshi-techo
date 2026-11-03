@@ -6,7 +6,7 @@
 // 「いつもの」の役所（rememberOffice）は家族の物なので、今までどおり家族の id に置く。
 import "server-only";
 import { z } from "zod";
-import { LIGHT_MODEL, research, structured } from "./claude";
+import { LIGHT_MODEL, RESEARCH_MODEL, research, structured } from "./claude";
 import { get, put } from "./db";
 import type { Family } from "./demo-family";
 import { HttpError } from "./family";
@@ -144,7 +144,8 @@ async function fetchLocalOnce(family: Family, m: MilestoneDef, force: boolean): 
 4. 期限（参考: 全国共通の根拠は「${m.basis}」）
 5. ${family.city}独自の助成・上乗せ・配布物があれば
 出典のページを示してください。`;
-  const found = await research(RESEARCH_SYSTEM, question);
+  // 町×手続きで1回だけ調べて、ほかの家族と使い回す（PUBLIC_ID に置く）。1回の重さも抑える: Sonnet・検索は4回まで
+  const found = await research(RESEARCH_SYSTEM, question, { model: RESEARCH_MODEL, maxUses: 4 });
   if (!found.text) throw new HttpError(502, "調べた答えが空でした。もう一度調べ直してください");
 
   const shaped = await structured(
