@@ -3,6 +3,8 @@ import "server-only";
 import { DEMO_FAMILY, type Family } from "./demo-family";
 import { get, put } from "./db";
 import { scheduleFor } from "./milestones";
+import { birthFacts, isMadeFamily } from "./techo-seed";
+import { listTecho } from "./techo-store";
 import type { Leave, MotherWork, Situation, Work } from "./situation";
 
 export const MINE_ID = "mine";
@@ -10,7 +12,8 @@ export const MINE_ID = "mine";
 /** わが家の保存と同じく、途中から使い始めた家族は、使い始める前に期限が過ぎた事を済み扱いにする */
 function seedStartedLate(f: Family) {
   if (!f.startedOn) return;
-  for (const m of scheduleFor(f)) {
+  // 生まれた時の体重で足す事（小さく生まれた子の届け）も、同じく済み扱いにする
+  for (const m of scheduleFor(withBirthFacts(f))) {
     const id = `done:${f.id}:${m.id}`;
     if (m.deadlineDate && !m.awaitingBirth && m.deadlineDate < f.startedOn && !get(id)) {
       put(f.id, "done", { milestoneId: m.id, today: f.startedOn, at: new Date().toISOString(), auto: "started-late" }, { id, date: f.startedOn });
@@ -46,6 +49,11 @@ function popFamily(id: string): Family | null {
 }
 
 export function getFamily(id: string): Family | null {
+  const f = rawFamily(id);
+  return f ? withBirthFacts(f) : null;
+}
+
+function rawFamily(id: string): Family | null {
   if (id === DEMO_FAMILY.id) return DEMO_FAMILY;
   if (id.startsWith("sim-")) return simFamilies().find((f) => f.id === id) ?? null;
   if (id.startsWith("pop-")) return popFamily(id);
@@ -54,6 +62,30 @@ export function getFamily(id: string): Family | null {
     return f ? fromSaved(f) : null;
   }
   return null;
+}
+
+/** 「38週2日」→ 38 */
+const weekOf = (v: unknown): number | undefined => {
+  const m = String(v ?? "").normalize("NFKC").match(/(\d+)\s*週/);
+  return m ? Number(m[1]) : undefined;
+};
+
+/**
+ * 生まれた時の体重と週数を、手帳の出産の記録から埋める（保存はしない）。予定の「小さく生まれた子」の届け・助成が読む。
+ * - わが家: 家族が OK した出産の記録（birth の weightG・week）。双子などは一番小さい子の体重
+ * - 作った家族: 作った記録と同じ値（techo-seed の birthFacts）。生まれた日のある家族だけ
+ * 記録が無ければ何も足さない（わからない＝出さない）
+ */
+export function withBirthFacts(f: Family): Family {
+  if (!f.birthDate) return f;
+  if (isMadeFamily(f.id)) {
+    const { gestDays, weightsG } = birthFacts(f);
+    return { ...f, birthWeightG: Math.min(...weightsG), birthWeek: Math.floor(gestDays / 7) };
+  }
+  const births = listTecho(f.id).filter((d) => d.data.page === "birth" && !d.data.pending);
+  const weights = births.map((d) => Number(d.data.values.weightG)).filter((n) => Number.isFinite(n) && n > 0);
+  const week = births.map((d) => weekOf(d.data.values.week)).find((n) => n != null);
+  return { ...f, ...(weights.length ? { birthWeightG: Math.min(...weights) } : {}), ...(week != null ? { birthWeek: week } : {}) };
 }
 
 /**
@@ -77,9 +109,9 @@ export function saveMine(f: Omit<Family, "id">): Family {
 
 export function allFamilies(): Family[] {
   const sim = simFamilies();
-  if (sim.length) return [...sim, DEMO_FAMILY];
+  if (sim.length) return [...sim, DEMO_FAMILY].map(withBirthFacts);
   const mine = getFamily(MINE_ID);
-  return mine ? [mine, DEMO_FAMILY] : [DEMO_FAMILY];
+  return mine ? [mine, withBirthFacts(DEMO_FAMILY)] : [withBirthFacts(DEMO_FAMILY)];
 }
 
 /** API ルートで家族を必ず引く */

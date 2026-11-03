@@ -37,6 +37,7 @@ import { BIRTHS_2025, PER_FAMILY } from "./stats";
 import { birthFacts, birthWeightMedian, growthMedian, seedTecho } from "../lib/techo-seed";
 import { DEMO_FAMILY } from "../lib/demo-family";
 import type { TechoEntry } from "../lib/techo";
+import { doneFromTecho } from "../lib/techo-done";
 
 const FULL = process.env.SIM_FULL === "1";
 /** アンケート用の日記（1000組が1000日の間に見た物）を sim/out/diary.json に書き出す（npm run survey が使う） */
@@ -138,6 +139,11 @@ const KNOWN_GAPS: KnownGap[] = [];
 function viewAt(f: SimFamily, day: string): Family {
   let v: Family = f;
   if (f.birthDate && day < f.birthDate) v = { ...v, birthDate: undefined };
+  // 生まれた後は、手帳の出産の記録の体重・週数を知っている（lib/family.ts の withBirthFacts と同じ値）
+  else if (f.birthDate) {
+    const { gestDays, weightsG } = birthFacts(f);
+    v = { ...v, birthWeightG: Math.min(...weightsG), birthWeek: Math.floor(gestDays / 7) };
+  }
   if (f.movedOn && day < f.movedOn) v = { ...v, city: f.previousCity ?? v.city, prefecture: f.previousPrefecture ?? v.prefecture, previousCity: undefined, previousPrefecture: undefined, movedOn: undefined };
   return v;
 }
@@ -264,7 +270,7 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
 
   const done = new Set<string>();
   const startView = viewAt(f, start);
-  const startSchedule = scheduleFor(startView);
+  const startSchedule = scheduleFor(startView, start);
   const startPileWithoutSeed = startSchedule.filter((m) => statusOf(m, start, new Set()) === "期限切れ").length;
   for (const m of startSchedule) if (m.deadlineDate && m.deadlineDate < start) done.add(m.id);
 
@@ -274,10 +280,12 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
   const toCheck = sampled ? checkDays(f, start, end, cps) : null;
   // 期限表は、生まれた日と引っ越しを知っているかだけで変わる（同じ形なら作り直さない）
   const schedules = new Map<string, ReturnType<typeof scheduleFor>>();
-  const scheduleOf = (fv: Family) => {
-    const key = `${fv.birthDate ?? ""}|${fv.movedOn ?? ""}`;
+  // 授かる前（最終月経の日より前）は、どの事も「授かったら」になる（scheduleFor に今日を渡す）
+  const scheduleOf = (fv: Family, day: string) => {
+    const trying = day < lmp;
+    const key = `${fv.birthDate ?? ""}|${fv.movedOn ?? ""}|${trying}`;
     let s = schedules.get(key);
-    if (!s) schedules.set(key, (s = scheduleFor(fv)));
+    if (!s) schedules.set(key, (s = scheduleFor(fv, day)));
     return s;
   };
 
@@ -301,7 +309,7 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
     days++;
     const fv = viewAt(f, day);
     const isBorn = born(f, day);
-    const schedule = scheduleOf(fv);
+    const schedule = scheduleOf(fv, day);
     const tasksNow = (): Task[] => schedule.map((m) => ({ ...m, status: statusOf(m, day, done) }));
     const nextVisit = visits.find((d) => d >= day) ?? null;
     if (toCheck && !toCheck.has(day)) {
@@ -793,4 +801,61 @@ afterAll(() => {
     fs.mkdirSync(OUT, { recursive: true });
     fs.writeFileSync(path.join(OUT, "diary.json"), JSON.stringify(out));
   }
+});
+
+// ───────── 手帳の記録と今日の画面（手帳を背骨に） ─────────
+// 作った家族の手帳の記録（seedTecho = 標準の時期に受けた接種・行った健診）だけで、家族が「済んだ」を押さなくても、
+// 今日の画面が済んだ接種・健診を「今やる」「期限切れ」に出さない事を確かめる（/api/done の fromTecho と同じ関数）。
+/** 手帳の記録で済みになる予定（2歳まで。作った記録が標準の時期に入る物） */
+const TECHO_BACKED = ["vaccines-start", "vaccines-3m", "vaccines-4m", "bcg", "vaccines-7m", "first-birthday-vaccines", "vaccines-18m", "one-month-checkup", "checkup-3-4m", "checkup-9-10m", "checkup-18m"];
+
+describe("① 早送りの検査: 手帳で済んだ接種・健診", () => {
+  const families: Family[] = [DEMO_FAMILY, ...SIM_FAMILIES, ...getPopulation().filter((_, i) => i % 10 === 0)].filter((f) => !!f.birthDate);
+
+  it("手帳で済んだ接種・健診を、今やる・期限切れに出さない（生後1か月〜2歳の節目）", () => {
+    const bad: string[] = [];
+    for (const f of families) {
+      const birth = f.birthDate!;
+      for (const m of [2, 4, 6, 9, 13, 20, 24]) {
+        const day = addDays(addMonths(birth, m), 12);
+        const fv = viewAt(f as SimFamily, day);
+        const records = seedTecho(f, day);
+        const fromTecho = doneFromTecho(records, day);
+        for (const t of scheduleFor(fv, day)) {
+          const st = statusOf(t, day, fromTecho);
+          if (!TECHO_BACKED.includes(t.id)) continue;
+          // 手帳に記録がある（作った記録は標準の時期に必ず入る）のに、今やる・期限切れに出たら破れ
+          if (fromTecho.has(t.id) && st !== "済み") bad.push(`${f.id} ${day} ${t.id} が ${st}`);
+          if (st === "期限切れ") bad.push(`${f.id} ${day}（生後${m}か月）${t.plain} が期限切れ（手帳の記録: ${records.filter((e) => e.page === "vaccine" || e.page === "child-checkup").map((e) => e.title).join("・")}）`);
+        }
+      }
+    }
+    expect(bad.slice(0, 20)).toEqual([]);
+  });
+
+  it("2歳の誕生日には、2歳までの接種・健診がみな手帳で済み", () => {
+    const bad: string[] = [];
+    for (const f of families) {
+      const day = secondBirthday(f);
+      const done = doneFromTecho(seedTecho(f, day), day);
+      for (const id of TECHO_BACKED) if (!done.has(id)) bad.push(`${f.id} ${id}`);
+    }
+    expect(bad.slice(0, 20)).toEqual([]);
+  });
+
+  it("3歳児健診が2歳半からの家族に出る（「まだ先」で日付つき → 3歳で今やる）", () => {
+    for (const f of families) {
+      const birth = f.birthDate!;
+      const half = addMonths(birth, 30);
+      const s = scheduleFor(viewAt(f as SimFamily, half), half);
+      const c3 = s.find((t) => t.id === "checkup-3y");
+      expect(c3, f.id).toBeTruthy();
+      expect(statusOf(c3!, half, new Set())).toBe("まだ先");
+      expect(c3!.startDate).toBe(addMonths(birth, 36));
+      // 今日の画面の「まだ先」に入る（1000日を過ぎた後も、次が見える）
+      const tasks = s.map((t) => ({ ...t, status: statusOf(t, half, new Set(s.filter((x) => x.deadlineDate && x.deadlineDate < half).map((x) => x.id))) }));
+      expect(planToday(tasks, half, null).upcoming.some((t) => t.id === "checkup-3y"), f.id).toBe(true);
+      expect(statusOf(c3!, addDays(addMonths(birth, 36), 1), new Set())).toBe("今やる");
+    }
+  });
 });

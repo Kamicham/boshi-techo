@@ -120,3 +120,84 @@ describe("話した言葉に無い数字は捨てる（Claude が数字を作ら
     expect(C.techoFromItem(t, null).values).toEqual({ weightKg: "7.2", heightCm: "66" });
   });
 });
+
+describe("子どもの体重の読み取り（「4,120 g」「4120g」「4.12kg」）", () => {
+  it("書き方の違いをグラムにする。単位が無い時は 100 以上がグラム", () => {
+    expect(C.gramsOf("4,120 g")).toBe(4120);
+    expect(C.gramsOf("4120g")).toBe(4120);
+    expect(C.gramsOf("4.12kg")).toBe(4120);
+    expect(C.gramsOf("４，１２０ｇ")).toBe(4120);
+    expect(C.gramsOf("3キロ120")).toBe(3120);
+    expect(C.gramsOf("7.2")).toBe(7200);
+    expect(C.gramsOf("3050")).toBe(3050);
+    expect(C.gramsOf("よめない")).toBeNull();
+  });
+
+  it("成長・乳幼児健診は kg、出生・新生児は g の欄に直す。欄の名前が違っても入れる", () => {
+    const item = (page: "growth" | "child-checkup" | "birth" | "newborn", key: string, value: string) => ({ page, date: "2027-05-26", title: "1か月児健診", who: null, values: [{ key, value }] });
+    expect(C.techoFromItem(item("growth", "weightKg", "4,120 g"), null).values).toEqual({ weightKg: "4.12" });
+    expect(C.techoFromItem(item("growth", "weightG", "4120g"), null).values).toEqual({ weightKg: "4.12" });
+    expect(C.techoFromItem(item("child-checkup", "weightKg", "4.12kg"), null).values).toEqual({ weightKg: "4.12" });
+    expect(C.techoFromItem(item("birth", "weightKg", "3.12kg"), null).values).toEqual({ weightG: "3120" });
+    expect(C.techoFromItem(item("newborn", "weightG", "3,050"), null).values).toEqual({ weightG: "3050" });
+    // 整えた後も、決まりどおりの数になる
+    expect(S.cleanValues("growth", C.techoFromItem(item("growth", "weightKg", "4,120 g"), null).values)).toEqual({ weightKg: 4.12 });
+  });
+
+  it("体重がメモの文にだけ入っていても拾う", () => {
+    const t = { page: "child-checkup" as const, date: "2027-05-26", title: "1か月児健診", who: null, values: [{ key: "checkup", value: "1か月児健診" }, { key: "memo", value: "体重 4,120g 哺乳良好" }] };
+    expect(C.techoFromItem(t, null).values.weightKg).toBe("4.12");
+  });
+
+  it("話した時は、言葉に無い体重を捨てる（numberWasSaid を壊さない）", () => {
+    const t = { page: "growth" as const, date: "2027-05-26", title: "体重", who: null, values: [{ key: "weightKg", value: "4.12kg" }] };
+    expect(C.techoFromItem(t, "体重は4120グラムだった").values).toEqual({ weightKg: "4.12" });
+    expect(C.techoFromItem(t, "体重を測ったよ").values).toEqual({});
+  });
+});
+
+describe("紙に日付が無い時は、今日にせず、ページの題と生まれた日から推す", () => {
+  const f = { dueDate: "2027-05-10", birthDate: "2027-04-26" };
+  const today = "2029-02-01";
+  const g = (page: TechoEntry["page"], title: string, values: Record<string, string> = {}) => C.guessTechoDate({ page, title, values }, f, today);
+  it("健診の名前の時期から", () => {
+    expect(g("child-checkup", "1か月児健診", { checkup: "1か月児健診" })).toBe("2027-05-26");
+    expect(g("growth", "3〜4か月健診")).toBe("2027-07-26");
+    expect(g("child-checkup", "1歳6か月児健診")).toBe("2028-10-26");
+    expect(g("child-checkup", "1歳半健診")).toBe("2028-10-26");
+  });
+  it("出産は生まれた日、新生児・産後は日数、妊婦健診は週数から", () => {
+    expect(g("birth", "出産の状態")).toBe("2027-04-26");
+    expect(g("newborn", "退院時", { dayAge: "5" })).toBe("2027-05-01");
+    expect(g("pregnancy-checkup", "妊婦健診", { week: "24週" })).toBe("2027-01-18");
+  });
+  it("推せない時・今日より後になる時は null（家族に入れてもらう）", () => {
+    expect(g("growth", "計測")).toBeNull();
+    expect(C.guessTechoDate({ page: "child-checkup", title: "3歳児健診", values: {} }, f, "2028-01-01")).toBeNull();
+    expect(C.guessTechoDate({ page: "growth", title: "1か月児健診", values: {} }, { dueDate: "2027-05-10" }, today)).toBeNull();
+  });
+});
+
+describe("候補の日付を直して OK する", () => {
+  it("推した日の印は候補だけが持ち、OK で消える。渡した日で確定し、今日より後の日は受け取らない", () => {
+    const [a, b] = S.addTecho(
+      "fam-d",
+      [
+        { page: "growth", date: "2027-05-26", title: "1か月児健診", values: { weightKg: "4.12" }, dateUnsure: "guess" },
+        { page: "growth", date: "2029-02-01", title: "計測", values: { heightCm: "53.6" }, dateUnsure: "none" },
+      ],
+      { today: "2029-02-01", source: "photo", pending: true, captureId: "c3" },
+    );
+    expect(a.data.dateUnsure).toBe("guess");
+    expect(b.data.dateUnsure).toBe("none");
+    const ok = S.confirmTecho(b.id, "fam-d", "2027-06-02", "2029-02-01");
+    expect(ok?.data).toMatchObject({ date: "2027-06-02" });
+    expect(ok?.data.pending).toBeUndefined();
+    expect(ok?.data.dateUnsure).toBeUndefined();
+    expect(ok?.date).toBe("2027-06-02");
+    const future = S.confirmTecho(a.id, "fam-d", "2030-01-01", "2029-02-01");
+    expect(future?.data.date).toBe("2027-05-26");
+    // 確定した記録には印を付けない
+    expect(S.cleanEntry({ page: "growth", values: { weightKg: 4 }, dateUnsure: "guess" }, { today: "2029-02-01" })?.dateUnsure).toBeUndefined();
+  });
+});

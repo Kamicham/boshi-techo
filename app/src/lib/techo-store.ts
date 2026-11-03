@@ -7,7 +7,12 @@ import type { Family } from "./demo-family";
 import { TECHO_PAGE_IDS, type TechoEntry, type TechoPageId, type TechoSource, type TechoValueKeys } from "./techo";
 import { seedTecho } from "./techo-seed";
 
-export type TechoDoc = Doc<TechoEntry>;
+/**
+ * 保存する1件（TechoEntry に、撮った紙の日付の確かさの印を足した物）。
+ * dateUnsure: "guess" = 紙に日付が無く、ページの題と生まれた日から推した日／"none" = 推せず、家族に入れてもらう日。OK で消える。
+ */
+export type TechoStored = TechoEntry & { dateUnsure?: "guess" | "none" };
+export type TechoDoc = Doc<TechoStored>;
 
 /** わが家の id（family.ts の MINE_ID と同じ。family.ts は重いので読まない） */
 const MINE = "mine";
@@ -100,7 +105,7 @@ export function cleanValues(page: TechoPageId, raw: Record<string, unknown> | un
 }
 
 /** 1件を決まりどおりに整える。ページ・日付・必須の欄が無ければ null（入れない） */
-export function cleanEntry(e: Partial<TechoEntry> & { values?: Record<string, unknown> }, fallback: { today: string; source?: TechoSource }): TechoEntry | null {
+export function cleanEntry(e: Partial<TechoStored> & { values?: Record<string, unknown> }, fallback: { today: string; source?: TechoSource }): TechoStored | null {
   if (!isPage(e.page)) return null;
   const values = cleanValues(e.page, e.values);
   const req = REQUIRED[e.page];
@@ -108,7 +113,7 @@ export function cleanEntry(e: Partial<TechoEntry> & { values?: Record<string, un
   // 中身が1つも無い記録は入れない
   if (Object.keys(values).length === 0) return null;
   const source: TechoSource = e.source === "voice" || e.source === "photo" || e.source === "text" || e.source === "seed" ? e.source : (fallback.source ?? "text");
-  const entry: TechoEntry = {
+  const entry: TechoStored = {
     page: e.page,
     date: isDate(e.date) ? e.date : fallback.today,
     title: (typeof e.title === "string" && e.title.trim() ? e.title.trim() : String(values[req ?? ""] ?? "記録")).slice(0, 60),
@@ -119,6 +124,8 @@ export function cleanEntry(e: Partial<TechoEntry> & { values?: Record<string, un
   if (typeof e.note === "string" && e.note.trim()) entry.note = e.note.trim().slice(0, 500);
   if (typeof e.captureId === "string" && e.captureId) entry.captureId = e.captureId;
   if (e.pending) entry.pending = true;
+  // 日付の確かさの印は、まだ OK していない候補だけが持つ
+  if (e.pending && (e.dateUnsure === "guess" || e.dateUnsure === "none")) entry.dateUnsure = e.dateUnsure;
   return entry;
 }
 
@@ -168,32 +175,37 @@ export function addTecho(familyId: string, entries: unknown[], opts: { today: st
   const out: TechoDoc[] = [];
   for (const raw of entries) {
     if (!raw || typeof raw !== "object") continue;
-    const e = raw as Partial<TechoEntry>;
+    const e = raw as Partial<TechoStored>;
     const entry = cleanEntry(
       { ...e, ...(opts.pending != null ? { pending: opts.pending } : {}), ...(opts.captureId ? { captureId: opts.captureId } : {}), ...(opts.source ? { source: opts.source } : {}) },
       { today: opts.today, source: opts.source },
     );
-    if (entry) out.push(put<TechoEntry>(familyId, "techo", entry, { date: entry.date }));
+    if (entry) out.push(put<TechoStored>(familyId, "techo", entry, { date: entry.date }));
   }
   return out;
 }
 
 /** その家族の手帳の記録か（ほかの家族の id を触らせない） */
 function owned(id: string, familyId?: string): TechoDoc | null {
-  const d = get<TechoEntry>(id);
+  const d = get<TechoStored>(id);
   if (!d || d.type !== "techo" || isMarker(d)) return null;
   if (familyId != null && d.familyId !== familyId) return null;
   return d;
 }
 
-/** 家族の「OK」で確定する（pending を外す） */
-export function confirmTecho(id: string, familyId?: string): TechoDoc | null {
+/**
+ * 家族の「OK」で確定する（pending と日付の印を外す）。
+ * date を渡すと、その日で確定する（家族が候補の日付を直した時）。今日より後の日・読めない日は受け取らない
+ */
+export function confirmTecho(id: string, familyId?: string, date?: string, today?: string): TechoDoc | null {
   const d = owned(id, familyId);
   if (!d) return null;
   if (!d.data.pending) return d;
-  const { pending: _p, ...rest } = d.data;
+  const { pending: _p, dateUnsure: _u, ...rest } = d.data;
   void _p;
-  return put<TechoEntry>(d.familyId, "techo", rest, { id: d.id, date: d.date });
+  void _u;
+  const day = isDate(date) && (!today || date <= today) ? date : rest.date;
+  return put<TechoStored>(d.familyId, "techo", { ...rest, date: day }, { id: d.id, date: day });
 }
 
 /** 「違う」で消す */
@@ -210,10 +222,10 @@ export function removePendingByCapture(familyId: string, captureId: string): voi
 }
 
 /** 中身の一部を直す（家族が候補の値を直した時など） */
-export function patchTecho(id: string, familyId: string, partial: Partial<TechoEntry>): TechoDoc | null {
+export function patchTecho(id: string, familyId: string, partial: Partial<TechoStored>): TechoDoc | null {
   const d = owned(id, familyId);
   if (!d) return null;
   const merged = cleanEntry({ ...d.data, ...partial, values: { ...d.data.values, ...(partial.values ?? {}) } }, { today: d.data.date });
   if (!merged) return null;
-  return put<TechoEntry>(d.familyId, "techo", merged, { id, date: merged.date });
+  return put<TechoStored>(d.familyId, "techo", merged, { id, date: merged.date });
 }

@@ -6,9 +6,9 @@ import { useCallback, useEffect, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import type { TechoEntry } from "@/lib/techo";
 
-export type TechoItem = TechoEntry & { id: string };
+export type TechoItem = TechoEntry & { id: string; dateUnsure?: "guess" | "none" };
 
-type Raw = Partial<TechoEntry> & { id?: string; data?: Partial<TechoEntry> };
+type Raw = Partial<TechoItem> & { id?: string; data?: Partial<TechoItem> };
 
 function normalize(raw: Raw): TechoItem | null {
   const body = raw.data && typeof raw.data === "object" && "page" in raw.data ? raw.data : raw;
@@ -24,6 +24,7 @@ function normalize(raw: Raw): TechoItem | null {
     note: body.note,
     captureId: body.captureId,
     pending: body.pending,
+    dateUnsure: body.dateUnsure,
   };
 }
 
@@ -55,8 +56,8 @@ export function useTecho() {
 
   /** 候補を OK する（家族の OK で確定） */
   const confirm = useCallback(
-    async (ids: string[]) => {
-      await api(`/api/techo`, { body: { familyId: family.id, today, action: "confirm", ids } });
+    async (ids: string[], dates?: Record<string, string>) => {
+      await api(`/api/techo`, { body: { familyId: family.id, today, action: "confirm", ids, ...(dates ? { dates } : {}) } });
       await load();
     },
     [family.id, today, load],

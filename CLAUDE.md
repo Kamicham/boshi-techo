@@ -20,6 +20,8 @@
 - 作った30家族（`app/src/sim/families.ts`。すべて作った家族）で、修正のたびにアプリを通す。社長と妻の2人だけで確かめた事にしない。
 - **① 早送りの検査（どんな修正でも毎回）**: `cd app && npm run sim`。30家族×1000日の節目で「今日」の画面と同じ関数を通し、決まりを確かめる。結果は `app/sim/out/fastforward.md`。
 - **② なりきり（画面や流れに関わる修正の後）**: `app/scripts/sim-server.sh`（3100番・DB は `app/sim-data/`）を立て、Workflow `simulate`（`.claude/workflows/simulate.js`）を回す。既定は6家族、直した画面に関わる家族を先に入れる。道具は `app/src/sim/drive.mjs`（Playwright・iPhone の大きさ）。
+  - サーバは既定で組み立てた版（`.next-sim` に next build → next start。本番の `.next-prod` とは別）。next dev はなりきりの負荷で 500 を返すので使わない（`--dev` は手で画面を見る時だけ）。組み立てた版は直しが反映されないので、直した後は `app/scripts/sim-server.sh --replace`（3100番の next を止めて組み立て直す）。前の版をそのまま動かすなら `--no-build`。
+  - 今回の直しで見てほしい事は、Workflow の `args.checks`（文字の配列）で全家族に渡す。
 - 結果は毎回、報告の Artifact に「重い順の気づき・前回より良くなった／悪くなった所・家族ごとの ○△×」で足す。見つかった事は勝手に全部直さず、次の修正の案に入れて社長に出す。
 - シミュレーションは、わが家（`app/data/`）・本番（3210番）に触らない。
 - **アンケート（`/survey`）は社長が言った時だけ**（2026-11-03 本人指示）。1000組と画面を触った家族に、不便・使いづらさ・欲しい機能を聞き、全国に直して前回と比べる。手順は `.claude/skills/survey/SKILL.md`。答える役は Sonnet 以上（品質を重視し、クレジットは惜しまない）。

@@ -37,7 +37,7 @@ const LABELS: Record<string, [label: string, unit?: string]> = {
   checkup: ["健診"],
   vaccine: ["ワクチン"],
   dose: ["回"],
-  lot: ["ロット"],
+  lot: ["ロット（シールの番号）"],
   doctor: ["医師"],
   has: ["相談できる人"],
   whom: ["相手"],
@@ -66,3 +66,28 @@ export const SOURCE_LABEL: Record<TechoEntry["source"], string> = {
   text: "書いた",
   seed: "見本",
 };
+
+/**
+ * 接種の呼び方（保存する値は変えず、見出しだけそろえる）。家族が聞き慣れた呼び名＋正式な名前。
+ * 出典: 厚生労働省「予防接種情報」の定期接種の名前（五種混合は2024年4月から。DPT-IPV-Hib）。
+ * 左は保存されうる書き方（話した・撮った言葉の揺れも含む）、右は画面の見出し。
+ */
+const VACCINE_LABELS: [match: RegExp, label: string][] = [
+  [/^(B型肝炎|HBV?|ＨＢ)/i, "B型肝炎"],
+  [/^(ロタ|rota)/i, "ロタウイルス"],
+  [/(肺炎球菌|PCV)/i, "小児用肺炎球菌"],
+  [/^(五種混合|5種混合|DPT-IPV-Hib)/i, "五種混合"],
+  [/^(四種混合|4種混合|DPT-IPV)$/i, "四種混合"],
+  [/^(ヒブ|Hib)$/i, "ヒブ（Hib）"],
+  [/^BCG/i, "BCG"],
+  [/^(MR|麻しん風しん|麻疹風疹|麻しん・風しん)/i, "麻しん風しん（MR）"],
+  [/^(水痘|水ぼうそう|みずぼうそう)/, "水ぼうそう（水痘）"],
+  [/^(おたふく|ムンプス)/, "おたふくかぜ（任意）"],
+];
+
+/** 接種の名前を、画面の見出しの呼び方にする（知らない名前はそのまま） */
+export function vaccineLabel(name: string): string {
+  const n = name.normalize("NFKC").trim();
+  for (const [re, label] of VACCINE_LABELS) if (re.test(n)) return label;
+  return n;
+}

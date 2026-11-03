@@ -2,6 +2,7 @@
 
 // ① 入力ゼロ: 話すだけ・撮るだけで、記録と予定になる。
 // 開いた瞬間に出すのは「話す」「撮る」の2つだけ。記録の一覧は下に畳む。
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn, Why } from "@/components/ui";
@@ -12,6 +13,9 @@ import { TechoCandidates } from "./TechoCandidates";
 import { RecordItem, Timeline } from "./Timeline";
 
 type Last = CaptureResult & { transcript?: string; source: RecordSource };
+
+/** まだ答えていない聞き返し（サーバに残っている。開き直しても答える欄を出す） */
+type Ask = { captureId: string; question: string; basis: string; source: RecordSource };
 
 /** いつも出しておく連絡先（固定の文。消さない） */
 const CALL_LINE = "急ぎの時は 産院（夜間も）・119。子どもは #8000";
@@ -35,22 +39,56 @@ export function CaptureScreen() {
   const [writing, setWriting] = useState(false);
   const [answer, setAnswer] = useState("");
   const [last, setLast] = useState<Last | null>(null);
+  const [ask, setAsk] = useState<Ask | null>(null);
+  // 手帳で OK を待っている候補の数（話す・撮るの画面を離れても見失わないように）
+  const [pending, setPending] = useState(0);
+  // 手帳の「撮って足す」「話して足す」から来た時（/capture?techo=photo|voice）
+  const [from, setFrom] = useState<"photo" | "voice" | null>(null);
   const photoInput = useRef<HTMLInputElement>(null);
   const pageInput = useRef<HTMLInputElement>(null);
+  const pageButton = useRef<HTMLButtonElement>(null);
+  const talkBox = useRef<HTMLDivElement>(null);
+
+  const loadPending = useCallback(async () => {
+    try {
+      const j = await api<{ techo?: { data?: { pending?: boolean } }[] }>(`/api/techo?familyId=${encodeURIComponent(family.id)}&today=${today}`);
+      setPending((j.techo ?? []).filter((d) => d.data?.pending).length);
+    } catch {
+      // 数が読めなくても、話す・撮るは使える
+    }
+  }, [family.id, today]);
 
   const load = useCallback(async () => {
     try {
-      const j = await api<{ records: CaptureRecord[] }>(`/api/capture?familyId=${encodeURIComponent(family.id)}`);
+      const j = await api<{ records: CaptureRecord[]; ask?: Ask | null }>(`/api/capture?familyId=${encodeURIComponent(family.id)}&today=${today}`);
       setRecords(j.records);
+      setAsk(j.ask ?? null);
     } catch (e) {
       setError((e as Error).message);
     }
-  }, [family.id]);
+    void loadPending();
+  }, [family.id, today, loadPending]);
 
   useEffect(() => {
     setLast(null);
     void load();
   }, [load]);
+
+  // 手帳から来た時: 撮るなら紙の手帳のページを撮る欄を開き、話すなら話すボタンを見せる
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("techo");
+    if (t !== "photo" && t !== "voice") return;
+    setFrom(t);
+    if (t === "photo") {
+      pageButton.current?.scrollIntoView({ block: "center" });
+      // 端末によっては、押さずに写真を選ぶ欄は開けない（その時は光らせたボタンを押してもらう）
+      try {
+        pageInput.current?.click();
+      } catch {}
+    } else {
+      talkBox.current?.scrollIntoView({ block: "center" });
+    }
+  }, []);
 
   useEffect(() => {
     if (!busy) return;
@@ -141,14 +179,27 @@ export function CaptureScreen() {
   };
 
   const sendAnswer = async () => {
-    if (!last?.oneQuestion || !answer.trim()) return;
-    const prev = last;
+    if (!ask || !answer.trim()) return;
+    const prev = ask;
     await run("書き直しています", async () => ({
       ...(await api<CaptureResult>("/api/capture/answer", {
-        body: { familyId: family.id, today, captureId: prev.captureId, basis: prev.basis, question: prev.oneQuestion, answer, source: prev.source },
+        body: { familyId: family.id, today, captureId: prev.captureId, basis: prev.basis, question: prev.question, answer, source: prev.source },
       })),
       source: prev.source,
     }));
+  };
+
+  /** 聞き返しに答えない（残しておいた問いを消す。記録はそのまま） */
+  const skipAsk = async () => {
+    if (!ask) return;
+    const id = ask.captureId;
+    setAsk(null);
+    setAnswer("");
+    try {
+      await api(`/api/capture?familyId=${encodeURIComponent(family.id)}&captureId=${encodeURIComponent(id)}`, { method: "DELETE" });
+    } catch (e) {
+      setError((e as Error).message);
+    }
   };
 
   const seed = async () => {
@@ -168,8 +219,20 @@ export function CaptureScreen() {
       <h1 className="sr-only">話す・撮る</h1>
       <p className="text-base text-muted">話すだけ・撮るだけで、手帳に書きます</p>
 
+      {pending > 0 && (
+        <Link href="/techo" className="flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-warn/40 bg-warn/10 px-4 py-2">
+          <span className="text-base font-semibold">OK 待ち {pending}件</span>
+          <span className="shrink-0 text-base font-semibold text-sky">手帳で見る ›</span>
+        </Link>
+      )}
+
+      {from === "voice" && <p className="rounded-xl bg-rose-soft px-3 py-2 text-base font-semibold">「話す」を押したまま話すと、手帳の候補になります</p>}
+      {from === "photo" && <p className="rounded-xl bg-sky-soft px-3 py-2 text-base font-semibold">下の「紙の母子手帳のページを撮る」を押して、写真を選んでください</p>}
+
       <section aria-label="入れる" className="grid grid-cols-2 gap-3">
-        <HoldToTalk disabled={!!busy} onAudio={(b) => void sendVoice(b)} onError={setError} />
+        <div ref={talkBox} className={from === "voice" ? "rounded-3xl ring-4 ring-rose/40" : undefined}>
+          <HoldToTalk disabled={!!busy} onAudio={(b) => void sendVoice(b)} onError={setError} />
+        </div>
         <button
           type="button"
           disabled={!!busy}
@@ -195,10 +258,11 @@ export function CaptureScreen() {
       </section>
 
       <button
+        ref={pageButton}
         type="button"
         disabled={!!busy}
         onClick={() => pageInput.current?.click()}
-        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-sky/40 bg-card px-4 text-base font-semibold text-sky disabled:opacity-50"
+        className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-sky/40 bg-card px-4 text-base font-semibold text-sky disabled:opacity-50 ${from === "photo" ? "ring-4 ring-sky/40" : ""}`}
       >
         <BookIcon />
         紙の母子手帳のページを撮る
@@ -233,25 +297,7 @@ export function CaptureScreen() {
       {last && !busy && (
         <section aria-label="いま書いた事" className="flex flex-col gap-3 rounded-2xl bg-rose-soft p-5">
           <p className="font-display text-xl leading-relaxed font-bold">{last.reply}</p>
-          {last.oneQuestion && (
-            <div className="flex flex-col gap-2 rounded-xl bg-card p-3">
-              <label htmlFor="capture-answer" className="text-base font-semibold">
-                {last.oneQuestion}
-              </label>
-              <div className="flex gap-2">
-                <input
-                  id="capture-answer"
-                  value={answer}
-                  onChange={(e) => setAnswer(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && void sendAnswer()}
-                  className="min-h-11 min-w-0 flex-1 rounded-lg border border-line px-3 text-base"
-                />
-                <Btn onClick={() => void sendAnswer()} disabled={!answer.trim()}>
-                  答える
-                </Btn>
-              </div>
-            </div>
-          )}
+          {ask && ask.captureId === last.captureId && <AskBox ask={ask} answer={answer} setAnswer={setAnswer} onSend={() => void sendAnswer()} onSkip={() => void skipAsk()} />}
           {last.records.length > 0 && (
             <ul className="flex flex-col gap-2">
               {last.records.map((r) => (
@@ -259,12 +305,20 @@ export function CaptureScreen() {
               ))}
             </ul>
           )}
-          {last.techo?.length > 0 && <TechoCandidates key={last.captureId} familyId={family.id} items={last.techo} />}
+          {last.techo?.length > 0 && <TechoCandidates key={last.captureId} familyId={family.id} items={last.techo} onChange={() => void loadPending()} />}
           {last.transcript && (
             <Why label="聞き取った言葉">
               <p>「{last.transcript}」</p>
             </Why>
           )}
+        </section>
+      )}
+
+      {/* 開き直した時など、いま書いた事の下に無い聞き返し（前に聞いて、まだ答えていない問い） */}
+      {ask && !busy && ask.captureId !== last?.captureId && (
+        <section aria-label="まだ答えていない問い" className="flex flex-col gap-2 rounded-2xl bg-rose-soft p-4">
+          <p className="text-sm text-muted">前に入れた事について、1つだけ聞かせてください</p>
+          <AskBox ask={ask} answer={answer} setAnswer={setAnswer} onSend={() => void sendAnswer()} onSkip={() => void skipAsk()} />
         </section>
       )}
 
@@ -307,6 +361,32 @@ export function CaptureScreen() {
         <Timeline records={records} family={family} today={today} isDemo={isDemo} />
       </div>
     </main>
+  );
+}
+
+/** 聞き返しの問いと、答える欄 */
+function AskBox({ ask, answer, setAnswer, onSend, onSkip }: { ask: Ask; answer: string; setAnswer: (v: string) => void; onSend: () => void; onSkip: () => void }) {
+  return (
+    <div className="flex flex-col gap-2 rounded-xl bg-card p-3">
+      <label htmlFor="capture-answer" className="text-base font-semibold">
+        {ask.question}
+      </label>
+      <div className="flex gap-2">
+        <input
+          id="capture-answer"
+          value={answer}
+          onChange={(e) => setAnswer(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && !e.nativeEvent.isComposing && onSend()}
+          className="min-h-11 min-w-0 flex-1 rounded-lg border border-line px-3 text-base"
+        />
+        <Btn onClick={onSend} disabled={!answer.trim()}>
+          答える
+        </Btn>
+      </div>
+      <button type="button" onClick={onSkip} className="min-h-11 self-start px-1 text-sm text-muted underline underline-offset-2">
+        答えない（記録はこのまま）
+      </button>
+    </div>
   );
 }
 

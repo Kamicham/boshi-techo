@@ -32,5 +32,7 @@ export const POST = route(async (req: Request) => {
     if (Object.keys(names).length) patch.names = names as Record<string, string>;
   }
   if (k.office) patch.office = { name: str(k.office.name), address: str(k.office.address) };
+  // 発育曲線の帯の男女（手帳の画面で選んだ物）
+  if (k.childSex === "boy" || k.childSex === "girl") patch.childSex = k.childSex;
   return { keep: remember(fam.id, patch) };
 });

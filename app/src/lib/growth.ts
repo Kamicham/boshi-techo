@@ -12,7 +12,7 @@
 // - 1歳からは区分が6か月ごと（1年0〜6月未満 → 15か月に置く など）なので、1歳〜2歳の間は点がまばら。
 // - 1日〜4日の体重（生まれてすぐ一度減る所）は表にあるが、ここでは入れていない（曲線は出生時と30日を結ぶ）。
 // - 2歳6か月より先は入れていない（この手帳の1000日は2歳の誕生日まで）。
-// 約束: この表は帯を描くためだけに使う。点がどこにあるかで「ふつう」「異常」を言わない（GROWTH_NOTE）。
+// 約束: この表は帯を描くためだけに使う。点がどこにあるかで良し悪しを言わない（GROWTH_NOTE）。
 
 export type GrowthMeasure = "weight" | "height" | "head";
 export type GrowthSex = "boy" | "girl";
@@ -180,4 +180,31 @@ export interface GrowthPoint {
   month: number;
   value: number;
   date: string;
+}
+
+// ───────── 修正月齢（早く生まれた子の見方） ─────────
+// 早く生まれた子（在胎37週未満）は、生まれた日からの月齢から「予定日より早かった分」（40週 − 在胎週数）を引いた
+// 修正月齢で発育を見る事がある（2歳ごろまでの目安）。帯（国の調査）はそのまま。判定には使わない。
+
+/** 早く生まれた（修正月齢の切り替えを出す）在胎週の境目 */
+export const PRETERM_WEEKS = 37;
+export const CORRECTED_NOTE = "修正月齢は、早く生まれた子の見方の目安です（近似）。帯は国の調査のままで、点だけを予定日から数えた月齢に動かしています。";
+
+/**
+ * 出産の記録の週数（「32週」「32週3日」「32w3d」「32」など）を、週の小数にする。読めなければ null。
+ * 在胎週として現実的な 20〜45 の間だけ受け付ける。
+ */
+export function parseGestWeeks(v: unknown): number | null {
+  if (typeof v === "number") return v >= 20 && v <= 45 ? v : null;
+  if (typeof v !== "string") return null;
+  const s = v.normalize("NFKC").replace(/\s+/g, "");
+  const m = s.match(/(\d{2})(?:週|w|W|\+)?(?:(\d)(?:日|d|D)?)?/);
+  if (!m) return null;
+  const w = Number(m[1]) + (m[2] ? Number(m[2]) / 7 : 0);
+  return w >= 20 && w <= 45 ? w : null;
+}
+
+/** 予定日より早かった分（月）。在胎週から */
+export function correctionMonths(gestWeeks: number): number {
+  return monthsFromDays(Math.max(0, 40 - gestWeeks) * 7);
 }

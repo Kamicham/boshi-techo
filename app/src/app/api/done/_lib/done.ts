@@ -2,7 +2,10 @@
 // 下書きの印から付けた済みには auto: "draft" を付け、家族が自分で押した済みと分ける
 // （印を外した時に消すのは auto の物だけ。自分で押した済みは残す）。
 import "server-only";
-import { get, put, remove } from "@/lib/db";
+import { get, list, put, remove } from "@/lib/db";
+import type { Family } from "@/lib/demo-family";
+import { listTecho } from "@/lib/techo-store";
+import { doneFromTecho } from "@/lib/techo-done";
 
 export interface DoneData {
   milestoneId: string;
@@ -34,4 +37,41 @@ export function clearDoneFromDraft(familyId: string, milestoneId: string): void 
 
 export function removeDone(familyId: string, milestoneId: string): void {
   remove(doneId(familyId, milestoneId));
+}
+
+// ───────── 手帳の記録から合成する済み（lib/techo-done.ts） ─────────
+
+/** 日本時間の今日 */
+const jstToday = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
+
+/** 時計を進められる家族（デモ・30家族・1000組）。画面の「今日」はその端末の時計なので、サーバは知らない */
+const timeTravel = (id: string) => id.startsWith("demo-") || id.startsWith("sim-") || id.startsWith("pop-");
+
+/**
+ * 手帳の記録（予防接種・乳幼児健診）から済みになる予定の id。DB の done には書かない（毎回合成する。手帳の記録を消せば済みも外れる）。
+ * today: 画面の「今日」（クエリの today）。
+ * - 渡された時: その日までの記録（作った家族は、その日の時点の作った記録も混ぜる）
+ * - 渡されない時: わが家は日本時間の今日。時計を進められる家族は、作った記録は混ぜず、家族が自分で足した記録だけを日付で切らずに読む
+ *   （端末の時計がわからないまま作った記録を混ぜると、早送りの前の日に、まだ受けていない接種が済みに見えるため）
+ */
+export function doneFromTechoFor(family: Family, today?: string): string[] {
+  let docs;
+  let cut: string;
+  if (today) {
+    docs = listTecho(family.id, { family, today });
+    cut = today;
+  } else if (timeTravel(family.id)) {
+    docs = listTecho(family.id);
+    cut = "9999-12-31";
+  } else {
+    cut = jstToday();
+    docs = listTecho(family.id, { family, today: cut });
+  }
+  return [...doneFromTecho(docs.map((d) => d.data), cut)];
+}
+
+/** DB の済み＋手帳から合成した済み（今日の画面・参謀・健診のタブが同じ「済み」を見るため） */
+export function doneSetFor(family: Family, today?: string): Set<string> {
+  const db = list<DoneData>(family.id, "done").map((d) => d.data.milestoneId).filter((x): x is string => typeof x === "string");
+  return new Set([...db, ...doneFromTechoFor(family, today)]);
 }

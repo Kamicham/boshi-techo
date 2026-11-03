@@ -25,6 +25,9 @@ export interface Family extends FamilyDates {
   movedOn?: string;
   /** 家族の形（働き方・育休・上の子・双子・里帰り）。わからない欄は空のまま（今までどおりの予定が出る） */
   situation?: Situation;
+  /** 生まれた時の体重 g と在胎週数。保存はせず、サーバ（lib/family.ts）が手帳の出産の記録から埋めて返す。双子などは一番小さい子の体重 */
+  birthWeightG?: number;
+  birthWeek?: number;
 }
 
 export const DEMO_FAMILY: Family = {

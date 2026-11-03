@@ -32,6 +32,8 @@ export interface Keep {
   office?: { name?: string; address?: string };
   /** 家族へ送る時に選んだアプリ（次から先頭に出す） */
   shareVia?: "line" | "mail" | "share";
+  /** 子の性別（発育曲線の帯を男女どちらで描くか。帯を選ぶためだけに使う。一度選べば次から聞かない） */
+  childSex?: "boy" | "girl";
   updatedAt?: string;
 }
 

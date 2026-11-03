@@ -6,7 +6,7 @@
 // 正本は紙の手帳の「予防接種の記録」欄（医療機関が書く・シールを貼る）。ここは家族の控え。
 import { useState } from "react";
 import { Btn, Why } from "@/components/ui";
-import { jpDay } from "./labels";
+import { jpDay, vaccineLabel } from "./labels";
 import type { TechoItem } from "./useTecho";
 
 /** 2歳までの定期接種（今日の画面の予定と同じ名前） */
@@ -14,13 +14,14 @@ export const VACCINE_NAMES = ["B型肝炎", "ロタ", "小児用肺炎球菌", "
 
 export function VaccineList({ items, today, onAdd }: { items: TechoItem[]; today: string; onAdd: (v: { vaccine: string; dose?: string; lot?: string; facility?: string }, date: string) => Promise<void> }) {
   const done = items.filter((i) => !i.pending);
-  // ワクチンごとに束ねる（回の順＝日付の順）
+  // ワクチンごとに束ねる（回の順＝日付の順）。見出しは呼び方の表でそろえる（「水痘」と「水ぼうそう」を1つに）
   const groups = new Map<string, TechoItem[]>();
   for (const it of done) {
-    const name = String(it.values.vaccine ?? it.title ?? "");
+    const name = vaccineLabel(String(it.values.vaccine ?? it.title ?? ""));
     groups.set(name, [...(groups.get(name) ?? []), it]);
   }
-  const order = [...VACCINE_NAMES.filter((n) => groups.has(n)), ...[...groups.keys()].filter((n) => !(VACCINE_NAMES as readonly string[]).includes(n))];
+  const known = VACCINE_NAMES.map(vaccineLabel);
+  const order = [...known.filter((n) => groups.has(n)), ...[...groups.keys()].filter((n) => !known.includes(n))];
 
   return (
     <div className="flex flex-col gap-3">
@@ -35,7 +36,7 @@ export function VaccineList({ items, today, onAdd }: { items: TechoItem[]; today
                     <span className="font-semibold">{jpDay(it.date)}</span>
                     {it.values.dose ? `　${String(it.values.dose)}` : ""}
                     <span className="block text-sm text-muted">
-                      {[it.values.lot ? `ロット ${String(it.values.lot)}` : "", it.values.facility ? String(it.values.facility) : ""].filter(Boolean).join("　") || "ロット・医療機関は未記入"}
+                      {[it.values.lot ? `ロット（シールの番号） ${String(it.values.lot)}` : "", it.values.facility ? String(it.values.facility) : ""].filter(Boolean).join("　") || "ロット（シールの番号）・医療機関は未記入"}
                     </span>
                   </li>
                 ))}
@@ -47,7 +48,7 @@ export function VaccineList({ items, today, onAdd }: { items: TechoItem[]; today
       <AddVaccine today={today} onAdd={onAdd} />
       <Why>
         <p>正式な記録は、紙の手帳の「予防接種の記録」欄です（医療機関が書き、シールを貼ります）。ここはその控えです。</p>
-        <p>保育園・学校・海外へ行く時に、受けた日とロットを聞かれる事があります。手元に控えがあると、すぐ答えられます。</p>
+        <p>保育園・学校・海外へ行く時に、受けた日とロット（シールの番号）を聞かれる事があります。手元に控えがあると、すぐ答えられます。</p>
       </Why>
     </div>
   );
@@ -99,7 +100,9 @@ function AddVaccine({ today, onAdd }: { today: string; onAdd: (v: { vaccine: str
         ワクチン
         <select value={vaccine} onChange={(e) => setVaccine(e.target.value)} className={field}>
           {[...VACCINE_NAMES, "その他"].map((n) => (
-            <option key={n}>{n}</option>
+            <option key={n} value={n}>
+              {n === "その他" ? n : vaccineLabel(n)}
+            </option>
           ))}
         </select>
       </label>

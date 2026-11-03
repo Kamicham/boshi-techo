@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PREGNANCY_ONLY, deadlineKindOf, scheduleFor, statusOf } from "./milestones";
+import { PREGNANCY_ONLY, daycarePlan, deadlineKindOf, schoolEntry, scheduleFor, statusOf } from "./milestones";
 import type { Situation } from "./situation";
 
 // 予定日 2027-05-10 の家族（すべて作った家族）
@@ -110,5 +110,103 @@ describe("時期", () => {
       expect(m.needsLocal).toBe(true);
     }
     expect(s.find((x) => x.id === "bcg")?.deadlineDate).toBe("2028-05-09");
+  });
+});
+
+describe("1000日の先（2歳を過ぎてから）", () => {
+  const s = scheduleFor({ dueDate: due, birthDate: due, members: both });
+  const at = (id: string) => s.find((x) => x.id === id)!;
+  it("3歳児健診: 満3歳から満4歳になるまで（母子保健法第12条）", () => {
+    expect(at("checkup-3y").startDate).toBe("2030-05-10");
+    expect(at("checkup-3y").deadlineDate).toBe("2031-05-09");
+    expect(at("checkup-3y").basis).toContain("母子保健法第12条");
+  });
+  it("日本脳炎: 1期の初回は3歳・追加は4歳", () => {
+    expect(at("je-vaccine-1").startDate).toBe("2030-05-10");
+    expect(at("je-vaccine-1-booster").startDate).toBe("2031-05-10");
+  });
+  it("麻しん風しん（MR）2期: 小学校に入る前の1年間（4月1日生まれは1学年早い）", () => {
+    expect(schoolEntry("2027-05-10")).toBe("2034-04-01");
+    expect(schoolEntry("2027-04-02")).toBe("2034-04-01");
+    expect(schoolEntry("2027-04-01")).toBe("2033-04-01");
+    expect(schoolEntry("2028-03-31")).toBe("2034-04-01");
+    expect(at("mr-vaccine-2").startDate).toBe("2033-04-01");
+    expect(at("mr-vaccine-2").deadlineDate).toBe("2034-03-31");
+  });
+  it("2歳を過ぎても「まだ先」の事がある（「1000日を過ぎました」の後も次が出る）", () => {
+    const later = s.filter((m) => statusOf(m, "2029-06-01", new Set()) === "まだ先").map((m) => m.id);
+    expect(later).toEqual(expect.arrayContaining(["checkup-3y", "je-vaccine-1", "mr-vaccine-2"]));
+  });
+  it("接種の呼び方を手帳とそろえる（水ぼうそう（水痘）・麻しん風しん（MR））", () => {
+    expect(at("vaccines-18m").plain).toBe("水ぼうそう（水痘）の2回目を受ける");
+    expect(at("first-birthday-vaccines").hint).toContain("麻しん風しん（MR）");
+    for (const m of s) {
+      expect(m.plain.length, m.plain).toBeLessThanOrEqual(20);
+      expect(m.hint.length, m.hint).toBeLessThanOrEqual(40);
+    }
+  });
+});
+
+describe("保育園（4月入園）", () => {
+  const work = { motherWork: "会社員・公務員", partnerWork: "会社員・公務員" } as Situation;
+  it("生後6か月を過ぎて最初の4月に入る段取り（前の年の秋に申し込む）", () => {
+    const p = daycarePlan("2027-05-10");
+    expect(p.entry).toBe("2028-04-01");
+    expect(p.apply).toEqual({ start: "2027-10-01", deadline: "2027-11-30" });
+    expect(p.cert.start).toBe("2027-09-01");
+    expect(p.cert.deadline! < p.apply.deadline!).toBe(true);
+    expect(p.back).toEqual({ start: "2028-02-01", deadline: "2028-03-01" });
+    // 秋生まれは翌々年の4月（1歳児クラス）。申し込みは生後1か月より前に置かない
+    expect(daycarePlan("2027-10-15").entry).toBe("2029-04-01");
+    const sep = daycarePlan("2027-09-20");
+    expect(sep.entry).toBe("2028-04-01");
+    expect(sep.apply.start).toBe("2027-10-20");
+  });
+  it("共働きに出す。申し込み・両方の就労証明書・復職の日", () => {
+    const s = scheduleFor({ dueDate: due, birthDate: due, situation: work, members: both });
+    const x = s.map((m) => m.id);
+    expect(x).toEqual(expect.arrayContaining(["daycare-apply", "daycare-cert-mother", "daycare-cert-partner", "return-to-work"]));
+    const apply = s.find((m) => m.id === "daycare-apply")!;
+    expect(apply.startDate).toBe("2027-10-01");
+    expect(apply.needsLocal).toBe(true);
+    expect(deadlineKindOf(apply)).toBe("目安");
+    expect(apply.basis).toContain("町で確かめる");
+    expect(s.find((m) => m.id === "daycare-research")?.startDate).toBe("2027-06-10");
+  });
+  it("母が仕事なし・出産で辞める・パートナーが仕事なしなら出さない。ひとりで働く母には出す（パートナーの分は無し）", () => {
+    for (const sit of [{ motherWork: "仕事なし" }, { motherWork: "出産で辞める" }, { motherWork: "会社員・公務員", partnerWork: "仕事なし" }] as Situation[]) {
+      expect(ids(sit)).not.toContain("daycare-apply");
+    }
+    const single = ids({ motherWork: "パート・派遣" }, [{ role: "母" }]);
+    expect(single).toEqual(expect.arrayContaining(["daycare-apply", "daycare-cert-mother"]));
+    expect(single).not.toContain("daycare-cert-partner");
+    // 自営の母は申し込むが、職場に頼む就労証明書は無い
+    const self = ids({ motherWork: "自営・フリー", partnerWork: "自営・フリー" });
+    expect(self).toContain("daycare-apply");
+    expect(self).not.toContain("daycare-cert-mother");
+  });
+});
+
+describe("小さく生まれた子", () => {
+  const of = (birthWeightG?: number) => scheduleFor({ dueDate: due, birthDate: due, members: both, birthWeightG }).map((m) => m.id);
+  it("2500g 未満で届け、2000g 以下で養育医療。わからなければ出さない", () => {
+    expect(of(undefined)).not.toContain("low-birth-weight-report");
+    expect(of(3100)).not.toContain("low-birth-weight-report");
+    expect(of(2400)).toContain("low-birth-weight-report");
+    expect(of(2400)).not.toContain("preterm-medical");
+    expect(of(1900)).toEqual(expect.arrayContaining(["low-birth-weight-report", "preterm-medical"]));
+    const m = scheduleFor({ dueDate: due, birthDate: due, birthWeightG: 1900 }).find((x) => x.id === "low-birth-weight-report")!;
+    expect(m.basis).toContain("母子保健法第18条");
+  });
+});
+
+describe("授かる前", () => {
+  it("今日が最終月経の日より前なら、どの事も日付で出さない（「授かったら」）", () => {
+    const s = scheduleFor({ dueDate: due }, "2026-07-01");
+    expect(s.every((m) => m.awaitingPregnancy)).toBe(true);
+    expect(statusOf(s.find((m) => m.id === "pregnancy-report")!, "2026-07-01", new Set())).toBe("まだ先");
+    // 授かった後（最終月経の日から）は今までどおり
+    expect(scheduleFor({ dueDate: due }, "2026-08-03").some((m) => m.awaitingPregnancy)).toBe(false);
+    expect(scheduleFor({ dueDate: due }).some((m) => m.awaitingPregnancy)).toBe(false);
   });
 });

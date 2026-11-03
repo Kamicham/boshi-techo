@@ -22,11 +22,12 @@ export function tidySituation(s: Situation, hasPartner: boolean): Situation {
   return out;
 }
 
-export function SituationForm({ value, onChange, hasPartner }: { value: Situation; onChange: (s: Situation) => void; hasPartner: boolean }) {
+/** disabled: 見るだけ（シミュレーションの作った家族は、家族の形を保存できないので押せなくする） */
+export function SituationForm({ value, onChange, hasPartner, disabled }: { value: Situation; onChange: (s: Situation) => void; hasPartner: boolean; disabled?: boolean }) {
   const set = (patch: Partial<Situation>) => onChange({ ...value, ...patch });
 
   return (
-    <div className="flex flex-col gap-5">
+    <fieldset disabled={disabled} className="flex min-w-0 flex-col gap-5 disabled:opacity-80">
       <Ask label="ママの働き方（妊娠中）">
         <Choice options={MOTHER_WORKS} value={value.motherWork} onPick={(v) => set({ motherWork: v })} name="mother-work" />
       </Ask>
@@ -62,7 +63,7 @@ export function SituationForm({ value, onChange, hasPartner }: { value: Situatio
       <Ask label="里帰り出産は？">
         <YesNo yes="する" no="しない" value={value.satogaeri} onPick={(v) => set({ satogaeri: v })} name="satogaeri" />
       </Ask>
-    </div>
+    </fieldset>
   );
 }
 

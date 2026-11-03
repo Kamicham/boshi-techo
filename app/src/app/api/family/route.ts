@@ -1,9 +1,10 @@
 import { body, route } from "@/lib/api";
-import { allFamilies, cleanSituation, getFamily, HttpError, MINE_ID, saveMine } from "@/lib/family";
+import { allFamilies, cleanSituation, getFamily, HttpError, MINE_ID, saveMine, withBirthFacts } from "@/lib/family";
 import { list, put } from "@/lib/db";
 import { scheduleFor } from "@/lib/milestones";
 import type { Family } from "@/lib/demo-family";
 
+/** 家族の一覧。どの家族にも、手帳の出産の記録から birthWeightG・birthWeek（生まれた時の体重 g・週数）を埋めて返す */
 export const GET = route(async (req: Request) => {
   const families = allFamilies();
   // シミュレーションのサーバだけ: 1000組の家族（pop-）は一覧に入れず、開いている家族だけを足す
@@ -36,6 +37,7 @@ export const POST = route(async (req: Request) => {
   // 家族の形: 送られて来なければ前のままにする。パートナーの欄は、パートナーを入れた時だけ持つ
   const hasPartner = members.some((m) => m.role === "パートナー");
   const situation = "situation" in b ? cleanSituation(b.situation, hasPartner) : prior?.situation;
+  // 生まれた時の体重・週数は保存せず、手帳の出産の記録から毎回埋める（withBirthFacts）
   const fam = saveMine({
     ...move,
     startedOn: restart ? today : prior!.startedOn,
@@ -47,14 +49,15 @@ export const POST = route(async (req: Request) => {
     members,
     ...(situation ? { situation } : {}),
   });
+  const full = withBirthFacts(fam);
   // 途中から使い始めた家族: 使い始める前に期限が過ぎた事（妊娠の届出など）は、もう済んでいるものとして扱う
   if (restart) {
     const done = new Set(list<{ milestoneId?: string }>(MINE_ID, "done").map((d) => d.data.milestoneId));
-    for (const m of scheduleFor(fam)) {
+    for (const m of scheduleFor(full, today)) {
       if (m.deadlineDate && !m.awaitingBirth && m.deadlineDate < today && !done.has(m.id)) {
         put(MINE_ID, "done", { milestoneId: m.id, today, at: new Date().toISOString(), auto: "started-late" }, { id: `done:${MINE_ID}:${m.id}`, date: today });
       }
     }
   }
-  return { family: fam };
+  return { family: full };
 });

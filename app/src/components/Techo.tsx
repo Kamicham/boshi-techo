@@ -13,11 +13,13 @@ import { Fold, NextStep, daysUntil } from "./ui";
 import { DemoClock } from "./today/DemoClock";
 import { TaskRow, TopTask, type ShownTask } from "./today/TaskCard";
 import { StaleBox } from "./today/StaleBox";
-import { jpShort } from "./today/dates";
 import { AdvisorCard } from "./today/AdvisorCard";
 import { ConsultAsk } from "./today/ConsultAsk";
-import { byDays, daysLeft, planToday, type Task } from "./today/task";
+import { byDays, dateWord, daysLeft, planToday, type Task } from "./today/task";
 import { VisitToday, visitIsTop } from "./today/VisitToday";
+
+/** 「済んだにしました・もどす」を出しておく長さ */
+const UNDO_MS = 6000;
 
 // ほかの画面が使っている日付の言い方（中身は today/dates.ts）
 export { jpDate } from "./today/dates";
@@ -26,6 +28,8 @@ export function Techo() {
   const { family, today, setToday, isDemo, me } = useFamily();
   const [marked, setMarked] = useState<Set<string>>(new Set());
   const [lastDone, setLastDone] = useState<{ id: string; title: string } | null>(null);
+  // 手帳の記録（接種・健診など）から済みにした事（/api/done の fromTecho。無い版では空）。「戻す」は出さない
+  const [fromTecho, setFromTecho] = useState<Set<string>>(new Set());
   const [doneError, setDoneError] = useState("");
   const [visit, setVisit] = useState<{ next: VisitPlan["next"]; agenda: number } | null>(null);
   const [keep, setKeep] = useState<Keep | null>(null);
@@ -42,10 +46,25 @@ export function Techo() {
     setFocusId(new URLSearchParams(window.location.search).get("focus"));
   }, []);
 
+  /** GET /api/done の返り（fromTecho は担当A の版から。無ければ空として読む） */
+  type DoneRes = { done: string[]; fromTecho?: string[] };
+  const readDone = useCallback((j: DoneRes) => {
+    setMarked(new Set(Array.isArray(j.done) ? j.done : []));
+    setFromTecho(new Set(Array.isArray(j.fromTecho) ? j.fromTecho : []));
+  }, []);
+
+  // 「済んだにしました・もどす」は数秒だけ出す（押し間違えた時に戻せるように）
+  useEffect(() => {
+    if (!lastDone) return;
+    const t = setTimeout(() => setLastDone(null), UNDO_MS);
+    return () => clearTimeout(t);
+  }, [lastDone]);
+
   // 済んだ印（DB の done）と、いつもの場所（病院・窓口）
   useEffect(() => {
     let alive = true;
     setMarked(new Set());
+    setFromTecho(new Set());
     setLastDone(null);
     setDoneError("");
     setKeep(null);
@@ -53,8 +72,8 @@ export function Techo() {
     setDoneReady(false);
     setSentReady(false);
     const fid = encodeURIComponent(family.id);
-    api<{ done: string[] }>(`/api/done?familyId=${fid}`)
-      .then((j) => alive && setMarked(new Set(j.done)))
+    api<DoneRes>(`/api/done?familyId=${fid}&today=${today}`)
+      .then((j) => alive && readDone(j))
       .catch((e: Error) => alive && setDoneError(e.message))
       .finally(() => alive && setDoneReady(true));
     api<{ keep: Keep }>(`/api/keep?familyId=${fid}`)
@@ -63,7 +82,9 @@ export function Techo() {
     return () => {
       alive = false;
     };
-  }, [family.id]);
+    // 手帳で済んだ事は「今日」までの記録から決まるので、今日が変わった時も読み直す
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [family.id, today]);
 
   // 下書きの印は、ほかの画面・ほかの端末でも付く。開いた時と、画面に戻ってきた時に読み直す
   useEffect(() => {
@@ -77,8 +98,8 @@ export function Techo() {
     // 戻ってきた時は済んだ印も（下書きの印を付けると、サーバ側で同時に済みになるため）
     const load = () => {
       void loadSent();
-      api<{ done: string[] }>(`/api/done?familyId=${fid}`)
-        .then((j) => alive && setMarked(new Set(j.done)))
+      api<DoneRes>(`/api/done?familyId=${fid}&today=${today}`)
+        .then((j) => alive && readDone(j))
         .catch(() => {});
     };
     void loadSent();
@@ -93,7 +114,7 @@ export function Techo() {
       window.removeEventListener("focus", load);
       window.removeEventListener("boshi:done", load);
     };
-  }, [family.id]);
+  }, [family.id, today, readDone]);
 
   // 気づいた事が今あるか（機械で見つけるだけなので速い。Claude が書くのは AdvisorCard が読む時）
   useEffect(() => {
@@ -141,7 +162,7 @@ export function Techo() {
     [marked, family.id, today],
   );
 
-  const schedule = useMemo(() => scheduleFor(family), [family]);
+  const schedule = useMemo(() => scheduleFor(family, today), [family, today]);
 
   const setManyDone = useCallback(
     async (ids: string[]) => {
@@ -163,10 +184,10 @@ export function Techo() {
 
   // デモの早送り: 通り過ぎた期限の事は、家族が済ませた前提にする
   const done = useMemo(() => {
-    const s = new Set([...marked, ...sent]);
+    const s = new Set([...marked, ...sent, ...fromTecho]);
     if (isDemo) for (const m of schedule) if (m.deadlineDate && m.deadlineDate < today) s.add(m.id);
     return s;
-  }, [marked, sent, schedule, today, isDemo]);
+  }, [marked, sent, fromTecho, schedule, today, isDemo]);
 
   const tasks: ShownTask[] = schedule.map((m) => ({ ...m, status: statusOf(m, today, done) }));
   const plan = planToday(tasks, today, me);
@@ -201,20 +222,23 @@ export function Techo() {
           保存できませんでした: {doneError}
         </p>
       )}
+      {/* 押した場所から見える所（下のタブの上）に、数秒だけ出す */}
       {lastDone && (
-        <p role="status" className="flex items-center justify-between gap-3 rounded-lg bg-ok/10 px-3 text-base text-ok">
-          <span className="min-w-0 py-2">「{lastDone.title}」を済みにしました</span>
-          <button
-            type="button"
-            onClick={() => {
-              const m = schedule.find((x) => x.id === lastDone.id);
-              if (m) void setDone(m, false);
-            }}
-            className="min-h-11 shrink-0 px-2 font-semibold underline underline-offset-2"
-          >
-            戻す
-          </button>
-        </p>
+        <div className="pointer-events-none fixed inset-x-0 bottom-20 z-20 flex justify-center px-4" style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}>
+          <p role="status" className="pointer-events-auto flex w-full max-w-md items-center justify-between gap-3 rounded-xl bg-ink px-4 text-base text-white shadow-lg">
+            <span className="min-w-0 py-3">「{lastDone.title}」を済んだにしました</span>
+            <button
+              type="button"
+              onClick={() => {
+                const m = schedule.find((x) => x.id === lastDone.id);
+                if (m) void setDone(m, false);
+              }}
+              className="min-h-11 shrink-0 px-2 font-semibold underline underline-offset-2"
+            >
+              もどす
+            </button>
+          </p>
+        </div>
       )}
 
       {!loading && advisorOpen! > 0 && <AdvisorCard key={`${family.id}:${today}`} familyId={family.id} today={today} meId={me?.id} />}
@@ -275,10 +299,14 @@ export function Techo() {
             {finished.map((t) => (
               <li key={t.id} className="flex min-h-12 items-center justify-between gap-3 border-b border-line last:border-b-0">
                 <span className="min-w-0 text-base text-muted">✓ {t.plain}</span>
-                {marked.has(t.id) && (
+                {fromTecho.has(t.id) ? (
+                  <span className="shrink-0 rounded-full bg-ok/10 px-2 py-0.5 text-sm text-ok">手帳で済み</span>
+                ) : (
+                  marked.has(t.id) && (
                   <button type="button" onClick={() => void setDone(t, false)} className="min-h-11 shrink-0 px-2 text-sm text-muted underline underline-offset-2">
                     戻す
                   </button>
+                  )
                 )}
               </li>
             ))}
@@ -327,8 +355,8 @@ function Calm({ upcoming, today }: { upcoming?: Task; today: string }) {
       tone="ok"
       eyebrow="今週は何もしなくて大丈夫"
       title={`次は「${upcoming.plain}」`}
-      days={daysUntil(today, upcoming.startDate)}
-      dateLabel={`${jpShort(upcoming.startDate)}から`}
+      days={upcoming.awaitingPregnancy ? undefined : daysUntil(today, upcoming.startDate)}
+      dateLabel={upcoming.awaitingPregnancy ? "授かったら" : `${dateWord(upcoming.startDate, today)}から`}
     />
   );
 }

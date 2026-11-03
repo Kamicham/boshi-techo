@@ -1,18 +1,23 @@
 "use client";
 
 // 発育曲線: 国の調査（令和5年）の 3〜97 パーセンタイルの帯と 50 の線に、家族の記録の点を打つ。
-// 点の位置で「ふつう」「異常」を言わない。手帳と同じ注意書き（GROWTH_NOTE）をそのまま出す。
+// 点の位置で良し悪しを言わない。手帳と同じ注意書き（GROWTH_NOTE）をそのまま出す。
+// 帯の男女は家族ごとに覚える（/api/keep の childSex）。早く生まれた子は、修正月齢で見る切り替えを出す。
 import { useEffect, useMemo, useState } from "react";
-import { useFamily } from "@/components/FamilyProvider";
+import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn, Why } from "@/components/ui";
 import { diffDays } from "@/lib/clock";
 import {
   bandAt,
+  CORRECTED_NOTE,
+  correctionMonths,
   GROWTH_APPROX_NOTE,
   GROWTH_LABELS,
   GROWTH_SOURCE,
   GROWTH_UNITS,
   monthsFromDays,
+  parseGestWeeks,
+  PRETERM_WEEKS,
   type GrowthMeasure,
   type GrowthPoint,
   type GrowthSex,
@@ -50,29 +55,66 @@ export function growthPoints(items: TechoItem[], birthDate: string, measure: Gro
   return out.sort((a, b) => a.month - b.month);
 }
 
-const SEX_KEY = (familyId: string) => `boshi.childSex.${familyId}`;
+/** 前にこの端末で覚えていた帯の男女（家族ごとの保存へ移す前の物） */
+const OLD_SEX_KEY = (familyId: string) => `boshi.childSex.${familyId}`;
+
+/** 出産の記録の週数（在胎週）。読めなければ null */
+export function birthGestWeeks(items: TechoItem[]): number | null {
+  for (const it of items) {
+    if (it.pending || it.page !== "birth") continue;
+    const w = parseGestWeeks(it.values.week);
+    if (w != null) return w;
+  }
+  return null;
+}
 
 export function GrowthChart({ items, onAdd }: { items: TechoItem[]; onAdd: (values: Record<string, number>, date: string) => Promise<void> }) {
   const { family, today } = useFamily();
   const [measure, setMeasure] = useState<GrowthMeasure>("weight");
-  const [sex, setSex] = useState<GrowthSex | null>(null);
-  // 子どもの性別はまだ家族の設定に無いので、この端末で覚える（帯が男女で違うため）
+  // undefined = まだ読んでいる。null = まだ選んでいない
+  const [sex, setSex] = useState<GrowthSex | null | undefined>(undefined);
+  const [corrected, setCorrected] = useState(false);
+  // 帯の男女は家族ごとに覚える（どの端末から開いても、一度選べば次から聞かない）
   useEffect(() => {
-    let v: string | null = null;
-    try {
-      v = localStorage.getItem(SEX_KEY(family.id));
-    } catch {}
-    setSex(v === "boy" || v === "girl" ? v : null);
+    let alive = true;
+    setSex(undefined);
+    api<{ keep?: { childSex?: GrowthSex } }>(`/api/keep?familyId=${encodeURIComponent(family.id)}`)
+      .then((r) => {
+        if (!alive) return;
+        const kept = r.keep?.childSex;
+        if (kept === "boy" || kept === "girl") {
+          setSex(kept);
+          return;
+        }
+        // 前にこの端末で選んでいたら、家族の記録へ移す
+        let old: string | null = null;
+        try {
+          old = localStorage.getItem(OLD_SEX_KEY(family.id));
+        } catch {}
+        if (old === "boy" || old === "girl") {
+          setSex(old);
+          void api("/api/keep", { body: { familyId: family.id, keep: { childSex: old } } }).catch(() => {});
+        } else setSex(null);
+      })
+      .catch(() => alive && setSex(null));
+    return () => {
+      alive = false;
+    };
   }, [family.id]);
   const chooseSex = (s: GrowthSex) => {
     setSex(s);
-    try {
-      localStorage.setItem(SEX_KEY(family.id), s);
-    } catch {}
+    void api("/api/keep", { body: { familyId: family.id, keep: { childSex: s } } }).catch(() => {});
   };
+
+  const gest = useMemo(() => birthGestWeeks(items), [items]);
+  const preterm = gest != null && gest < PRETERM_WEEKS;
+  const shift = preterm && corrected ? correctionMonths(gest) : 0;
 
   const birth = family.birthDate && diffDays(today, family.birthDate) >= 0 ? family.birthDate : null;
   const points = useMemo(() => (birth ? growthPoints(items, birth, measure) : []), [items, birth, measure]);
+  // 修正月齢で見る時は、点だけを予定日から数えた月齢に動かす（帯はそのまま）
+  const drawn = useMemo(() => (shift ? points.map((p) => ({ ...p, month: p.month - shift })) : points), [points, shift]);
+  const beforeZero = drawn.filter((p) => p.month < 0).length;
 
   if (!birth) {
     return <p className="text-base text-muted">生まれた日が入ると、ここに曲線が出ます（設定の「生まれた日」）。</p>;
@@ -95,7 +137,32 @@ export function GrowthChart({ items, onAdd }: { items: TechoItem[]; onAdd: (valu
         ))}
       </div>
 
-      {sex == null ? (
+      {preterm && (
+        <div className="flex flex-col gap-1 rounded-xl bg-paper p-3">
+          <div className="flex gap-2" role="tablist" aria-label="月齢の数え方">
+            {([false, true] as const).map((c) => (
+              <button
+                key={String(c)}
+                type="button"
+                role="tab"
+                aria-selected={corrected === c}
+                onClick={() => setCorrected(c)}
+                className={`min-h-11 flex-1 rounded-full border text-base font-semibold ${corrected === c ? "border-rose bg-rose-soft text-rose" : "border-line bg-card text-muted"}`}
+              >
+                {c ? "修正月齢で見る" : "生まれた日から"}
+              </button>
+            ))}
+          </div>
+          <p className="text-sm text-muted">
+            出産の記録の週数（{Math.floor(gest)}週{Math.round((gest % 1) * 7) ? `${Math.round((gest % 1) * 7)}日` : ""}）から、予定日より早かった分を引いて数えます。{CORRECTED_NOTE}
+          </p>
+          {corrected && beforeZero > 0 && <p className="text-sm text-muted">予定日より前の{beforeZero}件は曲線の外です（下の一覧には出ます）。</p>}
+        </div>
+      )}
+
+      {sex === undefined ? (
+        <p className="text-base text-muted">帯を用意しています…</p>
+      ) : sex == null ? (
         <div className="flex flex-col gap-2 rounded-xl bg-paper p-3">
           <p className="text-base">帯は男の子と女の子で少し違います。どちらの帯で見ますか？</p>
           <div className="flex gap-2">
@@ -105,7 +172,7 @@ export function GrowthChart({ items, onAdd }: { items: TechoItem[]; onAdd: (valu
         </div>
       ) : (
         <>
-          <Chart measure={measure} sex={sex} points={points} />
+          <Chart measure={measure} sex={sex} points={drawn} corrected={shift > 0} />
           <p className="flex flex-wrap items-center gap-x-3 text-sm text-muted">
             <span>{sex === "boy" ? "男の子" : "女の子"}の帯</span>
             <button type="button" className="min-h-11 underline" onClick={() => chooseSex(sex === "boy" ? "girl" : "boy")}>
@@ -145,15 +212,16 @@ export function GrowthChart({ items, onAdd }: { items: TechoItem[]; onAdd: (valu
   );
 }
 
-function Chart({ measure, sex, points }: { measure: GrowthMeasure; sex: GrowthSex; points: GrowthPoint[] }) {
+function Chart({ measure, sex, points, corrected }: { measure: GrowthMeasure; sex: GrowthSex; points: GrowthPoint[]; corrected: boolean }) {
   const { band, mid, yMin, yMax } = useMemo(() => {
     const steps: { m: number; p: number[] }[] = [];
     for (let m = 0; m <= X_MAX + 1e-9; m += 0.25) {
       const p = bandAt(measure, sex, m);
       if (p) steps.push({ m, p });
     }
-    let lo = Math.min(...steps.map((s) => s.p[0]), ...points.map((p) => p.value));
-    let hi = Math.max(...steps.map((s) => s.p[6]), ...points.map((p) => p.value));
+    const inRange = points.filter((p) => p.month >= 0 && p.month <= X_MAX);
+    let lo = Math.min(...steps.map((s) => s.p[0]), ...inRange.map((p) => p.value));
+    let hi = Math.max(...steps.map((s) => s.p[6]), ...inRange.map((p) => p.value));
     const pad = (hi - lo) * 0.05;
     lo = Math.floor(lo - pad);
     hi = Math.ceil(hi + pad);
@@ -167,7 +235,7 @@ function Chart({ measure, sex, points }: { measure: GrowthMeasure; sex: GrowthSe
   const yStep = measure === "weight" ? 2 : 5;
   const yTicks: number[] = [];
   for (let v = Math.ceil(yMin / yStep) * yStep; v <= yMax; v += yStep) yTicks.push(v);
-  const shown = points.filter((p) => p.month <= X_MAX);
+  const shown = points.filter((p) => p.month >= 0 && p.month <= X_MAX);
   const unit = GROWTH_UNITS[measure];
 
   return (
@@ -187,7 +255,7 @@ function Chart({ measure, sex, points }: { measure: GrowthMeasure; sex: GrowthSe
           </text>
         ))}
         <text x={W - PAD.r} y={H - 4} textAnchor="end" fontSize={9} fill="currentColor" className="text-muted">
-          生後（か月）
+          {corrected ? "修正月齢（か月）" : "生後（か月）"}
         </text>
         <text x={4} y={PAD.t + 2} fontSize={9} fill="currentColor" className="text-muted">
           {unit}

@@ -12,7 +12,7 @@ export const GET = route(async (req: Request) => {
 });
 
 type Post =
-  | { familyId?: string; today?: string; action: "confirm" | "remove"; id?: string; ids?: string[] }
+  | { familyId?: string; today?: string; action: "confirm" | "remove"; id?: string; ids?: string[]; date?: string; dates?: Record<string, string> }
   | { familyId?: string; today?: string; action: "add"; entries?: unknown[] };
 
 export const POST = route(async (req: Request) => {
@@ -22,7 +22,10 @@ export const POST = route(async (req: Request) => {
     const ids = [...(b.id ? [b.id] : []), ...(Array.isArray(b.ids) ? b.ids : [])].filter((x): x is string => typeof x === "string").slice(0, 200);
     if (!ids.length) throw new HttpError(400, "どの記録か分かりません");
     if (b.action === "confirm") {
-      const done = ids.map((id) => confirmTecho(id, family.id)).filter((d) => d != null);
+      // 日付を直した時: dates は id ごと、date は全部に同じ日（家族が候補の日付の欄で入れた日）
+      const today = todayOf(b.today);
+      const dateOf = (id: string) => (b.dates && typeof b.dates === "object" && typeof b.dates[id] === "string" ? b.dates[id] : typeof b.date === "string" ? b.date : undefined);
+      const done = ids.map((id) => confirmTecho(id, family.id, dateOf(id), today)).filter((d) => d != null);
       if (!done.length) throw new HttpError(404, "記録が見つかりません");
       return { techo: done };
     }

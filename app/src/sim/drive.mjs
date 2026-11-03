@@ -4,12 +4,15 @@
 //
 //   node src/sim/drive.mjs <家族id> setup <meId> <今日 YYYY-MM-DD>   その家族・その人・その日で開く
 //   node src/sim/drive.mjs <家族id> open </path>                     画面を開く
-//   node src/sim/drive.mjs <家族id> see                               見えている文字と、押せる物の番号
+//   node src/sim/drive.mjs <家族id> see                               見えている文字と、押せる物の番号（欄の今の値・選んだ状態・押せない物も出す）
+//   node src/sim/drive.mjs <家族id> all                               画面の上から下までの文字（件数を数える・長い手帳を見渡す時）
+//   node src/sim/drive.mjs <家族id> find <文字>                       その文字のある所まで動かして see（例: find OK待ち）
+//   node src/sim/drive.mjs <家族id> wait [秒]                         待ってから see（撮る・話すの候補が出るのを待つ。既定3秒・最大30秒）
 //   node src/sim/drive.mjs <家族id> click <番号>                      押す（外のアプリへ渡すリンクは開かず、行き先を出す）
-//   node src/sim/drive.mjs <家族id> type <番号> <文字>                入れる
+//   node src/sim/drive.mjs <家族id> type <番号> <文字>                入れる（日付の欄は YYYY-MM-DD で入れる）
 //   node src/sim/drive.mjs <家族id> scroll <down|up>                  1画面ぶん動かす
 //   node src/sim/drive.mjs <家族id> shot                              画面を撮る（画像の場所を出す）
-//   node src/sim/drive.mjs <家族id> tab <today|visit|capture|techo|emergency>   下のタブ・急ぎの時の画面へ（/・/visit・/capture・/techo・/emergency）
+//   node src/sim/drive.mjs <家族id> tab <today|visit|capture|techo|emergency|settings>   下のタブ・急ぎの時・設定の画面へ
 //   node src/sim/drive.mjs <家族id> upload <番号> <画像>              写真を選ぶ欄（input type=file）に画像を入れる（撮るの代わり）
 //   node src/sim/drive.mjs <家族id> page <kind>                       作った手帳のページの画像を作る（kind: checkup / vaccine / growth。中身は作った値）
 //   node src/sim/drive.mjs <家族id> offline [/path]                   電波を切ってその画面を開き直す（急ぎの時が通信なしで開けるか）。終わると電波は戻る
@@ -23,7 +26,7 @@ const BASE = process.env.SIM_URL ?? "http://127.0.0.1:3100";
 const OUT = path.join(path.dirname(new URL(import.meta.url).pathname), "..", "..", "sim", "out");
 const [, , fam, cmd, ...args] = process.argv;
 if (!fam || !cmd) {
-  console.error("使い方: node src/sim/drive.mjs <家族id> <setup|open|tab|see|click|type|upload|scroll|shot|page|offline> …");
+  console.error("使い方: node src/sim/drive.mjs <家族id> <setup|open|tab|see|all|find|wait|click|type|upload|scroll|shot|page|offline> …");
   process.exit(2);
 }
 const profile = path.join(OUT, "profiles", fam);
@@ -31,7 +34,7 @@ const urlFile = profile + ".url";
 const scrollFile = profile + ".scroll";
 fs.mkdirSync(profile, { recursive: true });
 
-const TABS = { today: "/", visit: "/visit", capture: "/capture", techo: "/techo", emergency: "/emergency" };
+const TABS = { today: "/", visit: "/visit", capture: "/capture", techo: "/techo", emergency: "/emergency", settings: "/settings" };
 
 /** 作った手帳のページ（紙の手帳を撮った写真の代わり）。値はすべて作った物。手書きに見えるよう少し崩す */
 function fakePageHtml(kind) {
@@ -125,7 +128,12 @@ async function mark() {
       const inView = r.bottom > 0 && r.top < window.innerHeight;
       const label = (el.getAttribute("aria-label") || el.innerText || el.getAttribute("placeholder") || el.getAttribute("value") || "").replace(/\s+/g, " ").trim().slice(0, 60);
       const href = el.getAttribute("href") || "";
-      out.push({ n, tag: el.tagName.toLowerCase(), label, href, small: r.height < 44 || r.width < 44, inView });
+      const type = el.tagName === "INPUT" ? el.getAttribute("type") || "text" : "";
+      // 欄の今の値（日付・文字）と、選んだ状態（aria-pressed・チェック）、押せない（disabled）
+      const value = el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" ? (type === "checkbox" || type === "radio" ? "" : el.value) : "";
+      const on = el.getAttribute("aria-pressed") === "true" || el.getAttribute("aria-checked") === "true" || (el.checked === true);
+      const off = el.matches(":disabled") || el.getAttribute("aria-disabled") === "true";
+      out.push({ n, tag: el.tagName.toLowerCase(), type, label, value, on, off, href, small: r.height < 44 || r.width < 44, inView });
     }
     return out;
   });
@@ -155,7 +163,10 @@ async function see() {
   console.log(text.join("\n"));
   console.log("―― 押せる物（この画面に見えている物）――");
   for (const i of items.filter((x) => x.inView)) {
-    console.log(`[${i.n}] ${i.tag}${i.small ? "（小さい: 44px 未満）" : ""} ${i.label}${i.href && !i.href.startsWith("/") ? `  → ${i.href.slice(0, 80)}` : ""}`);
+    const kind = i.type && i.type !== "text" ? `(${i.type})` : "";
+    const state = `${i.on ? "（選んでいる）" : ""}${i.off ? "（押せない）" : ""}`;
+    const val = i.tag === "input" || i.tag === "textarea" || i.tag === "select" ? ` ＝「${String(i.value).slice(0, 40)}」` : "";
+    console.log(`[${i.n}] ${i.tag}${kind}${i.small ? "（小さい: 44px 未満）" : ""}${state} ${i.label}${val}${i.href && !i.href.startsWith("/") ? `  → ${i.href.slice(0, 80)}` : ""}`);
   }
   const below = items.filter((x) => !x.inView).length;
   if (below) console.log(`（ほかに、動かすと見える押せる物が ${below} 個）`);
@@ -184,6 +195,41 @@ try {
   } else {
     await restore();
     if (cmd === "see") {
+      await see();
+    } else if (cmd === "all") {
+      // 画面の上から下まで（閉じた折りたたみの中は出さない＝人にも見えない）
+      const lines = await page.evaluate(() => {
+        const out = [];
+        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+          const t = node.textContent.replace(/\s+/g, " ").trim();
+          const el = node.parentElement;
+          if (!t || !el || el.closest("script,style")) continue;
+          if (el.closest("details:not([open])") && !el.closest("summary")) continue;
+          const r = el.getBoundingClientRect();
+          if (r.height === 0) continue;
+          out.push(t);
+        }
+        return out;
+      });
+      console.log(`画面: ${page.url().replace(BASE, "")}　上から下までの文字 ${lines.join("").length}字`);
+      console.log(lines.join("\n"));
+    } else if (cmd === "find") {
+      const word = args.join(" ");
+      if (!word) throw new Error("find <文字> の文字がありません");
+      const hit = page.getByText(word, { exact: false }).first();
+      if (!(await hit.count())) {
+        console.log(`「${word}」はこの画面にありません（閉じた折りたたみの中かもしれません）`);
+      } else {
+        await hit.scrollIntoViewIfNeeded().catch(() => {});
+        await page.waitForTimeout(300);
+      }
+      await see();
+    } else if (cmd === "wait") {
+      const sec = Math.min(30, Math.max(0, Number(args[0] ?? 3) || 3));
+      await page.waitForTimeout(sec * 1000);
+      await settle();
       await see();
     } else if (cmd === "click" || cmd === "type") {
       await mark();

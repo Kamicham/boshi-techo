@@ -6,7 +6,8 @@
 import { body, route } from "@/lib/api";
 import { detectTriggers, type Advice } from "@/lib/advisor";
 import { listRecords } from "@/lib/capture";
-import { get, list, patch, put } from "@/lib/db";
+import { get, patch, put } from "@/lib/db";
+import { doneSetFor } from "@/app/api/done/_lib/done";
 import { fillFamilyBlanks } from "@/lib/blanks";
 import { DEMO_FAMILY } from "@/lib/demo-family";
 import { fillBlanks } from "@/lib/keep";
@@ -26,11 +27,8 @@ export const GET = route(async (req: Request) => {
   const today = q.get("today");
   if (!isDay(today)) throw new HttpError(400, "今日の日付が読めません");
 
-  const done = new Set(
-    list<{ milestoneId?: string }>(family.id, "done")
-      .map((d) => d.data.milestoneId)
-      .filter((x): x is string => typeof x === "string"),
-  );
+  // 手帳の記録（接種・健診）で済んだ物も足す（今日の画面と同じ集合）
+  const done = doneSetFor(family, today);
   const records = listRecords(family.id, { limit: 40 })
     .filter((r) => !r.date || r.date.slice(0, 10) <= today)
     .slice(0, 5)

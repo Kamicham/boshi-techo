@@ -62,7 +62,7 @@ export function asksDone(t: Pick<Milestone, "deadlineDate" | "deadlineKind">): b
 
 /** あと何日（まだ先なら始まりまで、期限があれば期限まで。期限の無い事と「生まれたら」の事は null）。並べる順にも使う */
 export function daysLeft(t: Task, today: string): number | null {
-  if (t.awaitingBirth) return null;
+  if (t.awaitingBirth || t.awaitingPregnancy) return null;
   if (t.status === "まだ先") return daysUntil(today, t.startDate);
   if (t.deadlineDate) return daysUntil(today, t.deadlineDate);
   return null;
@@ -88,7 +88,7 @@ export function dateWord(date: string, today: string): string {
  * 期限の無い事と「生まれたら」の事は null
  */
 export function whenDate(t: Task, today: string): string | null {
-  if (t.awaitingBirth) return null;
+  if (t.awaitingBirth || t.awaitingPregnancy) return null;
   if (t.status === "まだ先") return `${dateWord(t.startDate, today)}から`;
   if (t.deadlineDate) return `${dateWord(t.deadlineDate, today)}まで`;
   return null;

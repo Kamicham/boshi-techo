@@ -47,7 +47,8 @@ export function listRecords(familyId: string, opts: { limit?: number } = {}): Ca
 /** 手帳の記録の候補（府令様式のページ・欄）。値は文字で受け取り、techo-store が決まりどおりに整える */
 const TechoItem = z.object({
   page: z.enum(TECHO_PAGE_IDS as unknown as [TechoPageId, ...TechoPageId[]]).describe("府令様式のどのページの記録か"),
-  date: z.string().describe("YYYY-MM-DD。その事の日（できた日・健診の日・接種した日など）。分からなければ今日"),
+  date: z.string().describe("YYYY-MM-DD。その事の日（できた日・健診の日・接種した日など）。分からなければ今日（紙の写真で日付が書いていない時は空文字でよい）"),
+  dateWritten: z.boolean().describe("date が、紙に書いてある日・家族が言った日（「今日」「昨日」も含む）なら true。書いていない・言っていないので今日や推測で入れた時は false"),
   title: z.string().describe("一覧に出す短い見出し（例: 寝返り・BCG・妊娠24週の健診）"),
   who: z.string().nullable().describe("誰の事・誰が書いた／話したか（家族の呼び名）。気持ちの記録は話した人。分からなければ null"),
   values: z
@@ -62,6 +63,7 @@ const TECHO_RULES = `手帳の記録（techo）の決まり:
 - ページと欄は次の一覧だけ。キーの単位は名前のとおり（Kg=キログラム、G=グラム、Cm=センチ、bpHigh/bpLow=血圧の上と下）。
 ${TECHO_GUIDE}
 - 体の数字（体重・身長・頭囲・血圧・週数など）は、家族がはっきり言った値か、紙にはっきり書いてある値だけを写す。計算・推測・平均で数字を作らない。読めない・言っていない欄は入れない（空のまま）。
+- 子どもの体重は、書いてある・言ったとおりに単位を付けて写す（例: 「4,120g」「4.12kg」）。成長（growth）と乳幼児健診（child-checkup）は weightKg、出生（birth）と新生児（newborn）は weightG に入れる。単位が欄と違っても、そのまま写してよい（直すのは機械）。体重をメモの文だけに入れない。
 - できた日（development）の item は次から選ぶ: 首すわり・寝返り・ひとりすわり・はいはい・つかまり立ち・つたい歩き・ひとり歩き・指さし・意味のあることば。
 - 便の色（stool）は、家族が便色カードの番号（1〜7）を言った時か、手帳に番号が書いてある時だけ colorNo に入れる。色を見て番号を決めない。
 - 予防接種（vaccine）は、打った事が分かる時だけ（予定は入れない）。
@@ -111,7 +113,7 @@ const SYSTEM = `あなたの役割は「入力ゼロ」の書記です。家族�
 - 気がかりは体の判断をせず、家族の言葉のまま記録し、detail の最後に「次の健診で聞く」と添える。
 - 出血・強い痛み・胎動が少ない・破水らしい・子どもの高熱やぐったり など、その日のうちに医療機関へ連絡した方がよさそうに見える時は、その記録の urgent を true にし、detail の最後は「次の健診で聞く」ではなく「その日のうちに産院へ電話」と添える（子どもの事なら「その日のうちにかかりつけへ電話。迷ったら #8000」）。大丈夫・心配ないとは言わず、診断もせず、連絡を勧める言い方にする。reply でも連絡先を案内する: 妊娠中・産後の体はかかりつけの産院（夜間も）・119、子どもは #8000（子ども医療電話相談）。
 - 健診の結果の紙でも、数値の良い・悪いは言わない。書いてある項目と日付だけ記録する。
-- 足りない事は推測で埋めず、どうしても必要な1つだけを oneQuestion で聞く。日付が分からないだけなら今日として記録し、聞かない。
+- 足りない事は推測で埋めず、どうしても必要な1つだけを oneQuestion で聞く。日付が分からないだけなら今日として記録し、聞かない（撮った紙の手帳の記録は、techo の dateWritten を false にするだけでよい。家族が候補の日付を直せる）。
 - 母子手帳のページに入る事（できた日・体重などの数字・接種した・気持ち・便色の番号・相談した事など）は、records とは別に techo にも入れる。家族が後で「OK」を押して確定するので、候補として出す。
 - reply は家族の側に立った短い話し言葉。押し付けない（「〜しましょう」より「手帳に書いておきました」）。
 
@@ -214,7 +216,11 @@ export async function capture(input: CaptureInput, replaceCaptureId?: string): P
   const said = input.followUp ? `${input.followUp.basis}\n${input.followUp.answer}` : (input.text ?? "");
   const techo = addTecho(
     family.id,
-    out.techo.map((t) => techoFromItem(t, source === "photo" && !input.followUp ? null : said)),
+    out.techo.map((t) => {
+      const item = techoFromItem(t, source === "photo" && !input.followUp ? null : said);
+      // 撮った紙で日付が書いていない時だけ、今日にせずページの題と生まれた日から推す（話した時は今まで通り今日）
+      return source === "photo" ? withDateCheck(item, t, family, today) : item;
+    }),
     { today, source, pending: true, captureId },
   );
 
@@ -223,11 +229,15 @@ export async function capture(input: CaptureInput, replaceCaptureId?: string): P
       ? `${input.followUp.basis}\n質問: ${input.followUp.question}\n答え: ${input.followUp.answer}`
       : [source === "photo" ? `写真の要点: ${out.gist}` : "", input.text?.trim() ? `${label}: ${input.text.trim()}` : ""].filter(Boolean).join("\n");
 
+  const oneQuestion = input.followUp ? null : out.oneQuestion;
+  // 聞き返しは、画面を開き直しても答えられるようにサーバに残す（答える・やめると消す）
+  if (oneQuestion) saveAsk(family.id, { captureId, question: oneQuestion, basis, source }, today);
+
   return {
     captureId,
     records,
     deadlines: out.deadlines,
-    oneQuestion: input.followUp ? null : out.oneQuestion,
+    oneQuestion,
     reply: out.reply,
     basis,
     techo,
@@ -255,19 +265,154 @@ export function numberWasSaid(n: number, said: string): boolean {
   return digitsOf(said).includes(want);
 }
 
+/** 子どもの体重を、ページの欄の単位に直すページ（大人の体重は書いてあるまま） */
+const CHILD_WEIGHT_PAGE: Partial<Record<TechoPageId, "weightKg" | "weightG">> = {
+  growth: "weightKg",
+  "child-checkup": "weightKg",
+  birth: "weightG",
+  newborn: "weightG",
+};
+const WEIGHT_KEYS = new Set(["weightKg", "weightG", "weight", "体重"]);
+
+/**
+ * 子どもの体重の書き方（「4,120 g」「4120g」「4.12kg」「3キロ120」）をグラムにする。読めなければ null（作らない）。
+ * 単位が無い時は、100 以上ならグラム、100 未満ならキロ（子どもの体重で 100kg も 100g も無いので取り違えない）。
+ */
+export function gramsOf(v: string): number | null {
+  const s = v.normalize("NFKC").replace(/\s/g, "").replace(/,/g, "");
+  const mixed = s.match(/(\d+)(?:kg|キロ)(\d{1,3})(?:g|グラム)?/i);
+  if (mixed) return Number(mixed[1]) * 1000 + Number(mixed[2]);
+  const n = toNumber(s);
+  if (n == null || n <= 0) return null;
+  if (/kg|キロ/i.test(s)) return Math.round(n * 1000);
+  if (/g|グラム/i.test(s)) return Math.round(n);
+  return n >= 100 ? Math.round(n) : Math.round(n * 1000);
+}
+
+/** メモ・結果の文に書いてある「体重 4,120g」を拾う（Claude が体重を文に入れた時） */
+function weightInText(s: string): string | null {
+  const m = s.normalize("NFKC").match(/体重[^\d]{0,4}(\d[\d,.]*\s*(?:kg|キロ|g|グラム)?(?:\d{1,3}\s*(?:g|グラム)?)?)/i);
+  return m ? m[1] : null;
+}
+
+type TechoItemIn = Omit<TechoItemOut, "dateWritten"> & { dateWritten?: boolean };
+
 /** Claude の候補 → TechoEntry の形（整えるのは addTecho）。said があれば、そこに無い数字を捨てる */
-export function techoFromItem(t: TechoItemOut, said: string | null): { page: TechoPageId; date: string; title: string; who?: string; values: Record<string, string> } {
+export function techoFromItem(t: TechoItemIn, said: string | null): { page: TechoPageId; date: string; title: string; who?: string; values: Record<string, string> } {
   const values: Record<string, string> = {};
+  const weightKey = CHILD_WEIGHT_PAGE[t.page];
+  let weightRaw: string | null = null;
   for (const { key, value } of t.values) {
     const v = value.trim();
     if (!v) continue;
+    // 子どもの体重は、欄の名前や単位が違っても、ページの欄に直して入れる
+    if (weightKey && WEIGHT_KEYS.has(key)) {
+      weightRaw ??= v;
+      continue;
+    }
     if (said != null && NUMBER_FIELDS.has(key)) {
       const n = toNumber(v);
       if (n == null || !numberWasSaid(n, said)) continue;
     }
     values[key] = v;
   }
+  if (weightKey) {
+    weightRaw ??= [values.memo, values.result].map((x) => (x ? weightInText(x) : null)).find((x) => x != null) ?? null;
+    const g = weightRaw != null ? gramsOf(weightRaw) : null;
+    const n = weightRaw != null ? toNumber(weightRaw.normalize("NFKC")) : null;
+    if (g != null && (said == null || (n != null && numberWasSaid(n, said)))) {
+      values[weightKey] = weightKey === "weightKg" ? String(Number((g / 1000).toFixed(3))) : String(g);
+    }
+  }
   return { page: t.page, date: t.date, title: t.title, ...(t.who ? { who: t.who } : {}), values };
+}
+
+// ── 日付が写っていない時、ページの題と子の生まれた日から推す ──
+
+/** 「1か月児健診」「3〜4か月」「1歳6か月」「1歳半」「3歳」「2週間」→ 生まれた日からの {月, 日}。読めなければ null */
+function ageFromText(text: string): { months: number; days: number } | null {
+  const s = text.normalize("NFKC");
+  let m = s.match(/(\d+)歳(\d+)\s*[かヶケカヵ]?月/);
+  if (m) return { months: Number(m[1]) * 12 + Number(m[2]), days: 0 };
+  m = s.match(/(\d+)歳半/);
+  if (m) return { months: Number(m[1]) * 12 + 6, days: 0 };
+  m = s.match(/(\d+)\s*[〜~ー\-・]\s*\d+\s*[かヶケカヵ]?月/);
+  if (m) return { months: Number(m[1]), days: 0 };
+  m = s.match(/(\d+)\s*[かヶケカヵ]月/);
+  if (m) return { months: Number(m[1]), days: 0 };
+  m = s.match(/(\d+)歳/);
+  if (m) return { months: Number(m[1]) * 12, days: 0 };
+  m = s.match(/(\d+)週間?(?:健診|目)/);
+  if (m) return { months: 0, days: Number(m[1]) * 7 };
+  return null;
+}
+
+/**
+ * 紙に日付が無い記録の日を推す（推せなければ null。今日にはしない）。
+ * 子のページは題（健診の名前・時期）と生まれた日、出産は生まれた日、新生児・産後は日数、妊婦健診は週数と予定日から。
+ */
+export function guessTechoDate(e: { page: TechoPageId; title: string; values: Record<string, string> }, family: { dueDate: string; birthDate?: string }, today: string): string | null {
+  const b = family.birthDate;
+  const num = (k: string) => (e.values[k] != null ? toNumber(e.values[k]) : null);
+  let d: string | null = null;
+  if (e.page === "pregnancy-checkup") {
+    const w = (e.values.week ?? e.title).normalize("NFKC").match(/(\d+)\s*週?(?:\s*(\d)\s*日)?/);
+    if (w && family.dueDate) d = addDays(lmpFromDue(family.dueDate), Number(w[1]) * 7 + Number(w[2] ?? 0));
+  } else if (b && e.page === "birth") {
+    d = b;
+  } else if (b && e.page === "newborn") {
+    const n = num("dayAge");
+    if (n != null) d = addDays(b, Math.round(n));
+  } else if (b && e.page === "postpartum") {
+    const n = num("days");
+    if (n != null) d = addDays(b, Math.round(n));
+  } else if (b && (e.page === "growth" || e.page === "child-checkup" || e.page === "stool" || e.page === "development" || e.page === "vaccine")) {
+    const age = ageFromText([e.title, e.values.checkup, e.values.ageText, e.values.memo].filter(Boolean).join(" "));
+    if (age) d = addDays(addMonths(b, age.months), age.days);
+  }
+  if (!d || !isDate(d) || d > today) return null;
+  return d;
+}
+
+/** 撮った紙の候補に、日付の確かさの印を付ける（推した日は "guess"、推せない時は "none"＝家族に入れてもらう） */
+function withDateCheck<T extends { page: TechoPageId; date: string; title: string; values: Record<string, string> }>(item: T, t: TechoItemIn, family: Family, today: string): T & { dateUnsure?: "guess" | "none" } {
+  if (t.dateWritten !== false && isDate(item.date)) return item;
+  const guess = guessTechoDate(item, family, today);
+  return guess ? { ...item, date: guess, dateUnsure: "guess" } : { ...item, date: today, dateUnsure: "none" };
+}
+
+// ── 聞き返しを残す（画面を開き直しても答えられるように） ──
+// 記録の一覧（record）や一冊に混ざらないよう、家族の id に「:ask」を付けた置き場に1件ずつ置く。
+
+export interface CaptureAsk {
+  captureId: string;
+  question: string;
+  basis: string;
+  source: RecordSource;
+}
+
+const askPlace = (familyId: string) => `${familyId}:ask`;
+const askId = (familyId: string, captureId: string) => `ask:${familyId}:${captureId}`;
+
+function saveAsk(familyId: string, ask: CaptureAsk, today: string) {
+  put<CaptureAsk>(askPlace(familyId), "record", ask, { id: askId(familyId, ask.captureId), date: today });
+}
+
+/** まだ答えていない、いちばん新しい聞き返し（今日から14日より前の物と、今日より後の物は出さない） */
+export function latestAsk(familyId: string, today: string): (CaptureAsk & { date: string }) | null {
+  const from = addDays(today, -14);
+  const hit = list<CaptureAsk>(askPlace(familyId), "record", { limit: 20 }).find((d) => d.date && d.date <= today && d.date >= from && d.data?.question);
+  return hit ? { ...hit.data, date: hit.date! } : null;
+}
+
+/** その聞き返しが、この家族の物として残っているか */
+export function hasAsk(familyId: string, captureId: string): boolean {
+  return list<CaptureAsk>(askPlace(familyId), "record", { limit: 200 }).some((d) => d.id === askId(familyId, captureId));
+}
+
+/** 答えた・やめた聞き返しを消す */
+export function clearAsk(familyId: string, captureId: string): void {
+  remove(askId(familyId, captureId));
 }
 
 const NUMBER_FIELDS = new Set(["heightCm", "weightKg", "bpHigh", "bpLow", "fundusCm", "weightG", "headCm", "chestCm", "days", "dayAge", "colorNo"]);
@@ -285,7 +430,7 @@ export type TechoPhotoOutput = z.infer<typeof PageSchema>;
 const PAGE_SYSTEM = `あなたの役割は、紙の母子健康手帳（国の様式＝府令様式）のページの写真を読み、手帳の記録の行を写す書記です。紙の手帳が正本です。
 やる事:
 - 写っているのが府令様式のどのページかを page に入れる。母子手帳でない紙なら unknown にして entries は空。
-- 書いてある行を entries に写す。1行＝1件（健診1回・接種1回・計測1回）。日付は書いてある日（和暦なら西暦に直す）。日付が読めない行は入れない。
+- 書いてある行を entries に写す。1行＝1件（健診1回・接種1回・計測1回）。日付は書いてある日（和暦なら西暦に直す）。日付が書いていない・読めない行も入れ、date は空文字、dateWritten は false にする（今日の日付にしない。日付は機械がページの題と生まれた日から推して、家族に確かめる）。
 - 書いてある文字・数字だけを写す。読めない・空欄の欄は入れない（空のまま）。かすれた数字を推測しない。計算もしない。
 - 医師・助産師の書いた所見・結果も、書いてあるとおりに写すだけ。良い・悪い・正常・異常は言わない。
 - 個人番号・住所の番地・電話番号は写さない。
@@ -311,7 +456,14 @@ export async function captureTechoPage(input: { family: Family; today: string; i
   const out = await structured(PageSchema, PAGE_SYSTEM, parts, { maxTokens: 8000 });
   const captureId = randomUUID();
   const src: TechoSource = "photo";
-  const techo = out.page === "unknown" ? [] : addTecho(family.id, out.entries.map((t) => techoFromItem(t, null)), { today, source: src, pending: true, captureId });
+  const techo =
+    out.page === "unknown"
+      ? []
+      : addTecho(
+          family.id,
+          out.entries.map((t) => withDateCheck(techoFromItem(t, null), t, family, today)),
+          { today, source: src, pending: true, captureId },
+        );
   return { captureId, page: out.page as TechoPageId | "unknown", unreadable: out.unreadable, reply: out.reply, techo };
 }
 
