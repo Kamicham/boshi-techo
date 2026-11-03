@@ -39,6 +39,16 @@
 - **1歳**: 寝返り・はじめての言葉・予防接種の控えが、国の様式と同じ並びで積み上がっている
 - **2歳**: 1000日の記録と家族の言葉が、子どもへの一冊になる
 
+### 今ある物との違い
+
+| | 誰の側か | 範囲 | 動き方 | 家族で1冊 |
+|---|---|---|---|---|
+| 国の電子版（PMH・2026年度末から順次） | 自治体 | 全国・転居も引き継ぐ | 記録の保管と閲覧 | 父などは代理人として |
+| 母子モ・ninaru・LINEヤフー「子育て」 | 自治体／民間 | 町ごと・全国一律 | 知らせる・やる事の一覧 | 閲覧の共有・別のアプリ |
+| この手帳 | 家族 | 子どもを考えた日から2歳まで・どの町でも | 下書きまで作り、家族は OK だけ | 同じ1冊に、自分の番と自分の名前の下書き |
+
+国の電子版とは競わず、補い合います（記録が PMH に載れば、この手帳はそこから読む側になる）。出典と確認日: [docs/LANDSCAPE.md](docs/LANDSCAPE.md)
+
 ## 一緒に動くための7つの性質
 
 | | 性質 | このアプリで動くもの |
@@ -132,6 +142,8 @@ The paper handbook, and today's digital versions, are handbooks the family reads
 - **When plans break**: born early, moved to a new city: it notices, replans, and writes the message to hand over.
 - **Checkups**: record the doctor's explanation, keep the doctor's own words, and turn them into questions for next time. It never judges health.
 - **After 1,000 days**: the records and the family's words become a book that speaks to the child.
+
+Compared with what exists: the national digital handbook (PMH) stores and shows records for municipalities, and apps such as Boshimo, ninaru and LINE Yahoo "Kosodate" notify and list tasks. This handbook takes the family's side, spans any city for the first 1,000 days, and drafts the paperwork for an OK. It complements PMH rather than competing with it ([docs/LANDSCAPE.md](docs/LANDSCAPE.md), in Japanese).
 
 ## The seven qualities behind it
 
