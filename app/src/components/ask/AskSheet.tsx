@@ -30,6 +30,24 @@ const POLL_MS = 4000;
 
 export function AskButton({ hidden }: { hidden?: boolean }) {
   const [open, setOpen] = useState(false);
+  // 一覧の行の右端（日付・医療機関の文字）に重ならないよう、スクロールしている間は消し、止まって少ししたら出す。
+  // 下へ読み進めている間は丸いアイコンだけに縮める（なりきりで「聞く」が行の日付に重なると繰り返し指摘された）
+  const [scrolling, setScrolling] = useState(false);
+  const [compact, setCompact] = useState(false);
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const onScroll = () => {
+      setScrolling(true);
+      setCompact(window.scrollY > 80);
+      clearTimeout(t);
+      t = setTimeout(() => setScrolling(false), 700);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      clearTimeout(t);
+    };
+  }, []);
   if (hidden && !open) return null;
   return (
     <>
@@ -38,11 +56,11 @@ export function AskButton({ hidden }: { hidden?: boolean }) {
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="pointer-events-auto absolute right-4 bottom-0 flex min-h-12 items-center gap-1 rounded-full bg-sky px-5 text-base font-bold text-white shadow-lg"
+            className={`absolute right-4 bottom-0 flex min-h-12 min-w-12 items-center justify-center gap-1 rounded-full bg-sky text-base font-bold text-white shadow-lg transition-opacity duration-200 motion-reduce:transition-none ${compact ? "px-3" : "px-5"} ${scrolling ? "pointer-events-none opacity-0" : "pointer-events-auto opacity-100"}`}
             aria-label="手帳に聞く（質問・アプリの使い方）"
           >
             <ChatIcon />
-            聞く
+            {!compact && "聞く"}
           </button>
         </div>
       )}
