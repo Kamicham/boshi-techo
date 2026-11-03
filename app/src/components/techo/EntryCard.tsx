@@ -33,7 +33,7 @@ export function EntryCard({ item, children, onRemove }: { item: TechoItem; child
         )}
         {item.note && <p className="text-sm text-muted">元の言葉: {item.note}</p>}
         {children}
-        {onRemove && !item.pending && <RemoveRow id={item.id} onRemove={onRemove} />}
+        {onRemove && !item.pending && <RemoveRow id={item.id} onRemove={onRemove} what={item.title} />}
       </div>
       {photo && <PhotoSlot techoIds={[item.id]} />}
     </article>
@@ -41,7 +41,7 @@ export function EntryCard({ item, children, onRemove }: { item: TechoItem; child
 }
 
 /** 小さな「消す」→「本当に消す／やめる」 */
-export function RemoveRow({ id, onRemove }: { id: string; onRemove: (ids: string[]) => Promise<void> }) {
+export function RemoveRow({ id, onRemove, what }: { id: string; onRemove: (ids: string[]) => Promise<void>; what?: string }) {
   const [asking, setAsking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -58,7 +58,7 @@ export function RemoveRow({ id, onRemove }: { id: string; onRemove: (ids: string
   if (!asking) {
     return (
       <div className="flex justify-end">
-        <button type="button" onClick={() => setAsking(true)} className="min-h-11 px-2 text-sm text-muted underline">
+        <button type="button" onClick={() => setAsking(true)} aria-label={what ? `「${what}」の記録を消す` : "この記録を消す"} className="min-h-11 px-2 text-sm text-muted underline">
           消す
         </button>
       </div>

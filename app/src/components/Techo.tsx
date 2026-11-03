@@ -278,7 +278,7 @@ export function Techo() {
       ) : top ? (
         <TopTask key={`${family.id}:${top.id}`} task={top} soon={!focus && plan.topIsSoon} {...common} onDone={() => void setDone(top, true)} />
       ) : (
-        <Calm upcoming={me ? upcoming.filter((t) => t.who === "家族" || t.who === me.role) : upcoming} today={today} />
+        <Calm upcoming={me ? upcoming.filter((t) => t.who === "家族" || t.who === me.role) : upcoming} today={today} others={rows.filter((r) => r.kind === "task").length} />
       )}
 
       {!loading && rows.length > 0 && (
@@ -335,7 +335,7 @@ export function Techo() {
                 ) : (
                   marked.has(t.id) && (
                   <button type="button" onClick={() => void setDone(t, false)} className="min-h-11 shrink-0 px-2 text-sm text-muted underline underline-offset-2">
-                    戻す
+                    もどす
                   </button>
                   )
                 )}
@@ -386,14 +386,19 @@ function WeekBand({ family, today }: { family: Family; today: string }) {
  * 「大丈夫」を一番大きく。日数は数えず日付で。見張っている近い3件を見せ、見落としの不安を減らす。
  * 町の予定まで確かめたとは書かない（期限表から決まる事だけ）。
  */
-function Calm({ upcoming, today }: { upcoming: Task[]; today: string }) {
-  const title = "今週は、何もしなくて大丈夫";
+function Calm({ upcoming, today, others = 0 }: { upcoming: Task[]; today: string; others?: number }) {
+  // 家族のほかの人の番で、期限のある事が「このあと」に残っている時は、家族全体が大丈夫とは言わない（なりきり sim-15・sim-14）
+  const title = others > 0 ? "あなたは今週、急ぐ事はありません" : "今週は、何もしなくて大丈夫";
   const next = upcoming[0];
-  if (!next) return <NextStep tone="ok" title={title} />;
+  if (!next) return <NextStep tone="ok" title={title} sub={others > 0 ? "家族の番の事は、下の「このあと」に日付の順で並べています。" : undefined} />;
   const when = (t: Task) => (t.awaitingPregnancy ? "授かったら" : t.awaitingBirth ? "生まれたら" : `${dateWord(t.startDate, today)}ごろから`);
   const watch = upcoming.slice(0, 3);
   return (
-    <NextStep tone="ok" title={title} sub={`次に動くのは「${next.plain}」（${when(next)}）。近づいたら、ここの一番上に出します。`}>
+    <NextStep
+      tone="ok"
+      title={title}
+      sub={`${others > 0 ? "家族の番の事は、下の「このあと」に日付の順で並べています。" : ""}あなたが次に動くのは「${next.plain}」（${when(next)}）。近づいたら、ここの一番上に出します。`}
+    >
       <div className="flex w-full flex-col gap-1">
         <p className="text-sm text-muted">見張っている事</p>
         <ul className="flex flex-col gap-0.5">

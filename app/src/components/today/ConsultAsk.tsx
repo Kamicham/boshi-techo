@@ -74,6 +74,8 @@ export function ConsultAsk({ family, today, meName }: { family: Family; today: s
   const [error, setError] = useState("");
   // 今この画面で答えた結果（「いない」「頼みにくい」の時は橋を開いたまま出す）
   const [justSaid, setJustSaid] = useState<ConsultAnswer | null>(null);
+  // 前の時期に「いない」「頼みにくい」と答えていたら、新しい時期の問いの下にも頼れる所を残す（なりきり sim-09）
+  const [earlier, setEarlier] = useState<ConsultAnswer | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -84,7 +86,9 @@ export function ConsultAsk({ family, today, meName }: { family: Family; today: s
     api<unknown>(`/api/techo?familyId=${encodeURIComponent(family.id)}&today=${today}`)
       .then((j) => {
         if (!alive) return;
-        setAnswered(consultAnswerFor(entriesOf(j), period, meName));
+        const entries = entriesOf(j);
+        setAnswered(consultAnswerFor(entries, period, meName));
+        setEarlier(consultAnswerFor(entries, { from: "0000-01-01", to: addDays(period.from, -1) }, meName));
       })
       // 読めない時は聞かない（目立たせない問いなので、エラーで画面を埋めない）
       .catch(() => alive && setAnswered("skip"));
@@ -163,8 +167,9 @@ export function ConsultAsk({ family, today, meName }: { family: Family; today: s
         今は答えない
       </button>
       {error && <Notice title="まだ手帳に残せていません" safe="もう一度押してください" detail={error} />}
+      {needsBridge(earlier) && <HelpPlaces family={family} compact label="頼れる所（いつでも開けます）" />}
       <Why>
-        <p>紙の母子手帳も、健診のたびに同じことを聞きます。一人で抱えないための問いです。答えは手帳の「相談した記録」に残り、ほかの人には送られません。家族の一人ひとりに聞きます。</p>
+        <p>紙の母子手帳も、健診のたびに同じことを聞きます。一人で抱えないための問いです。答えは手帳の「相談した記録」に残ります。家族の一人ひとりに聞きます。</p>
       </Why>
     </section>
   );

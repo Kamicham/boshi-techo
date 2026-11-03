@@ -142,7 +142,7 @@ export default function EmergencyPage() {
           href="#pregnancy"
           className="inline-flex min-h-11 items-center rounded-full border border-ink/20 bg-card px-4 text-base font-semibold"
         >
-          妊娠中の体の急ぎ
+          妊娠中・産後の体の急ぎ
         </a>
       </nav>
 

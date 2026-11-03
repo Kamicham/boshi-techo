@@ -48,6 +48,8 @@ export function valueLines(values: TechoEntry["values"], skip: string[] = []): s
   const out: string[] = [];
   for (const [k, v] of Object.entries(values)) {
     if (v == null || v === "" || k === "text" || skip.includes(k)) continue;
+    // 「いるけど頼みにくい」は has:false で保存している（consult-answer.ts）。本文に出るので「いない」と重ねて出さない
+    if (k === "has" && v === false && values.text === "いるけど頼みにくい") continue;
     const [label, unit] = LABELS[k] ?? [k];
     const shown = typeof v === "boolean" ? (v ? "いる" : "いない") : `${v}${unit && typeof v === "number" ? unit : ""}`;
     out.push(`${label} ${shown}`);

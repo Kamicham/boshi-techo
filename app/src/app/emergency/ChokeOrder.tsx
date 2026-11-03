@@ -68,6 +68,17 @@ export function ChokeOrder({ baby, child }: { baby: React.ReactNode; child: Reac
 /** 産院の電話を覚えておく所（通信が無くても出せるように。設定の「通う病院」の電話を、読めた時に写しておく） */
 const phoneKey = (familyId: string) => `boshi.hospitalPhone.${familyId}`;
 
+/** 産後の体の急ぎを出す長さ（産後8週＝産後休業の長さ。労働基準法第65条） */
+const POSTPARTUM_DAYS = 56;
+
+/** 生まれてから POSTPARTUM_DAYS 日の間か（産後の体の急ぎの1枚を出す） */
+function isPostpartumNow(): boolean {
+  const cur = currentFamily();
+  const b = cur?.family.birthDate;
+  if (!cur?.today || !b || b > cur.today) return false;
+  return (Date.parse(cur.today) - Date.parse(b)) / 86_400_000 <= POSTPARTUM_DAYS;
+}
+
 /** 端末が見ている家族が今、妊娠中か（分からない時は false） */
 function isPregnantNow(): { familyId: string } | null {
   const cur = currentFamily();
@@ -81,9 +92,10 @@ function isPregnantNow(): { familyId: string } | null {
  * 端末の家族を読めたら上へ移す。産院の番号は設定（/api/keep の hospital.phone）から読み、端末にも写しておく。
  */
 export function PregnancyUrgent({ slot }: { slot: "top" | "bottom" }) {
-  const [state, setState] = useState<{ pregnant: boolean; phone: string | null; name: string | null } | null>(null);
+  const [state, setState] = useState<{ pregnant: boolean; postpartum?: boolean; phone: string | null; name: string | null } | null>(null);
   useEffect(() => {
     const p = isPregnantNow();
+    const after = !p && isPostpartumNow();
     const cur = currentFamily();
     const fid = cur?.family.id;
     let phone: string | null = null;
@@ -95,7 +107,7 @@ export function PregnancyUrgent({ slot }: { slot: "top" | "bottom" }) {
         name = v?.name ?? null;
       } catch {}
     }
-    setState({ pregnant: !!p, phone, name });
+    setState({ pregnant: !!p, postpartum: after, phone, name });
     if (!fid) return;
     let alive = true;
     // 通信できる時だけ、設定の番号を読み直して写す（読めなくても、写しで出す）
@@ -110,7 +122,7 @@ export function PregnancyUrgent({ slot }: { slot: "top" | "bottom" }) {
           if (ph) localStorage.setItem(phoneKey(fid), JSON.stringify({ phone: ph, name: nm }));
           else localStorage.removeItem(phoneKey(fid));
         } catch {}
-        setState((s) => ({ pregnant: s?.pregnant ?? !!p, phone: ph, name: nm }));
+        setState((s) => ({ pregnant: s?.pregnant ?? !!p, postpartum: s?.postpartum ?? after, phone: ph, name: nm }));
       })
       .catch(() => {});
     return () => {
@@ -124,11 +136,11 @@ export function PregnancyUrgent({ slot }: { slot: "top" | "bottom" }) {
     <section id="pregnancy" aria-labelledby="pregnancy-h" className="flex scroll-mt-4 flex-col gap-3 rounded-2xl border border-line bg-card p-4">
       <div>
         <h2 id="pregnancy-h" className="font-display text-xl font-bold">
-          妊娠中の体の急ぎ
+          {state?.postpartum ? "産後の体の急ぎ" : "妊娠中の体の急ぎ"}
         </h2>
-        <p className="text-sm text-muted">出血・破水・強いおなかの痛み・胎動が気になる</p>
+        <p className="text-sm text-muted">{state?.postpartum ? "出血・熱・強い痛み・息苦しさなど、ママの体の事で心配な時" : "出血・破水・強いおなかの痛み・胎動が気になる"}</p>
       </div>
-      <p className="text-base">かかっている産院に電話します（夜間も）。どうするかは、電話で産院が教えてくれます。</p>
+      <p className="text-base">{state?.postpartum ? "お産をした産院に電話します（夜間も）。" : "かかっている産院に電話します（夜間も）。"}どうするかは、電話で産院が教えてくれます。</p>
       {digits ? (
         <a href={`tel:${digits}`} className="flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-alert px-4 py-3 text-white">
           <span className="min-w-0">

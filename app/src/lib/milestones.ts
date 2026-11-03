@@ -272,7 +272,10 @@ function adjust(m: MilestoneDef, f: ScheduleInput): MilestoneDef {
  * - 生まれていれば、妊娠中だけの事に endsOn（生まれた日）を付ける（statusOf がその日から「過ぎた」にする）
  * - today を渡して、それが最終月経の日より前（授かる前）なら、どの事にも awaitingPregnancy を付ける（予定日は仮なので日付で急かさない）
  */
-export function scheduleFor(f: ScheduleInput, today?: string): Milestone[] {
+export function scheduleFor(input: ScheduleInput, today?: string): Milestone[] {
+  // 今日より先の生まれた日は、まだ生まれていない（作った家族は先の生まれた日を持っている。予定がその日で組まれ、
+  // 「授かる前」「予定日を過ぎた」日に、生まれる日を知っているような日付が出ていた＝なりきり 2026-11-03）
+  const f = input.birthDate && today && input.birthDate > today ? { ...input, birthDate: undefined } : input;
   const lmp = lmpFromDue(f.dueDate);
   const birth = f.birthDate ?? f.dueDate;
   const trying = !!today && today < lmp && !f.birthDate;
