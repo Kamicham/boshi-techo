@@ -1,4 +1,4 @@
-# 母子手帳を、再発明する（仮称）
+# 母子手帳を、再発明する
 
 > 1948年、日本は母子手帳を発明した。それは世界約40か国に広がった。
 > 2026年、その次の形を作る。「読む手帳」から、「一緒に動く手帳」へ。
@@ -14,7 +14,32 @@
 
 足りないのは情報ではなく、**全体を持って先回りして動いてくれる誰か**。お金のある家は人を雇って手に入れています。それを、すべての家族に。詳しくは [docs/VISION.md](docs/VISION.md)。
 
-## 何ができるか（7つの性質）
+## 「読む手帳」から「一緒に動く手帳」へ
+
+紙の母子手帳も、今の電子版も、**家族が読みに行く手帳**です。いつ何をするかを読んで覚え、窓口を探し、書類を書くのは家族です。この手帳は、家族の時計（妊娠週数・生後日数）で自分から起き、**家族と一緒に動きます**。
+
+| | 読む手帳（紙・今の電子版） | 一緒に動く手帳（これ） |
+|---|---|---|
+| 次にやる事 | 家族が読んで覚える | その日に手帳から声をかける。今やる1つだけ |
+| 書く | 家族が書き写す | 話す・撮るだけ。候補を出し、家族の「OK」で入る |
+| 町の手続き | 家族が自分の町のページを探す | どの町でも、窓口・持ち物・期限を公式ページから取ってくる（出典つき） |
+| 書類・連絡 | 家族が一から書く | 職場へのメール・出生届の記入メモ・見学の予約文まで下書きする。外へは送らない |
+| 家族の分担 | 手帳を持つ母に寄る | パートナーも同じ手帳を開き、自分の番と自分の名前の下書きが出る |
+| 予定が崩れた時 | 家族が組み直す | 早く生まれた・引っ越した時に、気づいて組み直し案と渡せる文面を出す |
+| 健診 | 15分の説明を覚えて帰る | 録音して、先生の言葉のまま残し、次に聞く質問にする。体の判断はしない |
+| 1000日の後 | 手帳が残る | 記録と家族の言葉が、子どもへ語りかける一冊になる |
+
+### 1000日のうちの、ある日
+
+- **7週**: 「役所に妊娠を届ける」。住んでいる町の窓口・持ち物を公式ページから取ってきて、行く前に1枚で見せる
+- **13週**: 「職場に伝える」。会社名と上司の名前の入ったメールの下書き。家族は読んで「OK」
+- **28週**: 健診の前日に「先生の説明を録音しましょう」。帰り道には、先生が言った事・次までにやる事・次に聞く質問がそろっている
+- **引っ越した日**: 新しい町の窓口で、健診の補助券や医療証がどう変わるかを調べて組み直す
+- **生まれた日**: 予定より早く生まれたら、出生届（14日）・児童手当（15日）・保険証・育休の始まりを担当つきで並べ直し、パートナーの名前の文面を出す
+- **1歳**: 寝返り・はじめての言葉・予防接種の控えが、国の様式と同じ並びで積み上がっている
+- **2歳**: 1000日の記録と家族の言葉が、子どもへの一冊になる
+
+## 一緒に動くための7つの性質
 
 | | 性質 | このアプリで動くもの |
 |---|---|---|
@@ -92,7 +117,20 @@ Most people give birth once or twice in a lifetime, so nobody gets to practice. 
 
 What is missing is not information. It is **someone who holds the whole picture and moves ahead of you**. Wealthy families hire that person. We want every family to have one.
 
-## What it does
+## From a handbook you read to a handbook that moves with you
+
+The paper handbook, and today's digital versions, are handbooks the family reads. The family memorizes what comes next, looks up the city office, and fills in the forms. This handbook wakes up on the family's own clock (weeks of pregnancy, days since birth) and moves with them:
+
+- **What's next**: it speaks up on the day, one thing at a time, instead of waiting to be read.
+- **Writing**: talk or take a photo; it proposes entries and the family taps OK.
+- **City procedures**: for any city, it fetches the office, what to bring and the deadline from official pages, with sources.
+- **Paperwork**: it drafts the email to your boss, the birth-registration notes, the daycare visit request. Nothing is sent.
+- **Sharing the load**: the partner opens the same handbook and sees their own turn, with drafts in their own name.
+- **When plans break**: born early, moved to a new city: it notices, replans, and writes the message to hand over.
+- **Checkups**: record the doctor's explanation, keep the doctor's own words, and turn them into questions for next time. It never judges health.
+- **After 1,000 days**: the records and the family's words become a book that speaks to the child.
+
+## The seven qualities behind it
 
 1. **Zero input**: talk or take a photo (a letter from the city, a checkup slip); it becomes dated records and deadlines. It asks at most one question.
 2. **Lives through 1,000 days**: a family clock (weeks of pregnancy, days since birth) surfaces what to do today. Local rules for your own city are researched with Claude's web search, with sources.
