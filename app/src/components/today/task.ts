@@ -17,6 +17,19 @@ export const NOW: ReadonlySet<Status> = new Set<Status>(["今やる", "期限が
 /** 自分の「まだ先」のうち、これだけ近ければ「もうすぐ」として先に出す */
 export const SOON_DAYS = 14;
 
+/**
+ * 家族みんなの事に、決めた担当を当てる（今日の画面の「誰がやる？」）。
+ * 決めた人の役（母・パートナー）に置き換えるので、isMine・whoLabel・並べ方はそのまま効く。
+ * shared は、もとが家族みんなの事で、2人以上の家族なら担当を選べる印。together は「2人で」と決めた印。
+ */
+export function withAssignee<T extends Milestone>(m: T, family: Family, assign: Record<string, string> | undefined): T & { shared?: boolean; together?: boolean } {
+  if (m.who !== "家族" || family.members.length < 2) return m;
+  const v = assign?.[m.id];
+  if (v === "together") return { ...m, shared: true, together: true };
+  const p = v ? family.members.find((x) => x.id === v) : undefined;
+  return p ? { ...m, who: p.role, shared: true } : { ...m, shared: true };
+}
+
 /** この人の担当か（「家族」は全員の担当） */
 export function isMine(m: Pick<Milestone, "who">, me: Member | null): boolean {
   if (!me) return false;

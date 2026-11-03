@@ -48,3 +48,4 @@ next-env.d.ts
 /.next-sim/
 /.next-ask/
 /sim/out/
+/.next-polish/

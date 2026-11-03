@@ -11,8 +11,8 @@ import { MilestoneActions } from "../MilestoneActions";
 import { jpShort } from "./dates";
 import { FAR_DAYS, dateWord, daysLeft, isMine, whenDate, whoLabel, type Task } from "./task";
 
-/** 今日の画面に出す1件（前は担当の決め直しを持っていた。今は Task と同じ） */
-export type ShownTask = Task;
+/** 今日の画面に出す1件。shared = もとは家族みんなの事で、担当を選べる（together = 2人でと決めた） */
+export type ShownTask = Task & { shared?: boolean; together?: boolean };
 
 interface Common {
   task: ShownTask;
@@ -21,6 +21,8 @@ interface Common {
   me: Member | null;
   keep: Keep | null;
   onDone: () => void;
+  /** 家族みんなの事の担当を決める（家族の id か "together"。"" は決め直し） */
+  onAssign?: (milestoneId: string, who: string) => void;
 }
 
 /** 期限が法で決まっていない（目安の）事か。「あと◯日」と急かさず「目安 ◯/◯」と言う */
@@ -80,8 +82,9 @@ export function TaskRow(p: Common & { muted?: boolean }) {
   const when = target(t, today);
   const others = !!me && !isMine(t, me);
   const who = whoLabel(t, family, me);
-  // 担当の札は、担当名がある時だけ（「家族」の事は札なし）
+  // 担当の札は、担当名がある時だけ。家族みんなの事でまだ決めていない時は「誰がやる？」、2人でと決めた時は「2人で」
   const showPill = !!who && (!me || others);
+  const sharedPill = !who && t.shared ? (t.together ? "2人で" : "誰がやる？") : null;
   return (
     <details className="group border-b border-line last:border-b-0">
       <summary
@@ -93,6 +96,11 @@ export function TaskRow(p: Common & { muted?: boolean }) {
           {showPill && (
             <span>
               <Pill tone={others ? "muted" : "rose"}>{who}</Pill>
+            </span>
+          )}
+          {sharedPill && (
+            <span>
+              <Pill tone="muted">{sharedPill}</Pill>
             </span>
           )}
         </span>
@@ -156,7 +164,30 @@ function RowDays({ days, upcoming }: { days: number; upcoming: boolean }) {
  * それ以外は「済んだ」。残り（済んだ・カレンダー）は小さな文字のリンク。
  * 2つ目から: 下書き・窓口は小さく、「済んだ」は枠のボタン。
  */
-function Body({ task: t, today, family, me, keep, onDone, top }: Common & { top?: boolean }) {
+/** 家族みんなの事の「誰がやる？」（押すと決まり、その人の番になる。もう一度押すと決め直せる） */
+function WhoPicker({ task: t, family, onAssign }: Pick<Common, "task" | "family" | "onAssign">) {
+  if (!t.shared || !onAssign) return null;
+  const current = t.together ? "together" : (family.members.find((m) => m.role === t.who)?.id ?? "");
+  const choices = [...family.members.map((m) => ({ id: m.id, label: m.name })), { id: "together", label: "2人で" }];
+  return (
+    <div className="flex flex-wrap items-center gap-2" role="group" aria-label={`${t.plain}を誰がやるか`}>
+      <span className="text-sm text-muted">{current ? "やる人" : "誰がやる？"}</span>
+      {choices.map((c) => (
+        <button
+          key={c.id}
+          type="button"
+          aria-pressed={current === c.id}
+          onClick={() => onAssign(t.id, current === c.id ? "" : c.id)}
+          className={`min-h-11 rounded-full border px-4 text-base ${current === c.id ? "border-rose bg-rose text-white" : "border-line bg-card text-ink"}`}
+        >
+          {c.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Body({ task: t, today, family, me, keep, onDone, onAssign, top }: Common & { top?: boolean }) {
   const box = useRef<HTMLDivElement>(null);
   const [hasActions, setHasActions] = useState(false);
   // MilestoneActions は、下書きも町の調べも無い事では何も出さない。出た時だけ、それを主にする
@@ -187,6 +218,7 @@ function Body({ task: t, today, family, me, keep, onDone, top }: Common & { top?
           <MilestoneActions milestone={t} today={today} compact onDoneChange={notifyDone} />
         )}
       </div>
+      <WhoPicker task={t} family={family} onAssign={onAssign} />
       <div className="flex flex-wrap items-center gap-x-2">
         <Btn kind={doneKind} onClick={onDone} ariaLabel={`${t.plain}を${doneWord}にする`}>
           {doneWord}

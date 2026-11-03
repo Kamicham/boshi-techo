@@ -32,6 +32,16 @@ export const POST = route(async (req: Request) => {
     if (Object.keys(names).length) patch.names = names as Record<string, string>;
   }
   if (k.office) patch.office = { name: str(k.office.name), address: str(k.office.address) };
+  // 家族みんなの事の担当（その家族にいる人か "together"。空の文字は決め直し＝消す）
+  if (k.assign && typeof k.assign === "object") {
+    const ids = new Set([...fam.members.map((m) => m.id), "together"]);
+    const assign = Object.fromEntries(
+      Object.entries(k.assign)
+        .filter(([mid, v]) => /^[a-zA-Z0-9_-]{1,80}$/.test(mid) && typeof v === "string" && (v === "" || ids.has(v)))
+        .slice(0, 50),
+    ) as Record<string, string>;
+    if (Object.keys(assign).length) patch.assign = assign;
+  }
   // 発育曲線の帯の男女（手帳の画面で選んだ物）
   if (k.childSex === "boy" || k.childSex === "girl") patch.childSex = k.childSex;
   return { keep: remember(fam.id, patch) };

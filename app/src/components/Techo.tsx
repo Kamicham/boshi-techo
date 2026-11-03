@@ -18,7 +18,7 @@ import { StaleBox } from "./today/StaleBox";
 import { AdvisorCard } from "./today/AdvisorCard";
 import { ConsultAsk } from "./today/ConsultAsk";
 import { PhotoNudge } from "./today/PhotoNudge";
-import { byDays, dateWord, daysLeft, planToday, type Task } from "./today/task";
+import { byDays, dateWord, daysLeft, planToday, withAssignee, type Task } from "./today/task";
 import { VisitToday, visitIsTop } from "./today/VisitToday";
 
 /** 「済んだにしました・もどす」を出しておく長さ */
@@ -213,7 +213,8 @@ export function Techo() {
     return s;
   }, [marked, sent, fromTecho, schedule, today, isDemo]);
 
-  const tasks: ShownTask[] = schedule.map((m) => ({ ...m, status: statusOf(m, today, done) }));
+  // 家族みんなの事は、「誰がやる？」で決めた人の番にする（決めていなければ今までどおり全員の事）
+  const tasks: ShownTask[] = schedule.map((m) => withAssignee({ ...m, status: statusOf(m, today, done) }, family, keep?.assign));
   const plan = planToday(tasks, today, me);
   // 時期を過ぎて一番上から外した事（task.ts の stale。まだ無い版でも動くように）
   const stale = ((plan as { stale?: Task[] }).stale ?? []) as ShownTask[];
@@ -234,7 +235,17 @@ export function Techo() {
     (r) => (r.kind === "visit" ? daysUntil(today, visitRow!.date) : daysLeft(r.task, today)),
   );
   const upcoming = plan.upcoming;
-  const common = { today, family, me, keep };
+  const onAssign = (milestoneId: string, who: string) => {
+    // 先に画面へ（押した手応えを待たせない）。覚えるのは裏で
+    setKeep((k) => {
+      const assign = { ...(k?.assign ?? {}) };
+      if (who) assign[milestoneId] = who;
+      else delete assign[milestoneId];
+      return { ...(k ?? {}), assign };
+    });
+    void api("/api/keep", { body: { familyId: family.id, keep: { assign: { [milestoneId]: who } } } }).catch(() => {});
+  };
+  const common = { today, family, me, keep, onAssign };
   const loading = !(doneReady && sentReady && advisorOpen !== null);
   const quiet = family.situation?.quiet;
 

@@ -34,6 +34,8 @@ export interface Keep {
   shareVia?: "line" | "mail" | "share";
   /** 子の性別（発育曲線の帯を男女どちらで描くか。帯を選ぶためだけに使う。一度選べば次から聞かない） */
   childSex?: "boy" | "girl";
+  /** 家族みんなの事を、誰がやるか（milestone id → 家族の id。"together" は2人で）。今日の画面の「誰がやる？」で決める */
+  assign?: Record<string, string>;
   updatedAt?: string;
 }
 
