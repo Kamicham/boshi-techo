@@ -62,3 +62,22 @@ describe("気づいた事: きっかけを機械で見つける", () => {
     expect(a.plan[0].length).toBe(40);
   });
 });
+
+describe("lookBucket（見渡す時期）", async () => {
+  const { lookBucket } = await import("./advisor");
+  const base = { id: "t", city: "さいたま市", prefecture: "埼玉県", dueDate: "2027-05-10", members: [] } as unknown as Parameters<typeof lookBucket>[0];
+  it("授かる前は見渡さない", () => expect(lookBucket(base, "2026-07-01")).toBeNull());
+  it("妊娠中は4週ごと", () => {
+    expect(lookBucket(base, "2026-09-01")).toBe("w4"); // 最終月経（8月3日）から4週1日
+    expect(lookBucket(base, "2026-09-30")).toBe("w8");
+  });
+  it("生まれてからは1か月ごと・2歳を過ぎたら見渡さない", () => {
+    const born = { ...base, birthDate: "2027-05-01" };
+    expect(lookBucket(born, "2027-05-01")).toBe("m0");
+    expect(lookBucket(born, "2027-06-05")).toBe("m1");
+    expect(lookBucket(born, "2029-06-01")).toBeNull();
+  });
+  it("先の生まれた日は、まだ生まれていない扱い", () => {
+    expect(lookBucket({ ...base, birthDate: "2027-05-01" }, "2027-01-10")?.startsWith("w")).toBe(true);
+  });
+});

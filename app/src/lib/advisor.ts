@@ -1,13 +1,14 @@
 // 「気づいた事」: 期限表に無い事を、この家族の今から見つける（期限の数え直しと下書きだけ）。
 // ここは機械で見つける所だけ（純関数・Claude は呼ばない）。文を書かせるのは app/api/advisor/_lib/write.ts。
 // きっかけは2つ: 予定より早く／遅く生まれた・町が変わった。
+// それとは別に、時期ごとに1回、Claude が家族の今（形・予定・記録）を見渡して、決まりに無い事に気づく（look。lookBucket で時期を決める）。
 import { z } from "zod";
 import { addDays, clockAt, diffDays } from "./clock";
 import type { Family, Member } from "./demo-family";
 import { scheduleFor, type Milestone } from "./milestones";
 import type { Situation } from "./situation";
 
-export type TriggerKind = "birth-early" | "birth-late" | "moved";
+export type TriggerKind = "birth-early" | "birth-late" | "moved" | "look";
 
 export interface Trigger {
   kind: TriggerKind;
@@ -147,6 +148,22 @@ export function detectTriggers(input: AdvisorInput): Trigger[] {
     .sort((a, b) => a.priority - b.priority);
 }
 
+/**
+ * 見渡す時期（Claude が家族の今を見て、決まりに無い事に気づく。時期ごとに1回）。
+ * 妊娠中は4週ごと、生まれてからは1か月ごと、2歳の誕生日まで。授かる前は見渡さない。
+ */
+export function lookBucket(f: Family, today: string): string | null {
+  if (f.birthDate && today >= f.birthDate) {
+    const days = diffDays(today, f.birthDate);
+    if (days > 730) return null;
+    return `m${Math.floor(days / 30.44)}`;
+  }
+  const lmp = addDays(f.dueDate, -280);
+  const days = diffDays(today, lmp);
+  if (days < 0) return null;
+  return `w${Math.floor(days / 7 / 4) * 4}`;
+}
+
 /** デモの早送りで、気づきが出る日（ジャンプのボタン用） */
 export function advisorMoments(f: Family): { label: string; date: string }[] {
   const out: { label: string; date: string }[] = [];
@@ -173,6 +190,13 @@ export const AdviceSchema = z.object({
 });
 export type AdviceFields = z.infer<typeof AdviceSchema>;
 
+/** 見渡した時に Claude が返す形（見つからない時は found=false） */
+export const LookSchema = z.object({
+  found: z.boolean().describe("決まりの予定表に無い、この家族ならではの事が見つかったか。無理に作らない（見つからなければ false）"),
+  basis: z.array(z.string().describe("気づいた根拠。渡した事（家族の形・予定・記録・健診の予約）から、そのまま引く。1行40字まで")).max(3).describe("見つかった時だけ。1〜3つ"),
+  advice: AdviceSchema.optional().describe("見つかった時だけ"),
+});
+
 export interface Advice extends AdviceFields {
   kind: TriggerKind;
   key: string;
@@ -182,6 +206,8 @@ export interface Advice extends AdviceFields {
   today: string;
   createdAt: string;
   dismissedAt?: string;
+  /** 見渡したが、決まりに無い事は見つからなかった（同じ時期には見渡し直さない） */
+  none?: boolean;
 }
 
 /** 文字数の約束を守らせる（Claude が少し長く書いた時の保険） */

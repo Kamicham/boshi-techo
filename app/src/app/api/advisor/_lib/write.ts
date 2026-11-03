@@ -1,12 +1,14 @@
 // 気づいた事: 機械で見つけたきっかけ（lib/advisor.ts）から、Claude に気づき1つ＋次にする事＋文面を書かせる。
 // 町が変わった時だけ、旧と新の町の公式ページを調べてから書く（出典つき）。
+// lookAround: きっかけが無い時、時期ごとに1回、家族の今（形・予定・記録・健診）を見渡して、決まりに無い事を Claude が自分で見つける。
 import "server-only";
 import { MODEL, research, structured } from "@/lib/claude";
 import { clockAt } from "@/lib/clock";
 import type { Family } from "@/lib/demo-family";
 import type { Keep } from "@/lib/keep";
 import { isOfficial } from "@/lib/local";
-import { AdviceSchema, situationFacts, trimAdvice, type Advice, type AdvisorInput, type Trigger } from "@/lib/advisor";
+import { AdviceSchema, LookSchema, situationFacts, trimAdvice, type Advice, type AdvisorInput, type Trigger } from "@/lib/advisor";
+import { notebookSnapshot, planSnapshot } from "@/lib/ask/tools";
 
 const SYSTEM = `あなたの役割: 期限表（リマインダー）には無い事を、この家族の今の状況から1つ気づき、数え直した期限と、そのまま渡せる文面を用意する。
 - 渡された「機械で確かめた事」を土台にする。日付・件数・人の名前はそこから使い、作らない。
@@ -24,6 +26,7 @@ const SYSTEM = `あなたの役割: 期限表（リマインダー）には無�
 const ROLE_HINT: Record<Trigger["kind"], string> = {
   "birth-early": "きっかけ: 予定より早く生まれた。産休・育休・手続きの期限を、生まれた日で数え直す。職場への連絡（育休の始まる日の直し）が早まる事に気づき、職場の上司への連絡文を用意する。",
   "birth-late": "きっかけ: 予定より遅く生まれた。産休・育休・手続きの期限を、生まれた日で数え直す。職場への連絡（育休の始まる日の直し）に気づき、職場の上司への連絡文を用意する。",
+  look: "きっかけ: 決まりのきっかけは無い。家族の今を見渡して気づく（lookAround で使う）。",
   moved: "きっかけ: 町が変わった（引っ越し）。前の町から引き継がれない助成・受診券（妊婦健診の補助券）などの扱いの差を、調べた文章から出す。新しい町の窓口への問い合わせ文を用意する（要らなければ省く）。",
 };
 
@@ -88,4 +91,47 @@ export async function writeAdvice(t: Trigger, input: AdvisorInput, keep: Keep): 
     today: input.today,
     createdAt: new Date().toISOString(),
   };
+}
+
+const LOOK_SYSTEM = `あなたの役割: この家族の手帳を、今の時期に1回だけ見渡す。予定表（決まりの期限）は別の所が知らせているので、それを繰り返さない。
+この家族の形・記録・健診の予約・済んだ事・まだの事を突き合わせて、決まりの予定表では出てこない「この家族ならではの段取りの事」を1つだけ探す。例:
+- 家族の形と予定の食い違い（里帰りする家族に、里帰り先での健診の補助券の扱いを確かめる事が無い・上の子の行事や預け先が入院の時期と重なる・双子で手続きが2人分になる）
+- 止まっている事（パートナーの番の事が長く済みにならない・OK を待つ候補が溜まっている）
+- 記録から分かる段取り（話した記録にある予定・心配を、次の健診で聞く事や手続きにつなげる）
+守ること:
+- 見つからなければ found=false にする。無理に作らない。「今やる事」に既に出ている事は言わない。
+- 「次の健診の予約が手帳に入っていない」「聞く事が入っていない」だけでは気づきにしない（多くの家族は手帳に予約を書かない。予約は産院が決める）。
+- 一番大事なのは、家族の形（働き方・上の子・里帰り・双子・祖父母）や記録と、これからの予定との突き合わせ。誰の・いつの・何の段取りかが具体的に言える事を選ぶ。
+- 体・赤ちゃんの状態・数値・発達・心・栄養の良し悪しは言わない。記録に体の事があっても、判断せず「次の健診で聞く事にする」段取りだけにする。
+- basis には、渡した事の中の言葉をそのまま引く（作らない）。
+- title は「気づいた事」を一文で（30字まで）。脅さない（「このままだと」「失う」「損」を使わない）。
+- plan は次にする事を3つまで。message は要る時だけ1通（家族あては line、職場・役所は mail。送る人の名前で書く）。
+- 法律や制度は、渡された根拠にある事だけ言い切る。分からない事は「確かめる」と書く。`;
+
+/** きっかけが無い時: 時期ごとに1回、家族の今を見渡して、決まりに無い事に気づく（無ければ none） */
+export async function lookAround(input: AdvisorInput, keep: Keep, key: string): Promise<Advice> {
+  // 作った家族は先の生まれた日を持っている。今日より先の事は見せない（予定表と同じ扱い）
+  const f: Family = input.family.birthDate && input.family.birthDate > input.today ? { ...input.family, birthDate: undefined } : input.family;
+  const base = { kind: "look" as const, key, today: input.today, createdAt: new Date().toISOString() };
+  const content = [
+    `今日: ${input.today}（${clockAt(f, input.today).label}）`,
+    `住む町: ${f.prefecture}${f.city}`,
+    `出産予定日: ${f.dueDate}${f.birthDate ? `／生まれた日: ${f.birthDate}` : "／まだ生まれていない"}`,
+    "",
+    "家族:",
+    ...f.members.map((m) => `- ${m.name}（${m.role}）`),
+    ...(situationFacts(f).length ? ["", "家族の形:", ...situationFacts(f).map((x) => `- ${x}`)] : []),
+    keep.work?.company ? `\n職場（覚えている事）: ${[keep.work.company, keep.work.boss && `上司 ${keep.work.boss}`].filter(Boolean).join("・")}` : "",
+    "",
+    "予定表（決まりの期限。ここに出ている事は繰り返さない）:",
+    JSON.stringify(planSnapshot(f, input.today)),
+    "",
+    "手帳と記録・健診:",
+    JSON.stringify(notebookSnapshot(f, input.today)),
+  ]
+    .filter((x) => x !== "")
+    .join("\n");
+  const out = await structured(LookSchema, LOOK_SYSTEM, content, { model: MODEL, effort: "medium", maxTokens: 6000 });
+  if (!out.found || !out.advice) return { ...base, title: "", why: "", plan: [], facts: [], none: true };
+  return { ...trimAdvice(out.advice), ...base, facts: out.basis.slice(0, 3) };
 }

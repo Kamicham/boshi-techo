@@ -80,7 +80,7 @@ export function AdvisorCard({ familyId, today, meId }: { familyId: string; today
     .filter(Boolean);
   return (
     <section aria-label="気づいた事" className={BOX}>
-      <p className="text-sm font-semibold text-sky">気づいた事</p>
+      <p className="text-sm font-semibold text-sky">{a.kind === "look" ? "手帳を見渡して、気づいた事" : "気づいた事"}</p>
       <h2 className="line-clamp-2 font-display text-2xl leading-snug font-bold text-balance">{a.title}</h2>
       {whyHead && <p className="line-clamp-1 text-base">{whyHead}</p>}
       <div className="mt-auto flex flex-wrap items-center gap-2">
@@ -140,7 +140,7 @@ function Details({ a, res }: { a: Advice; res: Res | null }) {
         {whyRest.map((w, i) => (
           <p key={i}>{w}</p>
         ))}
-        <p className="font-semibold">機械で確かめた事</p>
+        <p className="font-semibold">{a.kind === "look" ? "手帳の中で気づいた所" : "機械で確かめた事"}</p>
         {a.facts.map((f, i) => (
           <p key={`f${i}`}>{f}</p>
         ))}
