@@ -40,7 +40,8 @@
 ## Claude の使い方
 
 - **Claude Opus 5.5** が7つの役を担う: 声と写真の読み取り（画像入力）、記録の構造化（Structured Outputs＋zod）、自治体の制度の調査（web 検索ツール・出典つき）、下書き、生まれた日や町が変わった時の組み直し（参謀の気づき）、健診の整理、一冊の執筆
-- 軽い整形は **Claude Haiku 5.5**
+- **手帳に聞く**（どの画面からも右下の「聞く」）: Opus 5.5 が道具（予定・手帳の記録・町の公式ページ・画面の地図・下書き・済みにする・健診で聞く・記録する・渡す文）を自分で選んで使い、答えるだけでなく返事の下に動きを添える。書き込む動きは家族が押すまで何も変えない。体・心・栄養は判断せず、記録・健診で聞く事・連絡先への橋に変える（急ぎ・心の危機の言葉には機械で必ず電話の案内を付け、返事は Haiku 5.5 の見張りが判断の言葉を探して書き直させる）
+- 軽い整形と見張りは **Claude Haiku 5.5**
 - 体の判断をしない約束を、すべての呼び出しの共通の決まり（`CHARTER`）として持つ
 - 作る過程は **Claude Code** で進めた（計画 → 承認 → 実装を、機能ごとに並列のエージェントで）。コミットの履歴がその記録
 
@@ -114,7 +115,7 @@ The author is user #1, using it at a family member's real prenatal checkups (rea
 
 ## How Claude is used
 
-Claude Opus 5.5 plays seven roles (vision, structured outputs with zod, web search with citations, drafting, replanning when the baby comes early or late or the family moves, checkup structuring, book writing); Claude Haiku 5.5 handles light formatting. A shared charter forbids medical judgment in every call. The whole project was built with Claude Code, with parallel agents per feature; the commit history is the record.
+Claude Opus 5.5 plays seven roles (vision, structured outputs with zod, web search with citations, drafting, replanning when the baby comes early or late or the family moves, checkup structuring, book writing); "Ask the handbook" (the floating button on every screen) is a tool-using agent: Opus 5.5 looks up the family's schedule, records, official town pages and an in-app screen map, then answers and attaches actions (open the right screen, draft, mark done, add a checkup question, record, a ready-to-send message). Nothing is written until the family taps. Body, mental-health and nutrition questions get no judgment, only a bridge: a dated record, a question for the doctor, and phone numbers; urgent words always add 119/#8000 by rule, and a Haiku guard rewrites any judgment it finds. Claude Haiku 5.5 handles light formatting. A shared charter forbids medical judgment in every call. The whole project was built with Claude Code, with parallel agents per feature; the commit history is the record.
 
 Every change is fast-forwarded through 1,000 days with 1,000 synthetic families drawn from Japanese public statistics (sources: [docs/SIM_STATS.md](docs/SIM_STATS.md), in Japanese).
 

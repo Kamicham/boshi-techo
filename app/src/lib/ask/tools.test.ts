@@ -1,0 +1,65 @@
+// 手帳に聞くの道具（Claude を呼ばない所）: 予定の見方が今日の画面と同じか、動きの道具が何も書き込まず、変な行き先や id を通さないか。
+// DB は一時フォルダに作る（わが家の app/data には触らない）。
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterAll, describe, expect, it, vi } from "vitest";
+
+vi.mock("server-only", () => ({}));
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), "boshi-ask-test-"));
+process.env.BOSHI_DATA_DIR = dir;
+
+const { DEMO_FAMILY } = await import("../demo-family");
+const { planSnapshot, notebookSnapshot, runTool } = await import("./tools");
+const { list } = await import("../db");
+type Ctx = Parameters<typeof runTool>[2];
+
+afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+const ctx = (today: string): Ctx => ({ family: DEMO_FAMILY, today, actions: [], sources: [], onStatus: () => {} });
+
+describe("予定を見る", () => {
+  it("生まれた翌日のデモの家族: 出生届が今やる事に入り、期限が出る", () => {
+    const s = planSnapshot(DEMO_FAMILY, "2027-04-27");
+    const birth = s.今やる事.find((r) => r.id === "birth-registration");
+    expect(birth).toBeTruthy();
+    expect(JSON.stringify(birth)).toMatch(/期限/);
+    // デモは通り過ぎた期限を済みにする（今日の画面と同じ）
+    expect(s.今やる事.every((r) => r.状態 !== "期限切れ")).toBe(true);
+  });
+
+  it("手帳を見る: 作った家族の記録が今日までだけ入る", () => {
+    const n = notebookSnapshot(DEMO_FAMILY, "2027-04-27");
+    expect(n.次の健診の予約).toBeTruthy();
+    expect(JSON.stringify(n.手帳のページ)).not.toMatch(/2027-0[5-9]/);
+  });
+});
+
+describe("動きの道具", () => {
+  it("書き込まず、ボタンを積むだけ", async () => {
+    const c = ctx("2027-04-27");
+    await runTool("add_checkup_question", { text: "便の色が白っぽく見えた日がある" }, c);
+    await runTool("add_record", { text: "今日、初めて笑った" }, c);
+    await runTool("propose_done", { milestoneId: "birth-registration" }, c);
+    await runTool("offer_paperwork", { milestoneId: "birth-registration" }, c);
+    await runTool("write_message", { to: "翔太さん", via: "line", body: "見学は【日にち】でどう？" }, c);
+    await runTool("open_screen", { href: "/techo#page-stool", label: "便色カード" }, c);
+    expect(c.actions.map((a) => a.type)).toEqual(["concern", "record", "done", "milestone", "message", "open"]);
+    expect(list(DEMO_FAMILY.id, "record")).toHaveLength(0);
+    expect(list(DEMO_FAMILY.id, "done")).toHaveLength(0);
+  });
+
+  it("地図に無い行き先・予定に無い id は通さない", async () => {
+    const c = ctx("2027-04-27");
+    expect(await runTool("open_screen", { href: "https://example.com", label: "外" }, c)).toMatch(/地図にありません/);
+    expect(await runTool("propose_done", { milestoneId: "no-such" }, c)).toMatch(/ありません/);
+    expect(await runTool("offer_paperwork", { milestoneId: 3 }, c)).toMatch(/ありません/);
+    expect(c.actions).toEqual([]);
+  });
+
+  it("メールの件名は mail の時だけ", async () => {
+    const c = ctx("2027-04-27");
+    await runTool("write_message", { to: "妻", via: "line", subject: "件名", body: "本文" }, c);
+    expect(c.actions[0]).not.toHaveProperty("subject");
+  });
+});

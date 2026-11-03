@@ -1,0 +1,270 @@
+// 「手帳に聞く」の道具: 手帳がこの家族の今を見る・町の制度を取りに行く・返事の下に動きを添える。
+// 読む道具は既存の部品を包むだけ。動きの道具は何も書き込まず、画面に出すボタンを積むだけ（押すのは家族）。
+import "server-only";
+import type Anthropic from "@anthropic-ai/sdk";
+import { isKnownHref } from "../app-guide";
+import { research } from "../claude";
+import { clockAt } from "../clock";
+import { listRecords } from "../capture";
+import { DEMO_FAMILY, type Family } from "../demo-family";
+import { fetchLocal, getLocal, isOfficial } from "../local";
+import { deadlineKindOf, MILESTONES, scheduleFor, statusOf, type Milestone } from "../milestones";
+import { TECHO_PAGES } from "../techo";
+import { listTecho } from "../techo-store";
+import { doneSetFor } from "@/app/api/done/_lib/done";
+import { getPlan } from "@/app/api/visit/_lib/server";
+import type { AskAction } from "./types";
+
+export interface ToolCtx {
+  family: Family;
+  today: string;
+  /** 返事に添える動き（道具が積む） */
+  actions: AskAction[];
+  /** 調べたページ */
+  sources: { title: string; url: string }[];
+  /** 画面に「いま何をしているか」を出す */
+  onStatus: (text: string) => void;
+  /** search_official をもう使ったか（重いので1回の問いで1回まで） */
+  searched?: boolean;
+}
+
+const jp = (d: string) => `${Number(d.slice(5, 7))}月${Number(d.slice(8, 10))}日`;
+
+/** 今日の画面と同じ「済み」（デモの家族は通り過ぎた期限も済み） */
+function doneOf(family: Family, today: string, schedule: Milestone[]): Set<string> {
+  const done = doneSetFor(family, today);
+  if (family.id === DEMO_FAMILY.id) for (const m of schedule) if (m.deadlineDate && m.deadlineDate < today) done.add(m.id);
+  return done;
+}
+
+/** 予定の1行（Claude に渡す形） */
+function row(m: Milestone, today: string, done: Set<string>) {
+  const status = statusOf(m, today, done);
+  const left = m.deadlineDate ? Math.round((Date.parse(m.deadlineDate) - Date.parse(today)) / 86_400_000) : null;
+  return {
+    id: m.id,
+    やさしい題: m.plain,
+    正式な名前: m.title,
+    一言: m.hint,
+    担当: m.who,
+    状態: status,
+    始まり: m.awaitingPregnancy ? "授かったら" : m.awaitingBirth ? "生まれたら" : jp(m.startDate),
+    ...(m.deadlineDate && !m.awaitingBirth && !m.awaitingPregnancy
+      ? { [deadlineKindOf(m) === "目安" ? "目安の日" : "期限"]: `${jp(m.deadlineDate)}${left != null && left >= 0 ? `（あと${left}日）` : left != null ? `（${-left}日過ぎた）` : ""}` }
+      : {}),
+    根拠: m.basis,
+    町ごとに違う: m.needsLocal,
+  };
+}
+
+/** 予定の全体（今やる・もうすぐ・まだ先の数件・済んだ事の名前） */
+export function planSnapshot(family: Family, today: string) {
+  const schedule = scheduleFor(family, today);
+  const done = doneOf(family, today, schedule);
+  const rows = schedule.map((m) => row(m, today, done));
+  const c = clockAt(family, today);
+  const now = rows.filter((r) => r.状態 === "今やる" || r.状態 === "期限が近い" || r.状態 === "期限切れ");
+  const later = rows.filter((r) => r.状態 === "まだ先");
+  return {
+    今日: `${jp(today)}（${c.label}・1000日の${c.dayOf1000}日目）`,
+    今やる事: now,
+    まだ先の事: later.slice(0, 10),
+    まだ先の残り: Math.max(0, later.length - 10),
+    済んだ事: rows.filter((r) => r.状態 === "済み").map((r) => r.やさしい題),
+    過ぎた事: rows.filter((r) => r.状態 === "過ぎた").map((r) => r.やさしい題),
+  };
+}
+
+/** 手帳と話した記録・健診の予約と聞く事 */
+export function notebookSnapshot(family: Family, today: string) {
+  const techo = listTecho(family.id, { family, today });
+  const pending = techo.filter((d) => d.data.pending);
+  const byPage = TECHO_PAGES.map((p) => {
+    const list = techo.filter((d) => d.data.page === p.id && !d.data.pending);
+    if (!list.length) return null;
+    return {
+      ページ: p.title,
+      件数: list.length,
+      新しい物: list
+        .slice(-3)
+        .map((d) => `${d.data.date} ${d.data.title}${Object.keys(d.data.values ?? {}).length ? ` ${JSON.stringify(d.data.values)}` : ""}`),
+    };
+  }).filter(Boolean);
+  const records = listRecords(family.id, { limit: 40 })
+    .filter((r) => !r.date || r.date.slice(0, 10) <= today)
+    .slice(0, 12)
+    .map((r) => `${r.date ?? ""} [${r.data.kind}] ${r.data.title}: ${r.data.detail.slice(0, 80)}`);
+  const plan = getPlan(family.id);
+  return {
+    OKを待っている候補: pending.map((d) => `${d.data.date} ${d.data.title}`),
+    手帳のページ: byPage,
+    話した撮った記録: records,
+    次の健診の予約: plan.next ? `${plan.next.date}${plan.next.time ? ` ${plan.next.time}` : ""}` : "まだ入っていない",
+    次の健診で聞く事: plan.concerns.map((c) => c.text),
+  };
+}
+
+const str = (v: unknown, n: number) => (typeof v === "string" ? v.trim().slice(0, n) : "");
+
+function findInSchedule(family: Family, today: string, id: unknown): Milestone | null {
+  if (typeof id !== "string") return null;
+  return scheduleFor(family, today).find((m) => m.id === id) ?? null;
+}
+
+const SEARCH_SYSTEM = `あなたの役割: 子育ての制度・手続き・お金・仕事の決まりを、公式のページ（国の省庁・こども家庭庁・厚生労働省・法務省・日本年金機構・都道府県・市区町村）で調べる係。
+- まとめサイトや個人のブログは根拠にしない。言い切れない所は「確かめる」と書く。
+- 体・病気・薬・心・栄養の中身は調べない（窓口の名前と連絡の仕方だけ）。
+- 日本語で、短く要点だけ（10行まで）。`;
+
+/** Claude に見せる道具の一覧 */
+export const TOOLS: Anthropic.Beta.BetaToolUnion[] = [
+  {
+    name: "get_plan",
+    description: "この家族の予定（今やる事・期限・まだ先の事・済んだ事）を見る。手続き・期限・次にやる事を聞かれたら、答える前に必ず使う。",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "get_notebook",
+    description: "この家族の手帳の記録（府令様式のページ）・OK を待っている候補・話した撮った記録・次の健診の予約と聞く事を見る。",
+    input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "look_up_town",
+    description:
+      "住んでいる町で、予定にある手続き（milestoneId）をする時の窓口・持ち物・オンライン申請・期限・町独自の助成を、町の公式ページから取ってくる（初めての時は30秒〜1分かかる。調べ済みならすぐ）。",
+    input_schema: { type: "object", properties: { milestoneId: { type: "string", description: "get_plan の id" } }, required: ["milestoneId"] },
+  },
+  {
+    name: "search_official",
+    description:
+      "予定に無い制度・手続き・お金・仕事の決まりを、公式のページで調べる（20〜40秒かかり、費用も重い。1回の問いで1回まで）。予定（get_plan）の根拠や画面の地図で答えられる時、体・病気・心・栄養の問い、アプリの操作には使わない。町の事なら町の名前を入れる。",
+    input_schema: { type: "object", properties: { question: { type: "string" } }, required: ["question"] },
+  },
+  {
+    name: "open_screen",
+    description: "返事の下に「その画面へ行く」ボタンを出す。行き先は画面の地図にある物だけ。",
+    input_schema: {
+      type: "object",
+      properties: { href: { type: "string", description: "例: /visit ・ /techo#page-stool" }, label: { type: "string", description: "ボタンの言葉。15字まで" } },
+      required: ["href", "label"],
+    },
+  },
+  {
+    name: "offer_paperwork",
+    description: "予定にある手続き（milestoneId）について、返事の下に今日の画面と同じ「どこへ行くか見る」「下書き・記入メモを作る」のボタンを出す。",
+    input_schema: { type: "object", properties: { milestoneId: { type: "string" } }, required: ["milestoneId"] },
+  },
+  {
+    name: "propose_done",
+    description: "家族が「〜を出した・済ませた」と言った時、そのやる事を済みにするボタンを出す（押すのは家族）。",
+    input_schema: { type: "object", properties: { milestoneId: { type: "string" } }, required: ["milestoneId"] },
+  },
+  {
+    name: "add_checkup_question",
+    description: "体や様子で気になる事を、次の健診で先生に聞く事に足すボタンを出す（押すのは家族）。家族の言葉を残した1文の質問にする。",
+    input_schema: { type: "object", properties: { text: { type: "string", description: "先生への質問（例: 便の色が白っぽく見えた日がある。見てほしい）" } }, required: ["text"] },
+  },
+  {
+    name: "add_record",
+    description: "家族が話した出来事・気になる事・予定を、日付つきで手帳に記録するボタンを出す（押すのは家族。手帳のページに入る物は候補になる）。",
+    input_schema: { type: "object", properties: { text: { type: "string", description: "記録する事を家族の言葉のまま" } }, required: ["text"] },
+  },
+  {
+    name: "write_message",
+    description: "家族が誰かに伝えたい時、そのまま渡せる文を作って返事の下に出す（コピー・メール・LINE で開ける。送るのは家族）。分からない名前・日付は【 】の空欄にする。",
+    input_schema: {
+      type: "object",
+      properties: {
+        to: { type: "string", description: "相手（例: 翔太さん・職場の上司・保育園）" },
+        via: { type: "string", enum: ["mail", "line"], description: "職場・役所は mail、家族は line" },
+        subject: { type: "string", description: "mail の時だけ" },
+        body: { type: "string" },
+      },
+      required: ["to", "via", "body"],
+    },
+  },
+];
+
+/** 道具を動かす。返すのは Claude に渡す文字 */
+export async function runTool(name: string, input: Record<string, unknown>, ctx: ToolCtx): Promise<string> {
+  const { family, today, actions } = ctx;
+  switch (name) {
+    case "get_plan":
+      ctx.onStatus("予定を見ています");
+      return JSON.stringify(planSnapshot(family, today));
+    case "get_notebook":
+      ctx.onStatus("手帳を見ています");
+      return JSON.stringify(notebookSnapshot(family, today));
+    case "look_up_town": {
+      const m = MILESTONES.find((x) => x.id === input.milestoneId);
+      if (!m) return "その id の手続きは予定にありません。get_plan の id を使ってください";
+      if (!family.city) return "住んでいる町がまだ入っていません。わが家の設定で町を入れるよう案内してください（/settings）";
+      const cached = getLocal(family, m.id);
+      ctx.onStatus(cached ? `${family.city}の調べ済みのページを見ています` : `${family.city}の公式ページを調べています（30秒〜1分）`);
+      const { local } = await fetchLocal(family, m);
+      ctx.sources.push(...local.sources.slice(0, 3));
+      return JSON.stringify({
+        調べた日: local.researchedAt,
+        要点: local.summary,
+        窓口: local.where,
+        役所: local.office,
+        持ち物: local.bring,
+        オンライン: local.online,
+        期限: local.deadline,
+        町独自: local.extras,
+        気をつける事: local.caution,
+        出典: local.sources.slice(0, 3).map((s) => `${s.title} ${s.url}${isOfficial(s.url) ? "（公式）" : ""}`),
+      });
+    }
+    case "search_official": {
+      const q = str(input.question, 300);
+      if (!q) return "質問が空です";
+      if (ctx.searched) return "公式のページはこの問いでもう1回調べました。ここまでに分かった事で答え、言い切れない所は「窓口に確かめる」と書いてください";
+      ctx.searched = true;
+      ctx.onStatus("公式のページを調べています（20〜40秒）");
+      const r = await research(SEARCH_SYSTEM, `${family.prefecture}${family.city}に住む家族からの質問です。\n${q}`, { maxTokens: 6000 });
+      const official = r.sources.filter((s) => isOfficial(s.url));
+      ctx.sources.push(...(official.length ? official : r.sources).slice(0, 3));
+      return JSON.stringify({ 調べた事: r.text, 出典: r.sources.slice(0, 5).map((s) => `${s.title} ${s.url}${isOfficial(s.url) ? "（公式）" : ""}`) });
+    }
+    case "open_screen": {
+      const href = str(input.href, 120);
+      if (!isKnownHref(href)) return `「${href}」は画面の地図にありません。地図にある行き先だけを使ってください`;
+      actions.push({ type: "open", href, label: str(input.label, 20) || "その画面へ" });
+      return "ボタンを出しました";
+    }
+    case "offer_paperwork": {
+      const m = findInSchedule(family, today, input.milestoneId);
+      if (!m) return "その id はこの家族の予定にありません";
+      actions.push({ type: "milestone", milestoneId: m.id, label: m.plain });
+      return "ボタンを出しました（押すまで何も作っていません）";
+    }
+    case "propose_done": {
+      const m = findInSchedule(family, today, input.milestoneId);
+      if (!m) return "その id はこの家族の予定にありません";
+      actions.push({ type: "done", milestoneId: m.id, label: m.plain });
+      return "済みにするボタンを出しました（まだ済みにはなっていません）";
+    }
+    case "add_checkup_question": {
+      const text = str(input.text, 300);
+      if (!text) return "質問が空です";
+      actions.push({ type: "concern", text });
+      return "健診で聞く事に足すボタンを出しました（まだ足していません）";
+    }
+    case "add_record": {
+      const text = str(input.text, 1000);
+      if (!text) return "記録する事が空です";
+      actions.push({ type: "record", text });
+      return "記録するボタンを出しました（まだ記録していません）";
+    }
+    case "write_message": {
+      const body = str(input.body, 3000);
+      if (!body) return "本文が空です";
+      const via = input.via === "mail" ? "mail" : "line";
+      actions.push({ type: "message", to: str(input.to, 60) || "相手", via, ...(via === "mail" && str(input.subject, 120) ? { subject: str(input.subject, 120) } : {}), body });
+      return "文を返事の下に出しました（送るのは家族）";
+    }
+    default:
+      return `知らない道具です: ${name}`;
+  }
+}

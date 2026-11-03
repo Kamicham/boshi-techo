@@ -46,4 +46,5 @@ next-env.d.ts
 /data/
 /sim-data/
 /.next-sim/
+/.next-ask/
 /sim/out/

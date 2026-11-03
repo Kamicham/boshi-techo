@@ -1,18 +1,15 @@
 "use client";
 
-// 画面の枠: 上に家族の切り替えと「急ぎの時」、下にタブ（今日・健診・話す撮る・手帳）。一冊は手帳の最後から入る。
+// 画面の枠: 上に家族の切り替えと「急ぎの時」、下にタブ（今日・健診・話す撮る・手帳）、右下に「聞く」。一冊は手帳の最後から入る。
+// タブの並びは lib/app-guide.ts（手帳に聞くが使い方を答える画面の地図）と共有する。
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
 import { recordingBusy, recordingBusyServer, subscribeRecording } from "@/lib/recording-state";
+import { TABS } from "@/lib/app-guide";
+import { AskButton } from "./ask/AskSheet";
 import { useFamily } from "./FamilyProvider";
 
-const TABS = [
-  { href: "/", label: "今日" },
-  { href: "/visit", label: "健診" },
-  { href: "/capture", label: "話す・撮る" },
-  { href: "/techo", label: "手帳" },
-];
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
@@ -50,7 +47,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </Link>
       </div>
       {/* 家族を読み終えるまで中身を出さない（わが家の人に、デモの家族が一瞬見えないように） */}
-      <div className="flex-1 pb-24">{ready ? children : <div className="mx-4 mt-4 h-40 rounded-2xl bg-rose-soft/60" aria-hidden />}</div>
+      <div className="flex-1 pb-40">{ready ? children : <div className="mx-4 mt-4 h-40 rounded-2xl bg-rose-soft/60" aria-hidden />}</div>
+      {/* 手帳に聞く（どの画面からも）。録音中・急ぎの時・家族の読み込み前は出さない */}
+      <AskButton hidden={recording || !ready || path === "/emergency"} />
       <nav
         aria-label="画面の切り替え"
         className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-card/95 backdrop-blur"
