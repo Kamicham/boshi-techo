@@ -97,7 +97,32 @@ export default function EmergencyPage() {
         </span>
       </a>
 
+      {/* 妊娠中・産後のママの体（第29回: 妊娠中の家族が開いても、赤ちゃんの手当しか無かった）。判断はせず、電話の先だけ */}
+      <section
+        id="mama"
+        aria-labelledby="mama-h"
+        className="flex scroll-mt-4 flex-col gap-2 rounded-2xl border border-line bg-card p-4"
+      >
+        <h2 id="mama-h" className="font-display text-xl font-bold">
+          妊娠中・産後のママの体
+        </h2>
+        <p className="text-base leading-relaxed">
+          出血・破水（水っぽいものが出た）・強いお腹の痛みや張り・胎動が少ない・ひどい頭痛や目のちかちか・産後の大量の出血や高い熱の時は、
+          <b>かかっている産院へ電話</b>します（夜間も休みの日も）。
+        </p>
+        <p className="text-sm text-muted">
+          産院の番号は、診察券や母子手帳の表紙に書いてあることが多いです。わが家の設定で病院を入れておくと、「聞く」の答えに電話のボタンが出ます。迷ったら
+          119。
+        </p>
+      </section>
+
       <nav aria-label="このページの中" className="flex flex-wrap gap-2">
+        <a
+          href="#mama"
+          className="inline-flex min-h-11 items-center rounded-full border border-ink/20 bg-card px-4 text-base font-semibold"
+        >
+          妊娠中・産後のママ
+        </a>
         <a
           href="#choke"
           className="inline-flex min-h-11 items-center rounded-full border border-ink/20 bg-card px-4 text-base font-semibold"

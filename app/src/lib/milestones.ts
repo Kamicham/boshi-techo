@@ -123,7 +123,7 @@ export const MILESTONES: MilestoneDef[] = [
 
   // ── 生まれてから ──
   { id: "birth-registration", title: "出生届を出す", plain: "出生届を出す", hint: "生まれた日から14日以内", kind: "手続き", who: "パートナー", anchor: "birth", start: { days: 0 }, deadline: { days: 13 }, basis: "戸籍法第49条（生まれた日を含めて14日以内）", needsLocal: true },
-  { id: "child-allowance", title: "児童手当を申請する", plain: "児童手当を申し込む", hint: "遅れると、その月の分がもらえません", kind: "手続き", who: "パートナー", anchor: "birth", start: { days: 1 }, deadline: { days: 15 }, basis: "児童手当法（生まれた日の翌日から15日以内に申請すると、翌月分から受け取れる）", needsLocal: true, only: ["first-child"] },
+  { id: "child-allowance", title: "児童手当を申請する", plain: "児童手当を申し込む", hint: "遅れると、その月の分がもらえません", kind: "手続き", who: "パートナー", anchor: "birth", start: { days: 1 }, deadline: { days: 15 }, basis: "児童手当法第8条（生まれた日の翌日から15日以内に申請すると、翌月分から受け取れる）・第4条（受け取るのは父母のうち家計を主に支える人。ふつうは所得の高い方）", needsLocal: true, only: ["first-child"] },
   { id: "child-allowance-change", title: "児童手当の額を変える届けを出す（額改定の請求）", plain: "児童手当の額を変える届けを出す", hint: "上の子の手当に足します。15日以内に", kind: "手続き", who: "パートナー", anchor: "birth", start: { days: 1 }, deadline: { days: 15 }, basis: "児童手当法第9条（額の改定。生まれた日の翌日から15日以内に請求すると、生まれた月の翌月分から増える。過ぎると、請求した月の翌月分から）", needsLocal: true, only: ["older-children"] },
   { id: "health-insurance", title: "赤ちゃんを健康保険に入れる", plain: "赤ちゃんの保険証を作る", hint: "1か月健診までに", kind: "手続き", who: "パートナー", anchor: "birth", start: { days: 1 }, deadline: { months: 1 }, deadlineKind: "目安", basis: "1か月健診までが目安", needsLocal: false },
   { id: "medical-subsidy", title: "子ども医療費助成の受給者証を申請する", plain: "子どもの医療費助成を申し込む", hint: "病院代の助成が受けられます", kind: "手続き", who: "パートナー", anchor: "birth", start: { days: 1 }, deadline: { months: 1 }, deadlineKind: "目安", basis: "町の制度（保険証が届いたら）", needsLocal: true },

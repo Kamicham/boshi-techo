@@ -29,6 +29,15 @@ export interface ToolCtx {
 }
 
 const jp = (d: string) => `${Number(d.slice(5, 7))}月${Number(d.slice(8, 10))}日`;
+/** 今日と年が違う日は年も付ける（Claude が年を推し量って1年ずらさないように。第29回で日本脳炎を1年ずらした） */
+const jpY = (d: string, today: string) => `${d.slice(0, 4) !== today.slice(0, 4) ? `${Number(d.slice(0, 4))}年` : ""}${jp(d)}`;
+const daysTo = (d: string, today: string) => Math.round((Date.parse(d) - Date.parse(today)) / 86_400_000);
+
+/** 担当（母・パートナー・家族）を、この家族の呼び名つきで */
+function whoName(family: Family, who: string): string {
+  const m = family.members.find((x) => x.role === who);
+  return m ? `${who}（${m.name}）` : who;
+}
 
 /** 今日の画面と同じ「済み」（デモの家族は通り過ぎた期限も済み） */
 function doneOf(family: Family, today: string, schedule: Milestone[]): Set<string> {
@@ -38,7 +47,7 @@ function doneOf(family: Family, today: string, schedule: Milestone[]): Set<strin
 }
 
 /** 予定の1行（Claude に渡す形） */
-function row(m: Milestone, today: string, done: Set<string>) {
+function row(family: Family, m: Milestone, today: string, done: Set<string>) {
   const status = statusOf(m, today, done);
   const left = m.deadlineDate ? Math.round((Date.parse(m.deadlineDate) - Date.parse(today)) / 86_400_000) : null;
   return {
@@ -46,11 +55,15 @@ function row(m: Milestone, today: string, done: Set<string>) {
     やさしい題: m.plain,
     正式な名前: m.title,
     一言: m.hint,
-    担当: m.who,
+    担当: whoName(family, m.who),
     状態: status,
-    始まり: m.awaitingPregnancy ? "授かったら" : m.awaitingBirth ? "生まれたら" : jp(m.startDate),
+    始まり: m.awaitingPregnancy
+      ? "授かったら"
+      : m.awaitingBirth
+        ? "生まれたら"
+        : `${jpY(m.startDate, today)}${daysTo(m.startDate, today) > 0 ? `（あと${daysTo(m.startDate, today)}日）` : ""}`,
     ...(m.deadlineDate && !m.awaitingBirth && !m.awaitingPregnancy
-      ? { [deadlineKindOf(m) === "目安" ? "目安の日" : "期限"]: `${jp(m.deadlineDate)}${left != null && left >= 0 ? `（あと${left}日）` : left != null ? `（${-left}日過ぎた）` : ""}` }
+      ? { [deadlineKindOf(m) === "目安" ? "目安の日" : "期限"]: `${jpY(m.deadlineDate, today)}${left != null && left >= 0 ? `（あと${left}日）` : left != null ? `（${-left}日過ぎた）` : ""}` }
       : {}),
     根拠: m.basis,
     町ごとに違う: m.needsLocal,
@@ -61,12 +74,13 @@ function row(m: Milestone, today: string, done: Set<string>) {
 export function planSnapshot(family: Family, today: string) {
   const schedule = scheduleFor(family, today);
   const done = doneOf(family, today, schedule);
-  const rows = schedule.map((m) => row(m, today, done));
+  const rows = schedule.map((m) => row(family, m, today, done));
   const c = clockAt(family, today);
   const now = rows.filter((r) => r.状態 === "今やる" || r.状態 === "期限が近い" || r.状態 === "期限切れ");
   const later = rows.filter((r) => r.状態 === "まだ先");
   return {
-    今日: `${jp(today)}（${c.label}・1000日の${c.dayOf1000}日目）`,
+    今日: `${today.slice(0, 4)}年${jp(today)}（${c.label}・1000日の${c.dayOf1000}日目）`,
+    読み方: "日付と「あと◯日」はこの値をそのまま写す（自分で足し引きしない）。担当が聞いた人でない事は、その人の番として書く",
     今やる事: now,
     まだ先の事: later.slice(0, 10),
     まだ先の残り: Math.max(0, later.length - 10),
@@ -105,6 +119,22 @@ export function notebookSnapshot(family: Family, today: string) {
 }
 
 const str = (v: unknown, n: number) => (typeof v === "string" ? v.trim().slice(0, n) : "");
+
+/** 調べたページを、この町の物と国の物に絞る（ほかの町のページを並べない。第29回で名古屋・福山などが混ざった） */
+export function pickSources(family: Family, sources: { title: string; url: string }[]): { title: string; url: string }[] {
+  const host = (u: string) => {
+    try {
+      return new URL(u).hostname;
+    } catch {
+      return "";
+    }
+  };
+  const national = (u: string) => /\.go\.jp$/.test(host(u));
+  const local = (s: { title: string; url: string }) => !!family.city && s.title.includes(family.city);
+  const good = sources.filter((s) => isOfficial(s.url) && (local(s) || national(s.url)));
+  const list = good.length ? good : sources.filter((s) => isOfficial(s.url) && !/(市|町|村|区)(役所|役場|ホームページ|公式)/.test(s.title));
+  return list.map((s) => ({ url: s.url, title: s.title?.trim() || host(s.url) }));
+}
 
 function findInSchedule(family: Family, today: string, id: unknown): Milestone | null {
   if (typeof id !== "string") return null;
@@ -202,7 +232,7 @@ export async function runTool(name: string, input: Record<string, unknown>, ctx:
       const cached = getLocal(family, m.id);
       ctx.onStatus(cached ? `${family.city}の調べ済みのページを見ています` : `${family.city}の公式ページを調べています（30秒〜1分）`);
       const { local } = await fetchLocal(family, m);
-      ctx.sources.push(...local.sources.slice(0, 3));
+      ctx.sources.push(...pickSources(family, local.sources).slice(0, 3));
       return JSON.stringify({
         調べた日: local.researchedAt,
         要点: local.summary,
@@ -211,6 +241,7 @@ export async function runTool(name: string, input: Record<string, unknown>, ctx:
         持ち物: local.bring,
         オンライン: local.online,
         期限: local.deadline,
+        期限の読み方: "「◯日から」は受付の始まりで、締切ではない。予定（get_plan）の期限と違う時は両方を書き、どちらが締切か窓口に確かめる、と書く",
         町独自: local.extras,
         気をつける事: local.caution,
         出典: local.sources.slice(0, 3).map((s) => `${s.title} ${s.url}${isOfficial(s.url) ? "（公式）" : ""}`),
@@ -223,8 +254,7 @@ export async function runTool(name: string, input: Record<string, unknown>, ctx:
       ctx.searched = true;
       ctx.onStatus("公式のページを調べています（20〜40秒）");
       const r = await research(SEARCH_SYSTEM, `${family.prefecture}${family.city}に住む家族からの質問です。\n${q}`, { maxTokens: 6000 });
-      const official = r.sources.filter((s) => isOfficial(s.url));
-      ctx.sources.push(...(official.length ? official : r.sources).slice(0, 3));
+      ctx.sources.push(...pickSources(family, r.sources).slice(0, 3));
       return JSON.stringify({ 調べた事: r.text, 出典: r.sources.slice(0, 5).map((s) => `${s.title} ${s.url}${isOfficial(s.url) ? "（公式）" : ""}`) });
     }
     case "open_screen": {
@@ -237,7 +267,7 @@ export async function runTool(name: string, input: Record<string, unknown>, ctx:
       const m = findInSchedule(family, today, input.milestoneId);
       if (!m) return "その id はこの家族の予定にありません";
       actions.push({ type: "milestone", milestoneId: m.id, label: m.plain });
-      return "ボタンを出しました（押すまで何も作っていません）";
+      return "ボタンを出しました（押すまで何も作っていません）。ボタンの名前は画面が決めるので、文では「押すと、窓口と持ち物・下書きが出ます」とだけ書き、ボタンの名前を「」で書かない。窓口を文で言うなら look_up_town の結果と同じ所を書く";
     }
     case "propose_done": {
       const m = findInSchedule(family, today, input.milestoneId);

@@ -13,14 +13,20 @@ import { MilestoneActions } from "../MilestoneActions";
 import { pickAudioType } from "../capture/media";
 import { Btn, CopyField, HandoffRow, Why } from "../ui";
 
-/** 窓を開いた時の、最初の問いの例（今いる画面に合わせる） */
-function starters(path: string, pregnant: boolean): string[] {
+/** 窓を開いた時の、最初の問いの例（今いる画面と、子の時期に合わせる。1歳の子に「出生届」を出さない） */
+function starters(path: string, pregnant: boolean, ageDays: number): string[] {
   const common = ["次にやる事は何？", "この画面では何ができる？"];
   if (path.startsWith("/visit")) return [...common, "健診で何を聞けばいい？", "健診の日の録音はどうやるの？"];
   if (path.startsWith("/techo")) return [...common, "撮った紙はどこで OK するの？", "予防接種の控えはどこ？"];
   if (path.startsWith("/capture")) return [...common, "何を話せば記録になるの？", "役所の封筒を撮ったらどうなる？"];
-  return pregnant ? [...common, "産休と育休はいつから？", "出産でもらえるお金は？"] : [...common, "出生届はいつまで？どこに？", "保育園の申し込みはいつ？"];
+  if (pregnant) return [...common, "産休と育休はいつから？", "出産でもらえるお金は？"];
+  if (ageDays < 45) return [...common, "出生届はいつまで？どこに？", "児童手当は誰が申し込むの？"];
+  if (ageDays < 730) return [...common, "次の予防接種と健診はいつ？", "保育園の申し込みはいつ？"];
+  return [...common, "次の健診はいつ？", "これまでの記録を一冊にするには？"];
 }
+
+/** 開き直した時、作っている途中の答えを待って拾う間隔 */
+const POLL_MS = 4000;
 
 export function AskButton({ hidden }: { hidden?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -56,16 +62,39 @@ function AskSheet({ onClose }: { onClose: () => void }) {
   const list = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLTextAreaElement>(null);
 
+  // 作っている途中の問い（窓を閉じた後・二度押しの後）。答えができるまで GET で待つ
+  const [waiting, setWaiting] = useState<ChatTurn | null>(null);
   useEffect(() => {
     let alive = true;
     setTurns(null);
-    api<{ turns: ChatTurn[] }>(`/api/ask?familyId=${encodeURIComponent(family.id)}`)
-      .then((r) => alive && setTurns(r.turns))
+    api<{ turns: ChatTurn[]; pending?: ChatTurn | null }>(`/api/ask?familyId=${encodeURIComponent(family.id)}`)
+      .then((r) => {
+        if (!alive) return;
+        setTurns(r.turns);
+        setWaiting(r.pending ?? null);
+      })
       .catch(() => alive && setTurns([]));
     return () => {
       alive = false;
     };
   }, [family.id]);
+  useEffect(() => {
+    if (!waiting) return;
+    let alive = true;
+    const t = setInterval(() => {
+      api<{ turns: ChatTurn[]; pending?: ChatTurn | null }>(`/api/ask?familyId=${encodeURIComponent(family.id)}`)
+        .then((r) => {
+          if (!alive || r.pending) return;
+          setTurns(r.turns);
+          setWaiting(null);
+        })
+        .catch(() => {});
+    }, POLL_MS);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [waiting, family.id]);
 
   // 開いている間は後ろの画面を動かさない・Esc で閉じる
   useEffect(() => {
@@ -86,7 +115,7 @@ function AskSheet({ onClose }: { onClose: () => void }) {
   const send = useCallback(
     async (q: string) => {
       const question = q.trim();
-      if (!question || sending) return;
+      if (!question || sending || waiting) return;
       setSending(true);
       setError("");
       setStatus("考えています");
@@ -99,6 +128,12 @@ function AskSheet({ onClose }: { onClose: () => void }) {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ familyId: family.id, today, text: question, path, meId: me?.id }),
         });
+        if (r.status === 409) {
+          // 前の問いの答えを作っている（窓を閉じて開き直した時など）。二度目は作らず、前の答えを待つ
+          setTurns((t) => (t ?? []).filter((x) => x !== mine));
+          setWaiting(mine);
+          return;
+        }
         if (!r.ok || !r.body) {
           const j = (await r.json().catch(() => ({}))) as { error?: string };
           throw new Error(j.error ?? `うまくいきませんでした（${r.status}）`);
@@ -127,7 +162,11 @@ function AskSheet({ onClose }: { onClose: () => void }) {
             }
           }
         }
-        if (!finished) setError("答えが途中で切れました。もう一度聞いてください");
+        // 途中で切れても、サーバは答えを最後まで作って残す。待って拾う
+        if (!finished) {
+          setTurns((t) => (t ?? []).filter((x) => x !== mine));
+          setWaiting(mine);
+        }
       } catch (e) {
         setError(e instanceof Error && !/fetch|Load failed/i.test(e.message) ? e.message : "通信できませんでした。電波を確かめて、もう一度聞いてください");
       } finally {
@@ -135,7 +174,7 @@ function AskSheet({ onClose }: { onClose: () => void }) {
         setStatus("");
       }
     },
-    [family.id, today, path, me, sending],
+    [family.id, today, path, me, sending, waiting],
   );
 
   const restart = async () => {
@@ -149,7 +188,22 @@ function AskSheet({ onClose }: { onClose: () => void }) {
     }
   };
 
+  const markUsed = useCallback(
+    (at: string, index: number) => {
+      setTurns((ts) => (ts ?? []).map((t) => (t.at === at && t.role === "assistant" ? { ...t, used: [...new Set([...(t.used ?? []), index])] } : t)));
+      void api("/api/ask", { method: "PATCH", body: { familyId: family.id, at, index } }).catch(() => {});
+    },
+    [family.id],
+  );
+
   const pregnant = !family.birthDate || family.birthDate > today;
+  const ageDays = family.birthDate && !pregnant ? Math.round((Date.parse(today) - Date.parse(family.birthDate)) / 86_400_000) : 0;
+  // 30日より前の話は畳む（日をまたいで長く並ばないように）
+  const recentFrom = (turns ?? []).findIndex((t) => !t.today || Date.parse(today) - Date.parse(t.today) <= 30 * 86_400_000);
+  const oldTurns = turns && recentFrom > 0 ? turns.slice(0, recentFrom) : turns && recentFrom < 0 ? turns : [];
+  const newTurns = turns ? turns.slice(oldTurns.length) : [];
+  const renderTurn = (t: ChatTurn, i: number) =>
+    t.role === "user" ? <UserBubble key={t.at + i} turn={t} /> : <Answer key={t.at + i} turn={t} onNavigate={onClose} onUsed={markUsed} />;
   return (
     <div className="fixed inset-0 z-30 flex flex-col bg-ink/30" role="dialog" aria-modal="true" aria-label="手帳に聞く">
       <button type="button" className="h-10 shrink-0" onClick={onClose} aria-label="閉じる" tabIndex={-1} />
@@ -173,12 +227,12 @@ function AskSheet({ onClose }: { onClose: () => void }) {
 
         <div ref={list} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3" aria-live="polite">
           {turns === null && <p className="text-base text-muted">開いています…</p>}
-          {turns && turns.length === 0 && (
+          {turns && turns.length === 0 && !waiting && (
             <div className="flex flex-col gap-3">
               <p className="text-base">この家族の予定と手帳を見て答えます。窓口調べ・下書き・画面の案内まで、そのままできます。</p>
               <p className="rounded-xl bg-sky-soft px-3 py-2 text-sm">体や心のこと、授乳や離乳食の量は、判断しません。日付つきで記録し、健診で聞く事と連絡先につなぎます。急ぐ時は赤い「急ぎの時」・119・#8000。</p>
               <ul className="flex flex-wrap gap-2">
-                {starters(path, pregnant).map((s) => (
+                {starters(path, pregnant, ageDays).map((s) => (
                   <li key={s}>
                     <button type="button" onClick={() => void send(s)} className="min-h-11 rounded-full border border-sky/40 bg-card px-3 text-sm text-sky">
                       {s}
@@ -188,11 +242,18 @@ function AskSheet({ onClose }: { onClose: () => void }) {
               </ul>
             </div>
           )}
-          {turns?.map((t, i) => (t.role === "user" ? <UserBubble key={i} turn={t} /> : <Answer key={i} turn={t} onNavigate={onClose} />))}
-          {status && (
+          {oldTurns.length > 0 && (
+            <details className="rounded-xl border border-line px-3 py-1">
+              <summary className="min-h-11 cursor-pointer py-2 text-sm text-muted">前の話（{oldTurns.filter((t) => t.role === "user").length}件）</summary>
+              <div className="flex flex-col gap-3 pb-2">{oldTurns.map(renderTurn)}</div>
+            </details>
+          )}
+          {newTurns.map(renderTurn)}
+          {waiting && <UserBubble turn={waiting} />}
+          {(status || waiting) && (
             <p className="flex items-center gap-2 self-start text-sm text-muted" role="status">
               <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-sky" aria-hidden />
-              {status}…
+              {status || "答えを作っています"}…（閉じても、答えはここに残ります）
             </p>
           )}
           {error && <p className="rounded-xl bg-alert/10 px-3 py-2 text-base text-alert">{error}</p>}
@@ -205,7 +266,7 @@ function AskSheet({ onClose }: { onClose: () => void }) {
             void send(text);
           }}
         >
-          <MicButton disabled={sending} familyId={family.id} onText={(t) => void send(t)} onError={setError} />
+          <MicButton disabled={sending || !!waiting} familyId={family.id} onText={(t) => void send(t)} onError={setError} />
           <label htmlFor="ask-text" className="sr-only">
             聞きたい事
           </label>
@@ -225,7 +286,7 @@ function AskSheet({ onClose }: { onClose: () => void }) {
             placeholder="聞きたい事を書く"
             className="max-h-32 min-h-11 min-w-0 flex-1 resize-none rounded-2xl border border-line bg-card px-3 py-2 text-base"
           />
-          <button type="submit" disabled={sending || !text.trim()} className="min-h-11 shrink-0 rounded-full bg-rose px-4 text-base font-semibold text-white disabled:opacity-40">
+          <button type="submit" disabled={sending || !!waiting || !text.trim()} className="min-h-11 shrink-0 rounded-full bg-rose px-4 text-base font-semibold text-white disabled:opacity-40">
             送る
           </button>
         </form>
@@ -243,14 +304,14 @@ function UserBubble({ turn }: { turn: ChatTurn }) {
   );
 }
 
-function Answer({ turn, onNavigate }: { turn: ChatTurn; onNavigate: () => void }) {
+function Answer({ turn, onNavigate, onUsed }: { turn: ChatTurn; onNavigate: () => void; onUsed: (at: string, index: number) => void }) {
   return (
     <div className="flex max-w-[95%] flex-col gap-2 self-start rounded-2xl rounded-bl-md border border-line bg-card px-3 py-2">
       <p className="text-base whitespace-pre-wrap">{turn.text}</p>
       {turn.actions && turn.actions.length > 0 && (
         <div className="flex flex-col gap-2">
           {turn.actions.map((a, i) => (
-            <Action key={i} action={a} today={turn.today} onNavigate={onNavigate} />
+            <Action key={i} action={a} today={turn.today} onNavigate={onNavigate} used={turn.used?.includes(i) ?? false} onUsed={() => onUsed(turn.at, i)} />
           ))}
         </div>
       )}
@@ -258,7 +319,7 @@ function Answer({ turn, onNavigate }: { turn: ChatTurn; onNavigate: () => void }
         <Why label="調べたページ">
           {turn.sources.map((s) => (
             <a key={s.url} href={s.url} target="_blank" rel="noreferrer" className="underline underline-offset-2">
-              {s.title || s.url}
+              {s.title || hostOf(s.url)}
             </a>
           ))}
         </Why>
@@ -267,7 +328,28 @@ function Answer({ turn, onNavigate }: { turn: ChatTurn; onNavigate: () => void }
   );
 }
 
-function Action({ action: a, today, onNavigate }: { action: AskAction; today: string; onNavigate: () => void }) {
+function hostOf(u: string): string {
+  try {
+    return new URL(u).hostname;
+  } catch {
+    return u;
+  }
+}
+
+function Action({
+  action: a,
+  today,
+  onNavigate,
+  used,
+  onUsed,
+}: {
+  action: AskAction;
+  today: string;
+  onNavigate: () => void;
+  /** もう押して済んだ（開き直しても同じ記録を2回入れない） */
+  used: boolean;
+  onUsed: () => void;
+}) {
   const { family } = useFamily();
   const router = useRouter();
   const path = usePathname();
@@ -281,12 +363,18 @@ function Action({ action: a, today, onNavigate }: { action: AskAction; today: st
     try {
       setNote(await fn());
       setState("ok");
+      onUsed();
     } catch (e) {
       setNote(e instanceof Error ? e.message : "うまくいきませんでした");
       setState("");
     }
   };
-  const doneNote = note && <p className={`text-sm ${state === "ok" ? "text-ok" : "text-alert"}`}>{note}</p>;
+  const doneNote = note ? (
+    <p className={`text-sm ${state === "ok" ? "text-ok" : "text-alert"}`}>{note}</p>
+  ) : used ? (
+    <p className="text-sm text-ok">✓ 済みました</p>
+  ) : null;
+  const can = state !== "ok" && !used;
 
   switch (a.type) {
     case "open": {
@@ -302,11 +390,11 @@ function Action({ action: a, today, onNavigate }: { action: AskAction; today: st
           return;
         }
         // 急ぎの時は通信が無くても開けるよう、ふつうのリンクで開く（sw.js が取っておく）
-        if (a.href === "/emergency") window.location.href = a.href;
+        if (a.href.startsWith("/emergency")) window.location.href = a.href;
         else router.push(a.href);
       };
       return (
-        <Btn kind={a.href === "/emergency" ? "primary" : "secondary"} onClick={go}>
+        <Btn kind={a.href.startsWith("/emergency") ? "primary" : "secondary"} onClick={go}>
           {a.label} ›
         </Btn>
       );
@@ -323,7 +411,7 @@ function Action({ action: a, today, onNavigate }: { action: AskAction; today: st
         <div className="flex flex-col gap-1 rounded-xl bg-sky-soft p-3">
           <p className="text-sm text-muted">次の健診で先生に聞く事</p>
           <p className="text-base">{a.text}</p>
-          {state !== "ok" && (
+          {can && (
             <Btn
               kind="secondary"
               disabled={state === "busy"}
@@ -345,7 +433,7 @@ function Action({ action: a, today, onNavigate }: { action: AskAction; today: st
         <div className="flex flex-col gap-1 rounded-xl bg-rose-soft/60 p-3">
           <p className="text-sm text-muted">手帳に記録する事</p>
           <p className="text-base whitespace-pre-wrap">{a.text}</p>
-          {state !== "ok" && (
+          {can && (
             <Btn
               kind="secondary"
               disabled={state === "busy"}
@@ -365,7 +453,7 @@ function Action({ action: a, today, onNavigate }: { action: AskAction; today: st
     case "done":
       return (
         <div className="flex flex-col gap-1">
-          {state !== "ok" && (
+          {can && (
             <Btn
               kind="secondary"
               disabled={state === "busy"}

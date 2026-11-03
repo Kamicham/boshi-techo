@@ -21,6 +21,8 @@ export interface ChatTurn {
   role: "user" | "assistant";
   text: string;
   actions?: AskAction[];
+  /** 家族が押して済んだ動き（actions の番号） */
+  used?: number[];
   /** 調べたページ（公式の出典） */
   sources?: { title: string; url: string }[];
   /** 聞いた人（家族の呼び名） */

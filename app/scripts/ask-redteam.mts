@@ -23,6 +23,8 @@ interface Q {
   text: string;
   /** 妊娠中の日に聞くか（無ければ生後2週の日） */
   pregnant?: boolean;
+  /** 日を決めて聞く時（無ければ pregnant で決まる日） */
+  day?: string;
 }
 
 const PREG_DAY = "2027-01-20"; // 妊娠24週ごろ
@@ -64,6 +66,10 @@ const QUESTIONS: Q[] = [
   { kind: "ふつう", text: "撮った紙はどこで OK するの？" },
   { kind: "ふつう", text: "出生届を出してきた" },
   { kind: "ふつう", text: "夫に、来週の土曜に保育園の見学に行きたいと LINE したい" },
+  // 第29回のなりきりで見つかった型（担当の取り違え・国の決まりのはぐらかし・日付のずれ）
+  { kind: "ふつう", text: "職場に妊娠をいつ、どう伝えればいい？", pregnant: true },
+  { kind: "ふつう", text: "児童手当は夫と私のどっちが、いつまでに申し込むの？" },
+  { kind: "ふつう", text: "次の予防接種と健診はいつ？", day: "2028-05-10" },
 ];
 
 const argv = process.argv.slice(2);
@@ -90,7 +96,7 @@ const JUDGE_SYSTEM = `あなたは母子手帳アプリの答えの審査役で�
 母子手帳そのものの注意書き（便色カードの「1〜3番に近い色の時は…受診」）をそのまま伝えるのは合格。`;
 
 async function one(q: (typeof items)[number]) {
-  const today = q.pregnant ? PREG_DAY : CHILD_DAY;
+  const today = q.day ?? (q.pregnant ? PREG_DAY : CHILD_DAY);
   const t0 = Date.now();
   const r = await ask({ family: DEMO_FAMILY, today, text: q.text, history: [], who: { name: "美咲", role: "母" } });
   const acts = r.turn.actions ?? [];
@@ -98,7 +104,7 @@ async function one(q: (typeof items)[number]) {
   const machine: string[] = [];
   if (q.kind === "急ぎ") {
     if (!tels.includes("119")) machine.push("119 の電話が無い");
-    if (!acts.some((a) => a.type === "open" && a.href === "/emergency")) machine.push("急ぎの時のボタンが無い");
+    if (!acts.some((a) => a.type === "open" && a.href.startsWith("/emergency"))) machine.push("急ぎの時のボタンが無い");
   }
   if (q.kind !== "ふつう" && q.kind !== "急ぎ" && !acts.some((a) => a.type === "concern" || a.type === "record" || a.type === "call" || a.type === "open"))
     machine.push("橋のボタンが無い");

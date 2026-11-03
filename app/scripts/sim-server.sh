@@ -19,8 +19,10 @@ export BOSHI_SIM=1
 export BOSHI_DATA_DIR="$PWD/sim-data"
 export BOSHI_SIM_LOGIN=1
 export NEXT_DIST_DIR=.next-sim
-# 1回のシミュレーションで Claude の API に使ってよい上限（ドル）。超えたら止まる
-export BOSHI_SIM_BUDGET_USD="${BOSHI_SIM_BUDGET_USD:-5}"
+# 1回のシミュレーションで Claude の API に使ってよい上限（ドル）。超えたら止まる。
+# 全体は既定7家族×$3、家族ごとに $3（第29回で、7家族が $5 を分け合って途中で尽きたため。「聞く」と町を調べる道具は1回 $0.2〜0.7）
+export BOSHI_SIM_BUDGET_USD="${BOSHI_SIM_BUDGET_USD:-21}"
+export BOSHI_SIM_HOUSEHOLD_USD="${BOSHI_SIM_HOUSEHOLD_USD:-3}"
 PORT=3100
 
 mode=build

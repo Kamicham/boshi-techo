@@ -381,13 +381,14 @@ function BabyCheckups({ familyId, today }: { familyId: string; today: string }) 
   useEffect(() => {
     let alive = true;
     setDone(null);
-    api<{ done: string[] }>(`/api/done?familyId=${encodeURIComponent(familyId)}`)
+    // 今日の画面と同じ「済み」（手帳の記録からの済みは、画面の今日までの記録で決まる。today を渡さないと時計を進めた家族で外れる）
+    api<{ done: string[] }>(`/api/done?familyId=${encodeURIComponent(familyId)}&today=${today}`)
       .then((j) => alive && setDone(new Set(j.done)))
       .catch(() => alive && setDone(new Set()));
     return () => {
       alive = false;
     };
-  }, [familyId]);
+  }, [familyId, today]);
   if (!done) return <div className="h-32 rounded-2xl bg-sky-soft/60" aria-hidden />;
   const items = scheduleFor(family)
     .filter((m) => m.kind === "健診" && m.anchor === "birth")
@@ -423,14 +424,14 @@ function BabyCheckups({ familyId, today }: { familyId: string; today: string }) 
 function BabyRow({ m, st, today }: { m: Milestone; st: Status; today: string }) {
   const tone = st === "済み" ? "ok" : st === "まだ先" ? "muted" : st === "過ぎた" ? "muted" : "rose";
   const word = st === "まだ先" ? "まだ先" : st === "済み" ? "済み" : st === "過ぎた" ? "時期を過ぎた" : "今";
-  // 日の言い方: まだ先は始まりの日、今の物は期限（法の期限でない物は目安）
+  // 日の言い方: まだ先は始まりの日、今の物は期限（法の期限でない物は目安）。今日と年が違う日は年も書く（去年か来年か迷わせない）
+  const day = (s: string) => `${s.slice(0, 4) !== today.slice(0, 4) ? `${Number(s.slice(0, 4))}年` : ""}${jpDate(s)}`;
   const when =
     st === "まだ先"
-      ? `${jpDate(m.startDate)}から`
+      ? `${day(m.startDate)}から`
       : m.deadlineDate && st !== "済み"
-        ? `${deadlineKindOf(m) === "目安" ? "目安 " : ""}${jpDate(m.deadlineDate)}${deadlineKindOf(m) === "目安" ? "" : "まで"}`
+        ? `${deadlineKindOf(m) === "目安" ? "目安 " : ""}${day(m.deadlineDate)}${deadlineKindOf(m) === "目安" ? "" : "まで"}`
         : "";
-  void today;
   return (
     <li className="border-b border-line last:border-b-0">
       <Link href={`/?focus=${encodeURIComponent(m.id)}`} className="flex min-h-12 items-center justify-between gap-3 py-2">

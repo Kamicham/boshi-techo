@@ -15,7 +15,7 @@ import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import type { z } from "zod";
 import { HttpError } from "./http-error";
 import { activeConsent, audit } from "./households";
-import { checkBudget, checkHouseholdBudget, recordSpend } from "./spend";
+import { checkBudget, checkHouseholdBudget, checkSimHouseholdBudget, recordSpend } from "./spend";
 
 export const MODEL = "claude-opus-5-5";
 /** 言い換え・整形など軽い仕事 */
@@ -97,6 +97,8 @@ export function guardSend(task: string, who: SendWho | null = currentSender()): 
     console.warn(`[claude] だれの記録か分からないまま Claude を呼びました（${task}）。route で sendingAs() に包んでください`);
     return null;
   }
+  // シミュレーションでは、1つの家族がほかの家族の分まで使い切らないよう、家族ごとにも上限を見る（BOSHI_SIM_HOUSEHOLD_USD）
+  checkSimHouseholdBudget(who.householdId);
   if (who.legacy) return who;
   assertConsent(who);
   try {

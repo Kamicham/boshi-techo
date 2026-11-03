@@ -23,7 +23,7 @@ export const LocalSchema = z.object({
   address: z.string().describe("その役所の住所。ページに無ければ空の文字"),
   bring: z.array(z.string()).describe("持って行く物。1つずつ、15字くらいまでの短い名前（細かい注意は caution へ）"),
   online: z.string().describe("ネットで出せるか（マイナポータル・電子申請など）を1文で。分からなければ「確かめる」"),
-  deadline: z.string().describe("期限を日付か日数だけで短く（例: 生まれた日を入れて14日以内）。法律の名前・条の番号は書かない（caution へ）"),
+  deadline: z.string().describe("締切を日付か日数だけで短く（例: 生まれた日を入れて14日以内・11月28日まで）。受付の始まりの日を締切と書かない（始まりしか分からない時は「11月4日から受付・締切は確かめる」）。法律の名前・条の番号は書かない（caution へ）"),
   extras: z.string().describe("この町だけの助成・上乗せ・もらえる物を1〜2文で。無い・分からなければそう書く"),
   caution: z.string().describe("気をつける事・期限の根拠・窓口に確かめる事（調べた範囲で言い切れない所）"),
 });

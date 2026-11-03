@@ -89,6 +89,32 @@ export function checkBudget(): void {
 }
 
 /**
+ * シミュレーションの家族ごとの上限（BOSHI_SIM_HOUSEHOLD_USD。sim-server.sh が入れる）。run-start からその家族が使った額で見る。
+ * 第29回のなりきりで、7家族が $5 を分け合って途中で尽き、半分の確かめができなかったため（2026-11-03）。
+ */
+export function checkSimHouseholdBudget(householdId: string): void {
+  const cap = Number(process.env.BOSHI_SIM_HOUSEHOLD_USD ?? "");
+  if (!cap) return;
+  let since = "";
+  try {
+    since = fs.readFileSync(path.join(DATA_DIR, "run-start"), "utf8").trim();
+  } catch {
+    return;
+  }
+  let used = 0;
+  try {
+    for (const line of fs.readFileSync(file(), "utf8").split("\n")) {
+      if (!line) continue;
+      const r = JSON.parse(line) as { at: string; usd: number; household?: string };
+      if (r.at >= since && r.household === householdId) used += r.usd;
+    }
+  } catch {
+    return;
+  }
+  if (used >= cap) throw new Error(`この家族のシミュレーションの上限 $${cap} に達したので、Claude を呼ぶのを止めました（今回 $${used.toFixed(2)}）`);
+}
+
+/**
  * 世帯ごとの使い過ぎ止め（BOSHI_HOUSEHOLD_DAILY_USD。入れた時だけ効く）。
  * その世帯が日本時間の今日に使った額が上限を超えたら止める（1つの家族が、ほかの家族の分まで使い切らないように）。
  */

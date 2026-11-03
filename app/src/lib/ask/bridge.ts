@@ -41,7 +41,7 @@ export function bridgeFor(text: string, phase: "pregnant" | "child" | "other"): 
   const leads: string[] = [];
   if (urgent) {
     leads.push(phase === "pregnant" ? "今すぐ、かかりつけの産院へ電話してください（夜間も）。迷ったら119。" : "今すぐ電話してください。子どもの事はかかりつけか #8000、ママの体はかかりつけの産院（夜間も）。迷ったら119。");
-    actions.push({ type: "open", href: "/emergency", label: "急ぎの時を開く" });
+    actions.push({ type: "open", href: phase === "pregnant" ? "/emergency#mama" : "/emergency", label: "急ぎの時を開く" });
     actions.push({ type: "call", label: "迷ったら119", tel: "119" });
     if (phase !== "pregnant") actions.push({ type: "call", label: "子どもの急な病気の相談 #8000", tel: "#8000" });
     notes.push(

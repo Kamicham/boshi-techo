@@ -1,9 +1,11 @@
 // 手帳に聞く: 家族の問いに、この家族の今を見てから答え、動きを添える（lib/ask/agent.ts）。
 // GET ?familyId=                 … これまでの会話 { turns }
 // POST { familyId, today, text, path?, meId? } … 答えを NDJSON で流す（status の行がいくつか → 最後に done か error）
+// PATCH { familyId, at, index }   … 押した動きに印を付ける（同じ記録を2回入れない）
 // DELETE ?familyId=              … 会話を消して新しく始める
+// 窓を閉じても答えは最後まで作って残す。作っている間の問いは pending として GET が返す（画面は開き直した時に待って拾う）
 import { body, route } from "@/lib/api";
-import { ask, clearChat, getChat, saveChat } from "@/lib/ask/agent";
+import { ask, clearChat, getChat, getPending, markActionUsed, saveChat, setPending } from "@/lib/ask/agent";
 import type { AskEvent, ChatTurn } from "@/lib/ask/types";
 import { sendingAs } from "@/lib/claude";
 import { HttpError } from "@/lib/http-error";
@@ -15,7 +17,14 @@ export const maxDuration = 300;
 
 export const GET = route(async (req: Request) => {
   const { family } = await familyFor(req, new URL(req.url).searchParams.get("familyId"), "record:read");
-  return { turns: getChat(family.id) };
+  return { turns: getChat(family.id), pending: busy.has(family.id) ? getPending(family.id) : null };
+});
+
+export const PATCH = route(async (req: Request) => {
+  const b = await body<{ familyId?: string; at?: string; index?: number }>(req);
+  const { family } = await familyFor(req, b.familyId, "record:write");
+  if (typeof b.at !== "string" || typeof b.index !== "number") throw new HttpError(400, "どの動きか読めません");
+  return { ok: markActionUsed(family.id, b.at, b.index) };
 });
 
 export const DELETE = route(async (req: Request) => {
@@ -46,6 +55,7 @@ export const POST = route(async (req: Request) => {
   const mine: ChatTurn = { role: "user", text, today, at: new Date().toISOString(), ...(who ? { who: who.name } : {}) };
 
   busy.add(family.id);
+  setPending(family.id, mine);
   const enc = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {

@@ -38,11 +38,19 @@ export const ASK_RULES = `あなたは今、家族からの問いに答えてい
 - 「安心してください」「大丈夫」と、家族の状況を請け合わない。
 - ボタンの数や「上の」「下の」といった位置は書かない（画面の並びは変わる）。「〜を押すと…します」と、押した時に起きる事だけ言う。
 - 予定で「済み」や「過ぎた」になっている事を聞かれても、期限・窓口・持ち物は答える（済んでいなければ、済みにするボタンや窓口のボタンを出す）。
+- 家族が「〜を出した・済ませた」と言った事がもう済みの時や、聞かれた事が済みの時は、文で「次はこれ」と挙げた期限の近い手続き1つに offer_paperwork を出す（文で「今日の画面のカードから」と案内するだけにしない）。
+- 日付と「あと◯日」は、get_plan の値をそのまま写す。自分で足し引きしない。年が書いてある日は年も書く。
+- 予定の「担当」を見る。聞いた人の番でない事を、聞いた人の期限として書かない（「職場に伝えるのは◯日まで、パートナー（翔太さん）の育休の連絡は◯日まで」と分ける）。
+- 窓口・受ける所を文で言う時は、look_up_town の結果に合わせる。調べていない時は、窓口の名前を推し量って書かない。
+- 受付の始まりの日を締切として書かない。町のページと予定の期限が違う時は、両方を書いて「窓口に確かめる」と書く。
+- ボタンの名前を「」で書かない（名前は画面が決める）。「押すと〜が出ます」と、起きる事だけ書く。「済んだ事」を見たい時は、今日の画面の一番下の「済んだ事」と文で案内する（ボタンは出さない）。
+- 記録の文（add_record）・健診で聞く事は、家族が言った事だけで作る。「電話した」「受診した」など、家族がしていない事を足さない。
 - 外へは何も送らない。文を作っても、送るのは家族（「送りました」と言わない）。ボタンを出しただけの時は「押すと〜します」と言う。
 体・心・栄養の問い（橋をかける）:
 - 体・病気・症状・薬・発達・成長・体重などの数値・便の色の良し悪しは判断しない。「大丈夫」「心配ない」「正常」「異常」「よくある」「様子を見てよい」「〜の可能性」を言わない。病気や症状の一般的な説明もしない。
 - 代わりに、受け止める1文 → 日付つきで記録する（add_record）か次の健診で先生に聞く（add_checkup_question）を、必ず道具で出す → 連絡先（妊娠中・産後の体はかかりつけの産院・夜間も、子どもはかかりつけか #8000、迷ったら119）。
 - 急ぎでない問い（発達・数値・様子の気がかり）には、119 を添えない。連絡先は、かかりつけ・#8000（子ども）・産院（ママの体）まで。
+- 発達・ことばの気がかりで、次の健診（get_notebook の予約、無ければ get_plan のまだ先の健診）が2か月より先なら、町の保健センター（こども家庭センター）の子育て・発達の相談も文で案内する（判断はしない。相談できる所があると伝えるだけ）。
 - 母子手帳そのものの注意書きは、そのまま伝えてよい（言い換えない）: 便色「${STOOL_NOTE}」 発達「${DEVELOPMENT_NOTE}」 発育曲線「${GROWTH_NOTE}」
 - 心のつらさ（イライラ・涙・不安・孤独・夫婦の事も）は、相談やカウンセリングをしない。気持ちの言い換え・原因の見立て・対処のこつ・相手への文（頼まれていない時）も出さない。受け止める1文と、町のこども家庭センター・電話の相談先（こころの健康相談統一ダイヤル 0570-064-556・よりそいホットライン 0120-279-338）を必ず文で案内する。気持ちを手帳の「気持ちの記録」に残す事はできる（add_record）。
 - 授乳・ミルクの量・離乳食・食事の指導はしない。健診と町の保健センターの栄養相談へつなぐ。
@@ -50,7 +58,10 @@ export const ASK_RULES = `あなたは今、家族からの問いに答えてい
 書き方:
 - 話し言葉で短く。3〜6文。並べる時は「・」で3つまで。見出し・表・太字の記号（**や#）は使わない。
 - 日付は「11月20日（あと12日）」の形。根拠は（戸籍法第49条）のように括弧で短く。
-- 家族を名前で呼んでよい。押し付けない（「〜しましょう」より「〜できます」）。`;
+- 家族を名前で呼んでよい。押し付けない（「〜しましょう」より「〜できます」）。
+よく聞かれる国の決まり（予定の根拠に無い時に使う。町の中身は look_up_town で）:
+- 児童手当を受け取るのは、父母のうち家計を主に支える人（ふつうは所得の高い方）。共働きでもどちらか1人が申し込む（児童手当法第4条・こども家庭庁「児童手当制度のご案内」）。生まれた日の翌日から15日以内に申し込めば、生まれた月の翌月分から受け取れる（同法第8条。遅れるとその月の分は受け取れない）。
+- 出生届は、父か母が出す（戸籍法第52条）。生まれた日を含めて14日以内（同法第49条）。出す所は、住む所・生まれた所・本籍地のどの役所でもよい（同法第25条・第51条）。`;
 
 /** 変わらない部分（キャッシュする）: 約束・会話の決まり・画面の地図 */
 const STATIC_SYSTEM = `${CHARTER}\n\n${ASK_RULES}\n\n画面の地図（このアプリでできる事のすべて）:\n${guideText()}`;
@@ -73,14 +84,33 @@ function familySystem(family: Family): string {
 
 interface ChatDoc {
   turns: ChatTurn[];
+  /** 答えを作っている間の問い（窓を閉じても、開き直した時に「答えを作っています」と出すため） */
+  pending?: ChatTurn | null;
 }
 const chatId = (familyId: string) => `chat:${familyId}`;
 
 export function getChat(familyId: string): ChatTurn[] {
   return get<ChatDoc>(chatId(familyId))?.data.turns ?? [];
 }
+/** 答えを作っている間の問い（無ければ null。10分より古い物は、落ちた後の残りとみなして出さない） */
+export function getPending(familyId: string): ChatTurn | null {
+  const p = get<ChatDoc>(chatId(familyId))?.data.pending ?? null;
+  return p && Date.now() - Date.parse(p.at) < 10 * 60_000 ? p : null;
+}
+export function setPending(familyId: string, turn: ChatTurn): void {
+  put<ChatDoc>(familyId, "chat", { turns: getChat(familyId), pending: turn }, { id: chatId(familyId) });
+}
 export function saveChat(familyId: string, turns: ChatTurn[]): void {
   put<ChatDoc>(familyId, "chat", { turns: turns.slice(-KEEP_TURNS) }, { id: chatId(familyId) });
+}
+/** 押した動きに印を付ける（窓を開き直しても、同じ記録を2回入れないように） */
+export function markActionUsed(familyId: string, at: string, index: number): boolean {
+  const turns = getChat(familyId);
+  const t = turns.find((x) => x.role === "assistant" && x.at === at);
+  if (!t?.actions?.[index]) return false;
+  t.used = [...new Set([...(t.used ?? []), index])];
+  saveChat(familyId, turns);
+  return true;
 }
 export function clearChat(familyId: string): void {
   put<ChatDoc>(familyId, "chat", { turns: [] }, { id: chatId(familyId) });
@@ -172,7 +202,8 @@ export async function ask(input: AskInput): Promise<AskResult> {
   const c = clockAt(family, today);
   const bridge = bridgeFor(text, c.phase === "pregnant" ? "pregnant" : c.phase === "child" ? "child" : "other");
 
-  const history = (input.history ?? getChat(family.id)).slice(-HISTORY_TURNS);
+  // 30日より前の話は渡さない（妊娠中の話が、生まれた後の答えに混ざらないように）
+  const history = (input.history ?? getChat(family.id)).filter((t) => !t.today || Math.abs(Date.parse(today) - Date.parse(t.today)) <= 30 * 86_400_000).slice(-HISTORY_TURNS);
   const messages: Anthropic.Beta.BetaMessageParam[] = [];
   for (const t of history) {
     const content = t.role === "assistant" && t.actions?.length ? `${t.text}\n（添えた動き: ${t.actions.map(actionWord).join("・")}）` : t.text;
@@ -274,7 +305,12 @@ export async function ask(input: AskInput): Promise<AskResult> {
     }
     reply = `${bridge.lead}\n\n${reply.replace(/\n{3,}/g, "\n\n").trim()}`;
   }
-  const actions = dedupe([...bridge.actions, ...ctx.actions]);
+  // 妊娠中・産後の急ぎは、通う産院の電話が分かればそれを一番上に（「産院へ電話」と言うのにボタンが無い、を無くす）
+  const hospital = getKeep(family.id).hospital;
+  const hospitalCall: AskAction[] =
+    bridge.urgent && c.phase !== "child" && hospital?.phone ? [{ type: "call", label: `${hospital.name ?? "通う産院"}に電話（夜間も）`, tel: hospital.phone }] : [];
+  reply = fixButtonNames(reply, [...bridge.actions, ...ctx.actions]);
+  const actions = dedupe([...hospitalCall, ...bridge.actions, ...ctx.actions]);
   const sources = [...new Map(ctx.sources.map((s) => [s.url, s])).values()].slice(0, 5);
   const turn: ChatTurn = { role: "assistant", text: reply, today, at: new Date().toISOString(), ...(actions.length ? { actions } : {}), ...(sources.length ? { sources } : {}) };
   return { turn, rewritten, tools: used };
@@ -297,6 +333,18 @@ function actionWord(a: AskAction): string {
     case "call":
       return `${a.label}（${a.tel}）`;
   }
+}
+
+/**
+ * 文の中の「◯◯」を押す、のボタンの名前が、実際に出したボタンに無ければ「下のボタン」に言い換える
+ * （第29回で「記入メモを作る」「下書きを作る」と書いて、そのボタンが無い・名前が違うが3家族であった）
+ */
+export function fixButtonNames(text: string, actions: AskAction[]): string {
+  const labels = actions.flatMap((a) => ("label" in a && a.label ? [a.label] : []));
+  return text.replace(/「([^「」]{1,24})」(ボタン)?を押(す|して|せば|すと)/g, (all, name: string, _b, tail: string) => {
+    if (labels.some((l) => l.includes(name) || name.includes(l))) return all;
+    return `ボタンを押${tail}`;
+  });
 }
 
 function dedupe(actions: AskAction[]): AskAction[] {
