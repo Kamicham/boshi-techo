@@ -58,7 +58,7 @@ export function AlbumScreen() {
           {canWrite && <KeepButtons />}
           {usage && (
             <p className="text-sm text-muted">
-              写真 <b className="tabular text-ink">{usage.count}</b> 枚・<span className="tabular">{bytesLabel(usage.bytes)}</span>（Mac の中だけ）
+              写真 <b className="tabular text-ink">{usage.count}</b> 枚・<span className="tabular">{bytesLabel(usage.bytes)}</span>（この家族の置き場だけ・鍵つき）
             </p>
           )}
           {error && <p className="rounded-xl bg-alert/10 px-4 py-3 text-base text-alert">{error}</p>}

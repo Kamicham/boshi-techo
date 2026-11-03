@@ -1,6 +1,6 @@
 // シミュレーションのサーバ（BOSHI_SIM=1・scripts/sim-server.sh）だけの入口: 作った家族（sim-・pop-）の仮のアカウント sim:<家族id> で
 // ログインし、その世帯の owner の札（セッションのクッキー）を出す。中身は src/sim/login.ts。
-//   GET /api/sim/login?familyId=sim-04   （POST { familyId } でもよい）
+//   GET /api/sim/login?familyId=sim-04&me=haha   （POST { familyId } でもよい。me＝なりきる人。その本人にアカウントを結ぶ）
 // 本番（BOSHI_SIM が無い）では、中身を読み込まずに 404 を返す。わが家の置き場（app/data）でも 404。
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

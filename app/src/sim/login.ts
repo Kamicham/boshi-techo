@@ -8,7 +8,8 @@
 // - わが家の置き場（app/data。BOSHI_DATA_DIR を指定しない）では動かさない
 import { authReady } from "../lib/auth";
 import { isHomeDataDir } from "../lib/db";
-import { ensureHousehold, getHousehold } from "../lib/households";
+import { getFamily } from "../lib/family";
+import { ensureHousehold, getHousehold, listSubjects, seedMadeSubjects, updateSubject } from "../lib/households";
 import { HttpError } from "../lib/http-error";
 
 export const simEmail = (familyId: string) => `${familyId}@sim.boshi.invalid`;
@@ -20,7 +21,7 @@ export type SimLogin = { familyId: string; accountId: string; email: string; set
  * 作った家族の仮のアカウントでログインし、その世帯の owner にする（何度呼んでもよい。2回目からは札を出し直すだけ）。
  * isSimFamily: 作った家族（kind = sim）かを決める関数（route は lib/family の madeFamilyKind を渡す。試験は一覧を渡す）
  */
-export async function simLogin(familyId: unknown, isSimFamily: (id: string) => boolean): Promise<SimLogin> {
+export async function simLogin(familyId: unknown, isSimFamily: (id: string) => boolean, meId?: string | null): Promise<SimLogin> {
   if (isHomeDataDir()) throw new HttpError(404, "見つかりません");
   if (typeof familyId !== "string" || !familyId || !isSimFamily(familyId)) throw new HttpError(404, "作った家族ではありません");
   // 同じ id の本物の世帯（kind = real）があれば、作った家族として扱わない
@@ -54,7 +55,20 @@ export async function simLogin(familyId: unknown, isSimFamily: (id: string) => b
   if (!member) {
     await ctx.adapter.create({ model: "member", data: { organizationId: familyId, userId: accountId, role: "owner", createdAt: new Date() } });
   }
-  ensureHousehold(familyId, "sim");
+  const household = ensureHousehold(familyId, "sim");
+  // 本人を置き、なりきる人（meId＝家族の設定の人の id）に仮のアカウントを結ぶ（画面の「わたし」がその人になる）
+  const family = getFamily(familyId);
+  seedMadeSubjects(household, family);
+  if (meId && family) {
+    const role = family.members.find((m) => m.id === meId)?.role;
+    const kind = role === "母" ? "mother" : role === "パートナー" ? "partner" : null;
+    if (kind) {
+      for (const s of listSubjects(familyId)) {
+        const want = s.kind === kind ? accountId : s.accountId === accountId ? null : s.accountId;
+        if (want !== s.accountId) updateSubject(familyId, s.id, { name: s.name, accountId: want });
+      }
+    }
+  }
 
   return { familyId, accountId, email, setCookies: headers.getSetCookie() };
 }
@@ -68,7 +82,8 @@ export async function simLoginResponse(req: Request, isSimFamily: (id: string) =
       const b = (await req.json().catch(() => ({}))) as { familyId?: unknown };
       familyId = b.familyId;
     }
-    const r = await simLogin(familyId, isSimFamily);
+    const me = url.searchParams.get("me");
+    const r = await simLogin(familyId, isSimFamily, me);
     const res = Response.json({ ok: true, familyId: r.familyId, accountId: r.accountId, role: "owner" });
     for (const c of r.setCookies) res.headers.append("set-cookie", c);
     return res;

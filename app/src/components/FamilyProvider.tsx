@@ -20,6 +20,8 @@ export type HouseholdInfo = {
   hasProfile: boolean;
   /** はじめの「記録を残す同意」がまだの本人がいる */
   needsRecordConsent: boolean;
+  /** ログインした人に結んだ本人（母・パートナー）。設定で選んでいない時の「わたし」になる */
+  me?: { kind: "mother" | "partner" | "child"; name: string } | null;
 };
 type AccountList = {
   enabled: boolean;
@@ -229,8 +231,15 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
   const kind = kinds[family.id];
   const timeTravel = kind ? kind !== "real" : isDemo || family.id.startsWith("sim-") || family.id.startsWith("pop-");
   const today = timeTravel ? demoToday : realToday();
-  // 設定で選んだ人。選んでいなければ母（いなければ最初の人）
-  const me = family.members.find((m) => m.id === meIds[family.id]) ?? family.members.find((m) => m.role === "母") ?? family.members[0] ?? null;
+  // 設定で選んだ人。
+  // 選んでいなければ、ログインした人に結んだ本人（母・パートナー）、それも無ければ母（いなければ最初の人）
+  const linked = households.find((h) => h.id === family.id)?.me;
+  const linkedRole = linked?.kind === "mother" ? "母" : linked?.kind === "partner" ? "パートナー" : null;
+  const linkedMember = linkedRole
+    ? (family.members.find((m) => m.role === linkedRole && m.name === linked?.name) ?? family.members.find((m) => m.role === linkedRole))
+    : undefined;
+  const me =
+    family.members.find((m) => m.id === meIds[family.id]) ?? linkedMember ?? family.members.find((m) => m.role === "母") ?? family.members[0] ?? null;
 
   const value: Ctx = {
     family,

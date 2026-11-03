@@ -361,3 +361,20 @@ describe("withHousehold（セッション → 世帯 → 権限）", () => {
     await expect(A.withHousehold(req(bobCookie), hidB, "record:read")).rejects.toMatchObject({ status: 404 });
   });
 });
+
+describe("作った家族の本人（同意の画面が空にならない）", () => {
+  const fam = { members: [{ name: "舞", role: "母" }, { name: "大樹", role: "パートナー" }], childName: "ゆい", birthDate: "2025-01-01", dueDate: "2025-01-05" };
+  it("sim の世帯に母・パートナー・子を1回だけ置く。同意は入れない", () => {
+    const h = H.ensureHousehold("sim-seed-1", "sim");
+    H.seedMadeSubjects(h, fam);
+    H.seedMadeSubjects(h, fam);
+    const s = H.listSubjects("sim-seed-1");
+    expect(s.map((x) => `${x.kind}:${x.name}`).sort()).toEqual(["child:ゆい", "mother:舞", "partner:大樹"]);
+    expect(s.every((x) => !H.activeConsent("sim-seed-1", x.id, "claude_us"))).toBe(true);
+  });
+  it("本物の世帯には何もしない", () => {
+    const h = H.ensureHousehold("real-seed-1", "real");
+    H.seedMadeSubjects(h, fam);
+    expect(H.listSubjects("real-seed-1")).toHaveLength(0);
+  });
+});

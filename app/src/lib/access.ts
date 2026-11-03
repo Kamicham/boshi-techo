@@ -18,7 +18,7 @@ import { getFamily, madeFamilyKind } from "./family";
 import type { Family } from "./demo-family";
 import { HttpError } from "./http-error";
 import { getSession } from "./auth";
-import { ensureHousehold, getHousehold, listProxies, listSubjects, type Household, type Subject } from "./households";
+import { ensureHousehold, getHousehold, listProxies, listSubjects, seedMadeSubjects, type Household, type Subject } from "./households";
 import { storage, type StorageDriver } from "./storage";
 
 export { forHousehold, type HouseholdDb } from "./db";
@@ -125,12 +125,15 @@ function visibleSubjects(all: Subject[], role: Role, accountId: string | null, h
 
 function makeCtx(household: Household, account: Account | null, role: Role): HouseholdCtx {
   const perms = new Set(ROLE_PERMS[role]);
+  const family = getFamily(household.id);
+  // 作った家族にも本人を置く（同意の画面・写真の本人が空にならない）
+  seedMadeSubjects(household, family);
   const all = listSubjects(household.id);
   const subjects = visibleSubjects(all, role, account?.id ?? null, household.id);
   const limited = subjects.length !== all.length;
   return {
     household,
-    family: getFamily(household.id),
+    family,
     account,
     role,
     perms,

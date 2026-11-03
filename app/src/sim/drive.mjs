@@ -112,16 +112,19 @@ const save = async () => {
  * サーバがログインの口を持たない（古い組み立て）時は、警告を出してログインなしで続ける。
  */
 const loggedIn = async () => (await ctx.cookies(BASE)).some((c) => /session_token$/.test(c.name));
-async function login(force = false) {
-  if (!/^(sim|pop)-/.test(fam)) return;
-  if (!force && (await loggedIn())) return;
-  const res = await page.request.get(`${BASE}/api/sim/login?familyId=${encodeURIComponent(fam)}`, { failOnStatusCode: false });
+async function login(force = false, me = "") {
+  if (!/^(sim|pop)-/.test(fam)) return "";
+  if (!force && (await loggedIn())) return "";
+  // me（なりきる人の id）を渡すと、サーバがその本人に仮のアカウントを結ぶ（画面の「わたし」がその人になる）
+  const q = `familyId=${encodeURIComponent(fam)}${me ? `&me=${encodeURIComponent(me)}` : ""}`;
+  const res = await page.request.get(`${BASE}/api/sim/login?${q}`, { failOnStatusCode: false });
   if (res.ok()) {
     if (force) console.log(`（ログイン: 仮のアカウント sim:${fam}・この世帯の owner）`);
-    return;
+    return ((await res.json().catch(() => ({}))).accountId ?? "");
   }
   const msg = (await res.text().catch(() => "")).slice(0, 120);
   console.log(`（ログインできませんでした: ${res.status()} ${msg}。サーバが古い組み立てなら scripts/sim-server.sh --replace で組み立て直す。ログインなしで続けます）`);
+  return "";
 }
 
 const restore = async () => {
@@ -198,15 +201,17 @@ try {
   if (cmd === "setup") {
     const [meId, today] = args;
     await page.goto(BASE + "/robots.txt");
-    await login(true);
+    const acct = await login(true, meId);
     await page.evaluate(
-      ([f, m, d]) => {
+      ([f, m, d, a]) => {
         localStorage.clear();
         localStorage.setItem("boshi.family", f);
-        if (m) localStorage.setItem("boshi.me", JSON.stringify({ [f]: m }));
+        // 「わたし」の控えは、ログインした人ごとのキー（boshi.me:<アカウント>）。ログインなしの家族は boshi.me
+        if (m) localStorage.setItem(a ? `boshi.me:${a}` : "boshi.me", JSON.stringify({ [f]: m }));
+        if (a) localStorage.setItem("boshi.account", a);
         if (d) localStorage.setItem("boshi.demoToday", d);
       },
-      [fam, meId, today],
+      [fam, meId, today, acct],
     );
     await page.goto(BASE + "/");
     await settle();

@@ -32,7 +32,7 @@ export function KeepButtons({ techoId, compact, highlight }: { techoId?: string;
         {!compact && (
           <div className="flex flex-col gap-0.5">
             <p className="font-display text-xl font-bold text-ok">🌸 残す</p>
-            <p className="text-sm text-muted">写真を手帳に残します。Mac の中だけに置き、Claude には見せません</p>
+            <p className="text-sm text-muted">写真を手帳に残します。この家族の置き場（鍵つき）だけに置き、Claude には見せません</p>
           </div>
         )}
         <div className="flex gap-2">

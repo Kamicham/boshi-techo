@@ -65,7 +65,7 @@ export function KeepSheet({ files, techoId, onClose }: { files: File[]; techoId?
         {sending && (
           <p role="status" className="flex items-center gap-2 rounded-2xl bg-ok/10 px-4 py-3 text-base font-semibold text-ok">
             <span className="inline-block h-3 w-3 animate-pulse rounded-full bg-ok" />
-            Mac に置いています…
+            置き場に入れています…
           </p>
         )}
         <ul className="flex flex-col gap-3">
@@ -82,7 +82,7 @@ export function KeepSheet({ files, techoId, onClose }: { files: File[]; techoId?
             </li>
           ))}
         </ul>
-        <p className="rounded-xl bg-card px-3 py-2 text-sm text-muted">Claude には見せていません。写真はこの手帳の置き場（Mac）にだけ置き、鍵をかけてあります。</p>
+        <p className="rounded-xl bg-card px-3 py-2 text-sm text-muted">Claude には見せていません。写真はこの家族の置き場にだけ置き、鍵をかけてあります。</p>
       </div>
       <div className="border-t border-line bg-card px-4 py-3" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
         <div className="mx-auto flex max-w-md gap-2">

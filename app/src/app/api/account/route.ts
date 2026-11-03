@@ -21,8 +21,13 @@ export const GET = route(async (req: Request) => {
     ? myHouseholds(account.id).map((h) => {
         const subjects = listSubjects(h.id);
         // はじめの「記録を残す同意」がまだの本人がいるか（画面が同意の画面へ案内する）
-        const needsRecordConsent = subjects.some((s) => !activeConsent(h.id, s.id, "record", CONSENT_VERSION.record));
-        return { ...h, kind: getHousehold(h.id)?.kind ?? "real", hasProfile: !!getFamily(h.id), needsRecordConsent };
+        // 作った家族（demo・sim）は本人を置いてあるが、同意は求めない（帯を出さない）
+        const kind = getHousehold(h.id)?.kind ?? "real";
+        const needsRecordConsent = kind === "real" && subjects.some((s) => !activeConsent(h.id, s.id, "record", CONSENT_VERSION.record));
+        // ログインした人に結んだ本人（画面の「わたし」の初期値）
+        const mine = subjects.find((s) => s.accountId === account.id && s.kind !== "child");
+        const me = mine ? { kind: mine.kind, name: mine.name } : null;
+        return { ...h, kind, hasProfile: !!getFamily(h.id), needsRecordConsent, me };
       })
     : [];
 

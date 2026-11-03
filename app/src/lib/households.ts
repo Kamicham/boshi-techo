@@ -73,6 +73,34 @@ export function addSubject(householdId: string, s: { kind: SubjectKind; name?: s
   return getSubject(householdId, id)!;
 }
 
+/** 作った家族（demo・sim）の本人の id（世帯ごとに決まった形。何度呼んでも同じ行になる） */
+export const madeSubjectId = (householdId: string, kind: SubjectKind) => `${householdId}-${kind}`;
+
+/**
+ * 作った家族（demo・sim）に本人がまだ無ければ、家族の設定（母・パートナー・子）から作る。
+ * 同意は入れない（画面は「同意していません」と2つのスイッチを出す。送る時は作った家族の同意を見ない＝lib/claude.ts）。
+ * 本物の世帯（real）には何もしない（本人は世帯を作る時・招待で作る）
+ */
+export function seedMadeSubjects(household: Household, family: { members: { name: string; role: string }[]; childName?: string; birthDate?: string; dueDate?: string } | null): void {
+  if (household.kind === "real" || !family || listSubjects(household.id).length) return;
+  const mother = family.members.find((m) => m.role === "母");
+  const partner = family.members.find((m) => m.role === "パートナー");
+  const want: { kind: SubjectKind; name: string }[] = [];
+  want.push({ kind: "mother", name: mother?.name || "母" });
+  if (partner?.name) want.push({ kind: "partner", name: partner.name });
+  if (family.birthDate) want.push({ kind: "child", name: family.childName || "子" });
+  else if (family.dueDate) want.push({ kind: "child", name: family.childName || "おなかの子" });
+  for (const w of want) {
+    const id = madeSubjectId(household.id, w.kind);
+    if (getSubject(household.id, id)) continue;
+    try {
+      addSubject(household.id, { id, kind: w.kind, name: w.name });
+    } catch {
+      // 同じ時に別の読み込みが作った（id が同じなので重ならない）
+    }
+  }
+}
+
 export function updateSubject(householdId: string, subjectId: string, p: { name?: string; accountId?: string | null }): Subject | null {
   const cur = getSubject(householdId, subjectId);
   if (!cur) return null;
