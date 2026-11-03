@@ -146,6 +146,11 @@ export default function EmergencyPage() {
         </a>
       </nav>
 
+      {/* 出典を頭に（折りたたみの奥だけだと、アプリが独自に手当を教えているように見える） */}
+      <p className="text-sm text-muted">
+        下の手当は、紙の母子手帳の「子どもの事故の手当」のページ（こども家庭庁の様式）と、日本蘇生協議会のガイドラインの要点です。アプリが判断した物ではありません。
+      </p>
+
       <Card id="choke" title="のどに物が詰まった" sub="窒息（ちっそく）">
         <p className="rounded-lg bg-paper px-3 py-2 text-base">
           <b>せきができる・泣ける時</b>
