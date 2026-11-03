@@ -1,4 +1,4 @@
-// Claude の API を使った額を1回ずつ記録する（社長の指示 2026-11-03「気づかないうちにとんでもない額を使われたら困る」）。
+// Claude の API を使った額を1回ずつ記録する（作り手の指示 2026-11-03「気づかないうちにとんでもない額を使われたら困る」）。
 // 置き場は DATA_DIR/spend.jsonl（本番・開発は app/data、シミュレーションは app/sim-data。どちらも git の外）。
 // 額は返ってきた usage と単価からの計算（請求の正本は Console）。単価は claude-api の資料 models.md（2026-11 時点）。
 import "server-only";

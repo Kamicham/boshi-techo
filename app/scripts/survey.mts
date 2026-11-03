@@ -1,4 +1,4 @@
-// アンケート（社長の指示 2026-11-03）: 修正を重ねた後に1回、作った家族たちに「何が不便か・どこが使いづらいか・欲しい機能は何か」を聞く。
+// アンケート（作り手の指示 2026-11-03）: 修正を重ねた後に1回、作った家族たちに「何が不便か・どこが使いづらいか・欲しい機能は何か」を聞く。
 //   答えるのは2つ:
 //   - 現実の割合から作った1000組（population.ts）。1000日の間にアプリで見た物（日記 = 早送りの検査と同じ関数。sim/out/diary.json）を元に、本人として答える
 //   - 画面を実際に触った家族（なりきりの Workflow の journal.jsonl）。押した記録（着いたか・詰まった所）を元に答える
@@ -479,7 +479,7 @@ small{color:var(--sub)}.good{color:var(--good)}.bad{color:var(--bad)}
 <section><h2>一緒に使っていた物</h2><div class="box"><p>${summary.tools.map((t) => `${esc(t.name)} ${Math.round((t.n / summary.n) * 100)}%`).join("・")}</p></div></section>
 <section><h2>やめる・やめた理由（抜き出し）</h2><div class="box">${summary.quit.map((q) => `<p>「${esc(q.why)}」<small>（${q.id}）</small></p>`).join("") || "<p>やめると答えた家族はいませんでした</p>"}</div></section>
 <section><h2>助かった事（抜き出し）</h2><div class="box">${summary.good.map((g) => `<p>「${esc(g.text)}」<small>（${esc(g.id)}）</small></p>`).join("")}</div></section>
-<p><small>答えは ${esc(path.relative(APP, DIR))}/answers に1家族1ファイル（git の外）。答えたのは作った家族で、日記に無い事は答えない約束です。見つかった事は、次の修正の案として社長に出します。</small></p>
+<p><small>答えは ${esc(path.relative(APP, DIR))}/answers に1家族1ファイル（git の外）。答えたのは作った家族で、日記に無い事は答えない約束です。見つかった事は、次の修正の案として作り手に出します。</small></p>
 </main></body></html>`;
 fs.writeFileSync(path.join(DIR, "report.html"), html);
 console.log(`\n報告: ${path.join(DIR, "report.html")}`);
