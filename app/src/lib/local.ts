@@ -1,6 +1,9 @@
 // ② 1000日を生きる: その家族の町の制度を取りに行く。
 // 調べた結果は町ごと・事ごとに DB（type 'local'）へ置き、次からはそれを返す（調べた日つき）。
 // 調べた役所は「いつもの」（keep.office）として覚え、地図や次の下書きで使う。
+// 町の調べ結果はどの家族の物でもない（町の公開のページから作った物）ので、家族の id ではなく PUBLIC_ID の行に置く。
+// 前は最初に調べた家族の id で置いていた（その家族を消すと、ほかの家族の分の調べ結果も消えた）。前の行も id で引けるので、そのまま読める。
+// 「いつもの」の役所（rememberOffice）は家族の物なので、今までどおり家族の id に置く。
 import "server-only";
 import { z } from "zod";
 import { LIGHT_MODEL, research, structured } from "./claude";
@@ -50,6 +53,9 @@ export function isOfficial(url: string): boolean {
 function officialFirst(sources: LocalInfo["sources"]): LocalInfo["sources"] {
   return [...sources].sort((a, b) => Number(isOfficial(b.url)) - Number(isOfficial(a.url)));
 }
+
+/** 町の調べ結果を置く、どの世帯の物でもない行の family_id */
+export const PUBLIC_ID = "public";
 
 export function localId(city: string, milestoneId: string): string {
   return `local:${city}:${milestoneId}`;
@@ -147,7 +153,7 @@ export async function fetchLocal(family: Family, m: MilestoneDef, force = false)
     sources: officialFirst(found.sources).slice(0, 8),
     researchedAt: jstToday(),
   };
-  put(family.id, "local", local, { id: localId(family.city, m.id), date: local.researchedAt });
+  put(PUBLIC_ID, "local", local, { id: localId(family.city, m.id), date: local.researchedAt });
   rememberOffice(family.id, local);
   return { local, cached: false };
 }

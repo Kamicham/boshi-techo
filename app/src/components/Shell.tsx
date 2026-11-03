@@ -13,11 +13,17 @@ import { useFamily } from "./FamilyProvider";
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
-  const { family, families, setFamilyId, isDemo, ready } = useFamily();
+  const { family, families, setFamilyId, isDemo, ready, accountsEnabled, account, households } = useFamily();
   // 録音中は別の画面へ移ると録音が止まるので、切り替えを止める
   const recording = useSyncExternalStore(subscribeRecording, recordingBusy, recordingBusyServer);
-  // 合言葉の画面では、家族の切り替えもタブも出さない
-  if (path === "/unlock") return <div className="mx-auto min-h-dvh max-w-md">{children}</div>;
+  // 合言葉・ログイン・招待の画面では、家族の切り替えもタブも出さない
+  if (path === "/unlock" || path === "/login" || (path.startsWith("/invite/") && path !== "/invite/new")) return <div className="mx-auto min-h-dvh max-w-md">{children}</div>;
+  const here = households.find((h) => h.id === family.id);
+  const labelOf = (f: (typeof families)[number]) => {
+    const h = households.find((x) => x.id === f.id);
+    if (h) return h.name || "わが家";
+    return f.id === "mine" ? "わが家" : `デモ（作った家族）: ${f.members.map((m) => m.name).join("・")}`;
+  };
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col">
       <div className="flex items-center justify-between gap-2 px-4 pt-3 text-xs">
@@ -32,7 +38,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           >
             {families.map((f) => (
               <option key={f.id} value={f.id}>
-                {f.id === "mine" ? "わが家" : `デモ（作った家族）: ${f.members.map((m) => m.name).join("・")}`}
+                {labelOf(f)}
               </option>
             ))}
           </select>
@@ -46,6 +52,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           急ぎの時
         </Link>
       </div>
+      {accountsEnabled && !recording && <AccountBar isDemo={isDemo} signedIn={!!account} hasOwn={households.length > 0} consentFor={here?.needsRecordConsent ? here.id : null} />}
       {/* 家族を読み終えるまで中身を出さない（わが家の人に、デモの家族が一瞬見えないように） */}
       <div className="flex-1 pb-40">{ready ? children : <div className="mx-4 mt-4 h-40 rounded-2xl bg-rose-soft/60" aria-hidden />}</div>
       {/* 手帳に聞く（どの画面からも）。録音中・急ぎの時・家族の読み込み前は出さない */}
@@ -80,4 +87,38 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </nav>
     </div>
   );
+}
+
+/** 上の1行の入口: デモを見ている人にはアカウントを作る入口、同意がまだの世帯には同意の入口 */
+function AccountBar({ isDemo, signedIn, hasOwn, consentFor }: { isDemo: boolean; signedIn: boolean; hasOwn: boolean; consentFor: string | null }) {
+  const row = "mx-4 mt-2 flex items-center justify-between gap-2 rounded-xl px-3 py-1.5 text-sm";
+  if (consentFor)
+    return (
+      <p className={`${row} bg-rose-soft`}>
+        <span>はじめに「記録を残す同意」をしてください</span>
+        <Link href={`/account/consent?familyId=${encodeURIComponent(consentFor)}`} className="flex min-h-11 shrink-0 items-center font-semibold text-rose underline underline-offset-2">
+          同意の画面へ
+        </Link>
+      </p>
+    );
+  if (!isDemo) return null;
+  if (!signedIn)
+    return (
+      <p className={`${row} bg-sky-soft`}>
+        <span>アカウントを作ると、自分の世帯ができます</span>
+        <Link href="/login" className="flex min-h-11 shrink-0 items-center font-semibold text-sky underline underline-offset-2">
+          はじめる
+        </Link>
+      </p>
+    );
+  if (!hasOwn)
+    return (
+      <p className={`${row} bg-sky-soft`}>
+        <span>まだ自分の世帯がありません</span>
+        <Link href="/account/new" className="flex min-h-11 shrink-0 items-center font-semibold text-sky underline underline-offset-2">
+          世帯を作る
+        </Link>
+      </p>
+    );
+  return null;
 }

@@ -1,7 +1,9 @@
 import { body, route } from "@/lib/api";
 import { confirmDraft, getDraft, listDrafts, makeDraft, saveDraft, viewDraft, writerName } from "@/lib/drafts";
 import { getKeep } from "@/lib/keep";
-import { HttpError, requireFamily } from "@/lib/family";
+import { sendingAs } from "@/lib/claude";
+import { HttpError } from "@/lib/family";
+import { familyFor, WRITE_AND_SEND } from "../_lib/household";
 import { findMilestone } from "@/lib/local";
 
 export const maxDuration = 300;
@@ -16,7 +18,7 @@ const dayOf = (v: unknown) => (typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.te
  */
 export const GET = route(async (req: Request) => {
   const q = new URL(req.url).searchParams;
-  const family = requireFamily(q.get("familyId"));
+  const { family } = await familyFor(req, q.get("familyId"), "record:read");
   const mid = q.get("milestoneId");
   if (mid) return viewDraft(family, getDraft(family.id, findMilestone(mid).id), meOf(q.get("meId")));
   return { drafts: listDrafts(family.id) };
@@ -25,11 +27,11 @@ export const GET = route(async (req: Request) => {
 /** 下書きを作る（作り直しも同じ）。外へは何も送らない */
 export const POST = route(async (req: Request) => {
   const b = await body<{ familyId?: string; milestoneId?: string; today?: string; meId?: string }>(req);
-  const family = requireFamily(b.familyId);
+  const h = await familyFor(req, b.familyId, WRITE_AND_SEND);
   const m = findMilestone(b.milestoneId);
   const today = dayOf(b.today);
   if (!today) throw new HttpError(400, "今日の日付が読めません");
-  return makeDraft(family, m, today, meOf(b.meId));
+  return sendingAs(h.who, () => makeDraft(h.family, m, today, meOf(b.meId)));
 });
 
 type EditBody = {
@@ -57,7 +59,7 @@ function readEdits(b: EditBody) {
 /** 「送った」「使った」: 家族が印を付けて保存する。送信ではない。その事も済みになる */
 export const PUT = route(async (req: Request) => {
   const b = await body<EditBody>(req);
-  const family = requireFamily(b.familyId);
+  const { family } = await familyFor(req, b.familyId, "record:write");
   const m = findMilestone(b.milestoneId);
   const draft = confirmDraft(family.id, m.id, readEdits(b), dayOf(b.today));
   if (!draft) throw new HttpError(404, "下書きが見つかりません。先に作ってください");
@@ -67,7 +69,7 @@ export const PUT = route(async (req: Request) => {
 /** 直した文を残す（空欄を埋めた後もここ）。unmark で印を外す（印から付いた済みも外れる） */
 export const PATCH = route(async (req: Request) => {
   const b = await body<EditBody>(req);
-  const family = requireFamily(b.familyId);
+  const { family } = await familyFor(req, b.familyId, "record:write");
   const m = findMilestone(b.milestoneId);
   const meId = meOf(b.meId);
   const draft = saveDraft(family.id, m.id, readEdits(b), { unmark: b.unmark === true, writer: writerName(family, getKeep(family.id), meId) });

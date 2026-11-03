@@ -3,9 +3,11 @@ import { body, route } from "@/lib/api";
 import { seedDemo } from "@/lib/capture";
 import { DEMO_FAMILY } from "@/lib/demo-family";
 import { HttpError } from "@/lib/family";
+import { familyFor } from "../../_lib/household";
 
 export const POST = route(async (req: Request) => {
   const b = await body<{ familyId?: string }>(req);
   if (b.familyId !== DEMO_FAMILY.id) throw new HttpError(403, "作った記録を入れられるのはデモの家族だけです");
+  await familyFor(req, b.familyId, "record:write");
   return { records: seedDemo() };
 });

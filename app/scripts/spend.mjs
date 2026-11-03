@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Claude の API を使った額と残りを出す（検査・シミュレーションの後に毎回）。
 //   node scripts/spend.mjs [--since 2026-11-03T01:00:00Z] [--label 今回]
+// 行に household（世帯の id）と account（送った人）が付く。前の形の行（どちらも無い）もそのまま足す。
 // 残りは、Console の残高（BOSHI_CREDIT_USD と、それを見た時刻 BOSHI_CREDIT_AT。app/.env.local）から、
 // その時刻より後に使った額（本番・開発の app/data と、シミュレーションの app/sim-data）を引いた見込み。請求の正本は Console。
 import fs from "node:fs";
@@ -45,6 +46,16 @@ const now = all.filter((r) => !since || r.at >= since);
 const label = arg("--label") ?? "今回";
 console.log(`【Claude API のクレジット】`);
 console.log(`${label}: ${usd(sum(now))}　呼び出し ${now.length}回（シミュレーション ${now.filter((r) => r.place === "sim-data").length}・本番と開発 ${now.filter((r) => r.place === "data").length}）`);
+// 世帯ごと（household の印のある行だけ。前の行には印が無いので「印なし」にまとめる）
+if (now.some((r) => r.household)) {
+  const by = new Map();
+  for (const r of now) {
+    const k = r.household ?? "（世帯の印なし・前の行）";
+    by.set(k, (by.get(k) ?? 0) + r.usd);
+  }
+  const top = [...by].sort((a, b) => b[1] - a[1]).slice(0, 8);
+  console.log(`  世帯ごと: ${top.map(([k, v]) => `${k} ${usd(v)}`).join("・")}${by.size > top.length ? ` ほか${by.size - top.length}世帯` : ""}`);
+}
 const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 const todays = all.filter((r) => new Date(Date.parse(r.at) + 9 * 3600e3).toISOString().slice(0, 10) === today);
 console.log(`今日: ${usd(sum(todays))}　記録を始めてからの合計: ${usd(sum(all))}`);

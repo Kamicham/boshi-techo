@@ -34,10 +34,11 @@ import { SIM_FAMILIES } from "./families";
 import type { SimFamily } from "./types";
 import { getPopulation, type PopFamily } from "./population";
 import { BIRTHS_2025, PER_FAMILY } from "./stats";
-import { birthFacts, birthWeightMedian, growthMedian, seedTecho } from "../lib/techo-seed";
+import { birthFacts, birthWeightMedian, growthMedian, isMadeFamily, seedTecho } from "../lib/techo-seed";
 import { DEMO_FAMILY } from "../lib/demo-family";
 import type { TechoEntry } from "../lib/techo";
 import { doneFromTecho } from "../lib/techo-done";
+import { isPopulationFamily, madeHouseholdKind } from "./kind";
 
 const FULL = process.env.SIM_FULL === "1";
 /** アンケート用の日記（1000組が1000日の間に見た物）を sim/out/diary.json に書き出す（npm run survey が使う） */
@@ -681,9 +682,16 @@ const TECHO_RULES = {
   t5: "妊婦健診は標準の14回まで・週数の順",
   t6: "判定の言葉（異常・正常・大丈夫）を含まない",
   t7: "みな source が seed で、候補（pending）ではない",
-  t8: "わが家（mine）には何も無い",
+  t8: "本物の世帯（kind = real・わが家の mine・アカウントで作った世帯）には何も無い",
 } as const;
 type TechoRule = keyof typeof TECHO_RULES;
+/**
+ * 本物の世帯（kind = real）の id の見本。わが家の mine と、アカウントで作った世帯の id（Better Auth の organization の id は
+ * 英数字32字・"-" を含まない。乱数なので、ここでは決まった文字で形だけ似せる）。
+ * ※ techo-seed の isMadeFamily は今も id の形（demo-・sim-・pop- で始まるか）で決めている。本物の世帯の id は "-" を含まないので
+ *   重ならないが、kind で決める形に直すまでは、ここに "pop-1001" のような形の id を入れると落ちる（設計 ⑤の12）
+ */
+const REAL_LIKE_IDS = ["mine", "family-x", "Xk3v9QpL0aZr7TbN2mWc5HsY8dFj1UeG", "a0b1c2d3e4f5g6h7i8j9k0l1m2n3o4p5"];
 const AFTER_BIRTH = new Set(["birth", "newborn", "stool", "postpartum", "growth", "development", "child-checkup", "vaccine"]);
 const JUDGE = /異常|正常|大丈夫/;
 const techoReport: string[] = [];
@@ -755,11 +763,26 @@ describe("① 早送りの検査: 手帳の記録（作った家族の記録）"
     return bad;
   };
 
-  it("t8 わが家（mine）には何も作らない", () => {
-    const mine: Family = { ...DEMO_FAMILY, id: "mine" };
-    for (const d of techoDays(mine)) expect(seedTecho(mine, d)).toEqual([]);
-    // 作った家族の印の無い家族にも作らない
-    expect(seedTecho({ ...DEMO_FAMILY, id: "family-x" }, "2028-01-01")).toEqual([]);
+  it("t8 本物の世帯（kind = real）には何も作らない", () => {
+    // 本物の世帯: わが家（mine）・アカウントで作った世帯（Better Auth の organization の id ＝ 英数字32字）・形の似た id
+    for (const id of REAL_LIKE_IDS) {
+      expect(madeHouseholdKind(id), id).toBeNull();
+      const real: Family = { ...DEMO_FAMILY, id };
+      for (const d of techoDays(real)) expect(seedTecho(real, d), id).toEqual([]);
+    }
+  });
+
+  it("作った家族の印（techo-seed の isMadeFamily）と世帯の種類（households.kind）が食い違わない", () => {
+    const made = [DEMO_FAMILY.id, ...SIM_FAMILIES.map((f) => f.id), ...getPopulation().map((f) => f.id)];
+    for (const id of made) {
+      expect(madeHouseholdKind(id), id).not.toBeNull();
+      expect(isMadeFamily(id), id).toBe(true);
+    }
+    expect(madeHouseholdKind(DEMO_FAMILY.id)).toBe("demo");
+    for (const f of SIM_FAMILIES) expect(madeHouseholdKind(f.id)).toBe("sim");
+    for (const f of getPopulation().filter((_, i) => i % 50 === 0)) expect(madeHouseholdKind(f.id)).toBe("sim");
+    // 本物の世帯の id は、作った家族の印を持たない（持つと、作った記録が本物の世帯に入る）
+    for (const id of REAL_LIKE_IDS) expect(isMadeFamily(id), id).toBe(false);
   });
 
   it("デモの家族（2歳まで、ページがそろう）", () => {
@@ -782,8 +805,8 @@ describe("① 早送りの検査: 手帳の記録（作った家族の記録）"
 
   afterAll(() => {
     if (!rows.length) return;
-    const pop = rows.filter((r) => r.id.startsWith("pop-"));
-    const others = rows.filter((r) => !r.id.startsWith("pop-"));
+    const pop = rows.filter((r) => isPopulationFamily(r.id));
+    const others = rows.filter((r) => !isPopulationFamily(r.id));
     techoReport.push("## 手帳の記録（作った家族の記録・seedTecho）", "");
     techoReport.push(`デモ・30家族・1000組の ${rows.length}家族を、授かって2か月・予定日・生まれて100日・9か月・2歳の誕生日・使い始めた日で確かめた。`, "");
     techoReport.push("| 決まり | 中身 | 破れ |", "|---|---|---|");

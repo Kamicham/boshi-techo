@@ -22,6 +22,7 @@
 - **② なりきり（画面や流れに関わる修正の後）**: `app/scripts/sim-server.sh`（3100番・DB は `app/sim-data/`）を立て、Workflow `simulate`（`.claude/workflows/simulate.js`）を回す。既定は6家族、直した画面に関わる家族を先に入れる。道具は `app/src/sim/drive.mjs`（Playwright・iPhone の大きさ）。
   - サーバは既定で組み立てた版（`.next-sim` に next build → next start。本番の `.next-prod` とは別）。next dev はなりきりの負荷で 500 を返すので使わない（`--dev` は手で画面を見る時だけ）。組み立てた版は直しが反映されないので、直した後は `app/scripts/sim-server.sh --replace`（3100番の next を止めて組み立て直す）。前の版をそのまま動かすなら `--no-build`。
   - 今回の直しで見てほしい事は、Workflow の `args.checks`（文字の配列）で全家族に渡す。
+- **ログインと世帯（2026-11-03・アカウントの仕組み）**: 作った家族の世帯は `households.kind` で表す（見本の家族＝demo・30家族と1000組＝sim・それ以外＝real）。id の形では決めず、コードの一覧で決める（`app/src/sim/kind.ts`・`lib/family.ts` の `madeFamilyKind`）。シミュレーションのサーバは既定で `BOSHI_SIM_LOGIN=1`（`--guest` で外す）で、`drive.mjs` の setup が `/api/sim/login`（BOSHI_SIM=1 の時だけ。本番では 404）から仮のアカウント `sim:<家族id>`（その世帯の owner）の札をもらう。なりきりの後に `node src/sim/cross.mjs A B` で、家族Aの札で家族Bの記録・済んだ事・手帳・写真の id を叩くとすべて 404 になるかを毎回見る（Workflow `simulate` が回す）。`npm run sim` には、世帯をまたぐ試験（`cross-household.test.ts`）と、すべての API の口が `withHousehold` か理由つきの公開の口を通るかを読む試験（`api-guard.test.ts`。visit は 11/5 の後）が入る。
 - 結果は毎回、報告の Artifact に「重い順の気づき・前回より良くなった／悪くなった所・家族ごとの ○△×」で足す。見つかった事は勝手に全部直さず、次の修正の案に入れて社長に出す。
 - シミュレーションは、わが家（`app/data/`）・本番（3210番）に触らない。
 - **アンケート（`/survey`）は社長が言った時だけ**（2026-11-03 本人指示）。1000組と画面を触った家族に、不便・使いづらさ・欲しい機能を聞き、全国に直して前回と比べる。手順は `.claude/skills/survey/SKILL.md`。答える役は Sonnet 以上（品質を重視し、クレジットは惜しまない）。

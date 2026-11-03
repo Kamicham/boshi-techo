@@ -9,12 +9,17 @@ import type { TechoEntry } from "./techo";
 
 vi.mock("server-only", () => ({}));
 // 担当3の作った記録。ここでは決まった2件を返す（中身の検査は techo-seed 側）
-vi.mock("./techo-seed", () => ({
+// 作った家族かの判定（isMadeFamily）は本物を使う
+vi.mock("./techo-seed", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./techo-seed")>()),
   seedTecho: (_f: Family, today: string): TechoEntry[] => [
     { page: "development", date: today, title: "寝返り", values: { item: "寝返り" }, source: "seed" },
     { page: "mother-health", date: "2026-01-01", title: "妊婦の健康状態", values: { heightCm: 158 }, source: "seed" },
   ],
 }));
+
+// アカウントで作った本物の世帯の id（Better Auth が作る英数字だけの id の形。作った id）
+const REAL = "hReal0Household0Test0001";
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "boshi-techo-test-"));
 process.env.BOSHI_DATA_DIR = dir;
@@ -63,7 +68,7 @@ describe("値を決まりどおりに整える", () => {
 describe("出し入れ", () => {
   it("候補は pending で入り、OK で確定、違うで消える。ほかの家族の id は触れない", () => {
     const [a, b] = S.addTecho(
-      "mine",
+      REAL,
       [
         { page: "development", date: "2027-08-01", title: "寝返り", values: { item: "寝返り" } },
         { page: "feeling", values: { text: "早く会いたい" }, who: "美咲" },
@@ -73,14 +78,14 @@ describe("出し入れ", () => {
     );
     expect(a.data.pending).toBe(true);
     expect(b.data).toMatchObject({ page: "feeling", who: "美咲", date: "2027-08-02", captureId: "c1" });
-    expect(S.listTecho("mine")).toHaveLength(2);
+    expect(S.listTecho(REAL)).toHaveLength(2);
 
     expect(S.confirmTecho(a.id, "someone-else")).toBeNull();
-    const ok = S.confirmTecho(a.id, "mine");
+    const ok = S.confirmTecho(a.id, REAL);
     expect(ok?.data.pending).toBeUndefined();
     expect(S.removeTecho(b.id, "someone-else")).toBe(false);
-    expect(S.removeTecho(b.id, "mine")).toBe(true);
-    expect(S.listTecho("mine").map((d) => d.id)).toEqual([a.id]);
+    expect(S.removeTecho(b.id, REAL)).toBe(true);
+    expect(S.listTecho(REAL).map((d) => d.id)).toEqual([a.id]);
   });
 
   it("聞き返しで作り直す時は、同じ束の確定していない候補だけ消す", () => {
@@ -95,14 +100,18 @@ describe("出し入れ", () => {
     expect(p.id).not.toBe(q.id);
   });
 
-  it("作った家族は、その日の時点の作った記録を毎回混ぜる（保存しない）。今日より後の記録は返さない。わが家には入れない", () => {
+  it("作った家族は、その日の時点の作った記録を毎回混ぜる（保存しない）。今日より後の記録は返さない。本物の世帯には入れない", () => {
     const f = fam("sim-01");
     const first = S.listTecho(f.id, { family: f, today: "2027-09-01" });
     expect(first.map((d) => d.data.page)).toEqual(["mother-health", "development"]);
     expect(first.every((d) => d.data.source === "seed" && !d.data.pending)).toBe(true);
     expect(S.listTecho(f.id, { family: f, today: "2027-09-01" })).toHaveLength(2);
     expect(S.listTecho(f.id, { family: f, today: "2020-01-01" }).every((d) => (d.date ?? d.data.date) <= "2020-01-01")).toBe(true);
-    expect(S.listTecho("mine", { family: fam("mine"), today: "2027-09-01" }).every((d) => d.data.source !== "seed")).toBe(true);
+    expect(S.listTecho(REAL, { family: fam(REAL), today: "2027-09-01" }).every((d) => d.data.source !== "seed")).toBe(true);
+    // 前の判定（頭の文字）では作った家族に見えた id も、固定の形に合わなければ本物として扱う
+    for (const id of ["mine", "sim-abc", "demo-x", "pop-12"]) {
+      expect(S.listTecho(id, { family: fam(id), today: "2027-09-01" }).every((d) => d.data.source !== "seed")).toBe(true);
+    }
   });
 });
 

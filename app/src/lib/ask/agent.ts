@@ -7,7 +7,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { guideText } from "../app-guide";
 import { situationFacts } from "../advisor";
-import { CHARTER, claude, LIGHT_MODEL, MODEL, structured } from "../claude";
+import { CHARTER, claude, guardSend, LIGHT_MODEL, MODEL, structured } from "../claude";
 import { clockAt } from "../clock";
 import { get, put } from "../db";
 import type { Family } from "../demo-family";
@@ -165,6 +165,8 @@ export interface AskResult {
 
 export async function ask(input: AskInput): Promise<AskResult> {
   const { family, today } = input;
+  // claude() を直に使うので、送る前の関所をここで1回通す（route が sendingAs で包む。同意が無ければ ConsentRequiredError）
+  guardSend("ask");
   const text = input.text.trim().slice(0, 2000);
   const onStatus = input.onStatus ?? (() => {});
   const c = clockAt(family, today);

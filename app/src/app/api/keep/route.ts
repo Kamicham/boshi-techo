@@ -1,17 +1,17 @@
 // 「いつもの場所と人」を読む・覚える。
 // 送らなかった欄は今のまま。空の文字を送った欄は消す（設定で空にした時）。
 import { body, route } from "@/lib/api";
-import { requireFamily } from "@/lib/family";
+import { familyFor } from "../_lib/household";
 import { getKeep, remember, type Keep } from "@/lib/keep";
 
 export const GET = route(async (req: Request) => {
-  const fam = requireFamily(new URL(req.url).searchParams.get("familyId"));
+  const { family: fam } = await familyFor(req, new URL(req.url).searchParams.get("familyId"), "record:read");
   return { keep: getKeep(fam.id) };
 });
 
 export const POST = route(async (req: Request) => {
   const b = await body<{ familyId?: string; keep?: Partial<Keep> }>(req);
-  const fam = requireFamily(b.familyId);
+  const { family: fam } = await familyFor(req, b.familyId, "record:write");
   const k = b.keep ?? {};
   const str = (v: unknown, n = 200) => (typeof v === "string" ? v.trim().slice(0, n) : undefined);
   const patch: Partial<Keep> = {};

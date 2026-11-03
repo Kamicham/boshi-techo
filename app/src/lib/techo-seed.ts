@@ -1,5 +1,5 @@
 // 作った家族（デモ・30家族 sim-*・1000組 pop-*）の手帳の記録を、統計から作る。すべて作った記録で、実在の家族の物ではない。
-// わが家（mine）には何も返さない。本物の記録は、家族が話した・撮った物だけ（lib/techo.ts の約束）。
+// 本物の家族（わが家・アカウントで作った世帯）には何も返さない。本物の記録は、家族が話した・撮った物だけ（lib/techo.ts の約束）。
 //
 // 乱数は使わない。同じ家族・同じ今日なら、いつも同じ記録になる（家族 id から決まる小さな幅）。
 // 今日より後の日付の記録は作らない。生まれる前に生まれた後の記録は作らない。
@@ -144,9 +144,15 @@ export const birthWeightMedian = (gestDays: number) => interp(BIRTH_WEIGHT_MEDIA
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 
-/** 作った家族か（わが家・ほかの家族には何も作らない） */
+/**
+ * 作った家族か（本物の家族には何も作らない）。コードが作る id の形にぴったり合う物だけ:
+ * 見本の家族 demo-sato・30家族 sim-01〜sim-99・1000組 pop-0001〜pop-9999。
+ * 前は「demo-・sim-・pop- で始まる」で決めていた。アカウントで作った世帯の id（Better Auth が作る英数字だけの id）は
+ * どれにも合わないので、本物の世帯に作った記録が混ざらない（lib/family.ts の madeFamilyKind・api/household も同じ考え）。
+ * 誰が見てよいかの判定には使わない（それは lib/access.ts の publicHouseholdKind）。
+ */
 export function isMadeFamily(id: string): boolean {
-  return id === "demo-sato" || id.startsWith("demo-") || id.startsWith("sim-") || id.startsWith("pop-");
+  return id === "demo-sato" || /^sim-\d{2}$/.test(id) || /^pop-\d{4}$/.test(id);
 }
 
 /** 1000組の家族が持つ値（population.ts の profile。lib から sim を読まないよう、形だけここに書く） */
@@ -177,7 +183,7 @@ const weekText = (days: number) => `${Math.floor(days / 7)}週${days % 7 ? `${da
  * 並びは日付の順。体の数字は家族のデータか、上の出典の中央値の近くだけ。
  */
 export function seedTecho(family: Family, today: string): TechoEntry[] {
-  if (family.id === "mine" || !isMadeFamily(family.id)) return [];
+  if (!isMadeFamily(family.id)) return [];
   const fid = family.id;
   const out: TechoEntry[] = [];
   const add = (e: Omit<TechoEntry, "source">) => {

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn, Why } from "@/components/ui";
+import { KeepButtons } from "@/components/album/KeepButtons";
 import type { CaptureRecord, CaptureResult, RecordSource, TechoPhotoResult } from "@/lib/capture";
 import { HoldToTalk } from "./HoldToTalk";
 import { shrinkPhoto } from "./media";
@@ -44,6 +45,9 @@ export function CaptureScreen() {
   const [pending, setPending] = useState(0);
   // 手帳の「撮って足す」「話して足す」から来た時（/capture?techo=photo|voice）
   const [from, setFrom] = useState<"photo" | "voice" | null>(null);
+  // 今日の画面の節目の一言から来た時（/capture?keep=1）は「残す」を光らせる
+  const [keepFrom, setKeepFrom] = useState(false);
+  const keepBox = useRef<HTMLDivElement>(null);
   const photoInput = useRef<HTMLInputElement>(null);
   const pageInput = useRef<HTMLInputElement>(null);
   const pageButton = useRef<HTMLButtonElement>(null);
@@ -76,7 +80,13 @@ export function CaptureScreen() {
 
   // 手帳から来た時: 撮るなら紙の手帳のページを撮る欄を開き、話すなら話すボタンを見せる
   useEffect(() => {
-    const t = new URLSearchParams(window.location.search).get("techo");
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get("keep") === "1") {
+      setKeepFrom(true);
+      keepBox.current?.scrollIntoView({ block: "center" });
+      return;
+    }
+    const t = sp.get("techo");
     if (t !== "photo" && t !== "voice") return;
     setFrom(t);
     if (t === "photo") {
@@ -279,6 +289,13 @@ export function CaptureScreen() {
           if (f) void sendPage(f);
         }}
       />
+
+      {/* 紙を読む道（上の「撮る」と手帳のページ）は Claude に送る。写真を残す道（下の「残す」）とは分ける */}
+      <p className="text-sm text-muted">「撮る」の写真は、読み取りのために Claude に送ります（残しません）</p>
+
+      <div ref={keepBox}>
+        <KeepButtons highlight={keepFrom} />
+      </div>
 
       <p className="text-sm font-semibold text-alert">{CALL_LINE}</p>
 

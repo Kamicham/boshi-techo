@@ -5,6 +5,8 @@
 // 使う人（me）はここで選ぶ。選ばなければママ（母）として出す。
 // シミュレーションのサーバでは、いま見ている作った家族（sim-・pop-）の家族の形といつもの場所を出す。
 // 家族の形の保存（/api/family）は「わが家」だけなので、作った家族では見るだけ。いつもの場所（/api/keep）はどの家族でも覚える。
+// アカウントの仕組みが動くサーバでは、「わが家」の代わりにログインした人の世帯（持ち主・共同の管理）へ保存する（/api/account/profile）。
+// 読むだけの役の世帯は見るだけ。ログイン・同意・招待・書き出し・消すはアカウントの画面（/account）。
 import { useEffect, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { jpDate } from "@/components/Techo";
@@ -20,15 +22,24 @@ const ROLE_WORD: Record<Member["role"], string> = { 母: "ママ（母）", パ�
 const field = "min-h-12 w-full rounded-xl border border-line bg-card px-3 text-base";
 
 export default function Settings() {
-  const { families, family, reload, setFamilyId, me, setMeId, isDemo } = useFamily();
-  const mine = families.find((f) => f.id === "mine");
+  const { families, family, reload, setFamilyId, me, setMeId, isDemo, accountsEnabled, account, households } = useFamily();
+  // 書ける世帯（持ち主・共同の管理）。アカウントの仕組みが動かないサーバでは、今までどおり「わが家」
+  const own = households.filter((h) => h.role !== "member");
+  const homeId = accountsEnabled ? (own.find((h) => h.id === family.id)?.id ?? own[0]?.id) : families.some((f) => f.id === "mine") ? "mine" : undefined;
+  const mine = homeId ? families.find((f) => f.id === homeId) : undefined;
+  // デモから「入れる」を押した時に保存する先（家族の設定がまだの世帯も含む）
+  const startId = accountsEnabled ? homeId : "mine";
   // デモの家族を見ている時は、わが家の問いを混ぜない（わが家がまだ無い時は、押すと問いを出す）
   const [starting, setStarting] = useState(false);
   const askMine = !isDemo || starting;
   // 問いに出す家族: デモでなければ、いま見ている家族（本番では わが家、シミュレーションでは作った家族）
   const shown = isDemo ? mine : family;
-  // 作った家族（シミュレーション）は、家族の形を保存できない（/api/family は わが家だけを書く）
-  const madeUp = !!shown && shown.id !== "mine";
+  // 保存する先（いま問いに出している家族。まだ設定の無い世帯は、その世帯）
+  const targetId = shown?.id ?? startId;
+  const viewOnlyRole = accountsEnabled && households.some((h) => h.id === targetId && h.role === "member");
+  // 作った家族（シミュレーション）・読むだけの役の世帯は、家族の形を保存できない
+  const canSave = !!targetId && (accountsEnabled ? own.some((h) => h.id === targetId) : targetId === "mine");
+  const madeUp = !!shown && !canSave;
   const [form, setForm] = useState({ prefecture: "", city: "", dueDate: "", birthDate: "", childName: "" });
   const [members, setMembers] = useState<Member[]>(ROLES.map((role, i) => ({ id: `m${i}`, name: "", role })));
   const [situation, setSituation] = useState<Situation>({});
@@ -47,9 +58,11 @@ export default function Settings() {
   const save = async () => {
     setMsg(null);
     try {
-      await api<{ family: Family }>("/api/family", { body: { ...form, members, situation: tidySituation(situation, hasPartner) } });
+      const payload = { ...form, members, situation: tidySituation(situation, hasPartner) };
+      if (accountsEnabled) await api<{ family: Family }>("/api/account/profile", { body: { ...payload, familyId: targetId } });
+      else await api<{ family: Family }>("/api/family", { body: payload });
       await reload();
-      setFamilyId("mine");
+      if (targetId) setFamilyId(targetId);
       setMsg({ ok: true, text: "保存しました" });
     } catch (e) {
       setMsg({ ok: false, text: `保存できませんでした: ${(e as Error).message}` });
@@ -81,11 +94,20 @@ export default function Settings() {
         </Question>
       )}
 
-      {!askMine && (
-        <NextStep eyebrow="いま見ているのはデモの家族" title="わが家の予定日・町・家族を入れる" sub={mine ? "わが家に切り替えると、わが家の分が出ます" : "入れると、わが家の手帳が始まります"}>
-          <Btn onClick={() => (mine ? setFamilyId("mine") : setStarting(true))}>わが家に切り替えて入れる</Btn>
-        </NextStep>
-      )}
+      {!askMine &&
+        (accountsEnabled && !account ? (
+          <NextStep eyebrow="いま見ているのはデモの家族" title="アカウントを作ると、自分の世帯ができます" sub="メールに届く6桁のコードで入ります">
+            <Btn href="/login?next=/settings">ログイン・アカウントを作る</Btn>
+          </NextStep>
+        ) : accountsEnabled && !startId ? (
+          <NextStep eyebrow="いま見ているのはデモの家族" title="自分の世帯を作る" sub="作ると、わが家の手帳が始まります">
+            <Btn href="/account/new">世帯を作る</Btn>
+          </NextStep>
+        ) : (
+          <NextStep eyebrow="いま見ているのはデモの家族" title="わが家の予定日・町・家族を入れる" sub={mine ? "わが家に切り替えると、わが家の分が出ます" : "入れると、わが家の手帳が始まります"}>
+            <Btn onClick={() => (mine ? setFamilyId(mine.id) : setStarting(true))}>わが家に切り替えて入れる</Btn>
+          </NextStep>
+        ))}
 
       {askMine && (
         <>
@@ -136,7 +158,9 @@ export default function Settings() {
 
           {madeUp ? (
             <p role="note" className="rounded-xl bg-rose-soft px-4 py-3 text-base">
-              作った家族（シミュレーション）の家族の形は、ここでは見るだけです。保存は「わが家」だけできます
+              {viewOnlyRole
+                ? "読むだけの役なので、家族の形は見るだけです。直すのは世帯の持ち主・共同の管理の人です"
+                : "作った家族（シミュレーション）の家族の形は、ここでは見るだけです。保存は「わが家」だけできます"}
             </p>
           ) : (
             <Btn onClick={() => void save()} full>
@@ -153,8 +177,19 @@ export default function Settings() {
         </>
       )}
 
+      {accountsEnabled && (
+        <Question q="アカウントと同意">
+          <p className="text-base text-muted">
+            {account ? "同意の確かめと撤回・家族を招く・書き出す・消すは、ここから" : "ログインすると、自分の世帯・同意・家族の招待が使えます"}
+          </p>
+          <Btn href={account ? `/account${households.some((h) => h.id === family.id) ? `?familyId=${encodeURIComponent(family.id)}` : ""}` : "/login?next=/account"} kind="secondary">
+            {account ? "アカウントの画面へ" : "ログイン・アカウントを作る"}
+          </Btn>
+        </Question>
+      )}
+
       <Why label="入れた事はどこに？">
-        <p>この機械の中だけに置きます。氏名・住所の番地は入れなくて大丈夫です。</p>
+        <p>{accountsEnabled ? "この世帯の中だけに置きます。" : "この機械の中だけに置きます。"}氏名・住所の番地は入れなくて大丈夫です。</p>
       </Why>
     </main>
   );

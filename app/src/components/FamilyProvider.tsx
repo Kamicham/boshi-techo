@@ -2,9 +2,32 @@
 
 // どの家族の手帳を見ているか、と「今日」を全画面で共有する。
 // デモの家族は時計を早送りでき、「わが家」は本当の今日で動く。
+// 家族の一覧:
+// - アカウントの仕組みが動く置き場（/api/account が enabled）: ログインした人の世帯＋公開の世帯（デモ・シミュレーションの作った家族）
+// - 動かない置き場（今のわが家の本番）: 今までどおり /api/family
+// 端末の控え（一覧・使う人）はアカウントごとの名前で持ち、ログアウトで消す。ログインしていない時は今までの名前（boshi.families・boshi.me）
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { DEMO_FAMILY, type Family, type Member } from "@/lib/demo-family";
 import { addDays, conceptionDate } from "@/lib/clock";
+
+export type AccountInfo = { id: string; email: string; name: string };
+export type HouseholdInfo = {
+  id: string;
+  name: string;
+  role: "owner" | "admin" | "member";
+  kind: "real" | "demo" | "sim";
+  /** 家族の設定（予定日・町）を入れたか。入れていない世帯は families に入らない */
+  hasProfile: boolean;
+  /** はじめの「記録を残す同意」がまだの本人がいる */
+  needsRecordConsent: boolean;
+};
+type AccountList = {
+  enabled: boolean;
+  account?: AccountInfo | null;
+  households?: HouseholdInfo[];
+  families?: Family[];
+  kinds?: Record<string, "real" | "demo" | "sim">;
+};
 
 interface Ctx {
   family: Family;
@@ -19,6 +42,16 @@ interface Ctx {
   /** この端末を使っている家族の一人。設定で選んだ人、選んでいなければ母（家族に人がいなければ null） */
   me: Member | null;
   setMeId: (id: string | null) => void;
+  /** アカウントの仕組みが、このサーバで動くか（動かない時はログインの入口を出さない） */
+  accountsEnabled: boolean;
+  /** ログインした人（していなければ null） */
+  account: AccountInfo | null;
+  /** ログインした人が入っている世帯（家族の設定がまだの世帯も含む） */
+  households: HouseholdInfo[];
+  /** その家族が、ログインした人の世帯か（公開の作った家族・わが家の古い形は false） */
+  isHousehold: (id: string) => boolean;
+  /** ログアウト（この端末の控えも消す） */
+  signOut: () => Promise<void>;
 }
 
 const FamilyCtx = createContext<Ctx | null>(null);
@@ -41,11 +74,21 @@ function write(key: string, v: string) {
   } catch {}
 }
 
+function drop(key: string) {
+  try {
+    localStorage.removeItem(key);
+  } catch {}
+}
+
 /** 最後に読めた家族の一覧（この端末だけ）。電波が無い時・サーバが一瞬つまずいた時に、デモへ落とさずこれで開く */
 const CACHE_KEY = "boshi.families";
-function readCache(): Family[] {
+/** 最後にこの端末でログインしていた人（控えの名前を選ぶ） */
+const ACCOUNT_KEY = "boshi.account";
+const cacheKey = (acct: string) => (acct ? `${CACHE_KEY}:${acct}` : CACHE_KEY);
+const meKey = (acct: string) => (acct ? `boshi.me:${acct}` : "boshi.me");
+function readCache(acct: string): Family[] {
   try {
-    const v = JSON.parse(read(CACHE_KEY) ?? "[]") as Family[];
+    const v = JSON.parse(read(cacheKey(acct)) ?? "[]") as Family[];
     return Array.isArray(v) ? v.filter((f) => f && typeof f.id === "string" && f.id !== DEMO_FAMILY.id) : [];
   } catch {
     return [];
@@ -64,24 +107,73 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
   const [lost, setLost] = useState(false);
   const [meIds, setMeIds] = useState<Record<string, string>>({});
   const [demoToday, setDemoToday] = useState<string>(addDays(conceptionDate(DEMO_FAMILY), 41));
+  const [accountsEnabled, setAccountsEnabled] = useState(false);
+  const [account, setAccount] = useState<AccountInfo | null>(null);
+  const [households, setHouseholds] = useState<HouseholdInfo[]>([]);
+  const [kinds, setKinds] = useState<Record<string, "real" | "demo" | "sim">>({});
+
+  /** 端末の控えを、いまログインしている人の物に切り替える（人が変わったら前の人の控えを消す） */
+  const switchAccount = useCallback((acct: string) => {
+    const prev = read(ACCOUNT_KEY) ?? "";
+    if (prev === acct) return;
+    if (prev) {
+      drop(cacheKey(prev));
+      drop(meKey(prev));
+    }
+    // 前の人が選んでいた世帯を、次の人の画面で開かない
+    drop("boshi.family");
+    setFamilyIdState(DEMO_FAMILY.id);
+    write(ACCOUNT_KEY, acct);
+    try {
+      setMeIds(JSON.parse(read(meKey(acct)) ?? "{}") as Record<string, string>);
+    } catch {
+      setMeIds({});
+    }
+  }, []);
+
+  /** 一覧を受け取った後: 控えに書き、まだ自分で選んでいない端末は自分の世帯（無ければわが家）から開く */
+  const accept = useCallback((list: Family[], acct: string, own: string[]) => {
+    setFamilies(withDemo(list));
+    write(cacheKey(acct), JSON.stringify(list.filter((f) => f.id !== DEMO_FAMILY.id)));
+    setLost(false);
+    const first = own.find((id) => list.some((f) => f.id === id)) ?? (list.some((f) => f.id === "mine") ? "mine" : null);
+    if (first) setFamilyIdState((cur) => (read("boshi.family") ? cur : first));
+    setReady(true);
+  }, []);
 
   const reload = useCallback(async () => {
     const saved = read("boshi.family") ?? "";
     // サーバが一瞬つまずいても（開発中の作り直し・電波の切れ目）、すぐデモに落とさず3回まで読み直す
     for (let i = 0; i < 3; i++) {
       try {
-        const r = await fetch(`/api/family?id=${encodeURIComponent(saved)}`);
+        const ra = await fetch(`/api/account?id=${encodeURIComponent(saved)}`);
         // 合言葉の前（401）は読み直しても同じ
-        if (r.status === 401) break;
-        if (r.ok) {
-          const list = ((await r.json()) as { families: Family[] }).families;
-          setFamilies(withDemo(list));
-          write(CACHE_KEY, JSON.stringify(list.filter((f) => f.id !== DEMO_FAMILY.id)));
-          setLost(false);
-          // まだ自分で選んでいない端末は、わが家があればわが家から開く（デモは選んだ人だけ）
-          if (list.some((f) => f.id === "mine")) setFamilyIdState((cur) => (read("boshi.family") ? cur : "mine"));
-          setReady(true);
+        if (ra.status === 401) break;
+        // /api/account が無い古いサーバ（404）は、アカウントの仕組みが動かない置き場と同じに扱う
+        const ja = ra.ok ? ((await ra.json()) as AccountList) : ra.status === 404 ? { enabled: false } : null;
+        if (ja?.enabled) {
+          const acct = ja.account?.id ?? "";
+          switchAccount(acct);
+          setAccountsEnabled(true);
+          setAccount(ja.account ?? null);
+          setHouseholds(ja.households ?? []);
+          setKinds(ja.kinds ?? {});
+          accept(ja.families ?? [], acct, (ja.households ?? []).map((h) => h.id));
           return;
+        }
+        if (ja && !ja.enabled) {
+          // アカウントの仕組みが動かない置き場: 今までどおり
+          setAccountsEnabled(false);
+          setAccount(null);
+          setHouseholds([]);
+          setKinds({});
+          switchAccount("");
+          const r = await fetch(`/api/family?id=${encodeURIComponent(saved)}`);
+          if (r.status === 401) break;
+          if (r.ok) {
+            accept(((await r.json()) as { families: Family[] }).families, "", []);
+            return;
+          }
         }
       } catch {
         // 電波が無い・サーバが作り直し中
@@ -89,16 +181,17 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
       await sleep(600 * (i + 1));
     }
     // 届かなかった: 覚えた一覧にその家族があれば、それで開く。無ければデモのまま知らせる
-    const cached = readCache();
+    const cached = readCache(read(ACCOUNT_KEY) ?? "");
     if (!cached.some((f) => f.id === saved) && saved && saved !== DEMO_FAMILY.id) setLost(true);
     setReady(true);
-  }, []);
+  }, [accept, switchAccount]);
 
   useEffect(() => {
+    const acct = read(ACCOUNT_KEY) ?? "";
     const id = read("boshi.family");
     const d = read("boshi.demoToday");
-    const me = read("boshi.me");
-    const cached = readCache();
+    const me = read(meKey(acct));
+    const cached = readCache(acct);
     if (cached.length) setFamilies(withDemo(cached));
     if (id) setFamilyIdState(id);
     // 覚えた一覧にその家族があれば、読み直しを待たずに開く（わが家の人にデモが見えない）
@@ -112,11 +205,29 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
     void reload();
   }, [reload]);
 
+  const signOut = useCallback(async () => {
+    const acct = read(ACCOUNT_KEY) ?? "";
+    try {
+      await fetch("/api/auth/sign-out", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+    } catch {}
+    // この端末の控えを消す（次に使う人に、前の人の世帯の名前や一覧が見えないように）
+    drop(cacheKey(acct));
+    drop(meKey(acct));
+    drop("boshi.family");
+    write(ACCOUNT_KEY, "");
+    setAccount(null);
+    setHouseholds([]);
+    setFamilyIdState(DEMO_FAMILY.id);
+    setFamilies([DEMO_FAMILY]);
+    await reload();
+  }, [reload]);
+
   // 選んだ家族が一覧に無い時だけデモ（読み込み中は ready を待つので、ここには来ない）
   const family = families.find((f) => f.id === familyId) ?? DEMO_FAMILY;
   const isDemo = family.id === DEMO_FAMILY.id;
-  // デモとシミュレーションの家族だけ、時計を進められる
-  const timeTravel = isDemo || family.id.startsWith("sim-") || family.id.startsWith("pop-");
+  // デモとシミュレーションの家族だけ、時計を進められる（世帯の種類が分かればそれで、古い置き場では id で）
+  const kind = kinds[family.id];
+  const timeTravel = kind ? kind !== "real" : isDemo || family.id.startsWith("sim-") || family.id.startsWith("pop-");
   const today = timeTravel ? demoToday : realToday();
   // 設定で選んだ人。選んでいなければ母（いなければ最初の人）
   const me = family.members.find((m) => m.id === meIds[family.id]) ?? family.members.find((m) => m.role === "母") ?? family.members[0] ?? null;
@@ -143,8 +254,13 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
       if (id) next[family.id] = id;
       else delete next[family.id];
       setMeIds(next);
-      write("boshi.me", JSON.stringify(next));
+      write(meKey(account?.id ?? ""), JSON.stringify(next));
     },
+    accountsEnabled,
+    account,
+    households,
+    isHousehold: (id) => households.some((h) => h.id === id),
+    signOut,
   };
   return (
     <FamilyCtx.Provider value={value}>

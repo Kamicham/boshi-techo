@@ -5,7 +5,7 @@ import "server-only";
 import { get, list, put, remove, type Doc } from "./db";
 import type { Family } from "./demo-family";
 import { TECHO_PAGE_IDS, type TechoEntry, type TechoPageId, type TechoSource, type TechoValueKeys } from "./techo";
-import { seedTecho } from "./techo-seed";
+import { isMadeFamily, seedTecho } from "./techo-seed";
 
 /**
  * 保存する1件（TechoEntry に、撮った紙の日付の確かさの印を足した物）。
@@ -13,9 +13,6 @@ import { seedTecho } from "./techo-seed";
  */
 export type TechoStored = TechoEntry & { dateUnsure?: "guess" | "none" };
 export type TechoDoc = Doc<TechoStored>;
-
-/** わが家の id（family.ts の MINE_ID と同じ。family.ts は重いので読まない） */
-const MINE = "mine";
 
 // ── 中身の決まり（techo.ts の TechoValueKeys と型で突き合わせる。ずれると tsc が止まる） ──
 
@@ -151,14 +148,14 @@ function rawList(familyId: string): TechoDoc[] {
 
 /**
  * 家族の手帳の記録（ページの並び・日付の順）。今日より後の日付の記録は返さない。
- * 作った家族（わが家以外）は、作った記録（techo-seed）をその日の時点で毎回作って混ぜる（保存しない。時計を進め戻ししてもずれない）。
- * 家族が自分で足した記録は保存した物を返す。わが家には作った記録を入れない。
+ * 作った家族（techo-seed の isMadeFamily）は、作った記録をその日の時点で毎回作って混ぜる（保存しない。時計を進め戻ししてもずれない）。
+ * 家族が自分で足した記録は保存した物を返す。本物の家族（わが家・アカウントで作った世帯）には作った記録を入れない。
  */
 export function listTecho(familyId: string, opts: { family?: Family; today?: string } = {}): TechoDoc[] {
   const today = opts.today;
   // 前の版で保存した作った記録は読まない
   let docs = rawList(familyId).filter((d) => d.data.source !== "seed");
-  if (familyId !== MINE && opts.family && today) {
+  if (isMadeFamily(familyId) && opts.family && today) {
     const at = `${today}T00:00:00.000Z`;
     const seeded = (seedTecho(opts.family, today) ?? [])
       .map((e: TechoEntry) => cleanEntry({ ...e, source: "seed", pending: false }, { today, source: "seed" }))

@@ -5,19 +5,21 @@
 import { body, route } from "@/lib/api";
 import { ask, clearChat, getChat, saveChat } from "@/lib/ask/agent";
 import type { AskEvent, ChatTurn } from "@/lib/ask/types";
-import { HttpError, requireFamily } from "@/lib/family";
+import { sendingAs } from "@/lib/claude";
+import { HttpError } from "@/lib/http-error";
 import { getKeep } from "@/lib/keep";
+import { familyFor, WRITE_AND_SEND } from "../_lib/household";
 import { todayOf } from "../capture/shared";
 
 export const maxDuration = 300;
 
 export const GET = route(async (req: Request) => {
-  const family = requireFamily(new URL(req.url).searchParams.get("familyId"));
+  const { family } = await familyFor(req, new URL(req.url).searchParams.get("familyId"), "record:read");
   return { turns: getChat(family.id) };
 });
 
 export const DELETE = route(async (req: Request) => {
-  const family = requireFamily(new URL(req.url).searchParams.get("familyId"));
+  const { family } = await familyFor(req, new URL(req.url).searchParams.get("familyId"), "record:write");
   clearChat(family.id);
   return { ok: true };
 });
@@ -27,7 +29,9 @@ const busy = new Set<string>();
 
 export const POST = route(async (req: Request) => {
   const b = await body<{ familyId?: string; today?: string; text?: string; path?: string; meId?: string }>(req);
-  const family = requireFamily(b.familyId);
+  // 答えるために家族の今を Claude に送り、道具で予定などを書くので、書く権限と送る権限の両方が要る
+  const h = await familyFor(req, b.familyId, WRITE_AND_SEND);
+  const family = h.family;
   const today = todayOf(b.today);
   const text = (b.text ?? "").trim();
   if (!text) throw new HttpError(400, "聞きたい事が空です");
@@ -53,7 +57,8 @@ export const POST = route(async (req: Request) => {
         }
       };
       try {
-        const r = await ask({ family, today, text, who, path, history, onStatus: (s) => send({ t: "status", text: s }) });
+        // 送る前の関所（本物の世帯は claude_us の同意）を効かせるため、この世帯の記録として送る
+        const r = await sendingAs(h.who, () => ask({ family, today, text, who, path, history, onStatus: (s) => send({ t: "status", text: s }) }));
         saveChat(family.id, [...history, mine, r.turn]);
         send({ t: "done", turn: r.turn });
       } catch (e) {

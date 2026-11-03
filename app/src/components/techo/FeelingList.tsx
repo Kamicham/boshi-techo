@@ -8,6 +8,7 @@ import { useState } from "react";
 import { useFamily } from "@/components/FamilyProvider";
 import { Btn } from "@/components/ui";
 import { jpDay } from "./labels";
+import { PhotoSlot } from "./TechoPhotos";
 import type { TechoItem } from "./useTecho";
 
 export function FeelingList({ items, today, onAdd }: { items: TechoItem[]; today: string; onAdd: (v: { text: string; who: string }, date: string) => Promise<void> }) {
@@ -50,12 +51,15 @@ export function FeelingList({ items, today, onAdd }: { items: TechoItem[]; today
       {done.length > 0 && (
         <ul className="flex flex-col gap-2">
           {done.map((it) => (
-            <li key={it.id} className="flex flex-col gap-1 rounded-xl bg-paper px-3 py-2">
-              <p className="text-sm text-muted">
-                <span className="font-semibold text-ink">{it.who ?? "（名前なし）"}</span>　{jpDay(it.date)}
-                {it.values.occasion ? `　${String(it.values.occasion)}` : ""}
-              </p>
-              <p className="whitespace-pre-wrap text-base">{String(it.values.text ?? it.title ?? "")}</p>
+            <li key={it.id} className="flex gap-2 rounded-xl bg-paper px-3 py-2">
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <p className="text-sm text-muted">
+                  <span className="font-semibold text-ink">{it.who ?? "（名前なし）"}</span>　{jpDay(it.date)}
+                  {it.values.occasion ? `　${String(it.values.occasion)}` : ""}
+                </p>
+                <p className="whitespace-pre-wrap text-base">{String(it.values.text ?? it.title ?? "")}</p>
+              </div>
+              <PhotoSlot techoIds={[it.id]} />
             </li>
           ))}
         </ul>

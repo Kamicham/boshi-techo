@@ -19,7 +19,9 @@ function read(key: string): string | null {
 function currentChild(): { name?: string; over1: boolean } | null {
   let cached: Family[] = [];
   try {
-    const v = JSON.parse(read("boshi.families") ?? "[]") as Family[];
+    // ログインした人の控えは、アカウントごとの名前（boshi.families:<アカウント>）に入っている
+    const acct = read("boshi.account");
+    const v = JSON.parse((acct ? read(`boshi.families:${acct}`) : null) ?? read("boshi.families") ?? "[]") as Family[];
     if (Array.isArray(v)) cached = v.filter((f) => f && typeof f.id === "string");
   } catch {}
   const saved = read("boshi.family");

@@ -1,13 +1,14 @@
 // 母子手帳の記録: 一覧（GET）と、確定・消す・手で足す（POST）
 // 撮った・話した記録は pending:true の候補で入り、家族の「OK」（confirm）で確定する。
 import { body, route } from "@/lib/api";
-import { HttpError, requireFamily } from "@/lib/family";
+import { HttpError } from "@/lib/family";
+import { familyFor } from "../_lib/household";
 import { addTecho, confirmTecho, listTecho, removeTecho } from "@/lib/techo-store";
 import { todayOf } from "../capture/shared";
 
 export const GET = route(async (req: Request) => {
   const q = new URL(req.url).searchParams;
-  const family = requireFamily(q.get("familyId"));
+  const { family } = await familyFor(req, q.get("familyId"), "record:read");
   return { techo: listTecho(family.id, { family, today: todayOf(q.get("today")) }) };
 });
 
@@ -17,7 +18,7 @@ type Post =
 
 export const POST = route(async (req: Request) => {
   const b = await body<Post>(req);
-  const family = requireFamily(b.familyId);
+  const { family } = await familyFor(req, b.familyId, "record:write");
   if (b.action === "confirm" || b.action === "remove") {
     const ids = [...(b.id ? [b.id] : []), ...(Array.isArray(b.ids) ? b.ids : [])].filter((x): x is string => typeof x === "string").slice(0, 200);
     if (!ids.length) throw new HttpError(400, "どの記録か分かりません");

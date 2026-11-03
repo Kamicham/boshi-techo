@@ -4,22 +4,27 @@ import { NextResponse } from "next/server";
 import { route } from "@/lib/api";
 import { transcribe } from "@/lib/asr";
 import { capture } from "@/lib/capture";
-import { HttpError, requireFamily } from "@/lib/family";
+import { assertConsent, sendingAs } from "@/lib/claude";
+import { HttpError } from "@/lib/family";
+import { familyFor, WRITE_AND_SEND } from "../../_lib/household";
 import { todayOf } from "../shared";
 
 export const POST = route(async (req: Request) => {
   const q = new URL(req.url).searchParams;
-  const family = requireFamily(q.get("familyId"));
+  const h = await familyFor(req, q.get("familyId"), WRITE_AND_SEND);
+  const family = h.family;
   const today = todayOf(q.get("today"));
   const audio = Buffer.from(await req.arrayBuffer());
   if (audio.length < 1000) throw new HttpError(400, "録音が短すぎました。もう少し長く押してください");
   if (audio.length > 30 * 1024 * 1024) throw new HttpError(400, "録音が長すぎます");
+  // 聞き取った言葉は Claude に送るので、文字起こし（時間がかかる）の前に同意を確かめる
+  assertConsent(h.who);
   const names = [family.childName, ...family.members.map((m) => m.name)].filter(Boolean).join("、");
   const t = await transcribe(audio, `母子手帳の記録。${names}。妊婦健診、つわり、胎動、母子健康手帳、出生届、保育園。`);
   const text = t.text.trim();
   if (!text) throw new HttpError(422, "声が聞き取れませんでした。もう一度話してみてください");
   try {
-    const result = await capture({ family, today, source: "voice", text });
+    const result = await sendingAs(h.who, () => capture({ family, today, source: "voice", text }));
     return { ...result, transcript: text, ...(t.demo ? { demo: true, note: "文字起こしの機械が無いので、デモの文を使いました" } : {}) };
   } catch (e) {
     // 文字起こしは済んでいるので捨てない。画面は書く欄に入れて送り直せる

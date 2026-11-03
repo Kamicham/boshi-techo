@@ -11,8 +11,10 @@ import { doneSetFor } from "@/app/api/done/_lib/done";
 import { fillFamilyBlanks } from "@/lib/blanks";
 import { DEMO_FAMILY } from "@/lib/demo-family";
 import { fillBlanks } from "@/lib/keep";
-import { HttpError, requireFamily } from "@/lib/family";
+import { HttpError } from "@/lib/family";
 import { getKeep } from "@/lib/keep";
+import { sendingAs } from "@/lib/claude";
+import { familyFor } from "../_lib/household";
 import { writeAdvice } from "./_lib/write";
 
 const adviceId = (familyId: string, key: string) => `advice:${familyId}:${key}`;
@@ -23,7 +25,8 @@ const inflight = new Map<string, Promise<Advice>>();
 
 export const GET = route(async (req: Request) => {
   const q = new URL(req.url).searchParams;
-  const family = requireFamily(q.get("familyId"));
+  const h = await familyFor(req, q.get("familyId"), "record:read");
+  const family = h.family;
   const today = q.get("today");
   if (!isDay(today)) throw new HttpError(400, "今日の日付が読めません");
 
@@ -44,9 +47,11 @@ export const GET = route(async (req: Request) => {
   let advice = get<Advice>(id)?.data;
   let cached = !!advice;
   if (!advice) {
+    // まだ書いていない気づきは Claude に書かせる。書けない人（読むだけの祖父母など）には、書いてある物だけを出す
+    if (!h.can("record:write") || !h.can("claude:send")) return { advice: null, waiting: open.length };
     let p = inflight.get(id);
     if (!p) {
-      p = writeAdvice(t, input, getKeep(family.id)).then((a) => put<Advice>(family.id, "advice", a, { id, date: today }).data);
+      p = sendingAs(h.who, () => writeAdvice(t, input, getKeep(family.id))).then((a) => put<Advice>(family.id, "advice", a, { id, date: today }).data);
       inflight.set(id, p);
       p.finally(() => inflight.delete(id)).catch(() => {});
     } else cached = true;
@@ -65,7 +70,7 @@ export const GET = route(async (req: Request) => {
 
 export const POST = route(async (req: Request) => {
   const b = await body<{ familyId?: string; key?: string }>(req);
-  const family = requireFamily(b.familyId);
+  const { family } = await familyFor(req, b.familyId, "record:write");
   if (typeof b.key !== "string" || !b.key || b.key.length > 300) throw new HttpError(400, "気づきの鍵が読めません");
   const id = adviceId(family.id, b.key);
   if (!get<Advice>(id)) throw new HttpError(404, "その気づきが見つかりません");

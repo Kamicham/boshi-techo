@@ -6,6 +6,7 @@ import { useState } from "react";
 import { Btn } from "@/components/ui";
 import { DEVELOPMENT_ITEMS, DEVELOPMENT_NOTE } from "@/lib/techo";
 import { jpDay } from "./labels";
+import { PhotoSlot } from "./TechoPhotos";
 import type { TechoItem } from "./useTecho";
 
 export function DevelopmentList({ items, today, onAdd }: { items: TechoItem[]; today: string; onAdd: (item: string, date: string) => Promise<void> }) {
@@ -15,11 +16,14 @@ export function DevelopmentList({ items, today, onAdd }: { items: TechoItem[]; t
   const [error, setError] = useState("");
   // 項目ごとに一番早い「できた日」
   const doneOn = new Map<string, string>();
+  // 写真の枠に結ぶ記録（同じ項目の記録すべて）
+  const idsOf = new Map<string, string[]>();
   for (const it of items) {
     if (it.pending) continue;
     const name = String(it.values.item ?? it.title ?? "");
     const prev = doneOn.get(name);
     if (!prev || it.date < prev) doneOn.set(name, it.date);
+    idsOf.set(name, [...(idsOf.get(name) ?? []), it.id]);
   }
   const save = async (name: string) => {
     setBusy(true);
@@ -43,7 +47,10 @@ export function DevelopmentList({ items, today, onAdd }: { items: TechoItem[]; t
               <div className="flex min-h-11 items-center justify-between gap-2">
                 <span className="text-base">{name}</span>
                 {d ? (
-                  <span className="text-base font-semibold text-rose">{jpDay(d)}</span>
+                  <span className="flex items-center gap-2">
+                    <span className="text-base font-semibold text-rose">{jpDay(d)}</span>
+                    <PhotoSlot techoIds={idsOf.get(name) ?? []} compact />
+                  </span>
                 ) : editing === name ? null : (
                   <button
                     type="button"

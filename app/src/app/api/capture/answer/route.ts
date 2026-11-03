@@ -1,12 +1,15 @@
 // 手帳からの1つの質問に答える → 前の内容と合わせて作り直す
 import { body, route } from "@/lib/api";
 import { capture, clearAsk, hasAsk, listRecords, type RecordSource } from "@/lib/capture";
-import { HttpError, requireFamily } from "@/lib/family";
+import { sendingAs } from "@/lib/claude";
+import { HttpError } from "@/lib/family";
+import { familyFor, WRITE_AND_SEND } from "../../_lib/household";
 import { todayOf } from "../shared";
 
 export const POST = route(async (req: Request) => {
   const b = await body<{ familyId?: string; today?: string; captureId?: string; basis?: string; question?: string; answer?: string; source?: RecordSource }>(req);
-  const family = requireFamily(b.familyId);
+  const h = await familyFor(req, b.familyId, WRITE_AND_SEND);
+  const family = h.family;
   const answer = (b.answer ?? "").trim();
   if (!answer) throw new HttpError(400, "答えが空です");
   if (!b.captureId || !b.question || typeof b.basis !== "string") throw new HttpError(400, "前の内容が見つかりません");
@@ -14,9 +17,14 @@ export const POST = route(async (req: Request) => {
   // （記録が1つも無く、聞き返しだけが残っている束も、その家族の物として作り直す）
   const owned = hasAsk(family.id, b.captureId) || listRecords(family.id).some((r) => r.data.captureId === b.captureId);
   const source: RecordSource = b.source === "voice" || b.source === "photo" ? b.source : "text";
-  const result = await capture(
-    { family, today: todayOf(b.today), source, followUp: { basis: b.basis.slice(0, 4000), question: b.question.slice(0, 500), answer: answer.slice(0, 1000) } },
-    owned ? b.captureId : undefined,
+  const today = todayOf(b.today);
+  const basis = b.basis.slice(0, 4000);
+  const question = b.question.slice(0, 500);
+  const result = await sendingAs(h.who, () =>
+    capture(
+      { family, today, source, followUp: { basis, question, answer: answer.slice(0, 1000) } },
+      owned ? b.captureId : undefined,
+    ),
   );
   // 答えたので、残しておいた聞き返しを消す
   clearAsk(family.id, b.captureId);

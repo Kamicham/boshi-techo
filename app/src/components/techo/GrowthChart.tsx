@@ -24,6 +24,7 @@ import {
 } from "@/lib/growth";
 import { GROWTH_NOTE } from "@/lib/techo";
 import { jpDay } from "./labels";
+import { PhotoSlot } from "./TechoPhotos";
 import type { TechoItem } from "./useTecho";
 
 /** 横軸は生後0〜24か月（この手帳の1000日の終わり＝2歳の誕生日まで） */
@@ -187,9 +188,12 @@ export function GrowthChart({ items, onAdd }: { items: TechoItem[]; onAdd: (valu
       {points.length > 0 && (
         <ul className="flex flex-col gap-0.5 text-base">
           {points.map((p) => (
-            <li key={`${p.date}-${p.value}`}>
-              {jpDay(p.date)}　{GROWTH_LABELS[measure]} {Math.round(p.value * 100) / 100}
-              {GROWTH_UNITS[measure]}
+            <li key={`${p.date}-${p.value}`} className="flex min-h-11 items-center justify-between gap-2">
+              <span>
+                {jpDay(p.date)}　{GROWTH_LABELS[measure]} {Math.round(p.value * 100) / 100}
+                {GROWTH_UNITS[measure]}
+              </span>
+              <PhotoSlot techoIds={items.filter((it) => it.page === "growth" && !it.pending && it.date === p.date).map((it) => it.id)} compact />
             </li>
           ))}
         </ul>

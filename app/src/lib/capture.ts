@@ -382,7 +382,9 @@ function withDateCheck<T extends { page: TechoPageId; date: string; title: strin
 }
 
 // ── 聞き返しを残す（画面を開き直しても答えられるように） ──
-// 記録の一覧（record）や一冊に混ざらないよう、家族の id に「:ask」を付けた置き場に1件ずつ置く。
+// 記録の一覧（record）や一冊に混ざらないよう、type "ask" の行に1件ずつ置く（family_id は世帯の id のまま）。
+// 前は family_id を「<家族>:ask」にして type "record" に置いていた（family_id に世帯でない値が入り、世帯ごと消す時に残った）。
+// 前の行も読み、消す（id の形は同じ ask:<家族>:<束>）。
 
 export interface CaptureAsk {
   captureId: string;
@@ -391,23 +393,33 @@ export interface CaptureAsk {
   source: RecordSource;
 }
 
-const askPlace = (familyId: string) => `${familyId}:ask`;
+/** 前の形の置き場（読むだけ） */
+const legacyAskPlace = (familyId: string) => `${familyId}:ask`;
 const askId = (familyId: string, captureId: string) => `ask:${familyId}:${captureId}`;
 
 function saveAsk(familyId: string, ask: CaptureAsk, today: string) {
-  put<CaptureAsk>(askPlace(familyId), "record", ask, { id: askId(familyId, ask.captureId), date: today });
+  put<CaptureAsk>(familyId, "ask", ask, { id: askId(familyId, ask.captureId), date: today });
+}
+
+/** 家族の聞き返し（新しい順。前の形の行も混ぜる） */
+function listAsks(familyId: string, limit: number): Doc<CaptureAsk>[] {
+  const now = list<CaptureAsk>(familyId, "ask", { limit });
+  const old = list<CaptureAsk>(legacyAskPlace(familyId), "record", { limit });
+  if (!old.length) return now;
+  const key = (d: Doc<CaptureAsk>) => d.date ?? d.createdAt;
+  return [...now, ...old].sort((a, b) => key(b).localeCompare(key(a)) || b.createdAt.localeCompare(a.createdAt)).slice(0, limit);
 }
 
 /** まだ答えていない、いちばん新しい聞き返し（今日から14日より前の物と、今日より後の物は出さない） */
 export function latestAsk(familyId: string, today: string): (CaptureAsk & { date: string }) | null {
   const from = addDays(today, -14);
-  const hit = list<CaptureAsk>(askPlace(familyId), "record", { limit: 20 }).find((d) => d.date && d.date <= today && d.date >= from && d.data?.question);
+  const hit = listAsks(familyId, 20).find((d) => d.date && d.date <= today && d.date >= from && d.data?.question);
   return hit ? { ...hit.data, date: hit.date! } : null;
 }
 
 /** その聞き返しが、この家族の物として残っているか */
 export function hasAsk(familyId: string, captureId: string): boolean {
-  return list<CaptureAsk>(askPlace(familyId), "record", { limit: 200 }).some((d) => d.id === askId(familyId, captureId));
+  return listAsks(familyId, 200).some((d) => d.id === askId(familyId, captureId));
 }
 
 /** 答えた・やめた聞き返しを消す */

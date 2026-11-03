@@ -4,7 +4,8 @@
 // 手帳の記録（予防接種・乳幼児健診）からも済みを合成して足す（fromTecho。DB には書かないので、DELETE では外れない。手帳の記録を消すと外れる）。
 import { body, route } from "@/lib/api";
 import { list } from "@/lib/db";
-import { HttpError, requireFamily } from "@/lib/family";
+import { HttpError } from "@/lib/family";
+import { familyFor } from "../_lib/household";
 import { doneFromTechoFor, markDone, removeDone, type DoneData } from "./_lib/done";
 
 function milestoneOf(v: unknown): string {
@@ -14,7 +15,7 @@ function milestoneOf(v: unknown): string {
 
 export const GET = route(async (req: Request) => {
   const q = new URL(req.url).searchParams;
-  const family = requireFamily(q.get("familyId"));
+  const { family } = await familyFor(req, q.get("familyId"), "record:read");
   // 画面の「今日」（時計を進めた家族はその日）。無ければ doneFromTechoFor が決める
   const t = q.get("today");
   const today = t && /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : undefined;
@@ -32,7 +33,7 @@ export const GET = route(async (req: Request) => {
 
 export const POST = route(async (req: Request) => {
   const b = await body<{ familyId?: string; milestoneId?: string; today?: string }>(req);
-  const family = requireFamily(b.familyId);
+  const { family } = await familyFor(req, b.familyId, "record:write");
   const milestoneId = milestoneOf(b.milestoneId);
   const today = typeof b.today === "string" && /^\d{4}-\d{2}-\d{2}$/.test(b.today) ? b.today : undefined;
   markDone(family.id, milestoneId, today);
@@ -41,7 +42,7 @@ export const POST = route(async (req: Request) => {
 
 export const DELETE = route(async (req: Request) => {
   const b = await body<{ familyId?: string; milestoneId?: string }>(req);
-  const family = requireFamily(b.familyId);
+  const { family } = await familyFor(req, b.familyId, "record:write");
   const milestoneId = milestoneOf(b.milestoneId);
   removeDone(family.id, milestoneId);
   return { ok: true, milestoneId };

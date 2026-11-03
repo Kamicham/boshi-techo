@@ -2,7 +2,7 @@ export const meta = {
   name: 'simulate',
   description: '作った家族になりきった Claude が、シミュレーションのサーバの画面を iPhone の大きさで触り、詰まった所を集める（既定は1000組から6家族＋30家族から珍しい型1家族）',
   whenToUse: '画面や流れに関わる修正の後。「シミュレーションを回して」と言われた時',
-  phases: [{ title: 'なりきり' }],
+  phases: [{ title: 'なりきり' }, { title: '世帯をまたぐ' }],
 }
 // args: { pick?: PickRound, families?: string[], change?: string }
 //   pick: 既定の選び方。app/src/sim/pick.json の rounds[n]（{ round, families: [6家族の persona], rare: 'sim-xx' }）をそのまま渡す。
@@ -16,6 +16,8 @@ export const meta = {
 // 前提: app/scripts/sim-server.sh が 3100番で動いている（既定は組み立てた版＝next start。next dev は負荷で 500 を返すので使わない）。
 //   組み立てた版は直しが反映されないので、画面を直した後は scripts/sim-server.sh --replace で組み立て直してから回す。
 //   pop- の家族は、画面が /api/family?id= で1家族だけ引き、時計も進められる（シミュレーションのサーバだけ）。
+//   サーバは既定で BOSHI_SIM_LOGIN=1（ログインした世帯しか読めない）。drive.mjs の setup が仮のアカウント sim:<家族id> の札をもらう。
+//   なりきりの後に、世帯をまたぐ確かめ（src/sim/cross.mjs: 家族Aの札で家族Bの記録・写真・済んだ事・手帳の id を叩くと 404 か）を毎回回す。
 const FALLBACK = ['sim-04', 'sim-06', 'sim-08', 'sim-12', 'sim-16', 'sim-22']
 const pick = args && args.pick && Array.isArray(args.pick.families) ? args.pick : null
 const ids = (args && args.families && args.families.length ? args.families : pick ? [...pick.families.map((f) => f.id), pick.rare] : FALLBACK).slice(0, 8)
@@ -92,4 +94,25 @@ phase('なりきり')
 const results = await parallel(ids.map((id) => () => agent(prompt(id), { label: `なりきり:${id}`, phase: 'なりきり', schema: SCHEMA, model: 'opus' })))
 const ok = results.filter(Boolean)
 if (ok.length < ids.length) log(`${ids.length - ok.length} 家族の結果が返りませんでした`)
-return { families: ids, round: pick ? pick.round : null, change, checks, results: ok }
+
+// 世帯をまたぐ確かめ（決まり: 家族Aの札で家族Bを叩くと、すべて 404）。なりきりで触った家族のうち、作った家族（sim-・pop-）の2つで回す
+phase('世帯をまたぐ')
+const pair = ids.filter((id) => /^(sim|pop)-/.test(id)).slice(0, 2)
+if (pair.length < 2) pair.splice(0, pair.length, 'sim-04', 'sim-06')
+const CROSS_SCHEMA = {
+  type: 'object',
+  required: ['ok', 'exit', 'lines'],
+  properties: {
+    ok: { type: 'boolean', description: '× が無ければ true' },
+    exit: { type: 'integer', description: '命令の終わりの番号（0: × 無し／1: × あり／2: 確かめられない）' },
+    lines: { type: 'array', items: { type: 'string' }, description: '出力の ○×△ の行をそのまま' },
+  },
+}
+const cross = await agent(
+  `次の命令を1回だけ実行し、出力をそのまま形に入れて返す。ファイルは直さない。ほかの命令は打たない。\n` +
+    `cd /Users/zhang/boshi-techo/app && node src/sim/cross.mjs ${pair[0]} ${pair[1]}; echo "exit=$?"\n` +
+    `lines には ○ × △ で始まる行と「止まりました」「サーバが」で始まる行を入れる。exit は最後の exit= の数。`,
+  { label: `世帯をまたぐ:${pair.join('→')}`, phase: '世帯をまたぐ', schema: CROSS_SCHEMA, model: 'opus' },
+)
+if (cross && !cross.ok) log(`世帯をまたぐ確かめで × か、確かめられない所がありました（exit ${cross.exit}）`)
+return { families: ids, round: pick ? pick.round : null, change, checks, results: ok, cross: cross ? { pair, ...cross } : null }

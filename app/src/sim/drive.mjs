@@ -17,6 +17,8 @@
 //   node src/sim/drive.mjs <家族id> page <kind>                       作った手帳のページの画像を作る（kind: checkup / vaccine / growth。中身は作った値）
 //   node src/sim/drive.mjs <家族id> offline [/path]                   電波を切ってその画面を開き直す（急ぎの時が通信なしで開けるか）。終わると電波は戻る
 //
+// ログイン: 作った家族（sim-・pop-）は、setup の時に仮のアカウント sim:<家族id>（その世帯の owner）で入る（/api/sim/login・札は profile に残る）。
+//   サーバを BOSHI_SIM_LOGIN=1（scripts/sim-server.sh の既定）で立てると、ほかの家族の記録は 404 になる。見本の家族はログインしない。
 // 撮るの試しには、page で作った画像だけを使う（本物の手帳・本物の家族の写真は使わない）。
 import { chromium } from "playwright";
 import fs from "node:fs";
@@ -103,7 +105,27 @@ const save = async () => {
   fs.writeFileSync(urlFile, page.url());
   fs.writeFileSync(scrollFile, String(await page.evaluate(() => window.scrollY)));
 };
+/**
+ * シミュレーションのログイン: 作った家族（sim-・pop-）の仮のアカウント sim:<家族id> で入り、その世帯の owner の札（クッキー）をもらう。
+ * 札は家族ごとの profile に残る（30日）。札が無い時だけ /api/sim/login を呼ぶ。setup では毎回もらい直す（sim-data を消した後でも通るよう）。
+ * 見本の家族（demo-sato）はだれでも読める世帯なので、ログインしない。
+ * サーバがログインの口を持たない（古い組み立て）時は、警告を出してログインなしで続ける。
+ */
+const loggedIn = async () => (await ctx.cookies(BASE)).some((c) => /session_token$/.test(c.name));
+async function login(force = false) {
+  if (!/^(sim|pop)-/.test(fam)) return;
+  if (!force && (await loggedIn())) return;
+  const res = await page.request.get(`${BASE}/api/sim/login?familyId=${encodeURIComponent(fam)}`, { failOnStatusCode: false });
+  if (res.ok()) {
+    if (force) console.log(`（ログイン: 仮のアカウント sim:${fam}・この世帯の owner）`);
+    return;
+  }
+  const msg = (await res.text().catch(() => "")).slice(0, 120);
+  console.log(`（ログインできませんでした: ${res.status()} ${msg}。サーバが古い組み立てなら scripts/sim-server.sh --replace で組み立て直す。ログインなしで続けます）`);
+}
+
 const restore = async () => {
+  await login();
   const url = fs.existsSync(urlFile) ? fs.readFileSync(urlFile, "utf8") : BASE + "/";
   await page.goto(url, { waitUntil: "domcontentloaded" });
   await settle();
@@ -176,6 +198,7 @@ try {
   if (cmd === "setup") {
     const [meId, today] = args;
     await page.goto(BASE + "/robots.txt");
+    await login(true);
     await page.evaluate(
       ([f, m, d]) => {
         localStorage.clear();
@@ -189,6 +212,7 @@ try {
     await settle();
     await see();
   } else if (cmd === "open") {
+    await login();
     await page.goto(BASE + (args[0] ?? "/"));
     await settle();
     await see();

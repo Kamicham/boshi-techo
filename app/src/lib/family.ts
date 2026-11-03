@@ -6,6 +6,7 @@ import { scheduleFor } from "./milestones";
 import { birthFacts, isMadeFamily } from "./techo-seed";
 import { listTecho } from "./techo-store";
 import type { Leave, MotherWork, Situation, Work } from "./situation";
+import { HttpError } from "./http-error";
 
 export const MINE_ID = "mine";
 
@@ -48,6 +49,20 @@ function popFamily(id: string): Family | null {
   return f;
 }
 
+/**
+ * 作った家族（コードに固定の一覧）なら、その種類。id の形ではなく、一覧に有るかで決める。
+ * - demo: 見本の家族（demo-sato）。いつでも
+ * - sim: 作った30家族と1000組。シミュレーションのサーバ（BOSHI_SIM=1）の時だけ
+ * lib/access.ts が、ログインなしで通す世帯を決めるのに使う
+ */
+export function madeFamilyKind(id: string): "demo" | "sim" | null {
+  if (id === DEMO_FAMILY.id) return "demo";
+  if (process.env.BOSHI_SIM !== "1") return null;
+  if (simFamilies().some((f) => f.id === id)) return "sim";
+  if (popFamily(id)) return "sim";
+  return null;
+}
+
 export function getFamily(id: string): Family | null {
   const f = rawFamily(id);
   return f ? withBirthFacts(f) : null;
@@ -61,7 +76,10 @@ function rawFamily(id: string): Family | null {
     const f = get<Family>(`profile:${MINE_ID}`)?.data;
     return f ? fromSaved(f) : null;
   }
-  return null;
+  // アカウントで作った世帯: 家族の設定は profile:<世帯の id>（saveFamilyProfile）。
+  // 誰が見てよいかは、ここではなく lib/access.ts の withHousehold が先に確かめる
+  const f = get<Family>(`profile:${id}`)?.data;
+  return f ? fromSaved({ ...f, id }) : null;
 }
 
 /** 「38週2日」→ 38 */
@@ -107,6 +125,14 @@ export function saveMine(f: Omit<Family, "id">): Family {
   return fam;
 }
 
+/** アカウントで作った世帯の家族の設定を保存する（id は世帯の id。権限は呼ぶ前に withHousehold で確かめる） */
+export function saveFamilyProfile(householdId: string, f: Omit<Family, "id">): Family {
+  if (householdId === DEMO_FAMILY.id) throw new HttpError(403, "見本の家族の設定は変えられません");
+  const fam: Family = { ...f, id: householdId };
+  put(householdId, "profile", fam, { id: `profile:${householdId}` });
+  return fam;
+}
+
 export function allFamilies(): Family[] {
   const sim = simFamilies();
   if (sim.length) return [...sim, DEMO_FAMILY].map(withBirthFacts);
@@ -121,11 +147,8 @@ export function requireFamily(id: unknown): Family {
   return f;
 }
 
-export class HttpError extends Error {
-  constructor(public status: number, message: string) {
-    super(message);
-  }
-}
+// HttpError は lib/http-error.ts に移した（visit などが今もここから読むので、出し直しておく）
+export { HttpError } from "./http-error";
 
 // ───────── 家族の形（設定の画面から来た値を確かめる） ─────────
 

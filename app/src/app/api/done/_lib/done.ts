@@ -6,6 +6,7 @@ import { get, list, put, remove } from "@/lib/db";
 import type { Family } from "@/lib/demo-family";
 import { listTecho } from "@/lib/techo-store";
 import { doneFromTecho } from "@/lib/techo-done";
+import { isMadeFamily } from "@/lib/techo-seed";
 
 export interface DoneData {
   milestoneId: string;
@@ -44,8 +45,11 @@ export function removeDone(familyId: string, milestoneId: string): void {
 /** 日本時間の今日 */
 const jstToday = () => new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
 
-/** 時計を進められる家族（デモ・30家族・1000組）。画面の「今日」はその端末の時計なので、サーバは知らない */
-const timeTravel = (id: string) => id.startsWith("demo-") || id.startsWith("sim-") || id.startsWith("pop-");
+/**
+ * 時計を進められる家族（作った家族＝デモ・30家族・1000組）。画面の「今日」はその端末の時計なので、サーバは知らない。
+ * id の頭の文字ではなく、作った家族の固定の形（techo-seed の isMadeFamily）で決める（本物の世帯が時計を進める側に落ちない）
+ */
+const timeTravel = (id: string) => isMadeFamily(id);
 
 /**
  * 手帳の記録（予防接種・乳幼児健診）から済みになる予定の id。DB の done には書かない（毎回合成する。手帳の記録を消せば済みも外れる）。

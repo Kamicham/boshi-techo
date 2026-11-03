@@ -5,6 +5,7 @@ import "server-only";
 import fs from "node:fs";
 import path from "node:path";
 import { DATA_DIR } from "./db";
+import { HttpError } from "./http-error";
 
 /** 100万トークンあたりのドル（入力・出力・キャッシュ読み）。キャッシュ書きは入力の1.25倍とみなす */
 const PRICE: Record<string, { in: number; out: number; cacheRead: number }> = {
@@ -36,14 +37,28 @@ export function costOf(model: string, u: Usage): number {
 
 const file = () => path.join(DATA_DIR, "spend.jsonl");
 
+/** だれの分か（世帯の id と送った人の id）。前の行には無い（scripts/spend.mjs は無い行も読む） */
+export type SpendWho = { household?: string; account?: string | null };
+
 /** 1回の呼び出しを記録する（記録に失敗しても、本来の仕事は止めない） */
-export function recordSpend(kind: string, model: string, u: Usage): void {
+export function recordSpend(kind: string, model: string, u: Usage, who?: SpendWho): void {
   try {
     fs.mkdirSync(DATA_DIR, { recursive: true });
     const usd = costOf(model, u);
     fs.appendFileSync(
       file(),
-      JSON.stringify({ at: new Date().toISOString(), kind, model, usd: Math.round(usd * 1e6) / 1e6, in: u.input_tokens ?? 0, out: u.output_tokens ?? 0, cacheRead: u.cache_read_input_tokens ?? 0, search: u.server_tool_use?.web_search_requests ?? 0 }) + "\n",
+      JSON.stringify({
+        at: new Date().toISOString(),
+        kind,
+        model,
+        usd: Math.round(usd * 1e6) / 1e6,
+        in: u.input_tokens ?? 0,
+        out: u.output_tokens ?? 0,
+        cacheRead: u.cache_read_input_tokens ?? 0,
+        search: u.server_tool_use?.web_search_requests ?? 0,
+        ...(who?.household ? { household: who.household } : {}),
+        ...(who?.account ? { account: who.account } : {}),
+      }) + "\n",
     );
   } catch (e) {
     console.error("[spend]", e);
@@ -71,4 +86,26 @@ export function checkBudget(): void {
     return;
   }
   if (used >= cap) throw new Error(`シミュレーションの上限 $${cap} に達したので、Claude を呼ぶのを止めました（今回 $${used.toFixed(2)}）`);
+}
+
+/**
+ * 世帯ごとの使い過ぎ止め（BOSHI_HOUSEHOLD_DAILY_USD。入れた時だけ効く）。
+ * その世帯が日本時間の今日に使った額が上限を超えたら止める（1つの家族が、ほかの家族の分まで使い切らないように）。
+ */
+export function checkHouseholdBudget(householdId: string): void {
+  const cap = Number(process.env.BOSHI_HOUSEHOLD_DAILY_USD ?? "");
+  if (!cap) return;
+  const day = (iso: string) => new Date(Date.parse(iso) + 9 * 3600e3).toISOString().slice(0, 10);
+  const today = day(new Date().toISOString());
+  let used = 0;
+  try {
+    for (const line of fs.readFileSync(file(), "utf8").split("\n")) {
+      if (!line) continue;
+      const r = JSON.parse(line) as { at: string; usd: number; household?: string };
+      if (r.household === householdId && day(r.at) === today) used += r.usd;
+    }
+  } catch {
+    return;
+  }
+  if (used >= cap) throw new HttpError(429, `この家族が今日 Claude を使える上限（$${cap}）に達しました。明日また使えます`);
 }

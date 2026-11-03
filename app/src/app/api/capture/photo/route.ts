@@ -2,12 +2,15 @@
 import { body, route } from "@/lib/api";
 import { capture } from "@/lib/capture";
 import { imageBlock } from "@/lib/claude";
-import { HttpError, requireFamily } from "@/lib/family";
+import { sendingAs } from "@/lib/claude";
+import { HttpError } from "@/lib/family";
+import { familyFor, WRITE_AND_SEND } from "../../_lib/household";
 import { todayOf } from "../shared";
 
 export const POST = route(async (req: Request) => {
   const b = await body<{ familyId?: string; today?: string; image?: string; note?: string }>(req);
-  const family = requireFamily(b.familyId);
+  const h = await familyFor(req, b.familyId, WRITE_AND_SEND);
+  const family = h.family;
   if (typeof b.image !== "string") throw new HttpError(400, "写真が届いていません");
   if (b.image.length > 12 * 1024 * 1024) throw new HttpError(400, "写真が大きすぎます");
   let image;
@@ -16,5 +19,6 @@ export const POST = route(async (req: Request) => {
   } catch (e) {
     throw new HttpError(400, (e as Error).message);
   }
-  return capture({ family, today: todayOf(b.today), source: "photo", image, text: b.note?.slice(0, 1000) });
+  const today = todayOf(b.today);
+  return sendingAs(h.who, () => capture({ family, today, source: "photo", image, text: b.note?.slice(0, 1000) }));
 });

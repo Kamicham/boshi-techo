@@ -15,6 +15,7 @@ import { TaskRow, TopTask, type ShownTask } from "./today/TaskCard";
 import { StaleBox } from "./today/StaleBox";
 import { AdvisorCard } from "./today/AdvisorCard";
 import { ConsultAsk } from "./today/ConsultAsk";
+import { PhotoNudge } from "./today/PhotoNudge";
 import { byDays, dateWord, daysLeft, planToday, type Task } from "./today/task";
 import { VisitToday, visitIsTop } from "./today/VisitToday";
 
@@ -279,6 +280,9 @@ export function Techo() {
       <Link href="/capture" className="inline-flex min-h-11 items-center gap-1 self-start text-base text-sky underline-offset-2 hover:underline">
         気になった事は、話す・撮るで残す ›
       </Link>
+
+      {/* 写真の節目の日だけ、1回の一言（月に1回まで。写真を残せる手帳だけ） */}
+      {!loading && <PhotoNudge key={`${family.id}:photo`} family={family} today={today} />}
 
       {/* 手帳の毎回の問い「相談できる人はいますか」（時期ごとに1回。答えた時期は出さない） */}
       {!loading && <ConsultAsk key={`${family.id}:consult`} family={family} today={today} meName={me?.name} />}

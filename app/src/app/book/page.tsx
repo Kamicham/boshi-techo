@@ -6,6 +6,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn, CopyButton, Fold, NextStep, Pill, ShareButton, Why } from "@/components/ui";
 import type { Book } from "@/lib/book";
+import { useMedia } from "@/components/album/useMedia";
+import type { ClientMedia } from "@/lib/media-shared";
+
+/** 一冊に描ける写真（ある・隠していない）。消した写真の id は飛ばして描く */
+type Photos = Map<string, ClientMedia>;
+function usePhotos(): Photos {
+  const { media } = useMedia();
+  const m = new Map<string, ClientMedia>();
+  for (const x of media) if (!x.hidden) m.set(x.id, x);
+  return m;
+}
 
 function jpDay(s: string) {
   const [y, m, d] = s.split("-").map(Number);
@@ -30,6 +41,7 @@ const WAIT_STEPS = [
   "おなかにいた日々から、時期に分けています",
   "家族の言葉を読み返しています",
   "章の題を考えています",
+  "写真の一言と記録の言葉から、章に合う写真を選んでいます（写真は見ていません）",
   "子どもに語りかける言葉を選んでいます",
   "ページを綴じています",
 ];
@@ -113,7 +125,15 @@ export default function BookPage() {
           <div className="flex flex-wrap items-center gap-2">
             <ShareButton title={book.title} text={bookText(book)} label="家族に渡す" />
             <CopyButton text={bookText(book)} label="全部コピー" />
+            <Btn kind="secondary" href="/book/print">
+              印刷用（A5・PDF）
+            </Btn>
           </div>
+          {book.photoCount != null && (
+            <p className="text-sm text-muted">
+              Claude に渡したのは、写真の日付・一言・結んだ記録の文字だけです（写真 {book.photoCount} 枚の候補。画像は渡していません）。
+            </p>
+          )}
           <Fold title="作り直す">
             <p className="text-base">
               {jpDay(book.asOf)}までの記録 <b className="tabular">{book.sourceCount}</b> 件から作りました
@@ -156,6 +176,10 @@ export default function BookPage() {
       )}
 
       {error && <p className="rounded-xl bg-alert/10 px-4 py-3 text-base text-alert">{error}</p>}
+      <Link href="/album" className="flex min-h-12 items-center justify-between rounded-2xl border border-ok/40 bg-ok/5 px-4 text-base font-semibold text-ok">
+        <span>🌸 アルバム（月ごとの写真）</span>
+        <span aria-hidden>›</span>
+      </Link>
       <div className="pb-6" />
     </main>
   );
@@ -169,6 +193,8 @@ function BookWhy() {
         <p>話す・撮る: 胎動を感じた日、はじめて笑った顔</p>
         <p>健診: 先生と話した事（体の良し悪しは書きません）</p>
         <p>済んだ手続き: 家族がした事の題だけ</p>
+        <p>手帳: できた日・気持ちの記録・出産の記録</p>
+        <p>写真: アルバムの写真（Claude には写真の文字だけを渡し、画像は見せません）</p>
       </Why>
     </div>
   );
@@ -215,6 +241,7 @@ function Binding({ child }: { child: string }) {
 }
 
 function Reader({ book, page, setPage }: { book: Book; page: number; setPage: (n: number) => void }) {
+  const photos = usePhotos();
   const pages = pagesOf(book);
   const p = Math.min(page, pages.length - 1);
   const go = (n: number) => setPage(Math.max(0, Math.min(pages.length - 1, n)));
@@ -238,7 +265,7 @@ function Reader({ book, page, setPage }: { book: Book; page: number; setPage: (n
           if (Math.abs(dx) > 50) go(dx < 0 ? p + 1 : p - 1);
         }}
       >
-        <PageBody book={book} page={pages[p]} />
+        <PageBody book={book} page={pages[p]} photos={photos} />
         {p > 0 && <p className="tabular mt-8 text-center text-sm text-muted">— {p} —</p>}
       </div>
       <nav className="flex items-center justify-between" aria-label="ページをめくる">
@@ -272,10 +299,40 @@ function Paragraphs({ text }: { text: string }) {
   );
 }
 
-function PageBody({ book, page }: { book: Book; page: Page }) {
+/** 章の写真（左に言葉、右に写真＝紙の見開きを、スマホでは言葉の下に）。一番目を大きく、残りを格子に */
+function ChapterPhotos({ list, photos }: { list: { mediaId: string; line: string }[]; photos: Photos }) {
+  const xs = list.flatMap((p) => {
+    const m = photos.get(p.mediaId);
+    return m ? [{ m, line: p.line }] : [];
+  });
+  if (!xs.length) return null;
+  const [first, ...rest] = xs;
+  return (
+    <figure className="flex flex-col gap-2">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={first.m.urls.view} alt={first.line || ""} loading="lazy" className="w-full rounded-lg object-cover" />
+      {first.line && <figcaption className="text-center text-sm text-muted">{first.line}</figcaption>}
+      {rest.length > 0 && (
+        <div className="grid grid-cols-3 gap-1">
+          {rest.map(({ m, line }) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img key={m.id} src={m.urls.thumb} alt={line || ""} loading="lazy" className="aspect-square w-full rounded-md object-cover" />
+          ))}
+        </div>
+      )}
+    </figure>
+  );
+}
+
+function PageBody({ book, page, photos }: { book: Book; page: Page; photos: Photos }) {
   if (page.kind === "cover") {
+    const cover = book.cover ? photos.get(book.cover) : undefined;
     return (
       <div className="flex min-h-[24rem] flex-col items-center justify-center gap-6 text-center">
+        {cover && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={cover.urls.view} alt="" className="max-h-64 w-full rounded-lg object-cover" />
+        )}
         <p className="text-xs tracking-[0.4em] text-rose">1000 日 の 記 録</p>
         <h2 className="font-display text-3xl font-bold leading-snug">{book.title}</h2>
         <div className="h-px w-16 bg-rose/40" />
@@ -313,6 +370,7 @@ function PageBody({ book, page }: { book: Book; page: Page }) {
         <h2 className="font-display text-2xl font-bold leading-snug">{ch.title}</h2>
       </header>
       <Paragraphs text={ch.text} />
+      <ChapterPhotos list={ch.photos ?? []} photos={photos} />
       {ch.moments.length > 0 && (
         <ol className="flex flex-col gap-2 border-t border-dashed border-line pt-4 text-base">
           {ch.moments.map((m, i) => (
