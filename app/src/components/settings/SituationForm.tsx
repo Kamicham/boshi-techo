@@ -22,15 +22,38 @@ export function tidySituation(s: Situation, hasPartner: boolean): Situation {
   return out;
 }
 
-/** disabled: 見るだけ（シミュレーションの作った家族は、家族の形を保存できないので押せなくする） */
-export function SituationForm({ value, onChange, hasPartner, disabled }: { value: Situation; onChange: (s: Situation) => void; hasPartner: boolean; disabled?: boolean }) {
+/**
+ * disabled: 見るだけ（シミュレーションの作った家族は、家族の形を保存できないので押せなくする）
+ * born: 生まれた後。妊娠中の働き方・生まれる子の数・里帰りは「生まれる前の事」に畳む（値は消さない）
+ */
+export function SituationForm({ value, onChange, hasPartner, disabled, born }: { value: Situation; onChange: (s: Situation) => void; hasPartner: boolean; disabled?: boolean; born?: boolean }) {
   const set = (patch: Partial<Situation>) => onChange({ ...value, ...patch });
+
+  const motherWork = (
+    <Ask label="ママの働き方（妊娠中）">
+      <Choice options={MOTHER_WORKS} value={value.motherWork} onPick={(v) => set({ motherWork: v })} name="mother-work" />
+    </Ask>
+  );
+  const beforeBirth = (
+    <>
+      <Ask label="生まれる子は何人？">
+        <Choice
+          options={["1人", "双子", "三つ子"] as const}
+          value={value.babies === undefined ? undefined : value.babies === 2 ? "双子" : value.babies === 3 ? "三つ子" : "1人"}
+          onPick={(v) => set({ babies: v === undefined ? undefined : v === "双子" ? 2 : v === "三つ子" ? 3 : 1 })}
+          name="babies"
+        />
+      </Ask>
+
+      <Ask label="里帰り出産は？">
+        <YesNo yes="する" no="しない" value={value.satogaeri} onPick={(v) => set({ satogaeri: v })} name="satogaeri" />
+      </Ask>
+    </>
+  );
 
   return (
     <fieldset disabled={disabled} className="flex min-w-0 flex-col gap-5 disabled:opacity-80">
-      <Ask label="ママの働き方（妊娠中）">
-        <Choice options={MOTHER_WORKS} value={value.motherWork} onPick={(v) => set({ motherWork: v })} name="mother-work" />
-      </Ask>
+      {!born && motherWork}
 
       {hasPartner ? (
         <>
@@ -44,25 +67,27 @@ export function SituationForm({ value, onChange, hasPartner, disabled }: { value
           )}
         </>
       ) : (
-        <p className="text-sm text-muted">パートナーの呼び名を入れると、パートナーの働き方も聞きます</p>
+        <p className="text-sm text-muted">一緒に育てる人を「家族は？」で足すと、その人の働き方も聞きます</p>
       )}
 
       <Ask label="上の子は？">
         <YesNo yes="いる" no="いない" value={value.olderChildren} onPick={(v) => set({ olderChildren: v })} name="older" />
       </Ask>
 
-      <Ask label="生まれる子は何人？">
-        <Choice
-          options={["1人", "双子", "三つ子"] as const}
-          value={value.babies === undefined ? undefined : value.babies === 2 ? "双子" : value.babies === 3 ? "三つ子" : "1人"}
-          onPick={(v) => set({ babies: v === undefined ? undefined : v === "双子" ? 2 : v === "三つ子" ? 3 : 1 })}
-          name="babies"
-        />
-      </Ask>
-
-      <Ask label="里帰り出産は？">
-        <YesNo yes="する" no="しない" value={value.satogaeri} onPick={(v) => set({ satogaeri: v })} name="satogaeri" />
-      </Ask>
+      {born ? (
+        <details className="group">
+          <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-base text-muted">
+            <span className="underline underline-offset-2">生まれる前の事（妊娠中の働き方・生まれた子の数・里帰り）</span>
+            <span className="transition-transform group-open:rotate-90" aria-hidden>›</span>
+          </summary>
+          <div className="flex flex-col gap-5 pt-2">
+            {motherWork}
+            {beforeBirth}
+          </div>
+        </details>
+      ) : (
+        beforeBirth
+      )}
 
       {/* 静かにする（安心のデザイン #5）。目立たせず、一番下に畳んでおく */}
       <details className="group" open={value.quiet !== undefined}>

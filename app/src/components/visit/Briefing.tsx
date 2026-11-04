@@ -43,7 +43,7 @@ export function Briefing({
           <p>書類の名前は、町や病院で少し違います。</p>
         </Why>
         {agenda.length > 0 && (
-          <Why label={`聞く事 ${agenda.length}`}>
+          <Why label={`先生に聞く事 ${agenda.length}`}>
             <ol className="flex list-decimal flex-col gap-1 pl-5 text-base text-ink">
               {agenda.map((a) => (
                 <li key={a.id}>{a.text}</li>

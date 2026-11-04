@@ -1,6 +1,6 @@
 "use client";
 
-// 画面の枠: 上に家族の切り替えと「急ぎの時」、下にタブ（今日・健診・話す撮る・手帳）、右下に「聞く」。一冊は手帳の最後から入る。
+// 画面の枠: 上に「わたし」と「急ぎの時」、下にタブ（いま・話す撮る・手帳・一冊）、右下に「手帳に聞く」。健診は「いま」から入る（UI/UX 見直し 2026-11-04）。
 // タブの並びは lib/app-guide.ts（手帳に聞くが使い方を答える画面の地図）と共有する。
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -79,8 +79,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
         )}
         <ul className={`mx-auto flex max-w-md justify-between px-2 ${recording ? "hidden" : ""}`}>
           {TABS.map((t) => {
-            // 一冊（/book）は手帳の中の1ページとして「手帳」を光らせる
-            const on = t.href === "/" ? path === "/" : path.startsWith(t.href) || (t.href === "/techo" && path.startsWith("/book"));
+            const on = t.href === "/" ? path === "/" || path.startsWith("/visit") : path.startsWith(t.href);
+            // 話す・撮るは、家族の口（記録の入口）なので真ん中で丸く目立たせる
+            const mouth = t.href === "/capture";
             return (
               <li key={t.href} className="flex-1">
                 <Link
@@ -88,7 +89,14 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   className={`flex min-h-12 flex-col items-center justify-center py-1 text-xs font-semibold ${on ? "text-rose" : "text-muted"}`}
                   aria-current={on ? "page" : undefined}
                 >
-                  {t.label}
+                  {mouth ? (
+                    <span className={`flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1.5 text-sm ${on ? "bg-rose text-white" : "bg-rose-soft text-rose"}`}>
+                      <span aria-hidden>🎤</span>
+                      {t.label}
+                    </span>
+                  ) : (
+                    t.label
+                  )}
                 </Link>
               </li>
             );

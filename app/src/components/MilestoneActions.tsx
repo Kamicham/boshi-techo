@@ -78,7 +78,8 @@ function Actions({ milestone, today, primary, compact, onDoneChange }: Props) {
   const [draftBusy, setDraftBusy] = useState<DraftBusy>("");
   const [draftErr, setDraftErr] = useState("");
 
-  const canLocal = milestone.needsLocal && !!family.city;
+  // 役所の窓口を調べるのは、役所に出す手続きだけ（産院・職場に出す物を役所で調べると、違う行き先が出る＝sim-14 の直接支払制度）
+  const canLocal = milestone.needsLocal && !!family.city && !(milestone.kind === "仕事" || /産院|職場/.test(`${milestone.title}${milestone.plain}`));
   const canDraft = milestone.id in DRAFTABLE;
   const title = milestone.plain || milestone.title;
 

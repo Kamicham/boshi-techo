@@ -91,11 +91,15 @@ export default function VisitList() {
   const when = briefingDay(today, next?.date);
   // 母以外（パートナー・祖父母）が開いた時は、終わったばかりの健診のまとめを先に
   const notMom = !!me && me.role !== "母";
-  const whose = notMom ? "ママの健診" : undefined;
+  const born = !!family.birthDate && family.birthDate <= today;
+  // 「ママの健診」は1回だけ: 生まれた後は下の見出しが言うので、箱の上には繰り返さない
+  const whose = notMom && !born ? "ママの健診" : undefined;
   // 今日録った健診（整理中・できた）は、まとめを読むのが次の一手。母以外は3日以内の健診も
   const recent = data?.visits.find(
     (v) => !v.demo && v.status !== "ready" && v.status !== "recording" && (v.date === today || (notMom && v.status === "done" && daysUntil(v.date, today) <= 3)),
   );
+  // 前回の健診（家族が録った物。デモは除く）。次の予約が無い時は、これを先に見せる
+  const last = data?.visits.find((v) => !v.demo && v.status === "done");
   const startLabel = busy === "start" ? "準備しています…" : "今日の健診を始める";
   const agendaCount = data?.agenda.length ?? 0;
   const daysToNext = next ? daysUntil(today, next.date) : null;
@@ -110,7 +114,7 @@ export default function VisitList() {
   );
   const startQuiet = (
     <Btn kind="quiet" onClick={() => void start()} disabled={!!busy || !ready}>
-      {busy === "start" ? "準備しています…" : "今日が健診なら、始める"}
+      {busy === "start" ? "準備しています…" : "今日が健診の日なら、先生の話を録る"}
     </Btn>
   );
 
@@ -164,6 +168,22 @@ export default function VisitList() {
         {startQuiet}
       </NextStep>
     );
+  } else if (last) {
+    // 記録がある時は、空の「次の健診の日を入れる」より前回の健診を先に（次の日は下の折りたたみで入れる）
+    top = (
+      <NextStep eyebrow={`前回の健診・${jpDate(last.date)}・${last.label}`} title="前回の健診のまとめ" sub={last.summary ?? undefined} tone="sky">
+        <Btn href={`/visit/${last.id}`} kind="secondary">
+          読む
+        </Btn>
+      </NextStep>
+    );
+  } else if (notMom) {
+    // パートナー・祖父母には、入力を求めない（ママが入れた日がここに出る）
+    top = (
+      <p className="rounded-2xl bg-card px-4 py-3 text-base text-muted">
+        {whose ? `${whose}の` : ""}次の日は、まだ入っていません。入ると、ここに出ます
+      </p>
+    );
   } else {
     top = (
       <NextStep eyebrow={whose ?? "次の健診"} title="次の健診の日を入れる">
@@ -174,8 +194,9 @@ export default function VisitList() {
   }
 
   const agenda = data?.agenda ?? [];
-  const born = !!family.birthDate && family.birthDate <= today;
   const pastAsks = born ? (data?.plan.concerns ?? []).filter((c) => concernSide(c, family.birthDate) === "past") : [];
+  // 次の予約が無く、上の箱が入力欄でない時（前回のまとめ・パートナー）は、次の日を入れる欄を畳んで出す
+  const nextFold = data && !next && !ongoing && !recent && (!!last || notMom);
   return (
     <main className="flex flex-col gap-4 px-4 pt-4 pb-6">
       <h1 className="font-display text-xl font-bold">健診</h1>
@@ -227,8 +248,15 @@ export default function VisitList() {
         </Fold>
       )}
 
+      {nextFold && (
+        <Fold title="次の健診の日を入れる">
+          <NextAppointment next={null} onSave={(n) => void savePlan({ next: n })} />
+          {startQuiet}
+        </Fold>
+      )}
+
       {data && (
-        <Fold title={data.agendaFor === "today" ? "今日聞く事" : "聞く事"} count={agenda.length}>
+        <Fold title={data.agendaFor === "today" ? "今日、先生に聞く事" : "先生に聞く事"} count={agenda.length}>
           <AskList agenda={agenda} onAdd={(t) => void savePlan({ concern: t })} onRemove={(id) => void savePlan({ removeConcern: id })} />
         </Fold>
       )}
@@ -391,7 +419,7 @@ function AskQuick({ count, onAdd }: { count: number; onAdd: (t: string) => void 
         />
         <button className="min-h-11 shrink-0 rounded-full bg-rose px-5 text-base font-semibold text-white">足す</button>
       </form>
-      {added && <p className="text-sm text-muted">足しました（聞く事 {count}件）。続けて書けます</p>}
+      {added && <p className="text-sm text-muted">足しました（先生に聞く事 {count}件）。続けて書けます</p>}
     </div>
   );
 }
@@ -476,14 +504,20 @@ function BabyCheckups({
 
 function BabyRow({ m, st, today }: { m: Milestone; st: Status; today: string }) {
   const tone = st === "済み" ? "ok" : st === "まだ先" ? "muted" : st === "過ぎた" ? "muted" : "rose";
-  const word = st === "まだ先" ? "まだ先" : st === "済み" ? "済み" : st === "過ぎた" ? "時期を過ぎた" : "今";
-  // 日の言い方: まだ先は始まりの日、今の物は期限（法の期限でない物は目安）。今日と年が違う日は年も書く（去年か来年か迷わせない）
+  // まだ先の札は、始まりまでの日数（近い物は「あと◯日」。遠い物だけ「まだ先」）
+  const toStart = daysUntil(today, m.startDate);
+  const word = st === "まだ先" ? (toStart <= 60 ? `あと${toStart}日` : "まだ先") : st === "済み" ? "済み" : st === "過ぎた" ? "時期を過ぎた" : st === "期限切れ" ? "まだなら" : "受ける時期";
+  // 日の言い方: まだ先は「◯から」、今の物は「◯まで」（法の期限でない物は「◯ごろまでに」）。
+  // 11/04 に「目安 12/20 今」と「11/20から まだ先」が並び、遅い日が今・早い日がまだ先に見えた（目安の日を受ける日と読まれた）ため、
+  // 今の物は終わりの日だと分かる言い方にする。今日と年が違う日は年も書く（去年か来年か迷わせない）
   const day = (s: string) => jpDate(s, today);
   const when =
     st === "まだ先"
-      ? `${day(m.startDate)}から`
+      ? `${day(m.startDate)}から受けられます`
       : m.deadlineDate && st !== "済み"
-        ? `${deadlineKindOf(m) === "目安" ? "目安 " : ""}${day(m.deadlineDate)}${deadlineKindOf(m) === "目安" ? "" : "まで"}`
+        ? st === "期限切れ"
+          ? `${day(m.deadlineDate)}${deadlineKindOf(m) === "目安" ? "ごろ" : "まで"}の時期を過ぎています`
+          : `今受けられます・${day(m.deadlineDate)}${deadlineKindOf(m) === "目安" ? "ごろまでに" : "まで"}`
         : "";
   return (
     <li className="border-b border-line last:border-b-0">

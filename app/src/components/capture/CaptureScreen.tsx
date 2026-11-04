@@ -6,10 +6,12 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn, Notice, plainError, Why } from "@/components/ui";
-import { KeepButtons } from "@/components/album/KeepButtons";
+import { KeepSheet } from "@/components/album/KeepSheet";
+import { useMedia } from "@/components/album/useMedia";
 import type { CaptureRecord, CaptureResult, RecordSource, TechoPhotoResult } from "@/lib/capture";
 import { HoldToTalk } from "./HoldToTalk";
 import { shrinkPhoto } from "./media";
+import { PhotoChoice, type ReadKind } from "./PhotoChoice";
 import { TechoCandidates } from "./TechoCandidates";
 import { RecordItem, Timeline } from "./Timeline";
 
@@ -78,12 +80,15 @@ export function CaptureScreen() {
   const [pending, setPending] = useState(0);
   // 手帳の「撮って足す」「話して足す」から来た時（/capture?techo=photo|voice）
   const [from, setFrom] = useState<"photo" | "voice" | null>(null);
-  // 今日の画面の節目の一言から来た時（/capture?keep=1）は「残す」を光らせる
+  // 今日の画面の節目の一言から来た時（/capture?keep=1）は「撮る」と、選ぶ時の「残す」を光らせる
   const [keepFrom, setKeepFrom] = useState(false);
-  const keepBox = useRef<HTMLDivElement>(null);
+  // 撮った（選んだ）写真。使い道（読み取る／残す）を選ぶまで、この電話の中だけに置く
+  const [shot, setShot] = useState<File[] | null>(null);
+  // 「残す」を選んだ写真（KeepSheet が /api/media へ送る。Claude には送らない）
+  const [keeping, setKeeping] = useState<File[] | null>(null);
+  const { unavailable: keepUnavailable } = useMedia();
   const photoInput = useRef<HTMLInputElement>(null);
-  const pageInput = useRef<HTMLInputElement>(null);
-  const pageButton = useRef<HTMLButtonElement>(null);
+  const shootButton = useRef<HTMLButtonElement>(null);
   const talkBox = useRef<HTMLDivElement>(null);
 
   const loadPending = useCallback(async () => {
@@ -111,22 +116,22 @@ export function CaptureScreen() {
     void load();
   }, [load]);
 
-  // 手帳から来た時: 撮るなら紙の手帳のページを撮る欄を開き、話すなら話すボタンを見せる
+  // 手帳から来た時: 撮るなら写真を選ぶ欄を開き（選んだ後は「紙の母子手帳のページ」を光らせる）、話すなら話すボタンを見せる
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
     if (sp.get("keep") === "1") {
       setKeepFrom(true);
-      keepBox.current?.scrollIntoView({ block: "center" });
+      shootButton.current?.scrollIntoView({ block: "center" });
       return;
     }
     const t = sp.get("techo");
     if (t !== "photo" && t !== "voice") return;
     setFrom(t);
     if (t === "photo") {
-      pageButton.current?.scrollIntoView({ block: "center" });
+      shootButton.current?.scrollIntoView({ block: "center" });
       // 端末によっては、押さずに写真を選ぶ欄は開けない（その時は光らせたボタンを押してもらう）
       try {
-        pageInput.current?.click();
+        photoInput.current?.click();
       } catch {}
     } else {
       talkBox.current?.scrollIntoView({ block: "center" });
@@ -208,6 +213,18 @@ export function CaptureScreen() {
     });
   };
 
+  /** 撮った写真の使い道を選んだ時。読み取る時だけ Claude に送る（残す道とは混ぜない） */
+  const readShot = (kind: ReadKind) => {
+    const f = shot?.[0];
+    setShot(null);
+    if (!f) return;
+    void (kind === "page" ? sendPage(f) : sendPhoto(f));
+  };
+  const keepShot = () => {
+    if (shot?.length) setKeeping(shot);
+    setShot(null);
+  };
+
   const sendText = async () => {
     const t = text.trim();
     if (!t) return;
@@ -270,65 +287,52 @@ export function CaptureScreen() {
       )}
 
       {from === "voice" && <p className="rounded-xl bg-rose-soft px-3 py-2 text-base font-semibold">「話す」を押したまま話すと、手帳の候補になります</p>}
-      {from === "photo" && <p className="rounded-xl bg-sky-soft px-3 py-2 text-base font-semibold">下の「紙の母子手帳のページを撮る」を押して、写真を選んでください</p>}
+      {from === "photo" && <p className="rounded-xl bg-sky-soft px-3 py-2 text-base font-semibold">下の「撮る」で手帳のページを撮って、「読み取る」→「紙の母子手帳のページ」を選んでください</p>}
 
       <section aria-label="入れる" className="grid grid-cols-2 gap-3">
         <div ref={talkBox} className={from === "voice" ? "rounded-3xl ring-4 ring-rose/40" : undefined}>
           <HoldToTalk disabled={!!busy} onAudio={(b) => void sendVoice(b)} onError={(m) => setError({ title: m })} />
         </div>
         <button
+          ref={shootButton}
           type="button"
-          disabled={!!busy}
+          disabled={!!busy || !!shot}
           onClick={() => photoInput.current?.click()}
-          className="flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-3xl border-2 border-sky bg-sky-soft text-sky disabled:opacity-50"
+          className={`flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-3xl border-2 border-sky bg-sky-soft text-sky disabled:opacity-50 ${from === "photo" || keepFrom ? "ring-4 ring-sky/40" : ""}`}
         >
           <CameraIcon />
           <span className="font-display text-2xl font-bold">撮る</span>
-          <span className="text-sm text-muted">届いた紙・健診の紙</span>
+          <span className="text-sm text-muted">紙も、思い出も</span>
         </button>
+        {/* capture を付けるとカメラロールから選べなくなるので付けない（撮る・選ぶは端末が聞く。MDN 2025） */}
         <input
           ref={photoInput}
           type="file"
           accept="image/*"
-          capture="environment"
+          multiple
           className="hidden"
           onChange={(e) => {
-            const f = e.target.files?.[0];
+            const xs = [...(e.target.files ?? [])].filter((f) => f.type.startsWith("image/") || /\.(heic|heif|jpe?g|png|webp)$/i.test(f.name)).slice(0, 50);
             e.target.value = "";
-            if (f) void sendPhoto(f);
+            if (xs.length) setShot(xs);
           }}
         />
       </section>
 
-      <button
-        ref={pageButton}
-        type="button"
-        disabled={!!busy}
-        onClick={() => pageInput.current?.click()}
-        className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-sky/40 bg-card px-4 text-base font-semibold text-sky disabled:opacity-50 ${from === "photo" ? "ring-4 ring-sky/40" : ""}`}
-      >
-        <BookIcon />
-        紙の母子手帳のページを撮る
-      </button>
-      <input
-        ref={pageInput}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          e.target.value = "";
-          if (f) void sendPage(f);
-        }}
-      />
-
-      {/* 紙を読む道（上の「撮る」と手帳のページ）は Claude に送る。写真を残す道（下の「残す」）とは分ける */}
-      <p className="text-sm text-muted">「撮る」の写真は、読み取りのために Claude に送ります（残しません）</p>
-
-      <div ref={keepBox}>
-        <KeepButtons highlight={keepFrom} />
-      </div>
+      {/* 撮った後に使い道を選ぶ。読み取る道だけが Claude に送り、残す道（/api/media）は Claude に見せない */}
+      {shot ? (
+        <PhotoChoice
+          files={shot}
+          hint={from === "photo" ? "page" : keepFrom ? "keep" : null}
+          keepUnavailable={keepUnavailable}
+          onRead={readShot}
+          onKeep={keepShot}
+          onCancel={() => setShot(null)}
+        />
+      ) : (
+        <p className="text-sm text-muted">撮った後に「読み取る」か「残す」かを選びます。読み取る時だけ、写真を手帳の中の AI（Claude）に送ります（残しません）</p>
+      )}
+      {keeping && <KeepSheet files={keeping} onClose={() => setKeeping(null)} />}
 
       <p className="text-sm text-muted">{CALL_LINE}</p>
 
@@ -393,7 +397,7 @@ export function CaptureScreen() {
       ) : (
         <div className="flex flex-wrap gap-2">
           <Btn kind="secondary" onClick={() => setWriting(true)}>
-            声を出せない時は書く
+            書く
           </Btn>
           {isDemo && !hasSeed && (
             <Btn kind="quiet" onClick={() => void seed()}>
@@ -433,15 +437,6 @@ function AskBox({ ask, answer, setAnswer, onSend, onSkip }: { ask: Ask; answer: 
         答えない（記録はこのまま）
       </button>
     </div>
-  );
-}
-
-function BookIcon() {
-  return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden>
-      <path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z" />
-      <path d="M5 17a3 3 0 0 1 3-3h11" />
-    </svg>
   );
 }
 

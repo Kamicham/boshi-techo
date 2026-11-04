@@ -27,7 +27,7 @@ export function VisitToday({
   const day = when === "eve" ? "明日" : "今日";
   const bring = bringList(family, next.date).length;
   const hospital = keep?.hospital?.name;
-  const sub = [`持ち物 ${bring}つ`, agendaCount > 0 ? `聞く事 ${agendaCount}つ` : null].filter(Boolean).join("・");
+  const sub = [`持ち物 ${bring}つ`, agendaCount > 0 ? `先生に聞く事 ${agendaCount}つ` : null].filter(Boolean).join("・");
   return (
     <NextStep eyebrow={`${visitLabel(family, next.date)}の健診${hospital ? `・${hospital}` : ""}`} title={`${day}${next.time ? ` ${next.time}` : ""} 健診`} sub={sub} tone="rose">
       <Btn href="/visit">健診を開く</Btn>

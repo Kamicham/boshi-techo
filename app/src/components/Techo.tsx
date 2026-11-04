@@ -372,6 +372,11 @@ export function Techo() {
         </Fold>
       )}
 
+      {/* 健診のタブを無くしたので、健診の予定と記録への入口はここ（前の日と当日は一番上の1枚になる） */}
+      <Link href="/visit" className="inline-flex min-h-11 items-center gap-1 self-start text-base text-ink underline-offset-2 hover:underline">
+        健診と予防接種 ›
+      </Link>
+
       {/* 急ぎの時（窒息・心肺蘇生・119）。通信が無くても開けるよう、ふつうのリンクで開く（sw.js がこのページだけ取っておく） */}
       {/* 赤は命の橋だけ。ふだんは墨色の字と小さな赤い点（安心のデザイン #3） */}
       <a href="/emergency" className="inline-flex min-h-11 items-center gap-2 self-start text-base font-semibold text-ink underline-offset-2 hover:underline">
