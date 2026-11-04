@@ -41,7 +41,7 @@ export const POST = route(async (req: Request) => {
         savePlan(family.id, { ...plan, concerns: [...plan.concerns, { id: newId(), text: a.text, date, for: "child" }] });
         return { ok: true, note: `✓ ${family.childName ?? "赤ちゃん"}の次の健診で聞く事に足しました（健診のタブの「${family.childName ? `${family.childName}の` : "赤ちゃんの"}健診・予防接種」に並びます）` };
       }
-      const c = { id: newId(), text: a.text, date };
+      const c = { id: newId(), text: a.text, date, for: "mother" as const };
       const v = ongoingVisit(family.id, turn.today);
       if (v) {
         patch<VisitData>(v.id, {

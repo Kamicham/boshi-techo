@@ -268,12 +268,27 @@ function AskSheet({ onClose }: { onClose: () => void }) {
           )}
           {newTurns.map(renderTurn)}
           {/* 答えの付かなかった問い（前に失敗した・止まった）。聞き直せるようにする */}
+          {/* 失敗の文は1つにまとめ、体の事で困った時の先（急ぎの時・#8000）をいつも添える（第31回: 答えが出ないまま、頼れる先が1つも無かった） */}
           {!sending && !waiting && !status && newTurns.length > 0 && newTurns[newTurns.length - 1].role === "user" && (
-            <div className="flex flex-col items-start gap-1 self-start">
-              <p className="text-sm text-muted">この問いには、答えを作れませんでした。</p>
+            <div className="flex flex-col items-start gap-2 self-start">
+              <p className="text-sm text-muted">{error || "この問いには、答えを作れませんでした。"}</p>
               <Btn kind="secondary" onClick={() => void send(newTurns[newTurns.length - 1].text, true)}>
                 もう一度聞く
               </Btn>
+              <p className="text-sm text-muted">体の事で急ぐ時は、答えを待たずに:</p>
+              <div className="flex flex-wrap gap-2">
+                <a
+                  href={pregnant ? "/emergency#mama" : "/emergency"}
+                  className="inline-flex min-h-11 items-center rounded-xl border border-alert/40 bg-alert/5 px-3 text-base font-semibold text-alert"
+                >
+                  急ぎの時を開く
+                </a>
+                {!pregnant && (
+                  <a href={telHref("#8000")} className="inline-flex min-h-11 items-center rounded-xl border border-alert/40 bg-alert/5 px-3 text-base font-semibold text-alert">
+                    迷ったら #8000
+                  </a>
+                )}
+              </div>
             </div>
           )}
           {waiting && <UserBubble turn={waiting} />}
@@ -283,7 +298,7 @@ function AskSheet({ onClose }: { onClose: () => void }) {
               {status || "答えを作っています"}…（閉じても、答えはここに残ります）
             </p>
           )}
-          {error && <p className="rounded-xl bg-alert/10 px-3 py-2 text-base text-alert">{error}</p>}
+          {error && !(newTurns.length > 0 && newTurns[newTurns.length - 1].role === "user") && <p className="rounded-xl bg-alert/10 px-3 py-2 text-base text-alert">{error}</p>}
         </div>
 
         <form

@@ -182,3 +182,36 @@ describe("健診の日の段", () => {
     expect(summaryTooLong(["あ".repeat(41)])).toBe(true);
   });
 });
+
+describe("concernSide（第31回: 聞く事を、子・ママ・妊娠中のふり返りに分ける）", () => {
+  it("子の印がある物は子", async () => {
+    const { concernSide } = await import("./visit");
+    expect(concernSide({ date: "2027-01-01", for: "child" }, "2026-12-01")).toBe("child");
+  });
+  it("生まれる前は、印の無い物はママ", async () => {
+    const { concernSide } = await import("./visit");
+    expect(concernSide({ date: "2026-11-03" }, null)).toBe("mother");
+  });
+  it("生まれた後に見ると、生まれる前の物はふり返り（ママの印でも）", async () => {
+    const { concernSide } = await import("./visit");
+    expect(concernSide({ date: "2026-11-03", for: "mother" }, "2027-07-26")).toBe("past");
+    expect(concernSide({ date: "2026-11-03" }, "2027-07-26")).toBe("past");
+  });
+  it("生まれた後の印の無い古い物は子・ママの印はママ", async () => {
+    const { concernSide } = await import("./visit");
+    expect(concernSide({ date: "2026-11-08" }, "2025-05-02")).toBe("child");
+    expect(concernSide({ date: "2027-08-10", for: "mother" }, "2027-07-26")).toBe("mother");
+  });
+  it("nextAgenda は、生まれた後は妊娠中の物と子の物をママの聞く事に入れない", async () => {
+    const { nextAgenda } = await import("./visit");
+    const plan = {
+      concerns: [
+        { id: "a", text: "おりもの", date: "2026-11-03", for: "mother" as const },
+        { id: "b", text: "ことば", date: "2027-09-01", for: "child" as const },
+        { id: "c", text: "傷の痛み", date: "2027-08-10", for: "mother" as const },
+      ],
+    };
+    expect(nextAgenda([], plan, "2027-07-26").items.map((i) => i.id)).toEqual(["c"]);
+    expect(nextAgenda([], plan, null).items.map((i) => i.id)).toEqual(["a", "c"]);
+  });
+});

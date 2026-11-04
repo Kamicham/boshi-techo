@@ -12,7 +12,7 @@ import { StatusChip } from "@/components/visit/StatusChip";
 import { DEMO_AGENDA, DEMO_TRANSCRIPT, DEMO_VISIT_WEEKS } from "@/components/visit/demoTranscript";
 import { addDays, lmpFromDue } from "@/lib/clock";
 import { deadlineKindOf, scheduleFor, statusOf, type Milestone, type Status } from "@/lib/milestones";
-import { briefingDay, visitLabel, type AgendaItem, type VisitPlan, type VisitStatus } from "@/lib/visit";
+import { briefingDay, concernSide, visitLabel, type AgendaItem, type VisitPlan, type VisitStatus } from "@/lib/visit";
 
 interface Row {
   id: string;
@@ -175,6 +175,7 @@ export default function VisitList() {
 
   const agenda = data?.agenda ?? [];
   const born = !!family.birthDate && family.birthDate <= today;
+  const pastAsks = born ? (data?.plan.concerns ?? []).filter((c) => concernSide(c, family.birthDate) === "past") : [];
   return (
     <main className="flex flex-col gap-4 px-4 pt-4 pb-6">
       <h1 className="font-display text-xl font-bold">健診</h1>
@@ -206,7 +207,7 @@ export default function VisitList() {
         <BabyCheckups
           familyId={family.id}
           today={today}
-          asks={(data?.plan.concerns ?? []).filter((c) => c.for === "child")}
+          asks={(data?.plan.concerns ?? []).filter((c) => concernSide(c, family.birthDate) === "child")}
           onRemove={(id) => void savePlan({ removeConcern: id })}
         />
       )}
@@ -229,6 +230,23 @@ export default function VisitList() {
       {data && (
         <Fold title={data.agendaFor === "today" ? "今日聞く事" : "聞く事"} count={agenda.length}>
           <AskList agenda={agenda} onAdd={(t) => void savePlan({ concern: t })} onRemove={(id) => void savePlan({ removeConcern: id })} />
+        </Fold>
+      )}
+
+      {/* 妊娠中に足した聞く事は、生まれた後はママの「聞く事」に出さず、ふり返りに畳む（第31回: 産後の健診に妊娠中の気がかりが残った） */}
+      {born && pastAsks.length > 0 && (
+        <Fold title="妊娠中に気になっていた事" count={pastAsks.length}>
+          <p className="text-sm text-muted">生まれる前に足した物です。今も聞きたい事は、上の「聞く事」に書き直してください。</p>
+          <ul className="flex flex-col">
+            {pastAsks.map((c) => (
+              <li key={c.id} className="flex items-start justify-between gap-2 border-b border-line py-1 last:border-b-0">
+                <span className="min-w-0 text-base">{c.text}</span>
+                <button type="button" onClick={() => void savePlan({ removeConcern: c.id })} className="min-h-11 shrink-0 px-2 text-sm text-muted underline underline-offset-2">
+                  消す
+                </button>
+              </li>
+            ))}
+          </ul>
         </Fold>
       )}
 
@@ -460,7 +478,7 @@ function BabyRow({ m, st, today }: { m: Milestone; st: Status; today: string }) 
   const tone = st === "済み" ? "ok" : st === "まだ先" ? "muted" : st === "過ぎた" ? "muted" : "rose";
   const word = st === "まだ先" ? "まだ先" : st === "済み" ? "済み" : st === "過ぎた" ? "時期を過ぎた" : "今";
   // 日の言い方: まだ先は始まりの日、今の物は期限（法の期限でない物は目安）。今日と年が違う日は年も書く（去年か来年か迷わせない）
-  const day = (s: string) => `${s.slice(0, 4) !== today.slice(0, 4) ? `${Number(s.slice(0, 4))}年` : ""}${jpDate(s)}`;
+  const day = (s: string) => jpDate(s, today);
   const when =
     st === "まだ先"
       ? `${day(m.startDate)}から`

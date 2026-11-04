@@ -6,22 +6,36 @@
 // 「済んだ」は今日の画面の済みの印（/api/done）と同じ。
 import { useState } from "react";
 import { Btn } from "../ui";
-import type { ShownTask } from "./TaskCard";
+import type { Family, Member } from "@/lib/demo-family";
+import type { Keep } from "@/lib/keep";
+import { TaskBody, type ShownTask } from "./TaskCard";
+import { whoLabel } from "./task";
 
 export function StaleBox({
   tasks,
   onDone,
+  today,
+  family,
+  me,
+  keep,
+  onAssign,
+  defaultOpen,
 }: {
   tasks: ShownTask[];
   /** まとめて済みにする */
   onDone: (ids: string[]) => void;
-  // 前の形の呼び出し（today・family・me・keep）も受け取れるように残す。中では使わない
-  [rest: string]: unknown;
+  today: string;
+  family: Family;
+  me: Member | null;
+  keep: Keep | null;
+  onAssign?: (milestoneId: string, who: string) => void;
+  /** 一番上が目安の事か何も無い時は、開いて上に出す（法の期限を過ぎた出生届が、畳まれたまま目安の赤ちゃん訪問の下に隠れた＝第31回） */
+  defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState<string | null>(null);
   if (tasks.length === 0) return null;
   return (
-    <details className="group rounded-2xl border border-line bg-card">
+    <details className="group rounded-2xl border border-line bg-card" open={defaultOpen || undefined}>
       <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-4">
         <span className="font-display text-lg font-bold">
           ふり返り<span className="ml-2 text-sm font-normal text-muted">時期が過ぎた手続き（{tasks.length}つ）</span>
@@ -42,7 +56,10 @@ export function StaleBox({
         <ul className="flex flex-col">
           {tasks.map((t) => (
             <li key={t.id} className="flex flex-col gap-2 border-b border-line py-2 last:border-b-0">
-              <span className="text-base leading-snug font-semibold">{t.plain}</span>
+              <span className="text-base leading-snug font-semibold">
+                {t.plain}
+                {whoLabel(t, family, me) && <span className="ml-2 text-sm font-normal text-muted">{whoLabel(t, family, me)}の番</span>}
+              </span>
               <div className="flex flex-wrap gap-2">
                 <Btn kind="secondary" onClick={() => onDone([t.id])} ariaLabel={`${t.plain}を済んだにする`}>
                   済んだ
@@ -54,10 +71,12 @@ export function StaleBox({
                   うちには関係なかった
                 </Btn>
               </div>
+              {/* 「まだ」は、ふつうの行と同じ中身（担当・窓口・どこへ行くか見る）で開く（1行の説明だけでは、誰がいつ行くか決められなかった＝第31回） */}
               {open === t.id && (
-                <p className="rounded-lg bg-sky-soft px-3 py-2 text-base">
-                  {t.hint}（期限を過ぎていても、まず窓口に事情を伝えて聞いてみてください）
-                </p>
+                <div className="flex flex-col gap-2 rounded-lg bg-sky-soft px-3 py-2">
+                  <p className="text-base">{t.hint}（期限を過ぎていても、まず窓口に事情を伝えて聞いてみてください）</p>
+                  <TaskBody task={t} today={today} family={family} me={me} keep={keep} onAssign={onAssign} onDone={() => onDone([t.id])} />
+                </div>
               )}
             </li>
           ))}

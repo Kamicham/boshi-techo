@@ -134,6 +134,16 @@ export default function BookPage() {
               Claude に渡したのは、写真の日付・一言・結んだ記録の文字だけです（写真 {book.photoCount} 枚の候補。画像は渡していません）。
             </p>
           )}
+          {book.outdated && (
+            <div className="flex flex-col gap-2 rounded-xl bg-rose-soft px-4 py-3">
+              <p className="text-base">この一冊は前の決まりで作ったので、「聞く」で相談した気がかりが文に入っているかもしれません。今の決まりでは、気がかりは一冊に入れません。</p>
+              <div>
+                <Btn kind="secondary" onClick={() => void make()}>
+                  今の決まりで作り直す
+                </Btn>
+              </div>
+            </div>
+          )}
           <Fold title="作り直す">
             <p className="text-base">
               {jpDay(book.asOf)}までの記録 <b className="tabular">{book.sourceCount}</b> 件から作りました

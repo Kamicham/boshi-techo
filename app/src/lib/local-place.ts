@@ -85,14 +85,24 @@ export function shortWhere(where: string): string {
 
 /** 表に出す「いつまで」: 日付・日数だけ。法律の名前・条の番号は外す */
 export function shortDeadline(deadline: string): string {
-  const noLaw = deadline
+  // 去年度の日程の文（「〜だった」「前年度」）は外す。表に去年の受付の日が「いつまで」と出た（第31回・隠岐の島の保育園）
+  const current = deadline
+    .split(/(?<=。)|\n/)
+    .filter((x) => !/(だった|でした|前年度|昨年度|去年度|去年)/.test(x))
+    .join("")
+    .trim();
+  const base = current || deadline;
+  const noLaw = base
     .replace(/[（(][^）)]*(法|条|令|規則)[^）)]*[）)]/g, "")
     .replace(/[^、。\s]*(法|条例|規則)(第[\d０-９一二三四五六七八九十百]+条)?(により|による|で|に基づき)?[、。]?/g, "")
     .trim();
   const hit =
     noLaw.match(/[^、。]{0,16}?[\d０-９]+\s*(日|か月|ヶ月|カ月|か月半|週間?)以内/) ??
-    noLaw.match(/[\d０-９]{1,2}月[\d０-９]{1,2}日(まで)?/) ??
+    // 「11月4日〜」「11月4日から」は受付の始まりなので、締切に使わない
+    noLaw.match(/[\d０-９]{1,2}月[\d０-９]{1,2}日(?![〜～\-ー]|から|より)(まで)?/) ??
     noLaw.match(/[^、。]{0,12}(まで|以内|前まで)/);
-  const s = (hit?.[0] ?? noLaw.split(/[。\n]/)[0]).replace(/^[、。\s]+/, "").trim();
-  return s || deadline.split(/[。\n]/)[0];
+  // 日付が取れず「確かめる」と書いてある時は、その文を出す
+  const check = !hit && noLaw.split(/[。\n]/).find((x) => x.includes("確かめ"));
+  const s = (check || (hit?.[0] ?? noLaw.split(/[。\n]/)[0])).replace(/^[、。\s]+/, "").trim();
+  return s || base.split(/[。\n]/)[0];
 }

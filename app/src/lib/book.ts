@@ -66,7 +66,14 @@ export interface Book extends BookContent {
   /** 1000日の始まりと終わり */
   range: { start: string; end: string };
   childName: string;
+  /** 作った時の決まりの版（BOOK_RULES）。前の版の一冊には無い */
+  rules?: number;
+  /** 読む時に付ける: 前の決まりで作られ、今は入れない記録（気がかり）が入っているかもしれない */
+  outdated?: boolean;
 }
+
+/** 一冊の決まりの版。2 = 気がかりの記録を入れない（第30回の後） */
+export const BOOK_RULES = 2;
 
 // ── 記録を集める ──
 
@@ -353,6 +360,7 @@ export async function makeBook(f: Family, today: string): Promise<Book> {
     photoCount: keys.length,
     range: { start: conceptionDate(f), end: secondBirthday(f) },
     childName,
+    rules: BOOK_RULES,
   };
   put(f.id, "book", book, { date: today });
   return book;
@@ -362,5 +370,11 @@ export async function makeBook(f: Family, today: string): Promise<Book> {
 export function latestBook(familyId: string, today?: string): Book | null {
   const books = list<Book>(familyId, "book", { limit: 50 });
   const hit = today ? books.find((b) => (b.date ?? "") <= today) : books[0];
-  return hit?.data ?? null;
+  if (!hit) return null;
+  const book = hit.data;
+  // 前の決まりで作った一冊に、今は入れない気がかりの記録が入っているか（作った時より前の気がかりがあれば、作り直しを勧める）
+  if ((book.rules ?? 1) < BOOK_RULES && list<{ kind?: string }>(familyId, "record").some((d) => d.data.kind === "気がかり" && d.createdAt <= book.generatedAt)) {
+    return { ...book, outdated: true };
+  }
+  return book;
 }

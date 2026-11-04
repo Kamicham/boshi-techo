@@ -9,12 +9,12 @@ import { deadlineKindOf } from "@/lib/milestones";
 import { Btn, HandoffRow, NextStep, Pill, Why } from "../ui";
 import { MilestoneActions } from "../MilestoneActions";
 import { jpShort } from "./dates";
-import { FAR_DAYS, dateWord, daysLeft, isMine, whenDate, whoLabel, type Task } from "./task";
+import { FAR_DAYS, daysLeft, isMine, whenDate, whoLabel, type Task } from "./task";
 
 /** 今日の画面に出す1件。shared = もとは家族みんなの事で、担当を選べる（together = 2人でと決めた） */
 export type ShownTask = Task & { shared?: boolean; together?: boolean };
 
-interface Common {
+export interface Common {
   task: ShownTask;
   today: string;
   family: Family;
@@ -35,7 +35,7 @@ type When = { days: number; label: string } | { guide: string; past: boolean } |
 function target(t: Task, today: string): When {
   if (t.status !== "まだ先" && isGuide(t)) {
     const d = t.deadlineDate!;
-    return { guide: d.slice(0, 4) === today.slice(0, 4) ? jpShort(d) : dateWord(d, today), past: d < today };
+    return { guide: jpShort(d, today), past: d < today };
   }
   const days = daysLeft(t, today);
   if (days == null) return null;
@@ -44,7 +44,7 @@ function target(t: Task, today: string): When {
     const w = whenDate(t, today);
     return w ? { far: w } : null;
   }
-  return { days, label: t.status === "まだ先" ? `${jpShort(t.startDate)}から` : `${jpShort(t.deadlineDate!)}まで` };
+  return { days, label: t.status === "まだ先" ? `${jpShort(t.startDate, today)}から` : `${jpShort(t.deadlineDate!, today)}まで` };
 }
 
 /** 一番上の「今やる1つ」。soon = 自分の今やる事が無く、まだ先の近い事を出した */
@@ -63,14 +63,14 @@ export function TopTask(p: Common & { soon?: boolean }) {
       title={t.plain}
       sub={t.hint}
       days={counted?.days}
-      dateLabel={counted ? (t.status === "まだ先" ? counted.label : jpShort(t.deadlineDate!)) : undefined}
+      dateLabel={counted ? (t.status === "まだ先" ? counted.label : jpShort(t.deadlineDate!, p.today)) : undefined}
       daysKind={t.status === "まだ先" ? "start" : "deadline"}
       tone="rose"
     >
       <div className="flex w-full flex-col gap-2">
         {guide && <GuideLine guide={guide.guide} past={guide.past} />}
         {far && <span className="tabular text-sm text-muted">{far}</span>}
-        <Body {...p} top />
+        <TaskBody {...p} top />
       </div>
     </NextStep>
   );
@@ -116,7 +116,7 @@ export function TaskRow(p: Common & { muted?: boolean }) {
         {when && "guide" in when && <GuideLine guide={when.guide} past={when.past} />}
         <p className="text-base">{t.hint}</p>
         {others && who && <p className="text-sm text-muted">{who}の番です。代わりにやってもかまいません</p>}
-        <Body {...p} />
+        <TaskBody {...p} />
       </div>
     </details>
   );
@@ -187,7 +187,8 @@ function WhoPicker({ task: t, family, onAssign }: Pick<Common, "task" | "family"
   );
 }
 
-function Body({ task: t, today, family, me, keep, onDone, onAssign, top }: Common & { top?: boolean }) {
+/** 行を開いた時の中身（下書き・町の調べ・カレンダー・担当）。ふり返りの「まだ」からも使う */
+export function TaskBody({ task: t, today, family, me, keep, onDone, onAssign, top }: Common & { top?: boolean }) {
   const box = useRef<HTMLDivElement>(null);
   const [hasActions, setHasActions] = useState(false);
   // MilestoneActions は、下書きも町の調べも無い事では何も出さない。出た時だけ、それを主にする
@@ -244,7 +245,7 @@ function Body({ task: t, today, family, me, keep, onDone, onAssign, top }: Commo
         <span>根拠: {t.basis}</span>
         {t.deadlineDate && (
           <span>
-            {isGuide(t) ? "目安" : "期限"} {jpShort(t.deadlineDate)}・始まり {jpShort(t.startDate)}
+            始まり {jpShort(t.startDate, today)}・{isGuide(t) ? "目安" : "期限"} {jpShort(t.deadlineDate, today)}
           </span>
         )}
       </Why>

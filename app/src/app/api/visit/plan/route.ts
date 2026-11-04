@@ -26,7 +26,7 @@ export const POST = route(async (req: Request) => {
     const text = b.concern.trim().slice(0, 300);
     if (!text) throw new HttpError(400, "気がかりを書いてください");
     const date = b.today && /^\d{4}-\d{2}-\d{2}$/.test(b.today) ? b.today : new Date().toISOString().slice(0, 10);
-    const c = { id: newId(), text, date, ...(b.concernFor === "child" ? { for: "child" as const } : {}) };
+    const c = { id: newId(), text, date, for: b.concernFor === "child" ? ("child" as const) : ("mother" as const) };
     const v = b.concernFor === "child" ? null : ongoingVisit(fam.id, b.today);
     if (v) {
       // 今日の健診がもう始まっていれば、その「今日聞く事」に入れる（消した時に元へ戻せるよう carried にも残す）

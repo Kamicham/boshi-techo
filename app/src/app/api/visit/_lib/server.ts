@@ -15,6 +15,7 @@ import {
   chunkName,
   isSafeExt,
   mergeTranscripts,
+  concernSide,
   nextAgenda,
   orderChunks,
   orderTakeDirs,
@@ -50,6 +51,11 @@ export function savePlan(familyId: string, plan: VisitPlan): VisitPlan {
   return put<VisitPlan>(familyId, "visit", plan, { id: planId(familyId) }).data;
 }
 
+/** もう生まれていれば、生まれた日（健診で聞く事の振り分けに使う） */
+export function bornOn(fam: { birthDate?: string }, today: string): string | null {
+  return fam.birthDate && fam.birthDate <= today ? fam.birthDate : null;
+}
+
 /** 新しい健診を作る。前回の質問と気がかりを「今日聞く事」に移す */
 export function createVisit(familyId: string, date: string, opts: { demo?: boolean; demoAgenda?: string[] } = {}): VisitDoc {
   const fam = requireFamily(familyId);
@@ -59,7 +65,7 @@ export function createVisit(familyId: string, date: string, opts: { demo?: boole
   // デモの健診は家族の持ち越しに触らず、渡された気がかりだけを入れる
   const { items, fromVisit } = opts.demo
     ? { items: (opts.demoAgenda ?? []).map((text, i) => ({ id: `demo:${i}`, text, from: "気がかり" as const })), fromVisit: null }
-    : nextAgenda(visits, plan);
+    : nextAgenda(visits, plan, bornOn(fam, date));
   const doc = put<VisitData>(
     familyId,
     "visit",
@@ -70,12 +76,12 @@ export function createVisit(familyId: string, date: string, opts: { demo?: boole
       status: "ready",
       agenda: items,
       demo: opts.demo || undefined,
-      carried: opts.demo ? undefined : { prevCarriedFrom: plan.carriedFrom, concerns: plan.concerns.filter((c) => c.for !== "child") },
+      carried: opts.demo ? undefined : { prevCarriedFrom: plan.carriedFrom, concerns: plan.concerns.filter((c) => concernSide(c, bornOn(fam, date)) === "mother") },
     },
     { date },
   );
-  // ママの健診を始めても、子の健診で聞く事は残す
-  if (!opts.demo) savePlan(familyId, { ...plan, concerns: plan.concerns.filter((c) => c.for === "child"), carriedFrom: fromVisit ?? plan.carriedFrom });
+  // ママの健診を始めても、子の健診で聞く事・妊娠中のふり返りは残す
+  if (!opts.demo) savePlan(familyId, { ...plan, concerns: plan.concerns.filter((c) => concernSide(c, bornOn(fam, date)) !== "mother"), carriedFrom: fromVisit ?? plan.carriedFrom });
   return doc;
 }
 

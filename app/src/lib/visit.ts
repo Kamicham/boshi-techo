@@ -86,7 +86,7 @@ export interface VisitPlan {
   kind: "plan";
   next?: { date: string; time?: string | null; source: "manual" | "visit"; visitId?: string; said?: string } | null;
   /** for: "child" は子の健診で聞く事（ママの健診の聞く事には入れない。健診のタブの子の欄に並ぶ） */
-  concerns: { id: string; text: string; date: string; for?: "child" }[];
+  concerns: { id: string; text: string; date: string; for?: "child" | "mother" }[];
   /** 前回の質問を、どの健診まで持ち越したか */
   carriedFrom?: string;
 }
@@ -353,18 +353,34 @@ export function newestFirst<T extends { date: string; createdAt?: string }>(xs: 
 }
 
 /**
+ * 健診で聞く事が、だれの健診の物か。
+ * - child: 子の健診（for が child。生まれた後の for の無い古い物＝第30回より前に「聞く」から足した物も、子の事が多いのでこちら）
+ * - mother: ママの健診
+ * - past: 生まれる前に足した物を、生まれた後に見た時（妊娠中の気がかり。ママの「聞く事」には出さず、ふり返りに回す＝第31回）
+ * birthDate は、もう生まれている時だけ渡す。
+ */
+export function concernSide(c: { date: string; for?: "child" | "mother" }, birthDate?: string | null): "child" | "mother" | "past" {
+  if (c.for === "child") return "child";
+  if (birthDate && c.date < birthDate) return "past";
+  if (c.for === "mother") return "mother";
+  return birthDate ? "child" : "mother";
+}
+
+/**
  * 次の健診で聞く事: 一番新しい「できた」健診の質問（まだ持ち越していなければ）と、家族の気がかり。
  */
 export function nextAgenda(
   visits: { id: string; status: VisitStatus; date: string; createdAt?: string; result?: Pick<Organized, "questions"> }[],
   plan: Pick<VisitPlan, "concerns" | "carriedFrom">,
+  /** もう生まれていれば、生まれた日 */
+  birthDate?: string | null,
 ): { items: AgendaItem[]; fromVisit: string | null } {
   const last = newestFirst(visits.filter((v) => v.status === "done" && v.result))[0];
   const items: AgendaItem[] = [];
   if (last && last.id !== plan.carriedFrom) {
     last.result!.questions.forEach((q, i) => items.push({ id: `${last.id}:q${i}`, text: q.question, from: "前回の質問" }));
   }
-  for (const c of plan.concerns) if (c.for !== "child") items.push({ id: c.id, text: c.text, from: "気がかり" });
+  for (const c of plan.concerns) if (concernSide(c, birthDate) === "mother") items.push({ id: c.id, text: c.text, from: "気がかり" });
   return { items, fromVisit: last && last.id !== plan.carriedFrom ? last.id : null };
 }
 

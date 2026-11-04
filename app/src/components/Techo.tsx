@@ -13,7 +13,7 @@ import { Btn, Fold, NextStep, Notice, daysUntil } from "./ui";
 import { HelpPlaces } from "./today/HelpPlaces";
 import { jpShort } from "./today/dates";
 import { DemoClock } from "./today/DemoClock";
-import { TaskRow, TopTask, type ShownTask } from "./today/TaskCard";
+import { TaskRow, TopTask, isGuide, type ShownTask } from "./today/TaskCard";
 import { StaleBox } from "./today/StaleBox";
 import { AdvisorCard } from "./today/AdvisorCard";
 import { ConsultAsk } from "./today/ConsultAsk";
@@ -246,6 +246,8 @@ export function Techo() {
     void api("/api/keep", { body: { familyId: family.id, keep: { assign: { [milestoneId]: who } } } }).catch(() => {});
   };
   const common = { today, family, me, keep, onAssign };
+  // 法の期限を過ぎてまだの事があり、一番上が目安の事か何も無い時は、ふり返りを開いて一番上に出す
+  const staleFirst = stale.length > 0 && !(visitTop && nextVisit) && !focus && (!top || isGuide(top));
   const loading = !(doneReady && sentReady && advisorOpen !== null);
   const quiet = family.situation?.quiet;
 
@@ -286,7 +288,9 @@ export function Techo() {
         <div className="h-40 rounded-2xl bg-rose-soft/60" aria-hidden />
       ) : visitTop && nextVisit ? (
         <VisitToday family={family} today={today} next={nextVisit} agendaCount={visit?.agenda ?? 0} keep={keep} />
-      ) : top ? (
+      ) : null}
+      {!loading && staleFirst && <StaleBox key={`${family.id}:first`} tasks={stale} {...common} defaultOpen onDone={(ids) => void setManyDone(ids)} />}
+      {loading || (visitTop && nextVisit) ? null : top ? (
         <TopTask key={`${family.id}:${top.id}`} task={top} soon={!focus && plan.topIsSoon} {...common} onDone={() => void setDone(top, true)} />
       ) : (
         <Calm upcoming={me ? upcoming.filter((t) => t.who === "家族" || t.who === me.role) : upcoming} today={today} others={rows.filter((r) => r.kind === "task").length} />
@@ -313,7 +317,7 @@ export function Techo() {
         </section>
       )}
 
-      {!loading && <StaleBox key={family.id} tasks={stale} today={today} family={family} me={me} keep={keep} onDone={(ids) => void setManyDone(ids)} />}
+      {!loading && !staleFirst && <StaleBox key={family.id} tasks={stale} {...common} onDone={(ids) => void setManyDone(ids)} />}
 
       <Link href="/capture" className="inline-flex min-h-11 items-center gap-1 self-start text-base text-sky underline-offset-2 hover:underline">
         気になった事は、話す・撮るで残す ›
@@ -416,7 +420,7 @@ function Calm({ upcoming, today, others = 0 }: { upcoming: Task[]; today: string
           {watch.map((t) => (
             <li key={t.id} className="flex items-baseline justify-between gap-3 text-base">
               <span className="min-w-0">{t.plain}</span>
-              <span className="tabular shrink-0 text-sm text-muted">{t.awaitingPregnancy || t.awaitingBirth ? when(t) : jpShort(t.startDate)}</span>
+              <span className="tabular shrink-0 text-sm text-muted">{t.awaitingPregnancy || t.awaitingBirth ? when(t) : jpShort(t.startDate, today)}</span>
             </li>
           ))}
         </ul>
