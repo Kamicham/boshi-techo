@@ -1,14 +1,16 @@
 // 気づいた事: 今のきっかけを機械で見つけ（lib/advisor.ts）、気づき1つを返す。
 // GET ?familyId=&today=  … 出す1つ（閉じていないきっかけのうち一番先の物）。無ければ advice: null
 // GET ?familyId=&today=&peek=1 … 気づきが今いくつあるかだけ（Claude は呼ばない。今日の画面が場所を取っておくため）
+// GET ?familyId=&closed=1 … 「わかった」で閉じた気づき（新しく閉じた順に10まで・文面の空欄を埋めた形。Claude は呼ばない）
 // POST { familyId, key }  … 「わかった」で閉じる
 // 書いた気づきは家族ごと・きっかけの鍵ごとに DB（type 'advice'）へ置き、同じ状況では Claude を呼び直さない。
 // きっかけが無い時は、時期ごとに1回、Claude が家族の今を見渡す（look:<時期>）。peek の時に裏で見渡し始め、見つかった物だけを次から数える
 // （今日の画面を待たせない・見つからなかった時に場所取りの箱が出て消えない）。
 import { body, route } from "@/lib/api";
-import { detectTriggers, lookBucket, type Advice, type AdvisorInput, type Trigger } from "@/lib/advisor";
+import { adviceSender, detectTriggers, lookBucket, type Advice, type AdvisorInput, type Trigger } from "@/lib/advisor";
 import { listRecords } from "@/lib/capture";
-import { get, patch, put } from "@/lib/db";
+import { get, list, patch, put } from "@/lib/db";
+import type { Family } from "@/lib/demo-family";
 import { doneSetFor } from "@/app/api/done/_lib/done";
 import { fillFamilyBlanks } from "@/lib/blanks";
 import { isDemoLike } from "@/lib/trial-cookie";
@@ -62,6 +64,16 @@ export const GET = route(async (req: Request) => {
   const q = new URL(req.url).searchParams;
   const h = await familyFor(req, q.get("familyId"), "record:read");
   const family = h.family;
+  // 「わかった」で閉じた気づき（新しく閉じた順に10まで）。今日の画面の「済んだ事」の下で、文面ごともう一度開く（見直し C10③。Claude は呼ばない）
+  if (q.get("closed") === "1") {
+    const closed = list<Advice>(family.id, "advice", { limit: 200 })
+      .map((d) => d.data)
+      .filter((a) => a.dismissedAt && !a.none)
+      .sort((a, b) => (b.dismissedAt ?? "").localeCompare(a.dismissedAt ?? ""))
+      .slice(0, 10)
+      .map((a) => shownAdvice(a, adviceSender(a.kind, family), family));
+    return { closed };
+  }
   const today = q.get("today");
   if (!isDay(today)) throw new HttpError(400, "今日の日付が読めません");
 
@@ -92,17 +104,23 @@ export const GET = route(async (req: Request) => {
     cached = inflight.has(id);
     advice = await writeOnce(id, family.id, today, () => sendingAs(h.who, () => writeAdvice(t, input, getKeep(family.id))));
   }
-  // 職場あてのメールは、覚えている上司のメールを宛先に入れる（DB の気づきには持たせない）
+  return { ...shownAdvice(advice, t.from, family), cached, waiting: open.length - 1 };
+});
+
+/**
+ * 画面へ返す気づき（DB の気づきは書いたまま）:
+ * - 送る人の名前・町名・会社名など、分かる【 】は埋める
+ * - 職場あてのメールは、送る人の職場の上司のメールを宛先に入れる（見直し C09: 家族のほかの人の上司のメールを入れない）
+ */
+function shownAdvice(advice: Advice, from: Trigger["from"] | undefined, family: Family): { advice: Advice; mailTo?: string; from?: string } {
   const keep = getKeep(family.id);
-  // 送る人の職場（見直し C09: 家族のほかの人の上司のメールを入れない）
-  const work = workOf(keep, family, t.from?.memberId);
+  const work = workOf(keep, family, from?.memberId);
   const mailTo = advice.message?.via === "mail" && /職場|上司|人事/.test(advice.message.to) ? (work?.email ?? work?.hrEmail) : undefined;
-  // 送る人の名前・町名・会社名など、分かる【 】は埋めて返す（DB の気づきは書いたまま）
-  const sender = t.from ? keep.names?.[t.from.memberId] || t.from.name : null;
+  const sender = from ? keep.names?.[from.memberId] || from.name : null;
   const fill = (x: string) => fillFamilyBlanks(fillBlanks(x, keep, { writer: sender, work }), family, { writer: sender, names: keep.names });
   const shown: Advice = advice.message ? { ...advice, message: { ...advice.message, body: fill(advice.message.body), subject: advice.message.subject && fill(advice.message.subject) } } : advice;
-  return { advice: shown, mailTo, from: sender ?? undefined, cached, waiting: open.length - 1 };
-});
+  return { advice: shown, mailTo, from: sender ?? undefined };
+}
 
 export const POST = route(async (req: Request) => {
   const b = await body<{ familyId?: string; key?: string }>(req);

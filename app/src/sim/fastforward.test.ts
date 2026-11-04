@@ -33,7 +33,7 @@ import { olderOf } from "../lib/older";
 import { benefitFirst } from "../lib/leave-money";
 import type { Family, Member } from "../lib/demo-family";
 import { PARENT_FILINGS, PREGNANCY_ONLY, scheduleFor, statusOf } from "../lib/milestones";
-import { motherEmployed, partnerEmployed } from "../lib/situation";
+import { hasOlderChildren, motherEmployed, partnerEmployed, partnerTakesLeave } from "../lib/situation";
 import { detectTriggers, BIRTH_SHIFT_DAYS, BIRTH_WINDOW_DAYS, MOVED_WINDOW_DAYS, type TriggerKind } from "../lib/advisor";
 import { briefingDay } from "../lib/visit";
 import { NOW, planToday, shownDays, whenDate, whoLabel, type Task } from "../components/today/task";
@@ -76,6 +76,8 @@ const RULES = {
   p: "お金の1000日: 児童手当の最初の振込は偶数月で申請の後・届いたか確かめる件は申請が済んだ物だけで額を出さない・自営や仕事なしの母に出産手当金が出ない（辞める母には出す＝健康保険法第104条）",
   n: "産休・育休のお金: 育休の給付の初回の期限は育休の4か月目の月末で、自営・仕事なし・辞める母には育休の給付が出ず、パートナーの14日の1件は14日以上の家族に出ない（第2波⑤）",
   q: "呼び名と担当: 短い題・一言に「パパ」が出ず、正式な題は法の呼び名「産後パパ育休」の中だけ。法律上の親が出す届け（出生届・児童手当・保険証・医療費助成）の担当がパートナーに決め打ちにならない（2026-11-04 見直し L2-2・同性の家族 sim-03・未婚の父 sim-05）",
+  r: "引っ越しの行: 町を変えた家族だけに、引っ越した日から出る。転入届の期限は引っ越した日の14日後（住民基本台帳法第22条）・児童手当は15日後（児童手当法第8条第3項）で、児童手当と医療証は引っ越した時に子がいた家族だけ、受診券は妊娠中に引っ越した家族だけ（見直し C10①）",
+  s: "早く生まれた時: 予定日より7日以上早く生まれ、育休を取るかもしれないパートナーがいる家族だけに「育休の始まりを早める」が、生まれた日から予定日の前日まで出る（遅く生まれた時・6日以内は出さない。見直し C10②）",
 } as const;
 type Rule = keyof typeof RULES;
 const RULE_IDS = Object.keys(RULES) as Rule[];
@@ -472,6 +474,34 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
         if (/パパ/.test(t.title.replace(/産後パパ育休/g, ""))) push("q", `title:${t.id}`, `${t.id} の題に「パパ」（産後パパ育休の外）`);
         if (PARENT_FILINGS.has(t.id) && t.who === "パートナー") push("q", `who:${t.id}`, `${t.id} の担当がパートナーに決め打ち`);
       }
+    }
+    // r: 引っ越しの行（見直し C10①）
+    {
+      const mv = tasks.filter((t) => t.anchor === "moved");
+      const moved = !!fv.movedOn && !!fv.previousCity && (fv.previousCity !== fv.city || (fv.previousPrefecture ?? fv.prefecture) !== fv.prefecture);
+      if (!moved && mv.length) push("r", "stray", `引っ越していないのに「${mv[0].plain}」`);
+      if (moved) {
+        const on = fv.movedOn!;
+        const tennyu = mv.find((t) => t.id === "moved-tennyu");
+        if (!tennyu) push("r", "missing", "引っ越したのに、転入届の行が無い");
+        else if (tennyu.startDate !== on || tennyu.deadlineDate !== addDays(on, 14)) push("r", "tennyu-date", `転入届が ${tennyu.startDate}〜${tennyu.deadlineDate}（引っ越した日 ${on} から14日後まで、でない）`);
+        const kid = (!!f.birthDate && f.birthDate <= on) || hasOlderChildren(fv.situation);
+        const ca = mv.find((t) => t.id === "moved-child-allowance");
+        if (kid !== !!ca) push("r", "allowance", kid ? "引っ越した時に子がいたのに、児童手当の行が無い" : "引っ越した時に子がいないのに、児童手当の行が出る");
+        if (ca && ca.deadlineDate !== addDays(on, 15)) push("r", "allowance-date", `児童手当の期限が ${ca.deadlineDate}（引っ越した日の15日後でない）`);
+        if (kid !== mv.some((t) => t.id === "moved-medical-card")) push("r", "medical", kid ? "引っ越した時に子がいたのに、医療証の行が無い" : "引っ越した時に子がいないのに、医療証の行が出る");
+        const pregMove = on >= lmpFromDue(f.dueDate) && (!f.birthDate || on < f.birthDate);
+        if (pregMove !== mv.some((t) => t.id === "moved-checkup-tickets")) push("r", "tickets", pregMove ? "妊娠中に引っ越したのに、受診券の行が無い" : "妊娠中でない引っ越しに、受診券の行が出る");
+      }
+    }
+    // s: 早く生まれた時のパートナーの育休（見直し C10②）
+    {
+      const t = tasks.find((x) => x.id === "partner-leave-earlier");
+      const early = isBorn && diffDays(f.dueDate, f.birthDate!) >= BIRTH_SHIFT_DAYS;
+      const want = early && fv.members.some((m) => m.role === "パートナー") && partnerTakesLeave(fv.situation);
+      if (!want && t) push("s", "stray", "早く生まれていない・育休を取らない家族に、育休を早める行が出る");
+      if (want && !t) push("s", "missing", "早く生まれたのに、パートナーの育休を早める行が無い");
+      if (t && (t.startDate !== f.birthDate || t.deadlineDate !== addDays(f.dueDate, -1))) push("s", "date", `育休を早める行が ${t.startDate}〜${t.deadlineDate}（生まれた日〜予定日の前日、でない）`);
     }
     // o: 里帰りの2つの町
     if (fv.situation?.satogaeri) {

@@ -5,7 +5,7 @@
 import { z } from "zod";
 import { addDays, clockAt, diffDays } from "./clock";
 import type { Family, Member } from "./demo-family";
-import { scheduleFor, type Milestone } from "./milestones";
+import { EARLY_BIRTH_DAYS, scheduleFor, type Milestone } from "./milestones";
 import type { Situation } from "./situation";
 
 export type TriggerKind = "birth-early" | "birth-late" | "moved" | "look";
@@ -37,10 +37,13 @@ export interface AdvisorInput {
   records?: { date: string | null; kind: string; title: string; who?: string }[];
 }
 
-/** 予定日と何日ずれたら「早く／遅く生まれた」と見るか */
-export const BIRTH_SHIFT_DAYS = 7;
-/** 生まれてから何日、期限の数え直しの気づきを出すか */
-export const BIRTH_WINDOW_DAYS = 3;
+/** 予定日と何日ずれたら「早く／遅く生まれた」と見るか（予定表の「早く生まれた時」の行と同じ） */
+export const BIRTH_SHIFT_DAYS = EARLY_BIRTH_DAYS;
+/**
+ * 期限の数え直しの気づきを何日出すか（見直し C10④）。生まれた日を入れた日から数える（入れた日を持たない家族＝11/5 より前に入れた・
+ * 見本の家族・作った家族は、生まれた日から）。前は生まれた日から3日で、退院してから日を入れた家族には出なかった
+ */
+export const BIRTH_WINDOW_DAYS = 14;
 /** 引っ越してから何日、差の気づきを出すか */
 export const MOVED_WINDOW_DAYS = 30;
 
@@ -72,11 +75,19 @@ export function situationFacts(f: Family): string[] {
   return out;
 }
 
+/** 「早く／遅く生まれた」の気づきを出し始める日: 生まれた日を入れた日（生まれた日より前の値は無い事にする）、無ければ生まれた日 */
+export function birthWindowStart(f: Pick<Family, "birthDate" | "birthKnownOn">): string {
+  return f.birthKnownOn && f.birthDate && f.birthKnownOn > f.birthDate ? f.birthKnownOn : (f.birthDate ?? "");
+}
+
 // ── 1. 予定より早く／遅く生まれた ──
 function birthShift(input: AdvisorInput, schedule: Milestone[], done: Set<string>): Trigger | null {
   const { family: f, today } = input;
   if (!f.birthDate) return null;
-  const since = diffDays(today, f.birthDate);
+  if (diffDays(today, f.birthDate) < 0) return null;
+  // 窓は、生まれた日を入れた日から（入れた日を持たない家族は生まれた日から）
+  const from = birthWindowStart(f);
+  const since = diffDays(today, from);
   if (since < 0 || since > BIRTH_WINDOW_DAYS) return null;
   const shift = diffDays(f.dueDate, f.birthDate); // 正 = 早く
   if (Math.abs(shift) < BIRTH_SHIFT_DAYS) return null;
@@ -137,6 +148,11 @@ function moved(input: AdvisorInput): Trigger | null {
 function fromRole(f: Family, role: Member["role"]): { from?: Trigger["from"] } {
   const p = f.members.find((m) => m.role === role);
   return p ? { from: { memberId: p.id, name: p.name } } : {};
+}
+
+/** 気づきの文面を送る人（決まりのきっかけ＝生まれた・引っ越した は母。見渡した気づきは決めない）。閉じた気づきを開き直す時に使う */
+export function adviceSender(kind: TriggerKind, f: Family): Trigger["from"] | undefined {
+  return kind === "look" ? undefined : fromRole(f, "母").from;
 }
 
 /** 今のきっかけを、出す順に並べて返す（何も無ければ空） */

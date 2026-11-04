@@ -12,6 +12,7 @@ import { get, put } from "./db";
 import type { Family } from "./demo-family";
 import { HttpError } from "./family";
 import { getKeep, remember } from "./keep";
+import { officeOf } from "./move";
 import { designatedCity, officeName, wardOf } from "./local-place";
 import { MILESTONES, type MilestoneDef } from "./milestones";
 
@@ -113,8 +114,9 @@ function rememberOffice(familyId: string, local: LocalInfo) {
   const name = local.office.trim();
   if (!name || name.includes("確かめる")) return;
   const cur = getKeep(familyId).office;
-  if (cur?.name === name && (cur.address || !local.address)) return;
-  remember(familyId, { office: { name, address: local.address.trim() || undefined } });
+  if (!cur?.staleFrom && cur?.name === name && (cur.address || !local.address)) return;
+  // 前の町の窓口の印は外す（新しい町の調べで覚え直した＝見直し C10①）
+  remember(familyId, { office: { name, address: local.address.trim() || (cur?.staleFrom ? "" : undefined), staleFrom: "" } });
 }
 
 /**
@@ -164,7 +166,7 @@ async function fetchLocalOnce(home: Family, m: MilestoneDef, force: boolean): Pr
   if (!force) {
     const hit = getLocal(family, m.id);
     if (hit) {
-      if (!at.away && !getKeep(family.id).office?.name) rememberOffice(family.id, hit);
+      if (!at.away && !officeOf(getKeep(family.id).office)?.name) rememberOffice(family.id, hit);
       return { local: hit, cached: true };
     }
   }

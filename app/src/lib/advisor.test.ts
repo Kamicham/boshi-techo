@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { advisorMoments, detectTriggers, trimAdvice, type AdvisorInput } from "./advisor";
+import { adviceSender, advisorMoments, birthWindowStart, detectTriggers, trimAdvice, type AdvisorInput } from "./advisor";
 import { DEMO_FAMILY, type Family } from "./demo-family";
 
 const at = (today: string, family: Family = DEMO_FAMILY, done: string[] = [], isDemo = true): AdvisorInput => ({ family, today, done: new Set(done), isDemo });
@@ -19,8 +19,23 @@ describe("気づいた事: きっかけを機械で見つける", () => {
     expect(t.to?.role).toBe("職場の上司");
   });
 
-  it("早く生まれた気づきは、生まれてから3日まで", () => {
-    expect(detectTriggers(at("2027-04-30")).some((t) => t.kind === "birth-early")).toBe(false);
+  it("早く生まれた気づきは、生まれた日から14日まで（生まれた日を入れた日を持たない家族＝見本・作った家族・11/5 より前に入れた家族）", () => {
+    // 見本の家族は 4/26 生まれ。14日目の 5/10 までは出て、5/11 からは出ない（見直し C10④。前は3日まで）
+    expect(detectTriggers(at("2027-04-30")).some((t) => t.kind === "birth-early")).toBe(true);
+    expect(detectTriggers(at("2027-05-10")).some((t) => t.kind === "birth-early")).toBe(true);
+    expect(detectTriggers(at("2027-05-11")).some((t) => t.kind === "birth-early")).toBe(false);
+  });
+
+  it("生まれた日を入れた日がある家族は、入れた日から14日（退院してから日を入れた家族にも出る）", () => {
+    const f = { ...DEMO_FAMILY, birthKnownOn: "2027-05-03" };
+    expect(birthWindowStart(f)).toBe("2027-05-03");
+    expect(detectTriggers(at("2027-05-12", f)).some((t) => t.kind === "birth-early")).toBe(true);
+    expect(detectTriggers(at("2027-05-17", f)).some((t) => t.kind === "birth-early")).toBe(true);
+    expect(detectTriggers(at("2027-05-18", f)).some((t) => t.kind === "birth-early")).toBe(false);
+    // 生まれた日より前の「入れた日」は読まない（生まれた日から数える）
+    expect(birthWindowStart({ ...DEMO_FAMILY, birthKnownOn: "2027-04-01" })).toBe("2027-04-26");
+    // 生まれる前の日は出さない
+    expect(detectTriggers(at("2027-04-25", f)).some((t) => t.kind.startsWith("birth"))).toBe(false);
   });
 
   it("予定日とのずれが7日より小さければ気づかない", () => {
@@ -44,9 +59,17 @@ describe("気づいた事: きっかけを機械で見つける", () => {
     expect(first(at("2027-04-27")).key).toBe(first(at("2027-04-28")).key);
   });
 
-  it("生まれて5日たてば、もう気づきは出ない（担当が止まっている・祖父母が来る、は見ない）", () => {
-    expect(detectTriggers(at("2027-05-01"))).toEqual([]);
+  it("生まれて15日たてば、もう気づきは出ない（担当が止まっている・祖父母が来る、は見ない）", () => {
+    expect(detectTriggers(at("2027-05-11"))).toEqual([]);
     expect(detectTriggers(at("2027-05-12"))).toEqual([]);
+  });
+
+  it("閉じた気づきを開き直す時の、文面を送る人（決まりのきっかけは母・見渡した気づきは決めない）", () => {
+    expect(adviceSender("birth-early", DEMO_FAMILY)).toEqual({ memberId: "misaki", name: "美咲" });
+    expect(adviceSender("moved", DEMO_FAMILY)?.memberId).toBe("misaki");
+    expect(adviceSender("look", DEMO_FAMILY)).toBeUndefined();
+    // 気づいた時と同じ人（detectTriggers の from）
+    expect(first(at("2027-04-27")).from).toEqual(adviceSender("birth-early", DEMO_FAMILY));
   });
 
   it("デモの早送りのボタンの日に、それぞれの気づきが一番上に出る", () => {

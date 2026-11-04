@@ -7,6 +7,7 @@ import { isPaidId } from "@/lib/money";
 import type { Family, Member } from "@/lib/demo-family";
 import type { Keep } from "@/lib/keep";
 import { deadlineKindOf } from "@/lib/milestones";
+import { officeOf } from "@/lib/move";
 import { Btn, CopyButton, HandoffRow, NextStep, Pill, Why } from "../ui";
 import { callMemo } from "@/lib/vax-next";
 import { MilestoneActions } from "../MilestoneActions";
@@ -230,7 +231,9 @@ export function TaskBody({
     return () => ob.disconnect();
   }, [t.id]);
 
-  const place = t.kind === "健診" ? keep?.hospital?.name : t.kind === "手続き" ? keep?.office?.address || keep?.office?.name : undefined;
+  // 前の町の窓口（町を変えた時の印つき）は場所に使わない
+  const office = officeOf(keep?.office);
+  const place = t.kind === "健診" ? keep?.hospital?.name : t.kind === "手続き" ? office?.address || office?.name : undefined;
   const calendar = t.deadlineDate
     ? { title: `${t.plain}（期限）`, date: t.deadlineDate, details: `${t.hint}\n${t.title}\n根拠: ${t.basis}`, place: place || undefined }
     : undefined;

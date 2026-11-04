@@ -10,6 +10,9 @@ import { api } from "@/components/FamilyProvider";
 import type { Advice } from "@/lib/advisor";
 import { Btn, CopyField, HandoffRow, Why } from "../ui";
 
+/** 「わかった」で閉じた時に出す合図（ClosedAdvice が読み直す） */
+export const ADVICE_CLOSED = "boshi:advice-closed";
+
 /** 気づきの箱の高さ（読み込み中の場所取りと、表の高さをそろえる） */
 const BOX = "flex min-h-[15rem] flex-col gap-3 rounded-2xl border-2 border-sky bg-sky-soft p-5";
 
@@ -62,6 +65,8 @@ export function AdvisorCard({ familyId, today, meId }: { familyId: string; today
     setClosing(true);
     try {
       await api("/api/advisor", { body: { familyId, key: a.key } });
+      // 閉じた気づきの一覧（今日の画面の「済んだ事」の下）に知らせる
+      window.dispatchEvent(new Event(ADVICE_CLOSED));
       // 次のきっかけがあれば読み直す
       const r = res && res.waiting > 0 ? await api<Res>(`/api/advisor?familyId=${encodeURIComponent(familyId)}&today=${today}`) : null;
       setRes(r);
@@ -91,14 +96,14 @@ export function AdvisorCard({ familyId, today, meId }: { familyId: string; today
         {res && res.waiting > 0 && <span className="text-sm text-muted">ほかにも気づいた事が{res.waiting}つ</span>}
       </div>
       <Why label={a.plan.length > 0 || m ? "次にする事と文面" : "なぜ？"}>
-        <Details a={a} res={res} />
+        <AdviceDetails a={a} res={res} />
       </Why>
     </section>
   );
 }
 
-/** 畳んだ中身: 次にする事・渡す文面・なぜ（機械で確かめた事・調べたページ） */
-function Details({ a, res }: { a: Advice; res: Res | null }) {
+/** 畳んだ中身: 次にする事・渡す文面・なぜ（機械で確かめた事・調べたページ）。閉じた気づきを開き直す所（ClosedAdvice）でも使う */
+export function AdviceDetails({ a, res }: { a: Advice; res: Pick<Res, "mailTo" | "from"> | null }) {
   const m = a.message;
   const [, ...whyRest] = a.why
     .split(/(?<=。)|\n/)

@@ -172,3 +172,31 @@ describe("「いつもの」の職場を直す", () => {
     expect(k.assign).toEqual(OLD_KEEP.assign);
   });
 });
+
+describe("町を変えた時の、前の町の窓口（見直し C10①）", () => {
+  it("覚えた窓口は、Claude への頼みに「役所:」として渡す", async () => {
+    asked.length = 0;
+    await Dr.makeDraft(F, findMilestone("birth-registration"), "2027-04-27", "misaki");
+    expect(asked[0].user).toContain("役所: 市役所 こども課（作った町1-1）");
+  });
+
+  it("町を変えたら印が付き、窓口の名前と住所は消さずに、頼みには渡さない", async () => {
+    Kp.markOfficeMoved(F.id, "横浜市");
+    expect(Kp.getKeep(F.id).office).toEqual({ ...OLD_KEEP.office, staleFrom: "横浜市" });
+    asked.length = 0;
+    await Dr.makeDraft(F, findMilestone("birth-registration"), "2027-04-27", "misaki");
+    expect(asked[0].user).not.toContain("役所:");
+    expect(asked[0].user).not.toContain("作った町1-1");
+  });
+
+  it("窓口を直すと印が外れ、また渡す。窓口を覚えていない家族には印を付けない", async () => {
+    Kp.remember(F.id, { office: { name: "さいたま市 区役所", address: "", staleFrom: "" } });
+    expect(Kp.getKeep(F.id).office).toEqual({ name: "さいたま市 区役所" });
+    asked.length = 0;
+    await Dr.makeDraft(F, findMilestone("birth-registration"), "2027-04-27", "misaki");
+    expect(asked[0].user).toContain("役所: さいたま市 区役所");
+    const other = "whose-test-no-office";
+    Kp.markOfficeMoved(other, "横浜市");
+    expect(Kp.getKeep(other).office).toBeUndefined();
+  });
+});
