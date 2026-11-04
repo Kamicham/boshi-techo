@@ -13,7 +13,7 @@ import { useFamily } from "./FamilyProvider";
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
-  const { family, families, setFamilyId, isDemo, ready, accountsEnabled, account, households } = useFamily();
+  const { family, families, setFamilyId, isDemo, ready, accountsEnabled, account, households, me } = useFamily();
   // 録音中は別の画面へ移ると録音が止まるので、切り替えを止める
   const recording = useSyncExternalStore(subscribeRecording, recordingBusy, recordingBusyServer);
   // 合言葉・ログイン・招待の画面では、家族の切り替えもタブも出さない
@@ -27,25 +27,33 @@ export function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col">
       <div className="flex items-center justify-between gap-2 px-4 pt-3 text-xs">
-        <label className="flex min-w-0 shrink items-center gap-1 text-muted">
-          <span className="sr-only">見ている手帳</span>
-          <select
-            id="family-select"
-            value={family.id}
-            onChange={(e) => setFamilyId(e.target.value)}
-            disabled={recording}
-            className="min-h-11 w-full min-w-0 truncate rounded-full border border-line bg-card px-3 py-1 text-base text-ink disabled:opacity-50"
-          >
-            {families.map((f) => (
-              <option key={f.id} value={f.id}>
-                {labelOf(f)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className={`flex shrink-0 items-center gap-1 whitespace-nowrap ${recording ? "invisible" : ""}`}>
+        {/* 手帳の切り替えは、切り替える先がある時だけ（自分の世帯が2つ以上・デモを見ている時）。
+            1つしか無いのに一番大きな部品で「作った家族 sim-…」と出すと、本人には意味が無い（UI/UX 見直し 2026-11-03） */}
+        {households.length > 1 || (isDemo && families.length > 1) ? (
+          <label className="flex min-w-0 shrink items-center gap-1 text-muted">
+            <span className="sr-only">見ている手帳</span>
+            <select
+              id="family-select"
+              value={family.id}
+              onChange={(e) => setFamilyId(e.target.value)}
+              disabled={recording}
+              className="min-h-11 w-full min-w-0 truncate rounded-full border border-line bg-card px-3 py-1 text-base text-ink disabled:opacity-50"
+            >
+              {families.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {labelOf(f)}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+        <div className={`flex min-w-0 shrink items-center gap-1 whitespace-nowrap ${recording ? "invisible" : ""}`}>
           {isDemo && <span className="rounded-full bg-sky-soft px-2 py-0.5 font-semibold text-sky">デモ</span>}
-          <Link href="/settings" className="flex min-h-11 items-center px-2 text-muted underline-offset-2 hover:underline">わが家の設定</Link>
+          {/* 「わたし」は誰の画面かと、設定（家族・町・使う人）の入口を兼ねる */}
+          <Link href="/settings" className="flex min-h-11 min-w-0 items-center gap-1 px-1 text-sm text-ink underline-offset-2 hover:underline">
+            <span className="truncate">{me ? `わたし: ${me.name}` : "わたしは？"}</span>
+            <span className="text-muted" aria-hidden>▾</span>
+          </Link>
         </div>
         {/* 急ぎの案内は録音中でも隠さない（産院・119・#8000 への橋）。
             いつも見える所を赤で塗ると、夜中に開くたびに緊張させるので、文字は ink・赤は直径6pxの点だけ（赤は命の橋の印） */}

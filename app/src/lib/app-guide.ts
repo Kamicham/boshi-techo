@@ -5,7 +5,7 @@ import { TECHO_PAGES } from "./techo";
 
 /** 下のタブ（Shell.tsx が並べる） */
 export const TABS = [
-  { href: "/", label: "今日" },
+  { href: "/", label: "いま" },
   { href: "/visit", label: "健診" },
   { href: "/capture", label: "話す・撮る" },
   { href: "/techo", label: "手帳" },

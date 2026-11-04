@@ -13,7 +13,7 @@ import { DraftPanel, doneWord, type DraftBusy } from "./draft/DraftPanel";
 import { LocalPanel } from "./draft/LocalPanel";
 
 /** 下書きが意味を持つ事と、作る前に見込む種類（ボタンの言葉を種類で言い分ける） */
-const DRAFTABLE: Record<string, DraftKind> = {
+export const DRAFTABLE: Record<string, DraftKind> = {
   "pregnancy-report": "記入メモ",
   "tell-work": "メール",
   "partner-leave": "メール",
@@ -32,7 +32,7 @@ const DRAFTABLE: Record<string, DraftKind> = {
 };
 
 /** 下書きの呼び名（種類ごと） */
-const NOUN: Record<DraftKind, string> = {
+export const NOUN: Record<DraftKind, string> = {
   メール: "職場へのメール",
   記入メモ: "書く事のメモ",
   質問リスト: "聞く事の一覧",

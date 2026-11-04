@@ -60,7 +60,7 @@ export function AskButton({ hidden }: { hidden?: boolean }) {
             aria-label="手帳に聞く（質問・アプリの使い方）"
           >
             <ChatIcon />
-            {!compact && "聞く"}
+            {!compact && "手帳に聞く"}
           </button>
         </div>
       )}

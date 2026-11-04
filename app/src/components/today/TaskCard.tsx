@@ -48,12 +48,12 @@ function target(t: Task, today: string): When {
 }
 
 /** 一番上の「今やる1つ」。soon = 自分の今やる事が無く、まだ先の近い事を出した */
-export function TopTask(p: Common & { soon?: boolean }) {
+export function TopTask(p: Common & { soon?: boolean; eyebrowOverride?: string; children?: React.ReactNode }) {
   const { task: t, today, family, me } = p;
   const when = target(t, today);
   // 担当の呼び名（「家族」の事は空なので、担当名を出さない）
   const who = whoLabel(t, family, me);
-  const eyebrow = p.soon ? "もうすぐ" : me && isMine(t, me) ? "あなたの今やる1つ" : who ? (me ? `${who}の番` : `今やる1つ・${who}`) : "今やる1つ";
+  const eyebrow = p.eyebrowOverride ?? (p.soon ? "もうすぐ" : me && isMine(t, me) ? "次にやる事" : who ? `${who}の番` : "次にやる事");
   const counted = when && "days" in when ? when : null;
   const guide = when && "guide" in when ? when : null;
   const far = when && "far" in when ? when.far : null;
@@ -70,6 +70,7 @@ export function TopTask(p: Common & { soon?: boolean }) {
       <div className="flex w-full flex-col gap-2">
         {guide && <GuideLine guide={guide.guide} past={guide.past} />}
         {far && <span className="tabular text-sm text-muted">{far}</span>}
+        {p.children}
         <TaskBody {...p} top />
       </div>
     </NextStep>
@@ -95,7 +96,7 @@ export function TaskRow(p: Common & { muted?: boolean }) {
           <span className={`text-base leading-snug ${p.muted || others ? "text-muted" : "font-semibold"}`}>{t.plain}</span>
           {showPill && (
             <span>
-              <Pill tone={others ? "muted" : "rose"}>{who}</Pill>
+              <Pill tone={others ? "muted" : "rose"}>{who}の番</Pill>
             </span>
           )}
           {sharedPill && (
@@ -131,7 +132,7 @@ function GuideLine({ guide, past }: { guide: string; past: boolean }) {
   return (
     <p className="text-base text-muted">
       目安 <span className="tabular font-semibold text-ink">{guide}</span>
-      {past ? "（過ぎていても、今からできます）" : "（法で決まった期限ではありません）"}
+      {past ? "（過ぎていても、今からできます）" : "ごろまでに"}
     </p>
   );
 }

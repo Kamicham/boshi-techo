@@ -3,7 +3,7 @@
 // 「今日」の画面: 開いた瞬間に「今やる1つ」。2つ目からは1行ずつ、まだ先と済んだ事は畳む。
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { clockAt, diffDays } from "@/lib/clock";
+import { clockAt, diffDays, totalDays } from "@/lib/clock";
 import type { Family } from "@/lib/demo-family";
 import type { Keep } from "@/lib/keep";
 import { scheduleFor, statusOf, type Milestone } from "@/lib/milestones";
@@ -13,7 +13,8 @@ import { Btn, Fold, NextStep, Notice, daysUntil } from "./ui";
 import { HelpPlaces } from "./today/HelpPlaces";
 import { jpShort } from "./today/dates";
 import { DemoClock } from "./today/DemoClock";
-import { TaskRow, TopTask, isGuide, type ShownTask } from "./today/TaskCard";
+import { TaskRow, isGuide, type ShownTask } from "./today/TaskCard";
+import { NowCard } from "./today/NowCard";
 import { StaleBox } from "./today/StaleBox";
 import { AdvisorCard } from "./today/AdvisorCard";
 import { ConsultAsk } from "./today/ConsultAsk";
@@ -282,8 +283,6 @@ export function Techo() {
         </div>
       )}
 
-      {!loading && advisorOpen! > 0 && <AdvisorCard key={`${family.id}:${today}`} familyId={family.id} today={today} meId={me?.id} />}
-
       {loading ? (
         <div className="h-40 rounded-2xl bg-rose-soft/60" aria-hidden />
       ) : visitTop && nextVisit ? (
@@ -291,14 +290,17 @@ export function Techo() {
       ) : null}
       {!loading && staleFirst && <StaleBox key={`${family.id}:first`} tasks={stale} {...common} defaultOpen onDone={(ids) => void setManyDone(ids)} />}
       {loading || (visitTop && nextVisit) ? null : top ? (
-        <TopTask key={`${family.id}:${top.id}`} task={top} soon={!focus && plan.topIsSoon} {...common} onDone={() => void setDone(top, true)} />
+        <NowCard key={`${family.id}:${top.id}`} task={top} soon={!focus && plan.topIsSoon} {...common} onDone={() => void setDone(top, true)} />
       ) : (
         <Calm upcoming={me ? upcoming.filter((t) => t.who === "家族" || t.who === me.role) : upcoming} today={today} others={rows.filter((r) => r.kind === "task").length} />
       )}
 
+      {/* 手帳が見渡して気づいた事は、一番上の1枚の次に（大きな札を2枚並べない） */}
+      {!loading && advisorOpen! > 0 && <AdvisorCard key={`${family.id}:${today}`} familyId={family.id} today={today} meId={me?.id} />}
+
       {!loading && rows.length > 0 && (
-        <section aria-label="このあと" className="flex flex-col">
-          <h2 className="text-sm font-semibold text-muted">このあと</h2>
+        <section aria-label="ほかに今やる事" className="flex flex-col">
+          <h2 className="text-sm font-semibold text-muted">ほかに今やる事</h2>
           {rows.map((r) =>
             r.kind === "task" ? (
               <TaskRow key={`${family.id}:${r.task.id}`} task={r.task} {...common} onDone={() => void setDone(r.task, true)} />
@@ -319,9 +321,6 @@ export function Techo() {
 
       {!loading && !staleFirst && <StaleBox key={family.id} tasks={stale} {...common} onDone={(ids) => void setManyDone(ids)} />}
 
-      <Link href="/capture" className="inline-flex min-h-11 items-center gap-1 self-start text-base text-sky underline-offset-2 hover:underline">
-        気になった事は、話す・撮るで残す ›
-      </Link>
 
       {/* 写真の節目の日だけ、1回の一言（月に1回まで。写真を残せる手帳だけ） */}
       {!loading && <PhotoNudge key={`${family.id}:photo`} family={family} today={today} />}
@@ -329,14 +328,27 @@ export function Techo() {
       {/* 手帳の毎回の問い「相談できる人はいますか」（時期ごとに1回。答えた時期は出さない） */}
       {!loading && <ConsultAsk key={`${family.id}:consult`} family={family} today={today} meName={me?.name} />}
 
+      {/* 先の事は近い3つだけ。残りは数だけ言い、開けば見られる（2032年まで30行の壁を見せない） */}
       {!loading && upcoming.length > 0 && (
-        <Fold title="先の予定" note="時期が来たら、ここの一番上に出します">
-          <div className="flex flex-col">
-            {upcoming.map((t) => (
-              <TaskRow key={`${family.id}:${t.id}`} task={t} {...common} muted onDone={() => void setDone(t, true)} />
-            ))}
-          </div>
-        </Fold>
+        <section aria-label="近づいたら出す事" className="flex flex-col">
+          <h2 className="text-sm font-semibold text-muted">近づいたら、ここに出します</h2>
+          {upcoming.slice(0, 3).map((t) => (
+            <TaskRow key={`${family.id}:${t.id}`} task={t} {...common} muted onDone={() => void setDone(t, true)} />
+          ))}
+          {upcoming.length > 3 && (
+            <details className="group">
+              <summary className="flex min-h-12 cursor-pointer list-none items-center gap-1 text-base text-muted">
+                <span className="underline underline-offset-2">あと{upcoming.length - 3}件は、時期が来たら届きます</span>
+                <span className="transition-transform group-open:rotate-90" aria-hidden>›</span>
+              </summary>
+              <div className="flex flex-col">
+                {upcoming.slice(3).map((t) => (
+                  <TaskRow key={`${family.id}:${t.id}`} task={t} {...common} muted onDone={() => void setDone(t, true)} />
+                ))}
+              </div>
+            </details>
+          )}
+        </section>
       )}
 
       {!loading && finished.length > 0 && (
@@ -388,10 +400,21 @@ function WeekBand({ family, today }: { family: Family; today: string }) {
   } else {
     main = family.childName ? `${family.childName} ・ ${c.label}` : c.label;
   }
+  // 1000日（妊娠から2歳まで）の線の上の今。数字（「1000日の282日目」）は意味が通じなかったので、位置で見せる
+  const pos = c.dayOf1000 > 0 && c.phase !== "after" ? Math.min(1, c.dayOf1000 / totalDays(family)) : null;
   return (
-    <header className="flex items-baseline justify-between gap-3">
+    <header className="flex flex-col gap-2">
       <h1 className="font-display text-xl font-bold">{main}</h1>
-      {c.dayOf1000 > 0 && c.phase !== "after" && <span className="tabular shrink-0 text-xs text-muted">1000日の{c.dayOf1000}日目</span>}
+      {pos != null && (
+        <div className="flex items-center gap-2 text-xs text-muted" aria-label={`妊娠から2歳までの${Math.round(pos * 100)}%のところ`}>
+          <span aria-hidden>妊娠</span>
+          <span className="relative h-1 flex-1 rounded-full bg-line" aria-hidden>
+            <span className="absolute inset-y-0 left-0 rounded-full bg-rose/60" style={{ width: `${pos * 100}%` }} />
+            <span className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card bg-rose" style={{ left: `${pos * 100}%` }} />
+          </span>
+          <span aria-hidden>2歳</span>
+        </div>
+      )}
     </header>
   );
 }
