@@ -16,7 +16,6 @@ import { Btn, Fold, NextStep, Pill, Why, plainError } from "@/components/ui";
 import { SituationForm, tidySituation } from "@/components/settings/SituationForm";
 import type { Situation } from "@/lib/situation";
 import type { Keep } from "@/lib/keep";
-import { isRoleWord } from "@/lib/blanks";
 import { legacyWorkOwner, workOf, type Work } from "@/lib/whose";
 import type { Family, Member } from "@/lib/demo-family";
 
@@ -305,11 +304,9 @@ const toWorkForm = (w?: Work): WorkForm => ({ company: w?.company ?? "", boss: w
  */
 const WORK_SPLIT_AT = "2026-11-05T15:00:00.000Z";
 
-/** 設定の画面で人を呼ぶ形（ママ・パパのような呼び名はそのまま、名前には「さん」） */
+/** 設定の画面で人を呼ぶ形（今日の画面と同じく、名前をそのまま。名前が無ければ役の呼び方） */
 function whoLabel(m: Member): string {
-  const n = m.name.trim();
-  if (!n) return m.role === "母" ? "母" : "パートナー";
-  return isRoleWord(n) ? n : `${n}さん`;
+  return m.name.trim() || (m.role === "母" ? "ママ" : "パートナー");
 }
 
 /** いつもの場所と人（GET/POST /api/keep）。職場は人ごと（members＝保存した家族の人） */

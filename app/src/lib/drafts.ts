@@ -178,8 +178,8 @@ export function viewDraft(family: Family, draft: Draft | null, meId?: string | n
     writerId: writer?.id ?? null,
     fromName: writer ? keep.names?.[writer.id] || writer.name : "",
     mailHint: isMail && !mailTo && !toBoss ? `宛先は${family.city}のページで（問い合わせのフォームやメールアドレス）` : "",
-    // 開いた人が担当でない時だけ（開いた人がこの家族の人の時）
-    handTo: writer && meId && writer.id !== meId && family.members.some((x) => x.id === meId) ? { id: writer.id, name: keep.names?.[writer.id] || writer.name } : null,
+    // 開いた人が担当でない時だけ（開いた人がこの家族の人の時）。名前は画面の呼び方（手紙に書く名前ではない）
+    handTo: writer && meId && writer.id !== meId && family.members.some((x) => x.id === meId) ? { id: writer.id, name: writer.name } : null,
   };
 }
 

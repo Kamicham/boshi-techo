@@ -6,7 +6,7 @@
 // 「✓ 送った」などの印を付けると、その事も済みになる（印を外すと済みも外れる）。
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { applyBlanks, isRoleWord, jpDate, type Blank, type BlankKey } from "@/lib/blanks";
+import { applyBlanks, jpDate, type Blank, type BlankKey } from "@/lib/blanks";
 import { lineUrl } from "@/lib/handoff";
 import { draftConsentWaitKey, draftWaitValue, isClaudeConsentError, readConsentState, type ClaudeConsentState } from "@/lib/claude-consent-flow";
 import type { Draft, DraftKind, DraftView } from "@/lib/drafts";
@@ -25,15 +25,17 @@ function mdJst(iso: string): string {
   return `${d.getUTCMonth() + 1}月${d.getUTCDate()}日`;
 }
 
-/** 開いた人が担当でない時の1行（見直し C09）: 下書きは担当の人の名前と職場で書いてある。担当の人に LINE で頼める */
+/**
+ * 開いた人が担当でない時の1行（見直し C09）: 下書きは担当の人の名前と職場で書いてある。担当の人に LINE で頼める。
+ * 「◯◯の番です」は、やる事の札がすぐ上で言っているので重ねない。呼び方は今日の画面と同じ（名前に「さん」を付けない）
+ */
 function HandTo({ name, title }: { name: string; title: string }) {
-  const who = isRoleWord(name) ? name : `${name}さん`;
   const text = `「${title}」の下書きを、手帳に用意したよ。手帳で開いて、確かめてから使ってね。`;
   return (
     <p className="text-sm">
-      {who}の番です。{who}の名前と職場で書いています。{" "}
+      {name}の名前と職場で書いています。{" "}
       <a className="font-bold underline underline-offset-2" href={lineUrl(text)} target="_blank" rel="noreferrer">
-        {who}に LINE で頼む ›
+        {name}に LINE で頼む ›
       </a>
     </p>
   );

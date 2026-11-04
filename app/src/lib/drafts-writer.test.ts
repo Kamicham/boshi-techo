@@ -114,7 +114,8 @@ describe("パートナーの下書きに、母の職場を入れない", () => {
     // 書き手の名前は、覚えた翔太さんの名前
     expect(v.draft?.body).toContain("佐藤 翔太");
     expect(v.writerId).toBe("shota");
-    expect(v.handTo).toEqual({ id: "shota", name: "佐藤 翔太" });
+    // 渡す1行は画面の呼び方（手紙に書く名前ではない）
+    expect(v.handTo).toEqual({ id: "shota", name: "翔太" });
   });
 
   it("翔太さんの職場を覚えたら、翔太さんの職場で埋まる。母の職場は消えない", () => {
