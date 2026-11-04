@@ -3,10 +3,12 @@
 // 1歳・2歳の誕生日から2週間、今日の画面の一番上に出す1枚。「ひなた、1歳おめでとう」と、
 // その日に開いた手紙・一冊・映画への入口（思い出は、これまで下の小さな枠と、3回押した先にあった。2026-11-04 初見の目 L3）。
 // 祝う言葉だけで、体や発達の事には触れない。出す日は lib/media-shared.ts の birthdayFor（静かにする間は、いつもの画面を開いても出さない）。
+// 2歳の誕生日は1000日の終わり。札の下に「1000日、一緒に歩きました」と渡す準備を足す（ThousandDays。総点検 1-6・2026-11-04）。
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Family } from "@/lib/demo-family";
 import { recentlyOpened, type ClientLetter } from "@/lib/letters-shared";
+import { ThousandDays } from "./ThousandDays";
 
 export function BirthdayCard({ family, today, by, age }: { family: Family; today: string; by?: string; age: 1 | 2 }) {
   const [letters, setLetters] = useState<ClientLetter[]>([]);
@@ -55,6 +57,11 @@ export function BirthdayCard({ family, today, by, age }: { family: Family; today
           <span className="text-muted" aria-hidden>›</span>
         </Link>
       </div>
+      {age === 2 && (
+        <div className="border-t border-rose/30 pt-3">
+          <ThousandDays family={family} today={today} letters={letters} />
+        </div>
+      )}
     </section>
   );
 }

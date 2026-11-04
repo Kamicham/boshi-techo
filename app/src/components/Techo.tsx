@@ -4,7 +4,8 @@
 import Link from "next/link";
 import { demoAppliedOn, moneyWatch } from "@/lib/money";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { clockAt, diffDays, totalDays } from "@/lib/clock";
+import { diffDays } from "@/lib/clock";
+import { weekBand } from "@/lib/week-band";
 import type { Family } from "@/lib/demo-family";
 import type { Keep } from "@/lib/keep";
 import { scheduleFor, statusOf, type Milestone } from "@/lib/milestones";
@@ -29,7 +30,6 @@ import { birthdayFor, bornPromptFor, celebrationFor, welcomeFor } from "@/lib/me
 import { BornPrompt, WelcomeBaby } from "./today/WelcomeBaby";
 import { FamilyNews } from "./today/FamilyNews";
 import { doneWords, familyNewsFor, type Thanks } from "@/lib/done-words";
-import { hideCounts } from "@/lib/situation";
 import { byDays, daysLeft, planToday, withAssignee, type Task } from "./today/task";
 import { VisitToday, visitIsTop } from "./today/VisitToday";
 
@@ -542,31 +542,19 @@ export function Techo() {
   );
 }
 
-/** 週数の帯（1行）。1000日の何日目かは小さく右に */
+/** 週数の帯（1行）と、1000日の線。言い方は lib/week-band.ts（つらい別れの間は出さない） */
 function WeekBand({ family, today }: { family: Family; today: string }) {
-  // つらい別れの間は、「いつもの今日の画面」を開いても週数・予定日まで・1000日の線を出さない（lib/situation.ts の hideCounts）
-  if (hideCounts(family)) return null;
-  const c = clockAt(family, today);
-  const toDue = diffDays(family.dueDate, today);
-  let main: string;
-  if (c.phase === "pregnant") {
-    // 予定日を過ぎても数え上げない（一番身構える週に、数字を増やさない）
-    const due = toDue > 0 ? `予定日まであと${toDue}日` : toDue === 0 ? "今日が予定日" : "予定日のころ";
-    main = `${c.pregnancyWeek}週 ・ ${due}`;
-  } else if (c.phase === "trying") {
-    main = "授かる前";
-  } else if (c.phase === "after") {
-    main = `${c.label} ・ 1000日を過ぎました`;
-  } else {
-    main = family.childName ? `${family.childName} ・ ${c.label}` : c.label;
-  }
-  // 1000日（妊娠から2歳まで）の線の上の今。数字（「1000日の282日目」）は意味が通じなかったので、位置で見せる
-  const pos = c.dayOf1000 > 0 && c.phase !== "after" ? Math.min(1, c.dayOf1000 / totalDays(family)) : null;
+  const b = weekBand(family, today);
+  if (!b) return null;
+  const { main, pos, walked } = b;
   return (
     <header className="flex flex-col gap-2">
       <h1 className="font-display text-xl font-bold">{main}</h1>
       {pos != null && (
-        <div className="flex items-center gap-2 text-xs text-muted" aria-label={`妊娠から2歳までの${Math.round(pos * 100)}%のところ`}>
+        <div
+          className="flex items-center gap-2 text-xs text-muted"
+          aria-label={walked ? "妊娠から2歳までを、歩き終えたところ" : `妊娠から2歳までの${Math.round(pos * 100)}%のところ`}
+        >
           <span aria-hidden>妊娠</span>
           <span className="relative h-1 flex-1 rounded-full bg-line" aria-hidden>
             <span className="absolute inset-y-0 left-0 rounded-full bg-rose/60" style={{ width: `${pos * 100}%` }} />
