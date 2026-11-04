@@ -18,6 +18,7 @@ import { BirthTripCard } from "./today/BirthTripCard";
 import { planBirthTrip } from "@/lib/birth-trip";
 import { applyRetime, type Retime } from "@/lib/vax-next";
 import { StaleBox } from "./today/StaleBox";
+import { StartedLate } from "./today/StartedLate";
 import { AdvisorCard } from "./today/AdvisorCard";
 import { ConsultAsk } from "./today/ConsultAsk";
 import { PhotoNudge } from "./today/PhotoNudge";
@@ -306,6 +307,8 @@ export function Techo() {
       ) : visitTop && nextVisit ? (
         <VisitToday family={family} today={today} next={nextVisit} agendaCount={visit?.agenda ?? 0} keep={keep} />
       ) : null}
+      {/* 途中から始めた家族: 始める前に目安が過ぎた事を、済んでいるか1回聞く */}
+      {!loading && <StartedLate family={family} today={today} />}
       {!loading && staleFirst && <StaleBox key={`${family.id}:first`} tasks={stale} {...common} defaultOpen onDone={(ids) => void setManyDone(ids)} />}
       {!loading && trip && !(visitTop && nextVisit) && !focus && (
         <BirthTripCard

@@ -14,6 +14,7 @@ import type { Family } from "@/lib/demo-family";
 import { deadlineKindOf, scheduleFor, statusOf } from "@/lib/milestones";
 import { planToday, withAssignee } from "@/components/today/task";
 import { jpShort } from "@/components/today/dates";
+import { recentlyPassed } from "@/lib/started-late";
 
 type Answers = { born: boolean; date: string; prefecture: string; city: string; me: "mother" | "partner" };
 const KEY = "boshi.start";
@@ -169,7 +170,7 @@ function Preview({ a, today, busy, msg, onEdit, onKeep, canKeep }: { a: Answers;
     const schedule = scheduleFor(family, today);
     const done = new Set(schedule.filter((m) => m.deadlineDate && !m.awaitingBirth && m.deadlineDate < today).map((m) => m.id));
     const tasks = schedule.map((m) => withAssignee({ ...m, status: statusOf(m, today, done) }, family, undefined));
-    return { ...planToday(tasks, today, me), count: tasks.filter((t) => t.status !== "済み").length };
+    return { ...planToday(tasks, today, me), count: tasks.filter((t) => t.status !== "済み").length, before: recentlyPassed(schedule, today) };
   }, [family, today, me]);
   const c = clockAt(family, today);
   const toDue = diffDays(family.dueDate, today);
@@ -232,6 +233,20 @@ function Preview({ a, today, busy, msg, onEdit, onKeep, canKeep }: { a: Answers;
               <li key={t.id} className="flex items-baseline justify-between gap-3 py-2 text-base">
                 <span className="min-w-0">{t.plain}</span>
                 <span className="shrink-0 text-sm text-muted">{when(t)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {plan.before.length > 0 && (
+        <section className="flex flex-col gap-1">
+          <h2 className="text-sm font-semibold text-muted">始める前に目安が過ぎた事（残すと、済んでいるかを聞きます）</h2>
+          <ul className="flex flex-col divide-y divide-line">
+            {plan.before.map((t) => (
+              <li key={t.id} className="flex items-baseline justify-between gap-3 py-2 text-base">
+                <span className="min-w-0">{t.plain}</span>
+                <span className="shrink-0 text-sm text-muted">目安 {jpShort(t.deadlineDate!, today)}</span>
               </li>
             ))}
           </ul>

@@ -6,7 +6,7 @@ import { body, route } from "@/lib/api";
 import { list } from "@/lib/db";
 import { HttpError } from "@/lib/family";
 import { familyFor } from "../_lib/household";
-import { doneFromTechoFor, markDone, removeDone, vaxRetimeFor, type DoneData } from "./_lib/done";
+import { doneFromTechoFor, markDone, markStartedLateOpen, removeDone, vaxRetimeFor, type DoneData } from "./_lib/done";
 
 function milestoneOf(v: unknown): string {
   if (typeof v !== "string" || !/^[a-zA-Z0-9_-]{1,80}$/.test(v)) throw new HttpError(400, "済んだ事の id が読めません");
@@ -28,17 +28,21 @@ export const GET = route(async (req: Request) => {
     fromTecho,
     /** 下書きの印から済みになった事（自分で押した物と見分けたい画面のため） */
     fromDraft: docs.filter((d) => d.data.auto === "draft").map((d) => d.data.milestoneId),
+    /** 始める前に期限が過ぎて済みにした事（open: まだと答えた） */
+    startedLate: docs.filter((d) => d.data.auto === "started-late" || d.data.auto === "started-late-open").map((d) => ({ id: d.data.milestoneId, open: d.data.auto === "started-late-open" })),
     /** 予防接種の次の回の打てる最短日（手帳の接種の日付から数え直した物。表の日より遅い時だけ） */
     retime: vaxRetimeFor(family, today),
   };
 });
 
 export const POST = route(async (req: Request) => {
-  const b = await body<{ familyId?: string; milestoneId?: string; today?: string }>(req);
+  const b = await body<{ familyId?: string; milestoneId?: string; today?: string; open?: boolean }>(req);
   const { family } = await familyFor(req, b.familyId, "record:write");
   const milestoneId = milestoneOf(b.milestoneId);
   const today = typeof b.today === "string" && /^\d{4}-\d{2}-\d{2}$/.test(b.today) ? b.today : undefined;
-  markDone(family.id, milestoneId, today);
+  // 始める前の事に「まだ」: 予定の並びには戻さず、「始める前の事」に出し続ける
+  if (b.open) markStartedLateOpen(family.id, milestoneId, today);
+  else markDone(family.id, milestoneId, today);
   return { ok: true, milestoneId };
 });
 
