@@ -3,7 +3,8 @@
 // 「今やる事」のカードに付く動き（答えずに、動く）。
 // ② その町の窓口を調べる → 一番上に「どこへ・何を持って」、地図で開く
 // ③ 下書きを作る → 宛先・件名・本文をワンタップでコピー、メール・LINE・共有で開く（送るのは家族）
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { afterDraftConsentReturn, CONSENT_REQUIRED_TEXT, draftConsentWaitKey, readConsentState, waitingDraftFor } from "@/lib/claude-consent-flow";
 import { DRAFTABLE } from "@/lib/draft-kinds";
 import type { Milestone } from "@/lib/milestones";
 import type { LocalInfo } from "@/lib/local";
@@ -91,8 +92,6 @@ function Actions({ milestone, today, primary, compact, onDoneChange }: Props) {
     };
   }, [family.id, milestone.id, canDraft, canLocal, me]);
 
-  if (!canLocal && !canDraft) return null;
-
   const loadLocal = async (force = false) => {
     setLocalErr("");
     setLocalBusy(true);
@@ -149,6 +148,39 @@ function Actions({ milestone, today, primary, compact, onDoneChange }: Props) {
     if (which === "draft" && !view?.draft && !draftBusy) void openDraft();
   };
 
+  // 同意の画面から戻った時（見直し C38 ①）: この事の下書きを待っていたら、窓を開く。同意が済んでいれば、そのまま作る（1回だけ）。
+  // 同意がまだ・読めない時は作らず、同じ案内を出す（同意を取らずに作らない）。同じ事が画面に2つあっても、控えを先に読んだ方だけが動く
+  const resumed = useRef(false);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!canDraft || resumed.current) return;
+    const key = draftConsentWaitKey(family.id);
+    let raw: string | null = null;
+    try {
+      raw = sessionStorage.getItem(key);
+    } catch {}
+    if (!waitingDraftFor(raw, milestone.id, Date.now())) return;
+    resumed.current = true;
+    try {
+      sessionStorage.removeItem(key);
+    } catch {}
+    void api<unknown>(`/api/account/consent?familyId=${encodeURIComponent(family.id)}`)
+      .then(readConsentState, () => null)
+      .then((state) => {
+        setOpen("draft");
+        if (afterDraftConsentReturn({ raw, milestoneId: milestone.id, now: Date.now(), state }) === "make") void openDraft();
+        else {
+          setDraftErr(CONSENT_REQUIRED_TEXT);
+          setDraftSettled(true);
+        }
+        requestAnimationFrame(() => box.current?.scrollIntoView({ block: "center", behavior: "smooth" }));
+      });
+    // 戻った時の1回だけ（開いた時）に見る
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (!canLocal && !canDraft) return null;
+
   const draft = view?.draft ?? null;
   // ボタンの言葉は、押す前と同じ種類で呼ぶ（表に無い事だけ、作った下書きの種類で呼ぶ）
   const noun = nounFor(DRAFTABLE[milestone.id] ?? draft?.kind ?? "記入メモ", milestone);
@@ -163,7 +195,7 @@ function Actions({ milestone, today, primary, compact, onDoneChange }: Props) {
   ].filter((x): x is { id: Exclude<Open, null>; label: string; aria: string } => !!x);
 
   return (
-    <div className="flex flex-col gap-3">
+    <div ref={box} className="flex flex-col gap-3">
       <div className={`flex flex-wrap items-center ${compact ? "gap-x-2" : "gap-2"}`}>
         {buttons.map((b, i) =>
           compact || (primary && i > 0) ? (

@@ -33,6 +33,15 @@ describe("一冊の最初の箱", () => {
   it("見本の家族で記録0件は、見本の記録を入れる", () => {
     expect(bookIntro({ count: 0, born: false, isDemo: true }).kind).toBe("seed");
   });
+  it("本物の家族で記録0件の時だけ「見本の家族の一冊を読む ›」。開く日は、同梱した見本の一冊のいちばん後ろの日（見直し C38 ④）", async () => {
+    const zero = bookIntro({ childName: "ひなた", count: 0, born: false, isDemo: false });
+    expect(zero.kind === "gather" && zero.sample).toBe(true);
+    const few = bookIntro({ childName: "ひなた", count: 4, born: false, isDemo: false });
+    expect(few.kind === "gather" && few.sample).toBe(false);
+    const { SAMPLE_BOOK_DAY } = await import("./book-intro");
+    const seeds = (await import("./demo-books.json")).default as { asOf: string }[];
+    expect(SAMPLE_BOOK_DAY).toBe(seeds.map((s) => s.asOf).sort().at(-1));
+  });
   it("判定の言葉を出さない", () => {
     for (const count of [0, 3, 50]) for (const born of [true, false]) {
       const x = bookIntro({ count, born, isDemo: false });

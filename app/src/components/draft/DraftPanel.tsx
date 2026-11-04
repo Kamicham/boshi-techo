@@ -4,10 +4,13 @@
 // 宛名・メールアドレス・件名・本文はそれぞれコピーでき、メール・LINE・共有で開く。送るのは家族（手帳からは送らない）。
 // 残った【 】は全部、欄として並べて埋める。会社名・部署・上司・人事・病院は「いつもの」として覚え、次の下書きから最初から入る。
 // 「✓ 送った」などの印を付けると、その事も済みになる（印を外すと済みも外れる）。
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { applyBlanks, jpDate, type Blank, type BlankKey } from "@/lib/blanks";
+import { draftConsentWaitKey, draftWaitValue, isClaudeConsentError, readConsentState, type ClaudeConsentState } from "@/lib/claude-consent-flow";
 import type { Draft, DraftKind, DraftView } from "@/lib/drafts";
 import { api } from "../FamilyProvider";
+import { ClaudeConsentLink } from "../settings/ClaudeConsentLink";
 import { Btn, CopyField, HandoffRow, Pill, Why } from "../ui";
 import { ErrorLine, Working } from "./Working";
 
@@ -54,11 +57,53 @@ export function DraftPanel(p: PanelProps) {
           then="できたら、ここに宛先・件名・本文が出ます"
         />
       )}
-      {p.err && <ErrorLine text={p.err} settled={p.settled} onRetry={p.onRetry} />}
+      {p.err &&
+        (isClaudeConsentError(p.err) ? (
+          <DraftConsent familyId={p.familyId} milestoneId={p.milestoneId} err={p.err} />
+        ) : (
+          <ErrorLine text={p.err} settled={p.settled} onRetry={p.onRetry} />
+        ))}
       {draft && p.view && p.busy !== "make" && (
         <DraftBody key={`${draft.title}\n${draft.to}\n${draft.body}\n${draft.status}`} {...p} view={p.view} draft={draft} />
       )}
     </section>
+  );
+}
+
+/**
+ * 下書きが同意の前で止まった時（見直し C38 ①）: 灰色の止まった文にせず、同意の案内を出す。
+ * 「読んで決める」の前に、どの事の下書きかを控える。戻ってこの事の動きが開くと、同意が済んでいればそのまま作る（MilestoneActions）。
+ * まだ手帳に入っていないママの分が要る時は、押しても進めないので「ママを手帳に入れる」へ（母の分は母本人だけ）。
+ */
+function DraftConsent({ familyId, milestoneId, err }: { familyId: string; milestoneId: string; err: string }) {
+  const here = usePathname();
+  const [state, setState] = useState<ClaudeConsentState>(null);
+  useEffect(() => {
+    let off = false;
+    api<unknown>(`/api/account/consent?familyId=${encodeURIComponent(familyId)}`).then(
+      (j) => !off && setState(readConsentState(j)),
+      () => {},
+    );
+    return () => {
+      off = true;
+    };
+  }, [familyId]);
+  return (
+    <ClaudeConsentLink
+      error={err}
+      back={here || "/"}
+      waitMother={state === "mother"}
+      lead={
+        <>
+          下書きを書くには、<b>米国の Claude に送る同意</b>が要ります。読んで決めて戻ると、そのまま書きます。
+        </>
+      }
+      onGo={() => {
+        try {
+          sessionStorage.setItem(draftConsentWaitKey(familyId), draftWaitValue(milestoneId, Date.now()));
+        } catch {}
+      }}
+    />
   );
 }
 
