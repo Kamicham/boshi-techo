@@ -1,12 +1,13 @@
 "use client";
 
-// 同意の画面の共通部分: 本人ごとに選んで「同意する」。子の分は親が法定代理人として押す。
+// 同意の画面の共通部分: 本人ごとに選んで「同意する」。子の分は親が代わりに押す（法定代理人。画面の言葉は lib/consent-screen.ts）。
 // 中身の文（何に同意するか）は呼ぶ側が children で渡す。撤回はアカウントの画面から同じ手軽さで。
 import { useEffect, useMemo, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn } from "@/components/ui";
 import { CHILD_NOTE, CONSENT_NAME, type ScreenConsentKind } from "./consent-texts";
-import { Box, Msg, SUBJECT_WORD, useHouseholdDetail, jpDateTime, safeNext, type SubjectView } from "./account-ui";
+import { childConsentLine } from "@/lib/consent-screen";
+import { Box, Msg, SUBJECT_WORD, useHouseholdDetail, jpDateTime, safeNext, type HouseholdDetail, type SubjectView } from "./account-ui";
 
 /** URL の ?familyId= と ?next=（読み終えるまで ready は false） */
 export function useQuery(): { ready: boolean; familyId: string | null; next: string | null } {
@@ -34,10 +35,10 @@ export function ConsentScreen({
   title: string;
   lead: string;
   children: React.ReactNode;
-  /** 同意した後に出す物（次の画面への入口など） */
-  after?: (next: string | null, familyId: string) => React.ReactNode;
+  /** 同意した後に出す物（次の画面への入口など）。detail は世帯の中身（招けるかを見る） */
+  after?: (next: string | null, familyId: string, detail: HouseholdDetail | null) => React.ReactNode;
 }) {
-  const { family, reload } = useFamily();
+  const { family, families, reload } = useFamily();
   const q = useQuery();
   const familyId = q.familyId ?? family.id;
   const { data, error, load } = useHouseholdDetail(q.ready ? familyId : null);
@@ -69,12 +70,14 @@ export function ConsentScreen({
   };
 
   const hasChild = open.some((s) => s.kind === "child");
+  // 子がもう生まれているか（「おなかの子」と「子」の言い分け）
+  const born = !!(families.find((f) => f.id === familyId) ?? family).birthDate;
   const waiting = (data?.subjects ?? []).filter((s) => !s.canConsent && !current(s));
 
   return (
     <main className="flex flex-col gap-4 px-4 pt-4 pb-10">
       {/* 押した後の次の一手は、押した所（画面の下）でなく一番上にも出す（長い画面の下に隠れないように） */}
-      {done && after?.(q.next, familyId)}
+      {done && after?.(q.next, familyId, data ?? null)}
       <p className="text-sm font-semibold text-muted">同意: {CONSENT_NAME[kind]}</p>
       <h1 className="font-display text-2xl font-bold text-balance">{title}</h1>
       <p className="text-base">{lead}</p>
@@ -106,9 +109,7 @@ export function ConsentScreen({
                     {c
                       ? `同意済み（${jpDateTime(c.grantedAt)}）`
                       : s.kind === "child"
-                        ? s.canConsent
-                          ? "親が法定代理人として同意します"
-                          : "世帯の持ち主・共同の管理の人が、法定代理人として押します"
+                        ? childConsentLine(s.canConsent, born)
                         : s.canConsent
                           ? s.mine || data.role === "guest"
                             ? ""
@@ -134,7 +135,7 @@ export function ConsentScreen({
         </Box>
       )}
       <Msg msg={msg} />
-      {!done && data && open.length === 0 && after?.(q.next, familyId)}
+      {!done && data && open.length === 0 && after?.(q.next, familyId, data)}
     </main>
   );
 }

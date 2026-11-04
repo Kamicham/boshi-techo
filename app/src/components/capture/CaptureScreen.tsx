@@ -17,6 +17,7 @@ import { shrinkPhoto } from "./media";
 import { PhotoChoice, type ReadKind } from "./PhotoChoice";
 import { TechoCandidates } from "./TechoCandidates";
 import { RecordItem, Timeline } from "./Timeline";
+import { afterConsentReturn, consentWaitKey, isClaudeConsentError, mayTrySend, readConsentState, type ClaudeConsentState } from "@/lib/claude-consent-flow";
 
 type Last = CaptureResult & { transcript?: string; source: RecordSource };
 
@@ -44,9 +45,9 @@ function failOf(kind: FailKind, e: unknown): Fail {
         : { title: "まだ送れていません", safe: "録音は残っていません。もう一度話してください", detail };
     case "photo":
     case "page":
-      return { title: "まだ読めていません", safe: "写真はここに残っていません。もう一度撮ってください", detail };
+      return { title: "まだ読めていません", safe: "写真はこの画面に残っていません。もう一度撮ってください", detail };
     case "text":
-      return { title: "まだ送れていません", safe: "書いた事は、この電話の下の欄に残っています。そのまま送り直せます", detail };
+      return { title: "まだ送れていません", safe: "書いた事は、この画面の下の欄に残っています。そのまま送り直せます", detail };
     case "answer":
       return { title: "まだ送れていません", safe: "答えは欄に残っています。そのまま送り直せます", detail };
     case "skip":
@@ -90,6 +91,24 @@ export function CaptureScreen() {
       else sessionStorage.removeItem(DRAFT_KEY);
     } catch {}
   }, [DRAFT_KEY, text]);
+  // 米国の Claude に送る同意: 送る前に読む（読めない時は null。送ってみて 403 なら needed にする）
+  const WAIT_KEY = consentWaitKey(family.id);
+  const [consent, setConsent] = useState<ClaudeConsentState>(null);
+  const [consentRead, setConsentRead] = useState(false);
+  // 同意がまだで送らなかった時、何を送ろうとしていたか（青い案内の言い方を変える）
+  const [held, setHeld] = useState<FailKind | null>(null);
+  const resumed = useRef(false);
+  useEffect(() => {
+    let off = false;
+    setConsentRead(false);
+    api<unknown>(`/api/account/consent?familyId=${encodeURIComponent(family.id)}`)
+      .then((j) => !off && setConsent(readConsentState(j)))
+      .catch(() => !off && setConsent(null))
+      .finally(() => !off && setConsentRead(true));
+    return () => {
+      off = true;
+    };
+  }, [family.id]);
   const [answer, setAnswer] = useState("");
   const [last, setLast] = useState<Last | null>(null);
   const [ask, setAsk] = useState<Ask | null>(null);
@@ -165,6 +184,7 @@ export function CaptureScreen() {
   /** 待ちの長い処理を、いま何をしているかを出しながら走らせる */
   const run = async (label: string, kind: FailKind, fn: () => Promise<Last>) => {
     setError(null);
+    setHeld(null);
     setBusy(label);
     try {
       const r = await fn();
@@ -178,6 +198,12 @@ export function CaptureScreen() {
         setText((cur) => (cur.trim() ? `${cur.trim()}\n${e.transcript}` : e.transcript));
         setWriting(true);
       }
+      // 同意がまだだった時は、失敗の知らせ（赤）を出さず、同意の案内（青）だけを出す
+      if (isClaudeConsentError(plainError(e))) {
+        setConsent("needed");
+        setHeld(kind);
+        return false;
+      }
       setError(failOf(kind, e));
       return false;
     } finally {
@@ -185,7 +211,16 @@ export function CaptureScreen() {
     }
   };
 
+  /** 同意がまだと分かっている時は送らずに、同意の案内だけを出す */
+  const holdForConsent = (kind: FailKind) => {
+    if (mayTrySend(consent)) return false;
+    setError(null);
+    setHeld(kind);
+    return true;
+  };
+
   const sendVoice = (blob: Blob) =>
+    holdForConsent("voice") ||
     run("聞き取っています", "voice", async () => {
       const r = await fetch(`/api/capture/voice?familyId=${encodeURIComponent(family.id)}&today=${today}`, {
         method: "POST",
@@ -202,6 +237,7 @@ export function CaptureScreen() {
     });
 
   const sendPhoto = async (file: File) => {
+    if (holdForConsent("photo")) return;
     let image: string;
     try {
       image = await shrinkPhoto(file);
@@ -217,6 +253,7 @@ export function CaptureScreen() {
 
   /** 紙の母子手帳のページを撮る → どのページか・行を読んで、手帳の候補にする */
   const sendPage = async (file: File) => {
+    if (holdForConsent("page")) return;
     let image: string;
     try {
       image = await shrinkPhoto(file, 2000);
@@ -242,10 +279,11 @@ export function CaptureScreen() {
     setShot(null);
   };
 
-  const sendText = async () => {
-    const t = text.trim();
+  const sendText = async (given?: string, label = "手帳に書いています") => {
+    const t = (given ?? text).trim();
     if (!t) return;
-    const ok = await run("手帳に書いています", "text", async () => ({
+    if (holdForConsent("text")) return;
+    const ok = await run(label, "text", async () => ({
       ...(await api<CaptureResult>("/api/capture", { body: { familyId: family.id, today, text: t } })),
       source: "text",
     }));
@@ -254,6 +292,29 @@ export function CaptureScreen() {
       setWriting(false);
     }
   };
+
+  // 同意の画面から戻った時: 同意が済んでいれば、控えの文を1回だけ送る（送ったら控えと印を消す）
+  useEffect(() => {
+    if (!consentRead || resumed.current) return;
+    resumed.current = true;
+    let draft: string | null = null;
+    let waiting = false;
+    try {
+      draft = sessionStorage.getItem(DRAFT_KEY);
+      waiting = sessionStorage.getItem(WAIT_KEY) === "1";
+    } catch {}
+    const next = afterConsentReturn({ draft, waiting, state: consent });
+    if (next === "send" && draft) {
+      try {
+        sessionStorage.removeItem(WAIT_KEY);
+      } catch {}
+      void sendText(draft, "同意できました。手帳に書いています");
+    } else if (next === "ask") {
+      setHeld("text");
+    }
+    // 戻った時の1回だけ（consentRead が立った時）に見る
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [consentRead]);
 
   const sendAnswer = async () => {
     if (!ask || !answer.trim()) return;
@@ -364,7 +425,18 @@ export function CaptureScreen() {
         </p>
       )}
       {error && <Notice title={error.title} safe={error.safe} detail={error.detail} />}
-      <ClaudeConsentLink error={error?.detail} back="/capture" />
+      {held && (
+        <ClaudeConsentLink
+          need
+          back="/capture"
+          lead={consentLead(held)}
+          onGo={() => {
+            try {
+              sessionStorage.setItem(WAIT_KEY, "1");
+            } catch {}
+          }}
+        />
+      )}
 
       {last && !busy && (
         <section aria-label="いま書いた事" className="flex flex-col gap-3 rounded-2xl bg-rose-soft p-5">
@@ -435,6 +507,21 @@ export function CaptureScreen() {
       </div>
     </main>
   );
+}
+
+/** 同意がまだで送らなかった時の、青い案内の文（何を送ろうとしていたかで言い分ける） */
+function consentLead(kind: FailKind) {
+  switch (kind) {
+    case "voice":
+      return "話した事を手帳の欄に分けるには、もう1つ同意が要ります（米国の Claude に送るのは文字だけです）。録音はまだ送っていません。同意の後に、もう一度話してください。";
+    case "photo":
+    case "page":
+      return "撮った紙を手帳の欄に分けるには、もう1つ同意が要ります（米国の Claude に送るのは、「読み取る」を選んだ1枚だけです）。写真はまだ送っていません。同意の後に、もう一度撮ってください。";
+    case "answer":
+      return "答えを手帳の欄に分けるには、もう1つ同意が要ります（米国の Claude に送るのは文字だけです）。答えは欄に残っています。";
+    default:
+      return "この文を手帳の欄に分けるには、もう1つ同意が要ります（米国の Claude に送るのは文字だけです）。";
+  }
 }
 
 /** 聞き返しの問いと、答える欄 */

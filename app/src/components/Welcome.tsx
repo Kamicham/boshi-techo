@@ -8,6 +8,14 @@ import { api, useFamily } from "./FamilyProvider";
 import { demoStages, StagePicker } from "./today/StagePicker";
 
 export const WELCOMED_KEY = "boshi.welcomed";
+// 公開版（体験）では合言葉の口（/unlock）を閉じているので、合言葉の扉は出さない（middleware.ts）
+const PUBLIC = process.env.NEXT_PUBLIC_BOSHI_PUBLIC === "1";
+
+function markWelcomed() {
+  try {
+    localStorage.setItem(WELCOMED_KEY, "1");
+  } catch {}
+}
 
 export function readWelcomed(): boolean {
   try {
@@ -36,9 +44,7 @@ export function Welcome({ onClose }: { onClose: () => void }) {
     setToday(date);
     // 作った記録（話した・撮った）を入れておく。入らなくても手帳は開く
     await api("/api/capture/seed", { body: { familyId: family.id } }).catch(() => {});
-    try {
-      localStorage.setItem(WELCOMED_KEY, "1");
-    } catch {}
+    markWelcomed();
     onClose();
   };
 
@@ -71,6 +77,20 @@ export function Welcome({ onClose }: { onClose: () => void }) {
           ))}
         </ul>
 
+        {/* 扉2つ（同じ大きさ）: 自分の手帳を始める・家族に入れてもらう。合言葉の扉はログインの画面の「家族の合言葉で入る」と同じ /unlock */}
+        <nav aria-label="入口" className="flex flex-col gap-3">
+          <a href="/start" onClick={markWelcomed} className="flex min-h-16 flex-col items-center justify-center rounded-2xl border-2 border-rose px-4 py-2 text-center text-rose">
+            <span className="font-display text-lg font-bold">自分の手帳を始める</span>
+            <span className="text-sm">3つ答える</span>
+          </a>
+          {!PUBLIC && (
+            <a href="/unlock" onClick={markWelcomed} className="flex min-h-16 flex-col items-center justify-center rounded-2xl border-2 border-rose px-4 py-2 text-center text-rose">
+              <span className="text-sm">家族に「入れて」と言われた人は</span>
+              <span className="font-display text-lg font-bold">→ 合言葉で入る</span>
+            </a>
+          )}
+        </nav>
+
         <section className="flex flex-col gap-3" aria-labelledby="welcome-try">
           <div className="flex flex-col gap-1">
             <h2 id="welcome-try" className="font-display text-xl font-bold text-ink">
@@ -89,23 +109,6 @@ export function Welcome({ onClose }: { onClose: () => void }) {
             </p>
           )}
           <p className="text-sm text-muted">作った家族です。あなただけの写しで、7日で消えます。本物の記録は書かないでください。</p>
-        </section>
-
-        {/* もう1つの扉: 自分の手帳（3つ答えるとその場で動く） */}
-        <section className="flex flex-col gap-2 border-t border-line pt-5">
-          <h2 className="font-display text-xl font-bold text-ink">自分の手帳を始める</h2>
-          <p className="text-sm text-muted">予定日（生まれた日）・町・あなたは、の3つで、あなたの手帳がその場で動きます。</p>
-          <a
-            href="/start"
-            onClick={() => {
-              try {
-                localStorage.setItem(WELCOMED_KEY, "1");
-              } catch {}
-            }}
-            className="flex min-h-12 items-center justify-center rounded-full border-2 border-rose font-display text-lg font-bold text-rose"
-          >
-            3つ答えて始める
-          </a>
         </section>
       </div>
     </div>

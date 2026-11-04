@@ -20,6 +20,7 @@
 import { useEffect, useState } from "react";
 import { addDays, addMonths, clockAt, lmpFromDue } from "@/lib/clock";
 import type { Family } from "@/lib/demo-family";
+import { CONSULT_AFTER_NOTE, consultWaitsFirstDay } from "@/lib/consult-first-day";
 import { CONSULT_QUESTION, type TechoEntry } from "@/lib/techo";
 import { api } from "../FamilyProvider";
 import { Notice, plainError, Why } from "../ui";
@@ -67,7 +68,8 @@ function entriesOf(j: unknown): TechoEntry[] {
 }
 
 export function ConsultAsk({ family, today, meName }: { family: Family; today: string; meName?: string }) {
-  const period = consultPeriod(family, today);
+  // 使い始めた日は聞かない（初めての日は手帳に慣れるだけ。見本の家族は今までどおり。lib/consult-first-day.ts）
+  const period = consultWaitsFirstDay(family, today) ? null : consultPeriod(family, today);
   // undefined = 読み込み中、null = この人はこの区切りでまだ答えていない
   const [answered, setAnswered] = useState<ConsultAnswer | null | undefined>(undefined);
   const [saving, setSaving] = useState(false);
@@ -147,6 +149,7 @@ export function ConsultAsk({ family, today, meName }: { family: Family; today: s
         <br />
         {CONSULT_QUESTION}
       </p>
+      <p className="text-sm text-muted">{CONSULT_AFTER_NOTE}</p>
       <div className="grid grid-cols-2 gap-2">
         <button type="button" disabled={saving} onClick={() => void answer("yes")} className={btn}>
           いる
