@@ -5,7 +5,7 @@ import { get, put } from "./db";
 import { scheduleFor } from "./milestones";
 import { birthFacts, isMadeFamily } from "./techo-seed";
 import { listTecho } from "./techo-store";
-import { MAX_OLDER_KIDS, OLDER_CARES, cleanQuiet, type Leave, type MotherWork, type OlderKid, type Situation, type Work } from "./situation";
+import { cleanOlderKids, cleanQuiet, type Leave, type MotherWork, type Situation, type Work } from "./situation";
 import { HttpError } from "./http-error";
 import { isTrialId } from "./trial-cookie";
 
@@ -181,27 +181,6 @@ function yesNo(v: unknown): boolean | undefined {
  * 決まった選びに無い値・形の違う値は捨てる（= わからない）。消した欄（母の育休・夜勤・単身赴任・祖父母）は読み捨てる。
  * 何も残らなければ undefined（今までどおりの予定が出る）。
  */
-/** 上の子の一覧を確かめる（生まれた日が読めない子は捨てる・未来の日も捨てる・3人まで） */
-export function cleanOlderKids(v: unknown): OlderKid[] {
-  if (!Array.isArray(v)) return [];
-  const out: OlderKid[] = [];
-  for (const x of v) {
-    if (!x || typeof x !== "object") continue;
-    const k = x as Record<string, unknown>;
-    const b = typeof k.birthDate === "string" ? k.birthDate : "";
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(b) || Number.isNaN(Date.parse(b)) || b < "2000-01-01") continue;
-    const kid: OlderKid = { birthDate: b };
-    const name = typeof k.name === "string" ? k.name.trim().slice(0, 20) : "";
-    if (name) kid.name = name;
-    if (k.monthOnly === true) kid.monthOnly = true;
-    const care = oneOf(k.care, OLDER_CARES);
-    if (care) kid.care = care;
-    out.push(kid);
-    if (out.length >= MAX_OLDER_KIDS) break;
-  }
-  return out;
-}
-
 export function cleanSituation(x: unknown, hasPartner: boolean): Situation | undefined {
   if (!x || typeof x !== "object") return undefined;
   const r = x as Record<string, unknown>;

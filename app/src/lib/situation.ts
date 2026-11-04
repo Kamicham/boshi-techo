@@ -50,6 +50,26 @@ export interface OlderKid {
   care?: OlderCare;
 }
 
+/** 上の子の一覧を確かめる（生まれた日が読めない子は捨てる・3人まで） */
+export function cleanOlderKids(v: unknown): OlderKid[] {
+  if (!Array.isArray(v)) return [];
+  const out: OlderKid[] = [];
+  for (const x of v) {
+    if (!x || typeof x !== "object") continue;
+    const k = x as Record<string, unknown>;
+    const b = typeof k.birthDate === "string" ? k.birthDate : "";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(b) || Number.isNaN(Date.parse(b)) || b < "2000-01-01") continue;
+    const kid: OlderKid = { birthDate: b };
+    const name = typeof k.name === "string" ? k.name.trim().slice(0, 20) : "";
+    if (name) kid.name = name;
+    if (k.monthOnly === true) kid.monthOnly = true;
+    if (typeof k.care === "string" && (OLDER_CARES as string[]).includes(k.care)) kid.care = k.care as OlderCare;
+    out.push(kid);
+    if (out.length >= MAX_OLDER_KIDS) break;
+  }
+  return out;
+}
+
 export type Quiet = "loss" | "nicu";
 export const QUIETS: Quiet[] = ["loss", "nicu"];
 

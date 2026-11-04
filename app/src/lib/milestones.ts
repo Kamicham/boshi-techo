@@ -5,6 +5,7 @@
 
 import { addDays, addMonths, lmpFromDue, type FamilyDates } from "./clock";
 import { babyInsuranceOf } from "./birth-trip";
+import { olderDefs, olderSchedule } from "./older";
 import { babyCount, hasOlderChildren, isFirstNenkinMother, motherEmployed, partnerEmployed, partnerTakesLeave, type Situation } from "./situation";
 
 export type Kind = "手続き" | "健診" | "仕事" | "準備";
@@ -190,6 +191,8 @@ export interface Milestone extends MilestoneDef {
   retimeNote?: string;
   /** 数え直した時の、打つ物と前の回（予約の電話メモに使う） */
   retime?: { doses: string[]; lastDate: string; lastFacility?: string };
+  /** 上の子の予定（第2波①。lib/older.ts）。何人目か（0から）と、画面に出す呼び方 */
+  older?: { index: number; label: string };
 }
 
 /** scheduleFor に渡す家族（FamilyDates に、家族の形と人の役を足した物。どちらも無ければ今までどおり） */
@@ -302,7 +305,7 @@ export function scheduleFor(input: ScheduleInput, today?: string): Milestone[] {
   const lmp = lmpFromDue(f.dueDate);
   const birth = f.birthDate ?? f.dueDate;
   const trying = !!today && today < lmp && !f.birthDate;
-  return MILESTONES.filter((m) => !m.only || m.only.every((o) => applies(o, f)))
+  const own = MILESTONES.filter((m) => !m.only || m.only.every((o) => applies(o, f)))
     .map((def) => {
       const m = adjust(def, f);
       const base = m.anchor === "lmp" ? lmp : m.anchor === "due" ? f.dueDate : birth;
@@ -317,8 +320,8 @@ export function scheduleFor(input: ScheduleInput, today?: string): Milestone[] {
         ...(m.anchor === "birth" && !f.birthDate ? { awaitingBirth: true } : {}),
         ...(m.pregnancyOnly && f.birthDate ? { endsOn: f.birthDate } : {}),
       };
-    })
-    .sort((a, b) => a.startDate.localeCompare(b.startDate));
+    });
+  return [...own, ...olderSchedule(f, olderDefs(MILESTONES), today)].sort((a, b) => a.startDate.localeCompare(b.startDate));
 }
 
 export type Status = "まだ先" | "今やる" | "期限が近い" | "期限切れ" | "済み" | "過ぎた";
