@@ -61,7 +61,7 @@ export function Welcome({ onClose }: { onClose: () => void }) {
             一緒に動く手帳へ。
           </h1>
           <p className="text-base leading-relaxed text-ink">
-            妊娠から2歳までの1000日。手帳が先に動いて、やる事を調べて用意します。家族は見て「済んだ」を押すだけ。
+            妊娠から2歳までの1000日。手帳が先に動いて、やる事を調べて用意します。家族の手は、赤ちゃんのために。
           </p>
         </header>
 

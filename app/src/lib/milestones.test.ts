@@ -234,3 +234,20 @@ describe("妊婦のための支援給付の2回目（第1波③）", () => {
     expect(statusOf(find(s), "2027-07-01", new Set())).toBe("今やる");
   });
 });
+
+// 期限の言い方は、損で脅さず「いつまでに出すと、何が受け取れるか」で言う（総点検 0-6・2026-11-04。夜中にひとりで読む親を脅さない）
+describe("損で脅さない", () => {
+  it("児童手当の一言は、いつまでに出すと何が受け取れるか。30家族のどの予定の言葉も「もらえません」「損」「遅れると」を使わない", async () => {
+    const { SIM_FAMILIES } = await import("../sim/families");
+    let allowance = 0;
+    for (const f of SIM_FAMILIES) {
+      for (const m of scheduleFor(f, f.birthDate ?? f.dueDate)) {
+        expect(`${m.title}・${m.plain}・${m.hint}`, `${f.id} ${m.id}`).not.toMatch(/もらえません|もらえない|損|遅れると/);
+        if (m.id !== "child-allowance") continue;
+        allowance++;
+        expect(m.hint).toBe("生まれた日の翌日から15日以内に出すと、翌月分から受け取れます");
+      }
+    }
+    expect(allowance).toBeGreaterThan(0);
+  });
+});
