@@ -15,11 +15,16 @@ type Moment = (typeof VOICE_MOMENTS)[number];
 
 export function VoiceKeeper({ unavailable }: { unavailable?: boolean }) {
   const [moment, setMoment] = useState<Moment | null>(null);
+  const { family } = useFamily();
   if (unavailable) return null;
+  // つらい別れの後（静かにする）は、促す言葉を使わない。残したい時だけ残せる
+  const loss = family.situation?.quiet === "loss";
   return (
     <section aria-label="声を残す" className="flex flex-col gap-2 rounded-2xl border border-line bg-card p-3">
       <h2 className="font-display text-lg font-bold">声を残す</h2>
-      <p className="text-sm text-muted">手帳には書かず、声のまま残します。一冊と映画で、いつか子どもが聞けます。</p>
+      <p className="text-sm text-muted">
+        {loss ? "残したい時だけ、声のまま残せます。消さずにしまうこともできます。" : "手帳には書かず、声のまま残します。一冊と映画で、いつか子どもが聞けます。"}
+      </p>
       <div className="grid grid-cols-3 gap-2">
         {VOICE_MOMENTS.map((m) => (
           <button

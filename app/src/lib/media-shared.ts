@@ -549,6 +549,15 @@ export function milestoneToday(birthDate: string | undefined, today: string): Ph
   }) ?? null;
 }
 
+/**
+ * 今日、思い出の一言（節目の写真）を出すか。家族が「静かにする」（つらい別れ・赤ちゃんの入院）を選んでいる間は出さない。
+ * 入院中の子は、生まれた日から数える節目が実際の様子と合わないので、静かにする間は数えない（戻せば出る）
+ */
+export function memoryNudgeFor(f: { birthDate?: string; situation?: { quiet?: string } }, today: string): PhotoMilestone | null {
+  if (f.situation?.quiet) return null;
+  return milestoneToday(f.birthDate, today);
+}
+
 /** 写真の見出しの月齢（「生後3か月」「生後12日」「妊娠7か月」「1歳2か月」） */
 export function ageLabel(f: { dueDate: string; birthDate?: string }, date: string): string {
   if (f.birthDate && diffDays(date, f.birthDate) >= 0) {

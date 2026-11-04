@@ -3,11 +3,12 @@
 // 節目の日だけ、今日の画面に1回出す一言（撮り忘れを減らす）。月に1回まで。言うのは「今日は生後100日です」だけで、体の事には触れない。
 // 節目: お七夜・お宮参り（約1か月）・お食い初め（100日）・ハーフバースデー・1歳・1歳6か月・2歳（lib/media-shared.ts の PHOTO_MILESTONES）。
 // 根拠: 10の場面で、それぞれ5割を超える母親が撮っていない（ママ写ん！2023・運営会社の調査）。
+// 家族が「静かにする」を選んでいる間は出さない（lib/media-shared.ts の memoryNudgeFor）。
 // 出したか・閉じたかは、この端末だけに覚える（家族の記録ではない）。写真の仕組みが使えない手帳では出さない。
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Family } from "@/lib/demo-family";
-import { milestoneToday } from "@/lib/media-shared";
+import { memoryNudgeFor } from "@/lib/media-shared";
 import { useMedia } from "../album/useMedia";
 import { Btn } from "../ui";
 
@@ -29,7 +30,8 @@ function writeSeen(fid: string, s: Seen) {
 }
 
 export function PhotoNudge({ family, today }: { family: Family; today: string }) {
-  const m = milestoneToday(family.birthDate, today);
+  // 静かにする（つらい別れ・入院）を選んでいる間は出さない
+  const m = memoryNudgeFor(family, today);
   const { unavailable, loading, canWrite } = useMedia();
   const [seen, setSeen] = useState<Seen | null>(null);
   useEffect(() => setSeen(readSeen(family.id)), [family.id]);
