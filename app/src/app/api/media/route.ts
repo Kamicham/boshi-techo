@@ -3,7 +3,7 @@
 import { route } from "@/lib/api";
 import { withHousehold } from "@/lib/access";
 import { HttpError } from "@/lib/http-error";
-import { existingTechoIds, photoDate, purgeExpired, saveUpload, starKey, toClient, type MediaData } from "@/lib/media";
+import { contributorFrom, existingTechoIds, photoDate, purgeExpired, saveUpload, starKey, toClient, type MediaData } from "@/lib/media";
 import { listTecho } from "@/lib/techo-store";
 
 export const maxDuration = 120;
@@ -34,6 +34,8 @@ export const GET = route(async (req: Request) => {
     media,
     usage: { count: media.length, bytes: media.reduce((n, m) => n + m.bytes, 0) },
     canWrite: ctx.can("media:write"),
+    // みんなの章に足せるか（祖父母など。書ける人も足せる）
+    canContribute: ctx.can("media:contribute") && (ctx.can("media:write") || !!ctx.account),
   };
 });
 
@@ -46,7 +48,9 @@ export const POST = route(async (req: Request) => {
     throw new HttpError(400, "送られた写真が読めません");
   }
   const familyId = form.get("familyId") ?? q.get("familyId");
-  const ctx = await withHousehold(req, familyId, "media:write");
+  // 家族の記録を書ける人と、みんなの章に足せる人（祖父母など）が通る。足せるだけの人には名乗りを必ず付ける
+  const ctx = await withHousehold(req, familyId, "media:contribute");
+  const from = contributorFrom(ctx, typeof form.get("relation") === "string" ? String(form.get("relation")) : null);
   const file = form.get("file");
   if (!(file instanceof Blob) || file.size === 0) throw new HttpError(400, "写真がありません");
   const blob = async (k: string) => {
@@ -59,7 +63,8 @@ export const POST = route(async (req: Request) => {
   };
   const today = todayOf(text("today"));
   const lastModified = Number(text("lastModified"));
-  const techoId = text("techoId");
+  // 手帳の記録に結ぶのは、記録を書ける人だけ
+  const techoId = from ? null : text("techoId");
   const r = await saveUpload(ctx, {
     orig: Buffer.from(await file.arrayBuffer()),
     view: await blob("view"),
@@ -71,6 +76,7 @@ export const POST = route(async (req: Request) => {
     starBy: text("star") === "1" ? starKey(ctx.account?.id, text("by")) : null,
     subjectId: text("subjectId"),
     today,
+    from,
   });
   // 手帳から足した時、同じ写真がもう有れば、その記録にも結ぶ
   let row = r.media;

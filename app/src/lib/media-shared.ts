@@ -42,6 +42,15 @@ export interface MediaData {
   title?: string;
   /** 作った家族の種の印（同じ種を二度入れない） */
   seedKey?: string;
+  /** みんなの章: 家族みんな（祖父母など）が足した物。account は足した人（自分が足した物だけ直せる・消せる） */
+  from?: MediaFrom;
+}
+
+/** みんなの章に足した人 */
+export interface MediaFrom {
+  name: string;
+  relation?: string;
+  account?: string;
 }
 
 // ───────── 声を残す（思い出の録り方） ─────────
@@ -109,6 +118,9 @@ export interface ClientMedia {
   durationSec?: number;
   transcript?: string;
   title?: string;
+  /** みんなの章（祖父母など）が足した物。mine は自分が足した物 */
+  from?: { name: string; relation?: string };
+  mine?: boolean;
 }
 
 /** 手帳の中で写真の枠を出すページ（できた日・出産・気持ち・成長） */

@@ -44,7 +44,7 @@ function open(): Database.Database {
  * - advice: 参謀の気づき（④。きっかけの鍵ごと）
  * - ask: 記録を作る時の聞き返し（答えるまで残す。①）
  */
-export type DocType = "record" | "visit" | "local" | "draft" | "done" | "book" | "profile" | "plan" | "advice" | "techo" | "chat" | "ask";
+export type DocType = "record" | "visit" | "local" | "draft" | "done" | "book" | "profile" | "plan" | "advice" | "techo" | "chat" | "ask" | "letter";
 
 export interface Doc<T = Record<string, unknown>> {
   id: string;

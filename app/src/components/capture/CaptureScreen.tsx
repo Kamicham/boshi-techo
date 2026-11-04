@@ -10,6 +10,7 @@ import { KeepSheet } from "@/components/album/KeepSheet";
 import { useMedia } from "@/components/album/useMedia";
 import type { CaptureRecord, CaptureResult, RecordSource, TechoPhotoResult } from "@/lib/capture";
 import { HoldToTalk } from "./HoldToTalk";
+import { LetterKeeper } from "@/components/album/LetterKeeper";
 import { VoiceKeeper } from "@/components/album/VoiceKeeper";
 import { shrinkPhoto } from "./media";
 import { PhotoChoice, type ReadKind } from "./PhotoChoice";
@@ -336,6 +337,7 @@ export function CaptureScreen() {
       {keeping && <KeepSheet files={keeping} onClose={() => setKeeping(null)} />}
 
       <VoiceKeeper unavailable={keepUnavailable} />
+      <LetterKeeper unavailable={keepUnavailable} />
 
       <p className="text-sm text-muted">{CALL_LINE}</p>
 

@@ -18,6 +18,7 @@ import { StaleBox } from "./today/StaleBox";
 import { AdvisorCard } from "./today/AdvisorCard";
 import { ConsultAsk } from "./today/ConsultAsk";
 import { PhotoNudge } from "./today/PhotoNudge";
+import { LetterNews } from "./today/LetterNews";
 import { byDays, dateWord, daysLeft, planToday, withAssignee, type Task } from "./today/task";
 import { VisitToday, visitIsTop } from "./today/VisitToday";
 
@@ -322,6 +323,7 @@ export function Techo() {
 
 
       {/* 写真の節目の日だけ、1回の一言（月に1回まで。写真を残せる手帳だけ） */}
+      {!loading && <LetterNews key={`${family.id}:letters`} family={family} today={today} by={me?.name} />}
       {!loading && <PhotoNudge key={`${family.id}:photo`} family={family} today={today} />}
 
       {/* 手帳の毎回の問い「相談できる人はいますか」（時期ごとに1回。答えた時期は出さない） */}

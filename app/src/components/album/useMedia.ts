@@ -11,6 +11,8 @@ export interface MediaList {
   media: ClientMedia[];
   usage: { count: number; bytes: number };
   canWrite: boolean;
+  /** みんなの章に足せる（祖父母など。書ける人も足せる） */
+  canContribute?: boolean;
 }
 
 type Entry = { promise: Promise<MediaList>; result?: MediaList; error?: { status: number; message: string } };
@@ -88,6 +90,7 @@ export function useMedia(opts: { trash?: boolean; kind?: "audio" } = {}) {
     media: fresh ? (state.list?.media ?? []) : [],
     usage: fresh ? (state.list?.usage ?? null) : null,
     canWrite: fresh ? !!state.list?.canWrite : false,
+    canContribute: fresh ? !!(state.list?.canContribute ?? state.list?.canWrite) : false,
     loading: !fresh || (!state.list && !state.error),
     /** 写真の仕組みが使えない（ログインの前・アカウントの表がまだ無い置き場） */
     unavailable: !!error && (error.status === 401 || error.status === 403 || error.status === 404 || error.status === 503),

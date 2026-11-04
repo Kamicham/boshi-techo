@@ -13,7 +13,8 @@ export async function voiceUrl(m: Pick<ClientMedia, "urls">): Promise<string> {
   return URL.createObjectURL(await r.blob());
 }
 
-export function VoiceItem({ m, canWrite, focus }: { m: ClientMedia; canWrite: boolean; focus?: boolean }) {
+/** full: 家族の記録を書ける人（一冊・映画に入れない を切り替えられる）。みんなの章の人は自分の声の一言・★・ゴミ箱だけ */
+export function VoiceItem({ m, canWrite, full = canWrite, focus }: { m: ClientMedia; canWrite: boolean; full?: boolean; focus?: boolean }) {
   const { family, me } = useFamily();
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -78,6 +79,7 @@ export function VoiceItem({ m, canWrite, focus }: { m: ClientMedia; canWrite: bo
           <span className="truncate text-base font-semibold">
             {m.title ?? "声"}
             {m.star > 0 && <span className="ml-1 text-warn">★</span>}
+            {m.from && <span className="ml-2 rounded-full bg-rose-soft px-2 py-0.5 text-xs font-bold text-rose">みんなの章</span>}
           </span>
           <span className="text-xs text-muted">
             {keptLine(family, m)}
@@ -105,9 +107,11 @@ export function VoiceItem({ m, canWrite, focus }: { m: ClientMedia; canWrite: bo
                 <button type="button" className="min-h-10 rounded-lg border border-line px-3" onClick={() => act({ star: !m.starredByMe })}>
                   {m.starredByMe ? "★ を外す" : "☆ 一冊に入れたい"}
                 </button>
-                <button type="button" className="min-h-10 rounded-lg border border-line px-3" onClick={() => act({ hidden: !m.hidden })}>
-                  {m.hidden ? "一冊・映画に戻す" : "一冊・映画に入れない"}
-                </button>
+                {full && (
+                  <button type="button" className="min-h-10 rounded-lg border border-line px-3" onClick={() => act({ hidden: !m.hidden })}>
+                    {m.hidden ? "一冊・映画に戻す" : "一冊・映画に入れない"}
+                  </button>
+                )}
                 <button type="button" className="min-h-10 rounded-lg border border-line px-3 text-alert" onClick={() => void trashMedia(family.id, m.id).catch((e: Error) => setMsg(e.message))}>
                   ゴミ箱へ
                 </button>
