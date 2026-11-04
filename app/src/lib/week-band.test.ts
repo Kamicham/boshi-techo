@@ -8,11 +8,18 @@ const f = DEMO_FAMILY; // 予定日 2027-05-10・生まれた日 2027-04-26・�
 const second = addMonths(f.birthDate!, 24);
 
 describe("週の帯", () => {
-  it("妊娠中は週数と予定日まで。予定日を過ぎても数え上げない", () => {
-    const born = { ...f, birthDate: undefined };
-    expect(weekBand(born, "2027-02-15")).toMatchObject({ main: "28週 ・ 予定日まであと84日", walked: false });
-    expect(weekBand(born, f.dueDate)!.main).toBe("40週 ・ 今日が予定日");
-    expect(weekBand(born, addDays(f.dueDate, 5))!.main).toBe("40週 ・ 予定日のころ");
+  it("妊娠中は週数と予定日まで。おなかの赤ちゃんの呼び名が決まっていたら名前で呼ぶ。予定日を過ぎても数え上げない", () => {
+    const named = { ...f, birthDate: undefined };
+    expect(weekBand(named, "2027-02-15")).toMatchObject({ main: "28週 ・ ひなたの予定日まで あと84日", walked: false });
+    expect(weekBand(named, f.dueDate)!.main).toBe("40週 ・ 今日がひなたの予定日");
+    expect(weekBand(named, addDays(f.dueDate, 5))!.main).toBe("40週 ・ ひなたの予定日のころ");
+    // 呼び名がまだ無い家族（空白だけも）は、今までどおり
+    for (const childName of [undefined, " "]) {
+      const plain = { ...named, childName };
+      expect(weekBand(plain, "2027-02-15")!.main).toBe("28週 ・ 予定日まであと84日");
+      expect(weekBand(plain, f.dueDate)!.main).toBe("40週 ・ 今日が予定日");
+      expect(weekBand(plain, addDays(f.dueDate, 5))!.main).toBe("40週 ・ 予定日のころ");
+    }
   });
 
   it("2歳の誕生日の後は「1000日を一緒に歩きました」（「過ぎました」と言わない）。線は消さず、端まで満ちた形で残す", () => {

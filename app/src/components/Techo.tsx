@@ -24,6 +24,7 @@ import { StartedLate } from "./today/StartedLate";
 import { AdvisorCard } from "./today/AdvisorCard";
 import { ConsultAsk } from "./today/ConsultAsk";
 import { MilestoneDay } from "./today/MilestoneDay";
+import { BumpMoment } from "./today/BumpMoment";
 import { LetterNews } from "./today/LetterNews";
 import { BirthdayCard } from "./today/BirthdayCard";
 import { birthdayFor, bornPromptFor, celebrationFor, welcomeFor } from "@/lib/media-shared";
@@ -477,6 +478,9 @@ export function Techo() {
 
       {/* 封をした手紙が開いた日から2週間の一言（誕生日の札が出ている間は、そちらに入れる） */}
       {!loading && !bday && <LetterNews key={`${family.id}:letters`} family={family} today={today} by={me?.name} />}
+
+      {/* 妊娠中の思い出の誘い（エコーの写真・妊娠5か月・おなかへの声・名前・未来の手紙）。月に1回まで、静かにする間は出さない */}
+      {!loading && <BumpMoment key={`${family.id}:bump`} family={family} today={today} reportedOn={appliedOn["pregnancy-report"]} />}
 
       {/* 手帳の毎回の問い「相談できる人はいますか」（時期ごとに1回。答えた時期は出さない） */}
       {!loading && <ConsultAsk key={`${family.id}:consult`} family={family} today={today} meName={me?.name} />}

@@ -627,6 +627,65 @@ export function bornPromptFor(f: { dueDate: string; birthDate?: string; situatio
   return diffDays(today, lmpFromDue(f.dueDate)) >= BORN_PROMPT_WEEK * 7;
 }
 
+// ───────── 妊娠中の思い出の誘い（components/today/BumpMoment.tsx） ─────────
+
+/**
+ * 妊娠中の思い出の誘い（総点検 1-4・2026-11-04）。おなかにいた日々は、後から撮り直せない。体の事・赤ちゃんの様子には触れず、残す事だけを言う。
+ * week は妊娠週数（最終月経の初日から）。出すのは week から次の誘いの week の前の日まで（最後は37週＝「生まれたら、ここから」の前の日まで）。
+ * エコーの写真は、手帳で妊娠の届出を済ませた日からも出す（母子手帳をもらった日。届出の9割超は妊娠11週までなので、12週を目安の始まりにする。
+ * 出典: 厚生労働省「令和4年度 地域保健・健康増進事業報告」（令和6年3月公表）妊娠の届出 790,417人のうち満11週以内 746,355人＝94.4%）。
+ * 感熱紙のエコーの写真は、年月で薄くなる。
+ * 戌の日（妊娠5か月に入って最初の戌の日に安産を祈る習わし）の日付は数えない（暦を計算せず、「行く家族もいます」とだけ言う）。
+ */
+export interface BumpMomentDef {
+  id: "echo" | "inu" | "belly" | "name" | "letter";
+  week: number;
+  label: string;
+  say: string;
+  note?: string;
+  /** 入口のボタンの文字 */
+  action: string;
+  /** 入口: 写真・声は撮る画面の「残す」（/capture?keep=1）、手紙は一冊の未来の手紙（/book#letters） */
+  to: "photo" | "voice" | "letter";
+}
+
+export const BUMP_MOMENTS: readonly BumpMomentDef[] = [
+  { id: "echo", week: 12, label: "エコーの写真", say: "健診でもらったエコーの写真を、手帳に残せます", note: "紙の写真は、年月で薄くなります。撮っておくと、ずっと見られます", action: "📷 写真を残す", to: "photo" },
+  { id: "inu", week: 16, label: "妊娠5か月", say: "妊娠5か月。安産祈願（戌の日）に行く家族もいます", note: "行った日の写真や、おなかの写真を残せます", action: "📷 写真を残す", to: "photo" },
+  { id: "belly", week: 20, label: "おなかに話しかける", say: "おなかに話しかける声を、残してみませんか", note: "生まれたあと、一緒に聞けます", action: "🎙 声を残す", to: "voice" },
+  { id: "name", week: 28, label: "名前のこと", say: "名前の候補や由来を、声で残せます（任意）", note: "決まる前の迷いも、いつか一緒に聞けます", action: "🎙 声を残す", to: "voice" },
+  { id: "letter", week: 30, label: "未来の手紙", say: "1歳の誕生日に開く手紙を、書いてみませんか", note: "封をして、その日まで手帳が守ります", action: "💌 手紙を書く", to: "letter" },
+];
+
+/** この端末が覚えている、閉じた（押した）誘いと、その月（"YYYY-MM"） */
+export type BumpSeen = { ids: string[]; month?: string };
+
+/**
+ * 今日の画面に出す妊娠中の思い出の誘い。月に1回まで（閉じた・押した月は次を出さない）。閉じた誘いは二度と出さない。
+ * 静かにする（つらい別れ・入院）間・授かる前・生まれた後・37週から（「生まれたら、ここから」が出る）は出さない。
+ * reportedOn は手帳で妊娠の届出を済ませた日（エコーの写真を、その日から出す）
+ */
+export function bumpMomentFor(
+  f: { dueDate: string; birthDate?: string; situation?: { quiet?: string } },
+  today: string,
+  seen: { ids: readonly string[]; month?: string },
+  reportedOn?: string,
+): BumpMomentDef | null {
+  if (f.situation?.quiet) return null;
+  if (f.birthDate && diffDays(today, f.birthDate) >= 0) return null;
+  const since = diffDays(today, lmpFromDue(f.dueDate));
+  if (since < 0) return null;
+  const week = Math.floor(since / 7);
+  if (week >= BORN_PROMPT_WEEK || seen.month === today.slice(0, 7)) return null;
+  const reported = !!reportedOn && diffDays(today, reportedOn) >= 0;
+  for (const [i, m] of BUMP_MOMENTS.entries()) {
+    const end = BUMP_MOMENTS[i + 1]?.week ?? BORN_PROMPT_WEEK;
+    const started = week >= m.week || (m.id === "echo" && reported);
+    if (started && week < end && !seen.ids.includes(m.id)) return m;
+  }
+  return null;
+}
+
 /** 「ようこそ」の1枚を出す日数。生まれた日からお七夜の前の日まで（生後0〜5日）。お七夜（生まれた日から数えて7日目）からは節目の1枚 */
 export const WELCOME_DAYS = 6;
 

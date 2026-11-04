@@ -1,11 +1,27 @@
-// 思い出の早送り: 作った30家族の1000日を毎日たどり、節目の写真の一言（MilestoneDay・BirthdayCard のもとの memoryNudgeFor）が
+// 思い出の早送り: 作った30家族の1000日を毎日たどり、節目の写真の一言（MilestoneDay・BirthdayCard のもとの memoryNudgeFor）と
+// 妊娠中の思い出の誘い（BumpMoment の bumpMomentFor）が
 // - 静かにする（つらい別れ・赤ちゃんの入院）を選んだ家族には、1日も出ない
-// - 選んでいない家族には、生まれた後の節目（お七夜〜2歳の7つ）でだけ出て、生まれる前には出ない
+// - 選んでいない家族には、生まれる前は妊娠中の節目（12・16・20・28・30週）だけ、生まれた後は節目（お七夜〜2歳の7つ）でだけ出る
 // を確かめる。30家族はそのまま・loss にした写し・nicu にした写しの3通りで通す（作った家族だけ。Claude は呼ばない）。
 import { describe, expect, it } from "vitest";
 import { addDays, addMonths, clockAt, diffDays, lmpFromDue, secondBirthday } from "../lib/clock";
 import { letterOpenOn, recentlyOpened, schoolEntry } from "../lib/letters-shared";
-import { birthdayFor, birthNewsText, bornPromptFor, celebrationFor, groupForAlbum, memoryNudgeFor, milestoneSay, PHOTO_MILESTONES, welcomeFor, type ClientMedia } from "../lib/media-shared";
+import {
+  birthdayFor,
+  birthNewsText,
+  BORN_PROMPT_WEEK,
+  bornPromptFor,
+  BUMP_MOMENTS,
+  bumpMomentFor,
+  celebrationFor,
+  groupForAlbum,
+  memoryNudgeFor,
+  milestoneSay,
+  PHOTO_MILESTONES,
+  welcomeFor,
+  type BumpSeen,
+  type ClientMedia,
+} from "../lib/media-shared";
 import { scheduleFor } from "../lib/milestones";
 import { registrationLine } from "../components/today/welcome";
 import type { Quiet } from "../lib/situation";
@@ -18,26 +34,77 @@ function days(f: { dueDate: string; birthDate?: string }): string[] {
   return Array.from({ length: n + 1 }, (_, i) => addDays(start, i));
 }
 
-describe("思い出の一言（節目の写真）", () => {
-  it("30家族: 生まれる前は出ず、生まれた後は節目の日だけ出る", () => {
+describe("思い出の一言（節目の写真）と妊娠中の誘い", () => {
+  const ALL = BUMP_MOMENTS.map((m) => m.id);
+
+  it("30家族: 生まれる前は妊娠中の節目だけ、生まれた後は節目の日だけ出る。妊娠中の誘いは月に1回まで・閉じたら二度と出ない・37週から出ない", () => {
     let shown = 0;
+    let bumps = 0;
     for (const f of SIM_FAMILIES) {
+      // 出た日に閉じる家族としてたどる（BumpMoment がこの端末に覚える形）
+      const seen: BumpSeen = { ids: [] };
+      const months = new Set<string>();
       for (const d of days(f)) {
         const m = memoryNudgeFor(f, d);
-        if (!m) continue;
-        shown++;
-        expect(f.birthDate && d >= f.birthDate, `${f.id} ${d} 生まれる前に出た`).toBe(true);
-        expect(PHOTO_MILESTONES.some((x) => x.id === m.id)).toBe(true);
+        if (m) {
+          shown++;
+          expect(f.birthDate && d >= f.birthDate, `${f.id} ${d} 生まれる前に節目の写真が出た`).toBe(true);
+          expect(PHOTO_MILESTONES.some((x) => x.id === m.id)).toBe(true);
+        }
+        const b = bumpMomentFor(f, d, seen);
+        if (!b) continue;
+        bumps++;
+        const c = clockAt(f, d);
+        expect(c.phase, `${f.id} ${d} ${b.id} 妊娠中の外で出た`).toBe("pregnant");
+        expect(c.pregnancyWeek! >= b.week && c.pregnancyWeek! < BORN_PROMPT_WEEK, `${f.id} ${d} ${b.id} ${c.pregnancyWeek}週`).toBe(true);
+        expect(m).toBeNull();
+        expect(bornPromptFor(f, d), `${f.id} ${d} 「生まれたら、ここから」と重なった`).toBe(false);
+        expect(months.has(d.slice(0, 7)), `${f.id} ${d} ${b.id} 同じ月に2回`).toBe(false);
+        expect(seen.ids, `${f.id} ${d} ${b.id} 閉じたのにまた出た`).not.toContain(b.id);
+        months.add(d.slice(0, 7));
+        seen.ids.push(b.id);
+        seen.month = d.slice(0, 7);
       }
+      // 出会う順は週の順。37週の後に生まれた家族（生まれた日の無い家族も）は、5つ全部に出会う
+      expect(seen.ids, f.id).toEqual(ALL.slice(0, seen.ids.length));
+      const bornWeek = f.birthDate ? Math.floor(diffDays(f.birthDate, lmpFromDue(f.dueDate)) / 7) : 99;
+      if (bornWeek >= BORN_PROMPT_WEEK) expect(seen.ids, `${f.id} ${bornWeek}週で生まれた`).toEqual(ALL);
     }
     expect(shown).toBeGreaterThan(0);
+    expect(bumps).toBeGreaterThan(0);
+  });
+
+  it("閉じない家族: 誘いはその週の間ずっと同じ1つ（12週から37週の前の日まで）。妊娠の届出を済ませた日からは、12週より前でもエコーの写真", () => {
+    const f = SIM_FAMILIES.find((x) => x.birthDate && diffDays(x.birthDate, lmpFromDue(x.dueDate)) >= BORN_PROMPT_WEEK * 7 && !x.situation?.quiet)!;
+    const lmp = lmpFromDue(f.dueDate);
+    const at = (w: number, d = 0) => bumpMomentFor(f, addDays(lmp, w * 7 + d), { ids: [] })?.id ?? null;
+    expect([at(11, 6), at(12), at(15, 6), at(16), at(19, 6), at(20), at(27, 6), at(28), at(29, 6), at(30), at(36, 6), at(37)]).toEqual([
+      null, "echo", "echo", "inu", "inu", "belly", "belly", "name", "name", "letter", "letter", null,
+    ]);
+    const reported = addDays(lmp, 8 * 7);
+    expect(bumpMomentFor(f, addDays(reported, -1), { ids: [] }, reported)).toBeNull();
+    expect(bumpMomentFor(f, reported, { ids: [] }, reported)?.id).toBe("echo");
+    expect(bumpMomentFor(f, addDays(lmp, 16 * 7), { ids: [] }, reported)?.id).toBe("inu");
+    // 同じ月に閉じていたら、その月は出さない（次の月に出す）
+    const d = addDays(lmp, 20 * 7);
+    expect(bumpMomentFor(f, d, { ids: ["echo", "inu"], month: d.slice(0, 7) })).toBeNull();
+    expect(bumpMomentFor(f, d, { ids: ["echo", "inu"], month: "2000-01" })?.id).toBe("belly");
+  });
+
+  it("誘いの言葉は残す事だけ（体の判断・赤ちゃんの様子・役の呼び名を言わない）", () => {
+    for (const m of BUMP_MOMENTS) {
+      for (const t of [m.say, m.note ?? "", m.action]) expect(t, m.id).not.toMatch(/ママ|パパ|異常|正常|順調|発達|体重|大丈夫|心配|聞こえ|成長|元気/);
+    }
   });
 
   for (const quiet of ["loss", "nicu"] as Quiet[]) {
-    it(`静かにする（${quiet}）を選んだ30家族の写し: 1000日のどの日にも出ない`, () => {
+    it(`静かにする（${quiet}）を選んだ30家族の写し: 1000日のどの日にも出ない（節目の写真も、妊娠中の誘いも）`, () => {
       for (const f0 of SIM_FAMILIES) {
         const f = { ...f0, situation: { ...f0.situation, quiet } };
-        for (const d of days(f)) expect(memoryNudgeFor(f, d), `${f.id} ${d}`).toBeNull();
+        for (const d of days(f)) {
+          expect(memoryNudgeFor(f, d), `${f.id} ${d}`).toBeNull();
+          expect(bumpMomentFor(f, d, { ids: [] }, lmpFromDue(f.dueDate)), `${f.id} ${d}`).toBeNull();
+        }
       }
     });
   }
