@@ -36,6 +36,7 @@ import { VisitToday, visitIsTop } from "./today/VisitToday";
 import { canLocalFor, prepAhead, type Prepared } from "./today/prep";
 import { PrepAhead, PrepNote } from "./today/PrepAhead";
 import { urgentNear } from "./today/urgent";
+import { focusFor, useStageFocus } from "./today/stage-focus";
 import { DRAFTABLE } from "./MilestoneActions";
 
 /** 「済んだにしました・もどす」を出しておく長さ */
@@ -84,6 +85,8 @@ export function Techo() {
   useEffect(() => {
     setFocusId(new URLSearchParams(window.location.search).get("focus"));
   }, []);
+  // 見本の時期の札から開いた時は、札の言葉の事を一番上に（その日だけ。UX の見直し C36・today/stage-focus.ts）
+  const stageFocus = useStageFocus();
 
   /** GET /api/done の返り（fromTecho は担当A の版から。無ければ空として読む） */
   type DoneRes = { done: string[]; fromTecho?: string[]; retime?: Record<string, Retime>; doneOn?: Record<string, string>; doneBy?: Record<string, string>; thanks?: Record<string, Thanks> };
@@ -297,7 +300,9 @@ export function Techo() {
 
   const nextVisit = visit?.next ?? null;
   const visitTop = visitIsTop(today, nextVisit);
-  const focus = focusId ? tasks.find((t) => t.id === focusId && t.status !== "済み" && t.status !== "過ぎた") ?? null : null;
+  // 押して来た事（?focus=<id>）か、見本の時期の札の事を一番上に。札が「手帳が気づいた事」の時は、気づきの箱を一番上の札より上に
+  const { taskId: focusTaskId, advisorFirst } = focusFor(stageFocus, focusId, today);
+  const focus = focusTaskId ? tasks.find((t) => t.id === focusTaskId && t.status !== "済み" && t.status !== "過ぎた") ?? null : null;
   // 生まれた日から15日の間は、届けの束（UX の見直し C08。決め方は lib/birth-trip.ts の tripScreen）:
   // 束が自分の番の画面・まだ誰が行くか決めていない家族は、束を一番上の1枚に（自分の番の最初の届けは、束の中で用意する。一番上の札を重ねない）。
   // 母の画面で、届けをパートナーの番に決めた時は、束を1行にたたみ、一番上は母の今日の一番上（無ければ休む札）。束の届けは「このあと」に出さない
@@ -471,6 +476,8 @@ export function Techo() {
       {!loading && bday && <BirthdayCard key={`${family.id}:bday${bday}`} family={family} today={today} by={me?.name} age={bday} />}
       {/* 節目の日は、その日から2日の間、一番上に節目の1枚（写真・声・手紙の入口）。やる事はすぐ下 */}
       {!loading && celebration && <MilestoneDay key={`${family.id}:${celebration.id}`} family={family} today={today} m={celebration} />}
+      {/* 見本の「もしも」の札・生まれた翌日の札から開いた時は、手帳が気づいた事（組み直し）を一番上の札より上に（UX の見直し C36） */}
+      {!loading && advisorFirst && advisorOpen! > 0 && <AdvisorCard key={`${family.id}:${today}`} familyId={family.id} today={today} meId={me?.id} />}
       {loading ? (
         <div className="h-40 rounded-2xl bg-rose-soft/60" aria-hidden />
       ) : visitTop && nextVisit ? (
@@ -525,7 +532,7 @@ export function Techo() {
       {!loading && tripFold && tripOpen && tripCard}
 
       {/* 手帳が見渡して気づいた事は、一番上の1枚の次に（大きな札を2枚並べない） */}
-      {!loading && advisorOpen! > 0 && <AdvisorCard key={`${family.id}:${today}`} familyId={family.id} today={today} meId={me?.id} />}
+      {!loading && !advisorFirst && advisorOpen! > 0 && <AdvisorCard key={`${family.id}:${today}`} familyId={family.id} today={today} meId={me?.id} />}
 
       {/* 家族から: ほかの家族が済ませた事にありがとうを送り、自分に届いたありがとうを見る（家族が2人以上の手帳だけ） */}
       {!loading && (

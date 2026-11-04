@@ -8,8 +8,8 @@
 // 端末の控え（一覧・使う人）はアカウントごとの名前で持ち、ログアウトで消す。ログインしていない時は今までの名前（boshi.families・boshi.me）
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { DEMO_FAMILY, type Family, type Member } from "@/lib/demo-family";
-import { addDays, conceptionDate } from "@/lib/clock";
 import { Btn } from "./ui";
+import { demoFirstDay } from "./today/stages";
 
 export type AccountInfo = { id: string; email: string; name: string };
 export type HouseholdInfo = {
@@ -138,7 +138,8 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
   // 何度か読み直しても家族の一覧が届かなかった（覚えた一覧も無い）。auth = 合言葉・ログインが切れていた（401）
   const [lost, setLost] = useState<false | "net" | "auth">(false);
   const [meIds, setMeIds] = useState<Record<string, string>>({});
-  const [demoToday, setDemoToday] = useState<string>(addDays(conceptionDate(DEMO_FAMILY), 41));
+  // 札を選ぶ前に見本を開いた時の日は、入口の時期の一覧の最初の札（妊娠8週0日）と同じ日（UX の見直し C36。前は7週6日で一覧とずれた）
+  const [demoToday, setDemoToday] = useState<string>(demoFirstDay(DEMO_FAMILY));
   const [accountsEnabled, setAccountsEnabled] = useState(false);
   const [account, setAccount] = useState<AccountInfo | null>(null);
   const [households, setHouseholds] = useState<HouseholdInfo[]>([]);

@@ -6,6 +6,7 @@
 import { useState } from "react";
 import { api, useFamily } from "./FamilyProvider";
 import { demoStages, StagePicker } from "./today/StagePicker";
+import { setStageFocus } from "./today/stage-focus";
 
 export const WELCOMED_KEY = "boshi.welcomed";
 // 公開版（体験）では合言葉の口（/unlock）を閉じているので、合言葉の扉は出さない（middleware.ts）
@@ -41,9 +42,11 @@ export function Welcome({ onClose }: { onClose: () => void }) {
   const child = "赤ちゃん";
   const names = family.members.map((m) => `${m.name}さん`).join("・");
 
-  const start = async (date: string) => {
+  const start = async (date: string, focus?: string) => {
     setBusy(true);
     setToday(date);
+    // 札の言葉の事を、開いた画面の一番上に（その日だけ。UX の見直し C36）
+    setStageFocus(focus, date);
     // 作った記録（話した・撮った）を入れておく。入らなくても手帳は開く
     await api("/api/capture/seed", { body: { familyId: family.id } }).catch(() => {});
     markWelcomed();
@@ -98,7 +101,7 @@ export function Welcome({ onClose }: { onClose: () => void }) {
             </p>
           </div>
           <div className={busy ? "pointer-events-none opacity-60" : ""} aria-busy={busy}>
-            <StagePicker family={family} today="" onPick={(d) => void start(d)} />
+            <StagePicker family={family} today="" onPick={(d, focus) => void start(d, focus)} />
           </div>
           {busy && (
             <p className="text-base text-muted" aria-live="polite">
@@ -163,8 +166,10 @@ export function StageSheet({ onClose }: { onClose: () => void }) {
           family={family}
           today={today}
           slider
-          onPick={(d) => {
+          onPick={(d, focus) => {
             setToday(d);
+            // 札から開いた時だけ、札の言葉の事を一番上に。1000日のどこでも（focus 無し）は普段の並び
+            setStageFocus(focus, d);
             if (demoStages(family).some((s) => s.date === d)) onClose();
           }}
         />
