@@ -3,7 +3,7 @@
 import { body, route } from "@/lib/api";
 import { HttpError } from "@/lib/family";
 import { familyFor } from "../_lib/household";
-import { addTecho, confirmTecho, listTecho, removeTecho } from "@/lib/techo-store";
+import { addTecho, confirmTecho, listTecho, patchTecho, removeTecho } from "@/lib/techo-store";
 import { todayOf } from "../capture/shared";
 
 export const GET = route(async (req: Request) => {
@@ -13,7 +13,7 @@ export const GET = route(async (req: Request) => {
 });
 
 type Post =
-  | { familyId?: string; today?: string; action: "confirm" | "remove"; id?: string; ids?: string[]; date?: string; dates?: Record<string, string> }
+  | { familyId?: string; today?: string; action: "confirm" | "remove"; id?: string; ids?: string[]; date?: string; dates?: Record<string, string>; values?: Record<string, Record<string, string>> }
   | { familyId?: string; today?: string; action: "add"; entries?: unknown[] };
 
 export const POST = route(async (req: Request) => {
@@ -26,6 +26,11 @@ export const POST = route(async (req: Request) => {
       // 日付を直した時: dates は id ごと、date は全部に同じ日（家族が候補の日付の欄で入れた日）
       const today = todayOf(b.today);
       const dateOf = (id: string) => (b.dates && typeof b.dates === "object" && typeof b.dates[id] === "string" ? b.dates[id] : typeof b.date === "string" ? b.date : undefined);
+      // 値を直した時（読み取った候補を、OK の前に家族が直した）: 空にした欄は消える（cleanEntry が空を捨てる）
+      for (const id of ids) {
+        const v = b.values && typeof b.values === "object" ? b.values[id] : undefined;
+        if (v && typeof v === "object") patchTecho(id, family.id, { values: Object.fromEntries(Object.entries(v).filter(([, x]) => typeof x === "string").map(([k, x]) => [k, x.trim()])) });
+      }
       const done = ids.map((id) => confirmTecho(id, family.id, dateOf(id), today)).filter((d) => d != null);
       if (!done.length) throw new HttpError(404, "記録が見つかりません");
       return { techo: done };

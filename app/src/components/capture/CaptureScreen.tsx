@@ -16,6 +16,7 @@ import { VoiceKeeper } from "@/components/album/VoiceKeeper";
 import { shrinkPhoto } from "./media";
 import { PhotoChoice, type ReadKind } from "./PhotoChoice";
 import { TechoCandidates } from "./TechoCandidates";
+import { TypeSheet } from "./TypeSheet";
 import { RecordItem, Timeline } from "./Timeline";
 import { afterConsentReturn, consentWaitKey, isClaudeConsentError, mayTrySend, readConsentState, type ClaudeConsentState } from "@/lib/claude-consent-flow";
 
@@ -74,6 +75,9 @@ export function CaptureScreen() {
   const [error, setError] = useState<Fail | null>(null);
   const [text, setText] = useState("");
   const [writing, setWriting] = useState(false);
+  // 打つ（話す・撮ると同じ重さの3つ目の入れ方。Claude を通さない）
+  const [typing, setTyping] = useState(false);
+  const [typed, setTyped] = useState("");
   // 書きかけの文は、この端末のこのタブにだけ控える（同意の画面へ移って戻った時に消えないように）
   const DRAFT_KEY = `boshi.captureDraft:${family.id}`;
   useEffect(() => {
@@ -356,8 +360,8 @@ export function CaptureScreen() {
     <main className="flex flex-col gap-4 px-4 pt-4">
       <h1 className="sr-only">話す・撮る</h1>
       <div className="flex flex-col gap-1">
-        <p className="text-base text-muted">話すだけ・撮るだけで、手帳に書きます</p>
-        <p className="text-sm text-muted">健診で言われた事・体の様子・うれしかった事を話すか、健診の紙を撮ると、手帳が書き写します</p>
+        <p className="text-base text-muted">話す・撮る・打つ。楽な方で、手帳に入ります</p>
+        <p className="text-sm text-muted">言われた事は話す、紙は撮る、体重や体温は打つ。どれで入れても同じ手帳になります</p>
       </div>
 
       {pending > 0 && (
@@ -370,7 +374,7 @@ export function CaptureScreen() {
       {from === "voice" && <p className="rounded-xl bg-rose-soft px-3 py-2 text-base font-semibold">「話す」を押したまま話すと、手帳の候補になります</p>}
       {from === "photo" && <p className="rounded-xl bg-sky-soft px-3 py-2 text-base font-semibold">下の「撮る」で手帳のページを撮って、「読み取る」→「紙の母子手帳のページ」を選んでください</p>}
 
-      <section aria-label="入れる" className="grid grid-cols-2 gap-3">
+      <section aria-label="入れる" className="grid grid-cols-3 gap-2">
         <div ref={talkBox} className={from === "voice" ? "rounded-3xl ring-4 ring-rose/40" : undefined}>
           <HoldToTalk disabled={!!busy} onAudio={(b) => void sendVoice(b)} onError={(m) => setError({ title: m })} />
         </div>
@@ -379,11 +383,24 @@ export function CaptureScreen() {
           type="button"
           disabled={!!busy || !!shot}
           onClick={() => photoInput.current?.click()}
-          className={`flex aspect-square w-full flex-col items-center justify-center gap-1 rounded-3xl border-2 border-sky bg-sky-soft text-sky disabled:opacity-50 ${from === "photo" || keepFrom ? "ring-4 ring-sky/40" : ""}`}
+          className={`flex min-h-36 w-full flex-col items-center justify-center gap-1 rounded-3xl border-2 border-sky bg-sky-soft px-1 text-sky disabled:opacity-50 ${from === "photo" || keepFrom ? "ring-4 ring-sky/40" : ""}`}
         >
           <CameraIcon />
-          <span className="font-display text-2xl font-bold">撮る</span>
-          <span className="text-sm text-muted">健診の紙も、写真も</span>
+          <span className="font-display text-xl font-bold">撮る</span>
+          <span className="text-xs text-muted">紙も写真も</span>
+        </button>
+        <button
+          type="button"
+          aria-expanded={typing}
+          onClick={() => {
+            setTyped("");
+            setTyping((v) => !v);
+          }}
+          className={`flex min-h-36 w-full flex-col items-center justify-center gap-1 rounded-3xl border-2 border-ink/40 bg-card px-1 text-ink ${typing ? "ring-4 ring-ink/20" : ""}`}
+        >
+          <KeyIcon />
+          <span className="font-display text-xl font-bold">打つ</span>
+          <span className="text-xs text-muted">数字・ひとこと</span>
         </button>
         {/* capture を付けるとカメラロールから選べなくなるので付けない（撮る・選ぶは端末が聞く。MDN 2025） */}
         <input
@@ -400,6 +417,22 @@ export function CaptureScreen() {
         />
       </section>
 
+      {typing && (
+        <TypeSheet
+          onClose={() => setTyping(false)}
+          onSaved={(m) => {
+            setTyped(m);
+            setTyping(false);
+            void load();
+          }}
+        />
+      )}
+      {typed && !typing && (
+        <p role="status" className="rounded-xl bg-card px-3 py-2 text-base font-semibold text-ok">
+          {typed}
+        </p>
+      )}
+
       {/* 撮った後に使い道を選ぶ。読み取る道だけが Claude に送り、残す道（/api/media）は Claude に見せない */}
       {shot ? (
         <PhotoChoice
@@ -410,7 +443,7 @@ export function CaptureScreen() {
           onKeep={keepShot}
           onCancel={() => setShot(null)}
         />
-      ) : (
+      ) : typing ? null : (
         <p className="text-sm text-muted">撮った後に選べます: 「読み取る」＝文字を手帳に書き写す／「残す」＝写真のまま取っておく。読み取る時だけ、写真を手帳の中の AI（Claude）に送ります（その写真は手帳に残しません）</p>
       )}
       {keeping && <KeepSheet files={keeping} onClose={() => setKeeping(null)} />}
@@ -493,7 +526,7 @@ export function CaptureScreen() {
       ) : (
         <div className="flex flex-wrap gap-2">
           <Btn kind="secondary" onClick={() => setWriting(true)}>
-            書く
+            長めに書いて、手帳に分けてもらう
           </Btn>
           {isDemo && !hasSeed && (
             <Btn kind="quiet" onClick={() => void seed()}>
@@ -551,9 +584,18 @@ function AskBox({ ask, answer, setAnswer, onSend, onSkip }: { ask: Ask; answer: 
   );
 }
 
+function KeyIcon() {
+  return (
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="3" y="6" width="18" height="12" rx="2" />
+      <path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10" />
+    </svg>
+  );
+}
+
 function CameraIcon() {
   return (
-    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden>
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" aria-hidden>
       <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
       <circle cx="12" cy="13" r="3.5" />
     </svg>

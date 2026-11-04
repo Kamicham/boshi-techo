@@ -8,6 +8,7 @@ import { vaccineLabel } from "@/components/techo/labels";
 import { Btn, Notice, Pill, plainError, Why } from "@/components/ui";
 import { DEVELOPMENT_NOTE, GROWTH_NOTE, STOOL_COLORS, STOOL_NOTE, TECHO_PAGES, type TechoEntry } from "@/lib/techo";
 import type { TechoDoc } from "@/lib/techo-store";
+import { TECHO_FORMS } from "@/lib/techo-fields";
 import { DateCheck, initialDate } from "./DateCheck";
 
 /** 欄の名前と単位（画面の言葉） */
@@ -54,6 +55,15 @@ const LABELS: Record<string, [string, string?]> = {
   smoking: ["たばこ"],
 };
 
+/** 直せる欄（読み取った値と、その欄の形にある短い欄）。色の番号とワクチンの種類は、それぞれのページの選び方で直す */
+function editKeys(e: TechoEntry): string[] {
+  const fixed = new Set(["colorNo", "vaccine"]);
+  const form = (TECHO_FORMS[e.page]?.fields ?? []).filter((f) => !f.long).map((f) => f.key);
+  return [...new Set([...Object.keys(e.values), ...form])].filter((k) => !fixed.has(k));
+}
+
+const isNumberKey = (k: string) => !!LABELS[k]?.[1] || k.startsWith("bp");
+
 const pageTitle = (id: TechoEntry["page"]) => TECHO_PAGES.find((p) => p.id === id)?.title ?? id;
 
 function valueText(key: string, v: TechoEntry["values"][string]): string {
@@ -72,7 +82,11 @@ function Candidate({
   onOk,
   onNo,
   busy,
+  edit,
+  onEdit,
 }: {
+  edit?: Record<string, string>;
+  onEdit: (v: Record<string, string> | undefined) => void;
   d: TechoDoc;
   date: string;
   onDate: (v: string) => void;
@@ -96,7 +110,28 @@ function Candidate({
         {e.page === "vaccine" && typeof e.values.vaccine === "string" ? vaccineLabel(e.values.vaccine) : e.title}
       </p>
       {e.page === "feeling" && typeof e.values.text === "string" && <p className="text-base">「{e.values.text}」</p>}
-      {shown.length > 0 && (
+      {edit ? (
+        <div className="grid grid-cols-2 gap-2">
+          {editKeys(e).map((k) => {
+            const [label, unit] = LABELS[k] ?? [k];
+            return (
+              <label key={k} className="flex flex-col gap-1 text-sm text-muted">
+                <span>
+                  {label}
+                  {unit && `（${unit}）`}
+                </span>
+                <input
+                  value={edit[k] ?? ""}
+                  onChange={(ev) => onEdit({ ...edit, [k]: ev.target.value })}
+                  inputMode={isNumberKey(k) ? "decimal" : undefined}
+                  disabled={busy}
+                  className="min-h-11 w-full rounded-lg border border-line bg-card px-3 text-base text-ink"
+                />
+              </label>
+            );
+          })}
+        </div>
+      ) : shown.length > 0 && (
         <ul className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-ink">
           {shown.map(([k, v]) => (
             <li key={k} className="tabular">
@@ -109,8 +144,17 @@ function Candidate({
       <DateCheck id={`date-${d.id}`} value={date} onChange={onDate} unsure={e.dateUnsure} max={today} disabled={busy} />
       <div className="flex gap-2">
         <Btn onClick={onOk} disabled={busy || !date}>
-          OK
+          {edit ? "直してOK" : "OK"}
         </Btn>
+        {editKeys(e).length > 0 && (
+          <Btn
+            kind="secondary"
+            onClick={() => onEdit(edit ? undefined : Object.fromEntries(editKeys(e).map((k) => [k, e.values[k] == null ? "" : String(e.values[k])])))}
+            disabled={busy}
+          >
+            {edit ? "直さない" : "直す"}
+          </Btn>
+        )}
         <Btn kind="secondary" onClick={onNo} disabled={busy}>
           違う
         </Btn>
@@ -125,6 +169,8 @@ export function TechoCandidates({ familyId, items, onChange }: { familyId: strin
   const [left, setLeft] = useState<TechoDoc[]>(() => items.filter((d) => d.data.pending));
   // 候補ごとの日付（OK の時にこの日で確定する）
   const [dates, setDates] = useState<Record<string, string>>(() => Object.fromEntries(items.map((d) => [d.id, initialDate(d.data.date, d.data.dateUnsure)])));
+  // 値を直している候補（OK の前に、読み取った値をその場で直す）
+  const [edits, setEdits] = useState<Record<string, Record<string, string> | undefined>>({});
   const [done, setDone] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -134,7 +180,8 @@ export function TechoCandidates({ familyId, items, onChange }: { familyId: strin
     setError("");
     try {
       const pick = action === "confirm" ? Object.fromEntries(ids.map((id) => [id, dates[id]]).filter(([, v]) => v)) : undefined;
-      await api("/api/techo", { body: { familyId, today, action, ids, ...(pick ? { dates: pick } : {}) } });
+      const fixed = action === "confirm" ? Object.fromEntries(ids.flatMap((id) => (edits[id] ? [[id, edits[id]]] : []))) : {};
+      await api("/api/techo", { body: { familyId, today, action, ids, ...(pick ? { dates: pick } : {}), ...(Object.keys(fixed).length ? { values: fixed } : {}) } });
       setLeft((cur) => cur.filter((d) => !ids.includes(d.id)));
       if (action === "confirm") setDone((n) => n + ids.length);
       onChange?.();
@@ -156,7 +203,7 @@ export function TechoCandidates({ familyId, items, onChange }: { familyId: strin
           </Btn>
         )}
       </div>
-      {left.length > 0 && <p className="text-sm text-muted">合っていれば OK。数字は話した・書いてあるとおりだけ写しています。OK は後で手帳の上からもできます。OK した後も手帳から消せます</p>}
+      {left.length > 0 && <p className="text-sm text-muted">合っていれば OK。読み違いは「直す」でその場で直せます。OK は後で手帳の上からもできます。OK した後も手帳から消せます</p>}
       {done > 0 && (
         <p role="status" className="text-sm font-semibold text-ok">
           {done}件を手帳に入れました
@@ -175,6 +222,8 @@ export function TechoCandidates({ familyId, items, onChange }: { familyId: strin
               busy={busy}
               onOk={() => void send("confirm", [d.id])}
               onNo={() => void send("remove", [d.id])}
+              edit={edits[d.id]}
+              onEdit={(v) => setEdits((cur) => ({ ...cur, [d.id]: v }))}
             />
           ))}
         </ul>
