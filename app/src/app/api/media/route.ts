@@ -3,7 +3,7 @@
 import { route } from "@/lib/api";
 import { withHousehold } from "@/lib/access";
 import { HttpError } from "@/lib/http-error";
-import { existingTechoIds, purgeExpired, saveUpload, starKey, toClient, type MediaData } from "@/lib/media";
+import { existingTechoIds, photoDate, purgeExpired, saveUpload, starKey, toClient, type MediaData } from "@/lib/media";
 import { listTecho } from "@/lib/techo-store";
 
 export const maxDuration = 120;
@@ -17,8 +17,15 @@ export const GET = route(async (req: Request) => {
   const trash = q.get("trash") === "1";
   // ゴミ箱に30日を過ぎた写真は、一覧を開いた時に消す（書ける人が開いた時だけ）
   if (ctx.can("media:write")) await purgeExpired(ctx);
-  const rows = ctx.db.media.list<MediaData>({ kind: "photo", includeTrashed: trash }).filter((r) => (trash ? !!r.trashedAt : !r.trashedAt));
+  // 既定は写真。?kind=audio は声（思い出の録り方で残した物）
+  const kind = q.get("kind") === "audio" ? "audio" : "photo";
   const today = todayOf(q.get("today"));
+  // 作った家族は時計を進めて見るので、画面の「今日」より後の種は出さない
+  const made = ctx.household.kind !== "real" && !!today;
+  const rows = ctx.db.media
+    .list<MediaData>({ kind, includeTrashed: trash })
+    .filter((r) => (trash ? !!r.trashedAt : !r.trashedAt))
+    .filter((r) => !made || photoDate(r) <= today!);
   // 消えた手帳の記録への結びは出さない（写真は残す）
   const live = new Set(listTecho(ctx.household.id, { family: ctx.family ?? undefined, today }).map((d) => d.id));
   const me = starKey(ctx.account?.id, q.get("by"));

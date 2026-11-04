@@ -34,6 +34,47 @@ export interface MediaData {
   h?: number;
   /** 形ごとの暗号の iv・タグ（本体 orig の iv・tag は行にも持つ） */
   variants: Partial<Record<PhotoVariant, { iv: string; tag: string; bytes: number; mime: string }>>;
+  /** 声（kind audio）だけ: 録り方・誰へ・長さ・文字起こし（自宅の機械で文字にした物。Claude には渡さない）・題 */
+  moment?: VoiceMoment;
+  spokenTo?: string;
+  durationSec?: number;
+  transcript?: string;
+  title?: string;
+  /** 作った家族の種の印（同じ種を二度入れない） */
+  seedKey?: string;
+}
+
+// ───────── 声を残す（思い出の録り方） ─────────
+
+/** 思い出として声を残す録り方。この3つ（と見本の家族の種）は記録の振り分け（Claude）にかけない */
+export const VOICE_MOMENTS = [
+  { id: "belly", label: "おなかに話しかける", hint: "生まれる前のあなたへ", short: "おなかへ" },
+  { id: "bedtime", label: "寝る前のひとこと", hint: "今日のおやすみ", short: "おやすみ" },
+  { id: "name", label: "名前を呼ぶ", hint: "はじめて・何度でも", short: "名前" },
+] as const;
+export type VoiceMoment = (typeof VOICE_MOMENTS)[number]["id"] | "message";
+export function voiceMomentById(id: string | null | undefined) {
+  return VOICE_MOMENTS.find((m) => m.id === id);
+}
+/** 声の題（「翔太から おなかへ」）。Claude を使わず、録り方と話した人から作る */
+export function voiceTitle(m: { moment?: string; who?: string; spokenTo?: string }): string {
+  const mo = voiceMomentById(m.moment);
+  const from = m.who ? `${m.who}から` : "";
+  if (mo) return [from, mo.short === "名前" ? "名前を呼んだ声" : mo.short].filter(Boolean).join(" ");
+  return [from, m.spokenTo ? `${m.spokenTo}へ` : "の声"].filter(Boolean).join(" ") || "声";
+}
+/** 声1本の上限（原本） */
+export const MAX_VOICE_BYTES = 30 * 1024 * 1024;
+
+/** 録音の形式を中身で見分ける（届いた content-type は信じない） */
+export function sniffAudio(b: Uint8Array): string | null {
+  if (b.length < 12) return null;
+  if (b[0] === 0x1a && b[1] === 0x45 && b[2] === 0xdf && b[3] === 0xa3) return "audio/webm";
+  if (ascii(b, 0, 4) === "RIFF" && ascii(b, 8, 4) === "WAVE") return "audio/wav";
+  if (ascii(b, 0, 4) === "OggS") return "audio/ogg";
+  if (ascii(b, 0, 3) === "ID3" || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0)) return "audio/mpeg";
+  if (ascii(b, 4, 4) === "ftyp") return "audio/mp4";
+  return null;
 }
 
 /** 画面に渡す写真1枚（鍵・iv・置き場の鍵は渡さない） */
@@ -62,6 +103,12 @@ export interface ClientMedia {
   trashedAt: string | null;
   createdAt: string;
   urls: Record<PhotoVariant, string>;
+  /** 声だけ */
+  moment?: VoiceMoment;
+  spokenTo?: string;
+  durationSec?: number;
+  transcript?: string;
+  title?: string;
 }
 
 /** 手帳の中で写真の枠を出すページ（できた日・出産・気持ち・成長） */
@@ -502,6 +549,15 @@ export function milestoneToday(birthDate: string | undefined, today: string): Ph
   }) ?? null;
 }
 
+/**
+ * 今日、思い出の一言（節目の写真）を出すか。家族が「静かにする」（つらい別れ・赤ちゃんの入院）を選んでいる間は出さない。
+ * 入院中の子は、生まれた日から数える節目が実際の様子と合わないので、静かにする間は数えない（戻せば出る）
+ */
+export function memoryNudgeFor(f: { birthDate?: string; situation?: { quiet?: string } }, today: string): PhotoMilestone | null {
+  if (f.situation?.quiet) return null;
+  return milestoneToday(f.birthDate, today);
+}
+
 /** 写真の見出しの月齢（「生後3か月」「生後12日」「妊娠7か月」「1歳2か月」） */
 export function ageLabel(f: { dueDate: string; birthDate?: string }, date: string): string {
   if (f.birthDate && diffDays(date, f.birthDate) >= 0) {
@@ -550,7 +606,7 @@ export function photoScore(m: Pick<ClientMedia, "star" | "milestone" | "techoIds
  * 同じ重みなら、その月の真ん中ごろの1枚（月の初めと終わりに偏らない）。隠した・ゴミ箱の写真は選ばない。
  */
 export function pickOfMonth(items: readonly ClientMedia[]): ClientMedia | null {
-  const xs = items.filter((m) => !m.hidden && !m.trashedAt).sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt));
+  const xs = items.filter((m) => m.kind !== "audio" && !m.hidden && !m.trashedAt).sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt));
   if (!xs.length) return null;
   const mid = (xs.length - 1) / 2;
   let best = xs[0];

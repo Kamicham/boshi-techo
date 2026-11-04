@@ -23,6 +23,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [stageOpen, setStageOpen] = useState(false);
   // 合言葉・ログイン・招待の画面では、家族の切り替えもタブも出さない
   if (path === "/unlock" || path === "/login" || (path.startsWith("/invite/") && path !== "/invite/new")) return <div className="mx-auto min-h-dvh max-w-md">{children}</div>;
+  // 映画は画面いっぱいに映す（タブも家族の切り替えも出さない）
+  if (path === "/book/film") return <>{children}</>;
   const here = households.find((h) => h.id === family.id);
   const labelOf = (f: (typeof families)[number]) => {
     const h = households.find((x) => x.id === f.id);

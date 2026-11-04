@@ -254,6 +254,68 @@ describe("受け取る → GPS を消して暗号にして置く → ゴミ箱",
 
 // ───────── 一冊（写真0枚でも壊れない・Claude への入力は文字だけ） ─────────
 
+describe("声を残す", () => {
+  /** 作った WAV（無音・1秒）。本物の声は使わない */
+  function wav(seconds = 1, tone = 0): Buffer {
+    const rate = 8000;
+    const n = rate * seconds;
+    const b = Buffer.alloc(44 + n);
+    b.write("RIFF", 0);
+    b.writeUInt32LE(36 + n, 4);
+    b.write("WAVE", 8);
+    b.write("fmt ", 12);
+    b.writeUInt32LE(16, 16);
+    b.writeUInt16LE(1, 20);
+    b.writeUInt16LE(1, 22);
+    b.writeUInt32LE(rate, 24);
+    b.writeUInt32LE(rate, 28);
+    b.writeUInt16LE(1, 32);
+    b.writeUInt16LE(8, 34);
+    b.write("data", 36);
+    b.writeUInt32LE(n, 40);
+    b.fill(128 + tone, 44);
+    return b;
+  }
+
+  it("声は暗号にして置き、題は録り方と話した人から作る。同じ声は二重に入らない。画面に鍵は渡さない", async () => {
+    const ctx = await A.withHousehold(req(), "demo-sato", "media:write");
+    expect(S.sniffAudio(wav())).toBe("audio/wav");
+    expect(S.sniffAudio(Buffer.from([0x1a, 0x45, 0xdf, 0xa3, 0, 0, 0, 0, 0, 0, 0, 0]))).toBe("audio/webm");
+    const src = wav(1, 3);
+    const r = await M.saveAudio(ctx, { audio: src, moment: "belly", who: "翔太", spokenTo: "ひなた", transcript: "ひなた、聞こえる？パパだよ。今日は寒かったね。", durationSec: 4.2, today: "2027-01-01" });
+    expect(r.duplicate).toBe(false);
+    expect(r.media.kind).toBe("audio");
+    expect(r.media.takenAt?.slice(0, 10)).toBe("2027-01-01");
+    expect(r.media.data.title).toBe("翔太から おなかへ");
+    const onDisk = await ctx.storage.get(`${r.media.storageKey}/orig`);
+    expect(onDisk!.equals(src)).toBe(false);
+    expect((await M.readVariant(ctx, r.media, "orig"))!.buf.equals(src)).toBe(true);
+    const again = await M.saveAudio(ctx, { audio: src, moment: "bedtime" });
+    expect(again.duplicate).toBe(true);
+    const c = M.toClient("demo-sato", r.media);
+    expect(c.title).toBe("翔太から おなかへ");
+    expect(JSON.stringify(c)).not.toMatch(/"iv"|"tag"|storageKey|households\//);
+    // 写真の一覧には混ざらない。「この1枚」にも選ばれない
+    expect(ctx.db.media.list({ kind: "photo" }).some((x) => x.id === r.media.id)).toBe(false);
+    expect(S.pickOfMonth([c])).toBeNull();
+    await expect(M.saveAudio(ctx, { audio: Buffer.from("not audio at all, just text") })).rejects.toMatchObject({ status: 415 });
+  });
+
+  it("一冊の声の候補は文字だけ（題・最初の一文）。隠した声・今日より後の声は入れない", async () => {
+    const ctx = await A.withHousehold(req(), "demo-sato", "media:write");
+    const late = await M.saveAudio(ctx, { audio: wav(1, 9), moment: "name", who: "美咲", transcript: "ひなた。", today: "2029-01-01" });
+    const hid = await M.saveAudio(ctx, { audio: wav(1, 11), moment: "bedtime", who: "美咲", transcript: "おやすみ。", today: "2027-02-01" });
+    ctx.db.media.patch(hid.media.id, { data: { hidden: true } });
+    const f = ctx.family!;
+    const xs = M.bookVoiceCandidates(f, "2027-12-31");
+    expect(xs.some((x) => x.id === late.media.id)).toBe(false);
+    expect(xs.some((x) => x.id === hid.media.id)).toBe(false);
+    const belly = xs.find((x) => x.title === "翔太から おなかへ");
+    expect(belly?.first).toBe("ひなた、聞こえる？");
+    expect(JSON.stringify(xs)).not.toMatch(/storageKey|households\//);
+  });
+});
+
 describe("一冊と写真", () => {
   const chapter = (period: string, photos: { mediaId: string; line: string }[] = []) => ({ period, title: "題", text: "本文", moments: [], photos });
 
@@ -303,6 +365,66 @@ describe("一冊と写真", () => {
 });
 
 // ───────── 画像を Claude に渡せるのは mediaForClaude だけ（grep） ─────────
+
+describe("見本の家族の写真と声", () => {
+  it("作った家族の世帯に、作った写真と声を入れる。二度呼んでも増えない。本物の世帯には入れない", async () => {
+    const D = await import("./demo-media");
+    const ctx = await A.withHousehold(req(), "demo-sato", "media:write");
+    const first = await D.seedDemoMedia(ctx);
+    expect(first).toBeGreaterThan(0);
+    expect(await D.seedDemoMedia(ctx)).toBe(0);
+    const voices = ctx.db.media.list<import("./media-shared").MediaData>({ kind: "audio" }).filter((r) => r.data.made);
+    expect(voices.length).toBeGreaterThanOrEqual(7);
+    expect(voices.every((v) => v.data.transcript && v.data.title)).toBe(true);
+    // 種の日付は筋書きどおり（20週の夜の話しかけ）
+    expect(voices.some((v) => v.data.title === "翔太から おなかへ")).toBe(true);
+    expect(await D.seedDemoMedia({ ...ctx, household: { ...ctx.household, kind: "real" } })).toBe(0);
+  });
+});
+
+describe("一冊と声", () => {
+  const photo = (id: string, date: string, period: "はじめての一年" | "おなかにいた日々") => ({ id, date, period, age: "", techo: [], star: 0, score: 0 });
+  const voice = (id: string, date: string, period: "はじめての一年" | "おなかにいた日々", star = 0) => ({ id, date, period, age: "", title: "パパから おなかへ", first: "", star });
+
+  it("声の番号を id に戻し、知らない番号は落とす。映画で同じ声は1回だけ。声のある行は5秒以上", () => {
+    const pk = B.photoKeys([photo("p1", "2027-02-01", "おなかにいた日々"), photo("p2", "2027-06-01", "はじめての一年")]);
+    const vk = B.voiceKeys([voice("v1", "2027-02-03", "おなかにいた日々")]);
+    expect(vk.map((k) => k.key)).toEqual(["V1"]);
+    const content = {
+      title: "t", dedication: "d", closing: "c", cover: "",
+      chapters: [{ period: "おなかにいた日々", title: "a", text: "b", moments: [], photos: [], voices: [{ voiceId: "V1", line: "パパから" }, { voiceId: "V9", line: "x" }] }],
+      film: [
+        { mediaId: "p1", sec: 3, caption: "", voiceId: "V1" },
+        { mediaId: "p2", sec: 3, caption: "", voiceId: "V1" },
+      ],
+    };
+    const out = B.settleVoices(content, pk, vk);
+    expect(out.chapters[0].voices).toEqual([{ voiceId: "v1", line: "パパから" }]);
+    expect(out.film[0]).toMatchObject({ voiceId: "v1", sec: 5 });
+    expect(out.film[1].voiceId).toBe("");
+  });
+
+  it("Claude が声を選ばなかった時（見本の答え）も、章に1本・映画の近い日の写真に声を付ける。半年より離れた写真には付けない", () => {
+    const pk = B.photoKeys([photo("p1", "2027-02-01", "おなかにいた日々"), photo("p2", "2027-12-01", "はじめての一年")]);
+    const vk = B.voiceKeys([voice("v1", "2027-02-10", "おなかにいた日々"), voice("v2", "2029-01-01", "はじめての一年")]);
+    const content = {
+      title: "t", dedication: "d", closing: "c", cover: "",
+      chapters: [{ period: "おなかにいた日々", title: "a", text: "b", moments: [], photos: [], voices: [] }],
+      film: [],
+    };
+    const settled = B.settlePhotos(content, pk);
+    expect(settled.film.map((x) => x.mediaId)).toContain("p1");
+    const out = B.settleVoices(settled, pk, vk);
+    expect(out.chapters[0].voices[0].voiceId).toBe("v1");
+    expect(out.film.find((x) => x.mediaId === "p1")?.voiceId).toBe("v1");
+    expect(out.film.some((x) => x.voiceId === "v2")).toBe(false);
+    // Claude への文に声の id は出さない（番号だけ）
+    const f = { id: "x", city: "", prefecture: "", dueDate: "2027-05-10", birthDate: "2027-04-26", members: [] };
+    const text = B.bookInput(f, "2027-12-31", [], pk, vk);
+    expect(text).toContain("V1");
+    expect(text).not.toContain("v1");
+  });
+});
 
 describe("imageBlock を呼ぶ所（grep）", () => {
   const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");

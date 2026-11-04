@@ -60,11 +60,11 @@ function load(key: string, url: string): Entry {
   return e;
 }
 
-export function useMedia(opts: { trash?: boolean } = {}) {
+export function useMedia(opts: { trash?: boolean; kind?: "audio" } = {}) {
   const { family, today, me } = useFamily();
   const v = useSyncExternalStore(subscribe, getVersion, getVersion);
-  const key = `${family.id}|${opts.trash ? 1 : 0}|${me?.name ?? ""}|${today}`;
-  const url = `/api/media?familyId=${encodeURIComponent(family.id)}&today=${today}${opts.trash ? "&trash=1" : ""}${me?.name ? `&by=${encodeURIComponent(me.name)}` : ""}`;
+  const key = `${family.id}|${opts.trash ? 1 : 0}|${opts.kind ?? "photo"}|${me?.name ?? ""}|${today}`;
+  const url = `/api/media?familyId=${encodeURIComponent(family.id)}&today=${today}${opts.trash ? "&trash=1" : ""}${opts.kind ? `&kind=${opts.kind}` : ""}${me?.name ? `&by=${encodeURIComponent(me.name)}` : ""}`;
   const [state, setState] = useState<{ key: string; list: MediaList | null; error: { status: number; message: string } | null }>({ key: "", list: null, error: null });
 
   useEffect(() => {

@@ -11,11 +11,14 @@ import { useTecho } from "@/components/techo/useTecho";
 import { bytesLabel, groupForAlbum, milestoneById, TRASH_DAYS, type ClientMedia } from "@/lib/media-shared";
 import { KeepButtons } from "./KeepButtons";
 import { PhotoSheet } from "./PhotoSheet";
-import { trashMedia, patchMedia, useMedia } from "./useMedia";
+import { VoiceItem } from "./VoiceItem";
+import { invalidateMedia, trashMedia, patchMedia, useMedia } from "./useMedia";
 
 export function AlbumScreen() {
-  const { family } = useFamily();
+  const { family, isDemo } = useFamily();
   const { media, usage, canWrite, loading, unavailable, error } = useMedia();
+  const { media: voices } = useMedia({ kind: "audio" });
+  const [focusVoice, setFocusVoice] = useState<string | null>(null);
   // 準備中の時は、仕組みの言葉（エラーの文）を家族に見せない
   const { items: techo } = useTecho();
   const [open, setOpen] = useState<string | null>(null);
@@ -23,11 +26,14 @@ export function AlbumScreen() {
 
   // 手帳の写真の枠から来た時（/album?photo=<id>）は、その1枚を開く
   useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get("photo");
+    const q = new URLSearchParams(window.location.search);
+    const id = q.get("photo");
     if (id) setOpen(id);
+    setFocusVoice(q.get("voice"));
   }, []);
 
-  const groups = useMemo(() => groupForAlbum(family, media), [family, media]);
+  // 写真と声を同じ月の並びに混ぜる（「この1枚」は写真だけから選ぶ）
+  const groups = useMemo(() => groupForAlbum(family, [...media, ...voices]), [family, media, voices]);
   const titles = useMemo(() => new Map(techo.map((t) => [t.id, t.title])), [techo]);
   const shown = media.find((m) => m.id === open) ?? null;
 
@@ -43,7 +49,7 @@ export function AlbumScreen() {
       </div>
       <header className="flex flex-col gap-1">
         <h1 className="font-display text-2xl font-bold">{child}のアルバム</h1>
-        <p className="text-base text-muted">月ごとの「この1枚」は、アプリが仮に選んでおきます。★で選び直せます。</p>
+        <p className="text-base text-muted">月ごとの「この1枚」は、アプリが仮に選んでおきます。★で選び直せます。残した声も、同じ月に並びます。</p>
       </header>
 
       {loading ? (
@@ -58,12 +64,16 @@ export function AlbumScreen() {
           {canWrite && <KeepButtons />}
           {usage && (
             <p className="text-sm text-muted">
-              写真 <b className="tabular text-ink">{usage.count}</b> 枚・<span className="tabular">{bytesLabel(usage.bytes)}</span>（この家族の置き場だけ・鍵つき）
+              写真 <b className="tabular text-ink">{usage.count}</b> 枚{voices.length ? <>・声 <b className="tabular text-ink">{voices.length}</b> 本</> : null}・
+              <span className="tabular">{bytesLabel(usage.bytes + voices.reduce((n, v) => n + v.bytes, 0))}</span>（この家族の置き場だけ・鍵つき）
             </p>
           )}
           {error && <p className="rounded-xl bg-alert/10 px-4 py-3 text-base text-alert">{error}</p>}
-          {media.length === 0 ? (
-            <p className="rounded-2xl bg-card px-4 py-6 text-center text-base text-muted">まだ写真がありません。「🌸 残す」から足すと、月ごとに並びます。</p>
+          {media.length === 0 && voices.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 rounded-2xl bg-card px-4 py-6 text-center">
+              <p className="text-base text-muted">まだ写真がありません。「🌸 残す」から足すと、月ごとに並びます。</p>
+              {isDemo && canWrite && <SeedDemo />}
+            </div>
           ) : (
             groups.map((g) => (
               <section key={g.period} className="flex flex-col gap-3">
@@ -72,10 +82,10 @@ export function AlbumScreen() {
                   <article key={mo.key} id={`m-${mo.key}`} className="flex flex-col gap-2 rounded-2xl border border-line bg-card p-3">
                     <h3 className="font-display text-lg font-bold">{mo.label}</h3>
                     {mo.pick && <Pick m={mo.pick} titles={titles} onOpen={() => setOpen(mo.pick!.id)} />}
-                    {mo.items.length > 1 && (
+                    {mo.items.some((m) => m.kind !== "audio" && m.id !== mo.pick?.id) && (
                       <ul className="grid grid-cols-4 gap-1">
                         {mo.items
-                          .filter((m) => m.id !== mo.pick?.id)
+                          .filter((m) => m.kind !== "audio" && m.id !== mo.pick?.id)
                           .map((m) => (
                             <li key={m.id}>
                               <button type="button" onClick={() => setOpen(m.id)} className="relative block aspect-square w-full overflow-hidden rounded-md bg-paper" aria-label={`${m.date} の写真`}>
@@ -87,13 +97,22 @@ export function AlbumScreen() {
                           ))}
                       </ul>
                     )}
+                    {mo.items.some((m) => m.kind === "audio") && (
+                      <ul aria-label="声" className="flex flex-col gap-1.5">
+                        {mo.items
+                          .filter((m) => m.kind === "audio")
+                          .map((m) => (
+                            <VoiceItem key={m.id} m={m} canWrite={canWrite} focus={focusVoice === m.id} />
+                          ))}
+                      </ul>
+                    )}
                   </article>
                 ))}
               </section>
             ))
           )}
           {canWrite && <Trash />}
-          <p className="pb-4 text-sm text-muted">Claude には見せていません。一冊を作る時も、Claude に渡すのは写真の日付・一言・結んだ記録の文字だけです。</p>
+          <p className="pb-4 text-sm text-muted">Claude には見せていません（声も聞かせていません）。一冊を作る時も、Claude に渡すのは日付・一言・結んだ記録・声の最初の一文の文字だけです。</p>
         </>
       )}
       {shown && <PhotoSheet photo={shown} techo={techo} canWrite={canWrite} onClose={() => setOpen(null)} />}
@@ -118,6 +137,35 @@ function Pick({ m, titles, onOpen }: { m: ClientMedia; titles: Map<string, strin
       </span>
       {m.caption && <span className="text-base">{m.caption}</span>}
     </button>
+  );
+}
+
+/** 見本の家族だけ: 作った写真と声を入れる（作った記録と一緒に） */
+function SeedDemo() {
+  const { family, today } = useFamily();
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  return (
+    <>
+      <Btn
+        kind="secondary"
+        disabled={busy}
+        onClick={() => {
+          setBusy(true);
+          fetch("/api/capture/seed", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ familyId: family.id, today }) })
+            .then(async (r) => {
+              if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { error?: string }).error ?? `入れられませんでした（${r.status}）`);
+              invalidateMedia();
+            })
+            .catch((e: Error) => setMsg(e.message))
+            .finally(() => setBusy(false));
+        }}
+      >
+        {busy ? "入れています…" : "見本の写真と声を入れる"}
+      </Btn>
+      <p className="text-xs text-muted">見本の写真は画像生成、声は合成音声で作った物です（作った家族・実在の人ではありません）。</p>
+      {msg && <p className="text-sm text-alert">{msg}</p>}
+    </>
   );
 }
 

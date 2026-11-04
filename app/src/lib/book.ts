@@ -9,7 +9,7 @@ import { conceptionDate, secondBirthday } from "./clock";
 import { list, put, type Doc } from "./db";
 import type { Family } from "./demo-family";
 import { getFamily, HttpError } from "./family";
-import { bookPhotoCandidates, type BookPhoto } from "./media";
+import { bookPhotoCandidates, bookVoiceCandidates, type BookPhoto, type BookVoice } from "./media";
 import { PERIODS, periodOfDate, type Period } from "./media-shared";
 import type { TechoEntry } from "./techo";
 import { listTecho } from "./techo-store";
@@ -36,6 +36,14 @@ export const BookSchema = z.object({
             }),
           )
           .describe("この章に置く写真（その時期の候補から0〜4枚。★・節目・手帳に結んだ写真を先に）。候補が無ければ空"),
+        voices: z
+          .array(
+            z.object({
+              voiceId: z.string().describe("声の候補の番号（V1 など）。渡した候補の番号だけ"),
+              line: z.string().describe("声に添える紹介の一言（だれが・だれに・いつ）。候補の題と一文にある事だけ。20字まで"),
+            }),
+          )
+          .describe("この章に置く声（その時期の候補から0〜2本。★の声を先に）。候補が無ければ空"),
       }),
     )
     .describe("時期ごとの章。記録のある時期だけ、渡した順に"),
@@ -47,6 +55,7 @@ export const BookSchema = z.object({
         mediaId: z.string().describe("写真の候補の番号（P1 など）"),
         sec: z.number().describe("映す秒数（3〜6）"),
         caption: z.string().describe("字幕。章の言葉から短く。20字まで"),
+        voiceId: z.string().describe("この写真の間に流す声の候補の番号（V1 など）。流さない時は空文字。同じ声は1回だけ"),
       }),
     )
     .describe("約2分の動画集の台本。選んだ写真から10〜24枚を古い順に。写真の候補が無ければ空"),
@@ -63,6 +72,8 @@ export interface Book extends BookContent {
   sourceCount: number;
   /** 写真の候補の数（文字だけを Claude に渡した。前の版の一冊には無い） */
   photoCount?: number;
+  /** 声の候補の数（文字だけ。前の版の一冊には無い） */
+  voiceCount?: number;
   /** 1000日の始まりと終わり */
   range: { start: string; end: string };
   childName: string;
@@ -232,12 +243,41 @@ const SYSTEM = `あなたの役割: 家族の1000日の記録から、いつか�
 写真:
 - 写真は見ていない。渡すのは写真の候補の文字の一覧（番号・日付・月齢・節目・家族の一言・結んだ手帳の記録・★の数）だけ。写真に何が写っているかを想像して書かない。
 - 章の photos は、その時期の候補から0〜4枚を番号（P1 など）で選ぶ。★・節目・手帳に結んだ写真を先に。line は候補の一言か記録にある事だけで短く（無ければ空）。
-- cover は一番の1枚の番号。候補が無ければ空文字。film は動画集の台本で、選んだ写真から10〜24枚を古い順に、sec は3〜6、caption は章の言葉から短く。候補が無ければ空。`;
+- cover は一番の1枚の番号。候補が無ければ空文字。film は動画集の台本で、選んだ写真から10〜24枚を古い順に、sec は3〜6、caption は章の言葉から短く。候補が無ければ空。
+声:
+- 家族が残した声（おなかに話しかけた声・寝る前のひとこと・名前を呼んだ声）の候補を、番号・日付・題・最初の一文の文字だけで渡す。声は聞いていない。最初の一文より先の中身を想像して書かない。
+- 章の voices は、その時期の候補から0〜2本を番号（V1 など）で選ぶ。line は「だれが・だれに・いつ」を候補の題から短く。
+- film の voiceId は、その声の日付に近い写真の行に付ける。同じ声は1回だけ。声のある行の sec は5〜6。声の候補が無ければすべて空文字。`;
 
 /** 1章あたり・全体の写真の候補の数（多すぎると Claude への文が長くなる） */
 const PHOTOS_PER_PERIOD = 12;
 const PHOTOS_TOTAL = 60;
 const FILM_MAX_SEC = 120;
+
+export interface VoiceKey {
+  key: string;
+  voice: BookVoice;
+}
+
+const VOICES_PER_PERIOD = 4;
+const VOICES_TOTAL = 12;
+
+/** 声の候補を選ぶ（時期ごとに★の多い順・古い順）。番号（V1…）を振る（Claude には声の id も声そのものも渡さない） */
+export function voiceKeys(candidates: readonly BookVoice[]): VoiceKey[] {
+  const out: BookVoice[] = [];
+  for (const p of PERIODS) {
+    out.push(
+      ...candidates
+        .filter((c) => c.period === p)
+        .sort((a, b) => b.star - a.star || a.date.localeCompare(b.date))
+        .slice(0, VOICES_PER_PERIOD),
+    );
+  }
+  return out
+    .slice(0, VOICES_TOTAL)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((voice, i) => ({ key: `V${i + 1}`, voice }));
+}
 
 export interface PhotoKey {
   key: string;
@@ -266,7 +306,7 @@ export function photoKeys(candidates: readonly BookPhoto[], prevIds: ReadonlySet
 }
 
 /** Claude に渡す文（文字だけ）。写真が0枚なら写真の段は書かない */
-export function bookInput(f: Family, today: string, entries: readonly Entry[], keys: readonly PhotoKey[]): string {
+export function bookInput(f: Family, today: string, entries: readonly Entry[], keys: readonly PhotoKey[], vkeys: readonly VoiceKey[] = []): string {
   const childName = f.childName ?? "あなた";
   const groups = new Map<Period, Entry[]>();
   for (const e of entries) {
@@ -276,6 +316,8 @@ export function bookInput(f: Family, today: string, entries: readonly Entry[], k
   const photosOf = (p: Period) => keys.filter((k) => k.photo.period === p);
   const photoLine = ({ key, photo: x }: PhotoKey) =>
     `- ${key} ${x.date}・${x.age}${x.milestone ? `・節目「${x.milestone}」` : ""}${x.star ? `・★${x.star}` : ""}${x.caption ? `・一言「${x.caption}」` : ""}${x.techo.length ? `・手帳「${x.techo.join("・")}」` : ""}`;
+  const voicesOf = (p: Period) => vkeys.filter((k) => k.voice.period === p);
+  const voiceLine = ({ key, voice: v }: VoiceKey) => `- ${key} ${v.date}・${v.age}・題「${v.title}」${v.star ? `・★${v.star}` : ""}${v.first ? `・最初の一文「${v.first}」` : ""}`;
   const members = f.members.map((m) => `${m.name}（${m.role}）`).join("、") || "（呼び名なし）";
   return [
     `子どもの呼び名: ${childName}`,
@@ -283,11 +325,13 @@ export function bookInput(f: Family, today: string, entries: readonly Entry[], k
     `出産予定日: ${f.dueDate}${f.birthDate ? `／生まれた日: ${f.birthDate}` : "／まだ生まれていない"}`,
     `この本は ${today} までの記録で作る。`,
     keys.length ? `写真の候補は ${keys.length} 枚（文字だけ。画像は渡していない）。` : "写真はまだ無い（photos・cover・film は空にする）。",
+    vkeys.length ? `声の候補は ${vkeys.length} 本（文字だけ。声は渡していない）。` : "声はまだ無い（voices と film の voiceId は空にする）。",
     "",
-    ...PERIODS.filter((p) => groups.has(p) || photosOf(p).length).flatMap((p) => [
+    ...PERIODS.filter((p) => groups.has(p) || photosOf(p).length || voicesOf(p).length).flatMap((p) => [
       `## ${p}`,
       ...(groups.get(p) ?? []).map((e) => `- ${e.date}［${e.kind}］${e.text}`),
       ...(photosOf(p).length ? ["### 写真の候補", ...photosOf(p).map(photoLine)] : []),
+      ...(voicesOf(p).length ? ["### 声の候補", ...voicesOf(p).map(voiceLine)] : []),
       "",
     ]),
   ].join("\n");
@@ -323,9 +367,12 @@ export function settlePhotos(content: BookContent, keys: readonly PhotoKey[]): B
   const cover = idOf(content.cover ?? "") ?? [...all].sort((a, b) => b.score - a.score || a.date.localeCompare(b.date))[0]?.id ?? "";
   let film = (content.film ?? []).flatMap((x) => {
     const id = idOf(x.mediaId);
-    return id ? [{ mediaId: id, sec: Math.min(6, Math.max(3, Number(x.sec) || 4)), caption: (x.caption ?? "").slice(0, 40) }] : [];
+    return id ? [{ mediaId: id, sec: Math.min(6, Math.max(3, Number(x.sec) || 4)), caption: (x.caption ?? "").slice(0, 40), voiceId: x.voiceId ?? "" }] : [];
   });
-  if (!film.length) film = chapters.flatMap((ch) => ch.photos.map((p) => ({ mediaId: p.mediaId, sec: 4, caption: p.line || ch.title })));
+  if (!film.length) film = chapters.flatMap((ch) => ch.photos.map((p) => ({ mediaId: p.mediaId, sec: 4, caption: p.line || ch.title, voiceId: "" })));
+  // 鍵が無い時（見本の答え）も映画が空にならないよう、写真の候補から古い順に作る
+  if (!film.length)
+    film = keys.slice(0, 24).map((k) => ({ mediaId: k.photo.id, sec: 4, caption: (k.photo.caption ?? k.photo.milestone ?? k.photo.techo[0] ?? k.photo.age).slice(0, 40), voiceId: "" }));
   const out: BookContent["film"] = [];
   let total = 0;
   for (const x of film) {
@@ -334,6 +381,61 @@ export function settlePhotos(content: BookContent, keys: readonly PhotoKey[]): B
     total += x.sec;
   }
   return { ...content, chapters, cover, film: out };
+}
+
+/**
+ * 声の番号を id に戻す（settlePhotos の後に呼ぶ）。候補に無い番号は落とし、同じ声は映画で1回だけ。
+ * - 章に声の候補があるのに選ばれなかった時は、★の多い1本を足す（残した声が一冊から漏れないように）
+ * - 映画に声が1本も付かなかった時は、声の日付に一番近い写真の行に付ける（声のある行は5秒以上）
+ */
+export function settleVoices(content: BookContent, photoKeysUsed: readonly PhotoKey[], vkeys: readonly VoiceKey[]): BookContent {
+  const byKey = new Map(vkeys.map((k) => [k.key, k.voice]));
+  const idOf = (k: string | undefined) => (k ? (byKey.get(k.trim())?.id ?? null) : null);
+  const chapters = content.chapters.map((ch) => {
+    const seen = new Set<string>();
+    let voices = (ch.voices ?? []).flatMap((v) => {
+      const id = idOf(v.voiceId);
+      if (!id || seen.has(id)) return [];
+      seen.add(id);
+      return [{ voiceId: id, line: (v.line ?? "").slice(0, 40) }];
+    });
+    const pool = vkeys.filter((k) => k.voice.period === ch.period).map((k) => k.voice);
+    if (!voices.length && pool.length) {
+      const top = [...pool].sort((a, b) => b.star - a.star || a.date.localeCompare(b.date))[0];
+      voices = [{ voiceId: top.id, line: top.title }];
+    }
+    return { ...ch, voices: voices.slice(0, 2) };
+  });
+  const used = new Set<string>();
+  let film = content.film.map((x) => {
+    const id = idOf(x.voiceId);
+    if (!id || used.has(id)) return { ...x, voiceId: "" };
+    used.add(id);
+    return { ...x, voiceId: id, sec: Math.max(5, x.sec) };
+  });
+  if (!used.size && vkeys.length && film.length) {
+    const dateOf = new Map(photoKeysUsed.map((k) => [k.photo.id, k.photo.date]));
+    const days = (d: string) => Date.parse(d) / 86_400_000;
+    const taken = new Set<number>();
+    for (const { voice } of [...vkeys].sort((a, b) => b.voice.star - a.voice.star).slice(0, 6)) {
+      let best = -1;
+      let bestGap = Infinity;
+      film.forEach((x, i) => {
+        const d = dateOf.get(x.mediaId);
+        if (!d || taken.has(i)) return;
+        const gap = Math.abs(days(d) - days(voice.date));
+        if (gap < bestGap) {
+          best = i;
+          bestGap = gap;
+        }
+      });
+      // 半年以上離れた写真には付けない（違う時期の声を流さない）
+      if (best < 0 || bestGap > 183) continue;
+      taken.add(best);
+      film = film.map((x, i) => (i === best ? { ...x, voiceId: voice.id, sec: Math.max(5, x.sec) } : x));
+    }
+  }
+  return { ...content, chapters, film };
 }
 
 export async function makeBook(f: Family, today: string): Promise<Book> {
@@ -346,11 +448,12 @@ export async function makeBook(f: Family, today: string): Promise<Book> {
   const prev = latestBook(f.id);
   const prevIds = new Set([...(prev?.chapters ?? []).flatMap((c) => (c.photos ?? []).map((p) => p.mediaId)), ...(prev?.cover ? [prev.cover] : [])]);
   const keys = photoKeys(bookPhotoCandidates(f, today), prevIds);
-  const body = bookInput(f, today, entries, keys);
+  const vkeys = voiceKeys(bookVoiceCandidates(f, today));
+  const body = bookInput(f, today, entries, keys, vkeys);
 
-  // Claude に渡すのは文字だけ（画像は渡さない）
+  // Claude に渡すのは文字だけ（画像も声も渡さない）
   const raw = await structured(BookSchema, SYSTEM, body, { effort: "high", task: "book" });
-  const content = settlePhotos(raw, keys);
+  const content = settleVoices(settlePhotos(raw, keys), keys, vkeys);
   const book: Book = {
     ...content,
     familyId: f.id,
@@ -358,6 +461,7 @@ export async function makeBook(f: Family, today: string): Promise<Book> {
     generatedAt: new Date().toISOString(),
     sourceCount: entries.length,
     photoCount: keys.length,
+    voiceCount: vkeys.length,
     range: { start: conceptionDate(f), end: secondBirthday(f) },
     childName,
     rules: BOOK_RULES,
