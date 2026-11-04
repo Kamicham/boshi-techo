@@ -49,3 +49,9 @@ jobs:
         run: npx vitest run --exclude "src/sim/**" --testTimeout=60000
       - name: 早送りの検査（30家族と1000組）
         run: npm run sim
+      # 体験版の像（app/Dockerfile）と同じ組み立てを通す。型・試験が緑でも、組み立てでは落ちる事がある
+      # （2026-11-05 朝、instrumentation が edge 用にも束ねられ、DB の部品が入って next build だけが落ちた）
+      - name: 組み立て（体験版の像と同じ next build）
+        env:
+          NEXT_PUBLIC_BOSHI_PUBLIC: "1"
+        run: npm run build
