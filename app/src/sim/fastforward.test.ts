@@ -24,6 +24,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { addDays, addMonths, clockAt, diffDays, lmpFromDue, secondBirthday } from "../lib/clock";
+import { BIRTH_TRIP_IDS, planBirthTrip } from "../lib/birth-trip";
 import type { Family, Member } from "../lib/demo-family";
 import { PREGNANCY_ONLY, scheduleFor, statusOf } from "../lib/milestones";
 import { motherEmployed, partnerEmployed } from "../lib/situation";
@@ -61,6 +62,7 @@ const RULES = {
   g: "今やる事が0の日も「次に来る事」が見つかる（予定表の最後の事を過ぎた後を除く。1歳半健診の後は2歳まで何も無い）",
   h: "家族に合わない項目が出ない（仕事のない母・パートナーに職場の事・パートナーのいない家族にパートナーの事・育休を取らないパートナーに育休の事）",
   i: "妊娠中、予定日の8週前を過ぎたら、支援給付の2回目が今やる（か済み）に出る（第1波③）",
+  j: "生まれた日から15日の間、出生届がまだなら、届けの束の1件目が出生届で、束の期限は生まれた日を含めて14日目（第1波②）",
 } as const;
 type Rule = keyof typeof RULES;
 const RULE_IDS = Object.keys(RULES) as Rule[];
@@ -343,6 +345,19 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
       const t2 = tasks.find((t) => t.id === "pregnancy-support-2");
       if (!t2) push("i", "missing", "予定日の8週前を過ぎたのに、支援給付の2回目が予定に無い");
       else if (t2.status === "まだ先" && !t2.awaitingPregnancy) push("i", "late", `予定日の8週前を過ぎたのに、支援給付の2回目が「まだ先」`);
+    }
+    // j: 生まれた届けの束
+    if (isBorn && f.birthDate && diffDays(day, f.birthDate) <= 15) {
+      const reg = tasks.find((t) => t.id === "birth-registration");
+      const trip = planBirthTrip(tasks, day, f.birthDate, fv.situation);
+      if (reg && reg.status !== "済み" && reg.status !== "期限切れ") {
+        if (!trip) {
+          if (tasks.filter((t) => BIRTH_TRIP_IDS.has(t.id) && t.status !== "済み" && t.status !== "過ぎた" && t.status !== "期限切れ").length >= 2) push("j", "missing", "出生届がまだで届けが2件以上あるのに、束が出ない");
+        } else {
+          if (trip.items[0].task.id !== "birth-registration") push("j", "order", `束の1件目が「${trip.items[0].task.plain}」`);
+          if (trip.deadline !== addDays(f.birthDate, 13)) push("j", "deadline", `束の期限が ${trip.deadline}`);
+        }
+      }
     }
     // f: 参謀のきっかけ
     const trig = detectTriggers({ family: fv, today: day, done: new Set(done), isDemo: false });

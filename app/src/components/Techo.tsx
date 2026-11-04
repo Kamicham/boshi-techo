@@ -14,6 +14,8 @@ import { HelpPlaces } from "./today/HelpPlaces";
 import { jpShort } from "./today/dates";
 import { TaskRow, isGuide, type ShownTask } from "./today/TaskCard";
 import { NowCard } from "./today/NowCard";
+import { BirthTripCard } from "./today/BirthTripCard";
+import { planBirthTrip } from "@/lib/birth-trip";
 import { StaleBox } from "./today/StaleBox";
 import { AdvisorCard } from "./today/AdvisorCard";
 import { ConsultAsk } from "./today/ConsultAsk";
@@ -223,9 +225,14 @@ export function Techo() {
   const nextVisit = visit?.next ?? null;
   const visitTop = visitIsTop(today, nextVisit);
   const focus = focusId ? tasks.find((t) => t.id === focusId && t.status !== "済み" && t.status !== "過ぎた") ?? null : null;
-  const top = visitTop ? null : (focus ?? plan.top);
+  // 生まれた日から15日の間は、届けの束を一番上に（1件目は下の1枚が用意する。ほかは束の中に並べ、「このあと」には出さない）
+  const trip = planBirthTrip(tasks, today, family.birthDate && family.birthDate <= today ? family.birthDate : undefined, family.situation);
+  const tripIds = new Set(trip?.items.map((i) => i.task.id) ?? []);
+  const baseTop = trip ? trip.items[0].task : plan.top;
+  const baseRest = trip ? [plan.top, ...plan.rest].filter((t): t is ShownTask => !!t && !tripIds.has(t.id)) : plan.rest;
+  const top = visitTop ? null : (focus ?? baseTop);
   // 健診が一番上の日は、一番上に出すはずだった事も「このあと」へ（あと何日の順に入れ直す）
-  const pool = visitTop && plan.top ? [plan.top, ...plan.rest] : focus && plan.top && plan.top.id !== focus.id ? [plan.top, ...plan.rest] : plan.rest;
+  const pool = visitTop && baseTop ? [baseTop, ...baseRest] : focus && baseTop && baseTop.id !== focus.id ? [baseTop, ...baseRest] : baseRest;
   const restTasks = byDays(pool.filter((t) => t.id !== focus?.id), (t) => daysLeft(t, today));
   const visitRow = nextVisit && !visitTop && diffDays(nextVisit.date, today) > 0 ? nextVisit : null;
   // 「このあと」は、あと何日の順だけ（次の健診の1行も同じ並びに入れる）
@@ -288,8 +295,20 @@ export function Techo() {
         <VisitToday family={family} today={today} next={nextVisit} agendaCount={visit?.agenda ?? 0} keep={keep} />
       ) : null}
       {!loading && staleFirst && <StaleBox key={`${family.id}:first`} tasks={stale} {...common} defaultOpen onDone={(ids) => void setManyDone(ids)} />}
+      {!loading && trip && !(visitTop && nextVisit) && !focus && (
+        <BirthTripCard
+          key={`${family.id}:trip`}
+          trip={trip}
+          {...common}
+          onDone={(ids) => void setManyDone(ids)}
+          onKeep={(date) => {
+            setKeep((k) => ({ ...(k ?? {}), birthTrip: { date } }));
+            void api("/api/keep", { body: { familyId: family.id, keep: { birthTrip: { date } } } }).catch(() => {});
+          }}
+        />
+      )}
       {loading || (visitTop && nextVisit) ? null : top ? (
-        <NowCard key={`${family.id}:${top.id}`} task={top} soon={!focus && plan.topIsSoon} {...common} onDone={() => void setDone(top, true)} />
+        <NowCard key={`${family.id}:${top.id}`} task={top} soon={!focus && !trip && plan.topIsSoon} {...common} onDone={() => void setDone(top, true)} />
       ) : (
         <Calm upcoming={me ? upcoming.filter((t) => t.who === "家族" || t.who === me.role) : upcoming} today={today} others={rows.filter((r) => r.kind === "task").length} />
       )}

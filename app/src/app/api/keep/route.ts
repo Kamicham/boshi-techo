@@ -42,6 +42,11 @@ export const POST = route(async (req: Request) => {
     ) as Record<string, string>;
     if (Object.keys(assign).length) patch.assign = assign;
   }
+  // 生まれた届けを出しに行く日（空の文字は消す）
+  if (k.birthTrip && typeof k.birthTrip === "object") {
+    const d = k.birthTrip.date;
+    if (d === "" || (typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d))) patch.birthTrip = { date: d };
+  }
   // 発育曲線の帯の男女（手帳の画面で選んだ物）
   if (k.childSex === "boy" || k.childSex === "girl") patch.childSex = k.childSex;
   return { keep: remember(fam.id, patch) };

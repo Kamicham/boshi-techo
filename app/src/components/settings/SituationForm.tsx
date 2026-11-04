@@ -70,6 +70,14 @@ export function SituationForm({ value, onChange, hasPartner, disabled, born }: {
         <p className="text-sm text-muted">一緒に育てる人を「家族は？」で足すと、その人の働き方も聞きます</p>
       )}
 
+      {/* 生まれた日の届けの行き先が変わる2問（第1波②）: 児童手当は公務員なら勤め先、赤ちゃんの保険が国保なら役所に14日以内 */}
+      <Ask label="ママかパートナーは公務員？（児童手当の出し先が勤め先になります）">
+        <YesNo yes="はい" no="いいえ" value={value.publicServant} onPick={(v) => set({ publicServant: v })} name="public-servant" />
+      </Ask>
+      <Ask label="赤ちゃんが入る健康保険">
+        <Choice options={["勤め先", "国保"] as const} value={value.babyInsurance} onPick={(v) => set({ babyInsurance: v })} name="baby-insurance" />
+      </Ask>
+
       <Ask label="上の子は？">
         <YesNo yes="いる" no="いない" value={value.olderChildren} onPick={(v) => set({ olderChildren: v })} name="older" />
       </Ask>

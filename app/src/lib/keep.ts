@@ -36,6 +36,8 @@ export interface Keep {
   childSex?: "boy" | "girl";
   /** 家族みんなの事を、誰がやるか（milestone id → 家族の id。"together" は2人で）。今日の画面の「誰がやる？」で決める */
   assign?: Record<string, string>;
+  /** 生まれた届けを出しに役所へ行く日（第1波②の1枚で決める） */
+  birthTrip?: { date?: string };
   updatedAt?: string;
 }
 

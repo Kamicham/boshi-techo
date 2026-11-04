@@ -4,6 +4,7 @@
 // 家族の形（lib/situation.ts）で、出す・出さない・言い方を変える（only と scheduleFor）。わからない欄は今までどおり出す。
 
 import { addDays, addMonths, lmpFromDue, type FamilyDates } from "./clock";
+import { babyInsuranceOf } from "./birth-trip";
 import { babyCount, hasOlderChildren, isFirstNenkinMother, motherEmployed, partnerEmployed, partnerTakesLeave, type Situation } from "./situation";
 
 export type Kind = "手続き" | "健診" | "仕事" | "準備";
@@ -267,6 +268,14 @@ function adjust(m: MilestoneDef, f: ScheduleInput): MilestoneDef {
   // 里帰り出産: 2回目の面談を里帰り先やオンラインで受けられるかは、住む町に聞く
   if (s?.satogaeri && out.id === "pregnancy-support-2") {
     out = { ...out, hint: "予定日の8週前から。里帰り中の受け方は町に聞く" };
+  }
+  // 赤ちゃんが国保に入る家族: 加入は役所に14日以内（国民健康保険法施行規則第3条）。目安ではなく法の期限
+  if (out.id === "health-insurance" && babyInsuranceOf(s) === "国保") {
+    out = { ...out, hint: "国保は役所に14日以内。出生届と同じ日に", deadline: { days: 13 }, deadlineKind: "期限", basis: "国民健康保険法第9条・同法施行規則第3条（国保に入った日から14日以内に届ける。生まれた子は生まれた日から）", needsLocal: true };
+  }
+  // 公務員の家族: 児童手当は勤め先に申請する
+  if (s?.publicServant && (out.id === "child-allowance" || out.id === "child-allowance-change")) {
+    out = { ...out, hint: "公務員は勤め先に申請。15日以内に", basis: `${out.basis}・第17条（公務員は勤め先が払う。独立行政法人の職員などは町へ。勤め先で確かめる）`, needsLocal: false };
   }
   // 里帰り出産: 出生届は生まれた所の役所でも出せる
   if (s?.satogaeri && out.id === "birth-registration") {

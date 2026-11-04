@@ -194,6 +194,8 @@ export function cleanSituation(x: unknown, hasPartner: boolean): Situation | und
   if (typeof r.babies === "number" && Number.isInteger(r.babies) && r.babies >= 1 && r.babies <= 5) s.babies = r.babies;
   s.satogaeri = yesNo(r.satogaeri);
   s.quiet = cleanQuiet(r.quiet);
+  s.publicServant = yesNo(r.publicServant);
+  s.babyInsurance = r.babyInsurance === "勤め先" || r.babyInsurance === "国保" ? r.babyInsurance : undefined;
   // わからない欄（undefined）は持たない
   const out = Object.fromEntries(Object.entries(s).filter(([, v]) => v !== undefined)) as Situation;
   return Object.keys(out).length ? out : undefined;
