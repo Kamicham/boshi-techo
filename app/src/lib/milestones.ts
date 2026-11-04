@@ -6,7 +6,7 @@
 import { addDays, addMonths, lmpFromDue, type FamilyDates } from "./clock";
 import { babyInsuranceOf } from "./birth-trip";
 import { olderDefs, olderSchedule } from "./older";
-import { babyCount, hasOlderChildren, isFirstNenkinMother, motherEmployed, partnerEmployed, partnerTakesLeave, type Situation } from "./situation";
+import { type ReturnAt, babyCount, hasOlderChildren, isFirstNenkinMother, motherEmployed, partnerEmployed, partnerTakesLeave, type Situation } from "./situation";
 
 export type Kind = "手続き" | "健診" | "仕事" | "準備";
 /** 担当。法と制度で決まる人に振る。「家族」は誰がやってもよい事（予防接種・健診の付き添いなど）。画面には担当名を出さない */
@@ -27,6 +27,7 @@ export type Only =
   | "older-children" // 上の子がいる（わかった時だけ）
   | "older-daycare" // 上の子が保育園に通っている（上の子の欄でわかった時だけ）
   | "older-commute" // 上の子が保育園か幼稚園に通っている（わかった時だけ）
+  | "return-late" // ママが1歳を過ぎてから仕事に戻りたい（わかった時だけ）
   | "satogaeri" // 里帰り出産をする（わかった時だけ）
   | "daycare" // 保育園に預けて働く家族: 母が働き続け（雇われて・自営。辞める・仕事なしは除く）、パートナーがいれば働いている（わからない欄は当てはまる側）
   | "low-birth-weight" // 出生体重が 2500g 未満（手帳の出産の記録でわかった時だけ）
@@ -80,9 +81,8 @@ const later = (a: string, b: string) => (a > b ? a : b);
  * - 就労証明書: 申し込みの前（9月1日から、締切の2週前まで）
  * - 復職の日: 結果が届くころ（入る年の2月1日〜3月1日）
  */
-export function daycarePlan(base: string) {
-  const [y, m, d] = addMonths(base, 6).split("-").map(Number);
-  const year = m < 4 || (m === 4 && d === 1) ? y : y + 1;
+export function daycarePlan(base: string, returnAt?: ReturnAt) {
+  const year = entryYear(base, returnAt);
   const entry = `${year}-04-01`;
   const prev = year - 1;
   const oneMonth = addMonths(base, 1);
@@ -90,13 +90,40 @@ export function daycarePlan(base: string) {
   const applyEnd = later(`${prev}-11-30`, addDays(applyStart, 21));
   const certStart = later(`${prev}-09-01`, oneMonth);
   const certEnd = later(addDays(applyEnd, -14), addDays(certStart, 14));
+  // 結果が届くころ（入る年の2月1日）と、1歳6か月まで延ばす申し出の期限（1歳の誕生日の2週間前）
+  const result = `${year}-02-01`;
+  const extendBy = addDays(addMonths(base, 12), -14);
   return {
     entry,
     research: { start: later(`${prev}-06-01`, oneMonth) },
     cert: { start: certStart, deadline: certEnd },
     apply: { start: applyStart, deadline: applyEnd },
     back: { start: `${year}-02-01`, deadline: `${year}-03-01` },
+    // 入れなかった時の育休の延長（第2波④）: 1歳6か月までの延長は1歳の誕生日の2週間前まで、2歳までは1歳6か月の2週間前までに申し出る
+    extend: { start: result < extendBy ? result : addDays(extendBy, -60), deadline: extendBy },
+    extend2: { start: addDays(addMonths(base, 18), -74), deadline: addDays(addMonths(base, 18), -14) },
+    // 入園の準備（慣らし保育の送り迎え・病児保育の登録）: 入る日の45日前から、入る日の1週後まで
+    prep: { start: addDays(entry, -45), deadline: addDays(entry, 7) },
   };
+}
+
+/**
+ * 入る4月の年（第2波④）。
+ * - 1歳まで: 1歳の誕生日までの最後の4月1日（0歳児クラス）。その日に生後57日（産休明け）に満たなければ次の4月
+ * - 1歳を過ぎて: 1歳の誕生日の後の最初の4月1日（1歳児クラス）。それまでは、入れなかった時の育休の延長で休む
+ * - 決めていない: 生後6か月を過ぎて最初の4月（前からの近似）
+ * 4月1日生まれの子は、その4月1日を「誕生日までの4月」に含める
+ */
+export function entryYear(base: string, returnAt?: ReturnAt): number {
+  const ymd = (s: string) => s.split("-").map(Number);
+  if (returnAt === "1歳まで") {
+    const [y, m] = ymd(addMonths(base, 12));
+    let year = m >= 4 ? y : y - 1;
+    if (`${year}-04-01` < addDays(base, 57)) year += 1;
+    return year;
+  }
+  const [y, m, d] = ymd(addMonths(base, returnAt === "1歳を過ぎて" ? 12 : 6));
+  return m < 4 || (m === 4 && d === 1) ? y : y + 1;
 }
 
 /**
@@ -107,6 +134,17 @@ export function schoolEntry(birth: string): string {
   const [y, m, d] = addMonths(birth, 72).split("-").map(Number);
   return m < 4 || (m === 4 && d === 1) ? `${y}-04-01` : `${y + 1}-04-01`;
 }
+
+/** 保育園の予定の日を、daycarePlan のどこから取るか（仕事に戻りたい時期で動かす時に使う） */
+const DAYCARE_DATES: Record<string, (p: ReturnType<typeof daycarePlan>) => { start: string; deadline?: string }> = {
+  "daycare-apply": (p) => p.apply,
+  "daycare-cert-mother": (p) => p.cert,
+  "daycare-cert-partner": (p) => p.cert,
+  "return-to-work": (p) => p.back,
+  "daycare-extend": (p) => p.extend,
+  "daycare-extend-2": (p) => p.extend2,
+  "daycare-prep": (p) => p.prep,
+};
 
 const DAYCARE_BASIS = "子ども・子育て支援法第19条・第20条（保育の必要性の認定）・児童福祉法第24条（町が保育所の利用を調整する）。4月入園の一斉の申し込みは、前の年の秋〜冬（10〜12月の締切が多い）。締切・書類・点数のつけ方は町ごとに違うので、町で確かめる";
 
@@ -156,6 +194,9 @@ export const MILESTONES: MilestoneDef[] = [
   { id: "daycare-cert-mother", title: "保育園の申し込みに要る就労証明書を、職場に頼む", plain: "就労証明書を職場に頼む", hint: "保育園の申し込みに要ります。職場が書くので早めに", kind: "仕事", who: "母", anchor: "birth", start: { months: 5 }, deadline: { months: 7 }, deadlineKind: "目安", dates: (b) => daycarePlan(b).cert, basis: `子ども・子育て支援法施行規則第1条の5（就労を保育の必要性の理由にする時は、働いている事を示す書類が要る。国の標準の様式がある＝こども家庭庁）。${DAYCARE_BASIS}`, needsLocal: true, only: ["daycare", "mother-employed"] },
   { id: "daycare-cert-partner", title: "保育園の申し込みに要る就労証明書を、パートナーの職場に頼む", plain: "就労証明書を職場に頼む", hint: "パートナーの分も要ります。職場が書くので早めに", kind: "仕事", who: "パートナー", anchor: "birth", start: { months: 5 }, deadline: { months: 7 }, deadlineKind: "目安", dates: (b) => daycarePlan(b).cert, basis: `子ども・子育て支援法施行規則第1条の5（父母それぞれの、働いている事を示す書類が要る）。${DAYCARE_BASIS}`, needsLocal: true, only: ["daycare", "partner-employed"] },
   { id: "return-to-work", title: "保育園の結果が届いたら、復職の日を職場と決める", plain: "復職の日を職場と決める", hint: "入園の日と慣らし保育に合わせて決めます", kind: "仕事", who: "母", anchor: "birth", start: { months: 10 }, deadline: { months: 11 }, deadlineKind: "目安", dates: (b) => daycarePlan(b).back, basis: "育児・介護休業法第5条（育休は原則1歳まで。保育所に入れない時は1歳6か月・2歳まで延ばせる）。結果の届く時期と慣らし保育の長さは町と園ごとに違う。町と職場で確かめる", needsLocal: false, only: ["daycare", "mother-employed"] },
+  { id: "daycare-extend", title: "保育園に入れなかった時: 保留の通知を受け取り、育休を1歳6か月まで延ばす事を職場に申し出る", plain: "入れなかった時、育休の延長を申し出る", hint: "入れた時は「済んだ」を。1歳の誕生日の2週間前まで", kind: "仕事", who: "母", anchor: "birth", start: { months: 10 }, deadline: { months: 12, days: -14 }, deadlineKind: "期限", dates: (b) => daycarePlan(b).extend, basis: "育児・介護休業法第5条第3項（保育所に入れない時は1歳6か月まで延ばせる）・同法施行規則（1歳を過ぎた分の申し出は、始める日の2週間前まで）。育児休業給付の延長は、2025年4月から、保育所の申込書の写し・入れなかった通知（保留の通知）・延長事由の申告書が要る（雇用保険法施行規則・厚生労働省）。町の通知の名前と届く時期は町ごとに違う", needsLocal: false, only: ["daycare", "mother-employed"] },
+  { id: "daycare-extend-2", title: "1歳6か月でも入れなかった時: もう一度申し込み、育休を2歳まで延ばす事を職場に申し出る", plain: "2回目の育休の延長を申し出る", hint: "入れた時は「済んだ」を。1歳6か月の2週間前まで", kind: "仕事", who: "母", anchor: "birth", start: { months: 16 }, deadline: { months: 18, days: -14 }, deadlineKind: "期限", dates: (b) => daycarePlan(b).extend2, basis: "育児・介護休業法第5条第4項（1歳6か月でも保育所に入れない時は2歳まで延ばせる）。1歳6か月の時点の申し込みと保留の通知が、もう一度要る（雇用保険法施行規則・2025年4月から）", needsLocal: false, only: ["daycare", "mother-employed", "return-late"] },
+  { id: "daycare-prep", title: "入園が決まったら: 慣らし保育の送り迎えの担当を決め、病児保育に登録しておく", plain: "慣らし保育と病児保育の準備", hint: "慣らし保育は1〜2週間ほどが多い。病児保育は登録が要ります", kind: "準備", who: "家族", anchor: "birth", start: { months: 11 }, deadline: { months: 12 }, deadlineKind: "目安", dates: (b) => daycarePlan(b).prep, basis: "慣らし保育の長さは園ごと（1〜2週間ほどが多い＝近似）。病児保育（児童福祉法第6条の3第13項の病児保育事業）は、使う前に登録が要る所が多い。町と園で確かめる", needsLocal: true, only: ["daycare"] },
   { id: "bcg", title: "BCG の予防接種", plain: "BCG を受ける", hint: "生後5〜8か月が目安。1歳になる前に", kind: "健診", who: "家族", anchor: "birth", start: { months: 5 }, deadline: { months: 12, days: -1 }, basis: `予防接種法施行令（対象は1歳になるまで。標準は生後5〜8か月）。${VAX_WHERE}`, needsLocal: true },
   { id: "vaccines-7m", title: "B型肝炎の予防接種（3回目）", plain: "B型肝炎の3回目を受ける", hint: "1回目から139日以上あけて。生後7〜8か月ごろ", kind: "健診", who: "家族", anchor: "birth", start: { months: 7 }, deadline: { months: 12, days: -1 }, basis: `予防接種法施行令（B型肝炎は1歳になるまでに3回。3回目は1回目から139日以上あける）。${VAX_WHERE}`, needsLocal: true },
   { id: "checkup-9-10m", title: "9〜10か月健診", plain: "9〜10か月健診", hint: "多くの町で。受け方は町ごとに違います", kind: "健診", who: "家族", anchor: "birth", start: { months: 9 }, deadline: { months: 11 }, deadlineKind: "目安", basis: "町の乳児健診（母子保健法第13条。行うか・小児科で受けるか集団かは町ごとに違う。町の案内で確かめる）", needsLocal: true },
@@ -238,6 +279,8 @@ export function applies(only: Only, f: ScheduleInput): boolean {
       return !hasOlderChildren(s);
     case "older-children":
       return hasOlderChildren(s);
+    case "return-late":
+      return s?.returnAt === "1歳を過ぎて";
     case "older-daycare":
       return hasOlderChildren(s) && !!s?.olderKids?.some((k) => k.care === "保育園");
     case "older-commute":
@@ -274,7 +317,13 @@ function adjust(m: MilestoneDef, f: ScheduleInput): MilestoneDef {
   }
   // 保育園に預けて働く家族: 調べる・見学は、4月入園の申し込みの前に（daycarePlan の近似）
   if (out.id === "daycare-research" && applies("daycare", f)) {
-    out = { ...out, hint: "申し込みの前に。時期と締切は町ごとに違います", dates: (b) => daycarePlan(b).research, basis: DAYCARE_BASIS };
+    out = { ...out, hint: "申し込みの前に。時期と締切は町ごとに違います", dates: (b) => daycarePlan(b, s?.returnAt).research, basis: DAYCARE_BASIS };
+  }
+  // 仕事に戻りたい時期で、入る4月を動かす（第2波④）
+  const plan = DAYCARE_DATES[out.id];
+  if (plan && s?.returnAt) {
+    out = { ...out, dates: (b) => plan(daycarePlan(b, s.returnAt)) };
+    if (out.id === "daycare-apply") out = { ...out, basis: `${DAYCARE_BASIS}。入る4月は、仕事に戻りたい時期（${s.returnAt === "1歳まで" ? "1歳になるまでに" : "1歳を過ぎてから"}）から置いた（近似）` };
   }
   // 双子など: 支援給付の2回目は、おなかの子の数だけ（1人5万円の目安）
   if (n >= 2 && out.id === "pregnancy-support-2") {
