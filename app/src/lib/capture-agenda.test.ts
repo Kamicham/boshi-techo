@@ -77,6 +77,9 @@ describe("話した気がかり → 次の健診の「先生に聞く事」", ()
     expect(rec.data.kind).toBe("気がかり");
     expect(getPlan(f.id).concerns).toEqual([{ id: rec.id, text: rec.data.title, date: "2027-02-20", for: "mother" }]);
     expect(r.reply.endsWith("次の健診の『先生に聞く事』にも並べました。")).toBe(true);
+    // 見本の一言の括弧を句点の後に浮かせない（UX 2026-11-05）
+    expect(r.reply).not.toMatch(/。（/);
+    expect(r.reply).toContain("いつ・誰の事・期限を読み分けて、ここを Claude が書きます。");
     const again = await say(f, "2027-02-20", "夜に足がつって目が覚める");
     expect(getPlan(f.id).concerns.map((c) => c.id)).toEqual([again.records[0].id]);
     expect(calls).toHaveLength(0);

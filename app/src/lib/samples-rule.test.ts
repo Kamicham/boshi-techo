@@ -53,6 +53,21 @@ async function adviceOn(family: import("./demo-family").Family, today: string) {
   return { t, a: await sendingAs(demo, () => writeAdvice(t, input, {})) };
 }
 
+/** カードの表に1行で出る理由の1文目（components/today/AdvisorCard.tsx と同じ切り方） */
+const whyHead = (why: string) =>
+  why
+    .split(/(?<=。)|\n/)
+    .map((x) => x.trim())
+    .filter(Boolean)[0];
+
+/** 表の1文目は「何が起きたか」（iPhone の幅で1行＝19字まで）。札は理由の後ろに残す（2026-11-05 UX: 表が札だけで、なぜが無かった） */
+function headIsCause(why: string, head: string, mark: string) {
+  expect(whyHead(why)).toBe(head);
+  expect(head.length).toBeLessThanOrEqual(19);
+  expect(why).toContain(mark);
+  expect(why.startsWith(mark)).toBe(false);
+}
+
 /** 文字数の約束（題30字・次にする事40字・3つまで）と、脅さない言葉 */
 function fair(a: { title: string; plan: string[] }) {
   expect(a.title.length).toBeLessThanOrEqual(24);
@@ -68,12 +83,12 @@ describe("気づき: 鍵が無い時は、予定表の決まりから書く", ()
     const { RULE_MARK } = await import("./advisor");
     const { a, t } = await adviceOn({ ...DEMO_FAMILY, id: "demo-rule-early" }, "2027-04-27");
     expect(t.kind).toBe("birth-early");
-    expect(a.title).toBe("育休の始まりを6月22日に数え直しました");
+    expect(a.title).toBe("美咲の育休の始まりを6月22日に数え直しました");
     fair(a);
-    expect(a.why.startsWith(RULE_MARK)).toBe(true);
+    headIsCause(a.why, "予定日より14日早く生まれました。", RULE_MARK);
     expect(a.why).toContain("労働基準法第65条");
     expect(a.why).toContain("鍵を入れると");
-    expect(a.plan[0]).toBe("職場に、育休の始まりを6月22日に直すと伝える");
+    expect(a.plan[0]).toBe("美咲の職場に、育休の始まりを6月22日に直すと伝える");
     expect(a.plan.some((p) => p.startsWith("翔太の育休") && p.includes("職場に確かめる"))).toBe(true);
     expect(a.message).toMatchObject({ to: "職場の上司", via: "mail" });
     // 空欄は「いつもの」と送る人の名前で埋まる形（lib/blanks.ts の blankKey）
@@ -91,10 +106,11 @@ describe("気づき: 鍵が無い時は、予定表の決まりから書く", ()
     const { DEMO_FAMILY } = await import("./demo-family");
     const { a, t } = await adviceOn({ ...DEMO_FAMILY, id: "demo-rule-late", birthDate: "2027-05-20" }, "2027-05-21");
     expect(t.kind).toBe("birth-late");
-    expect(a.title).toBe("育休の始まりを7月16日に数え直しました");
+    expect(a.title).toBe("美咲の育休の始まりを7月16日に数え直しました");
     fair(a);
     expect(a.plan.some((p) => p.includes("翔太"))).toBe(false);
     expect(a.why).toContain("遅くなります");
+    expect(whyHead(a.why)).toBe("予定日より10日遅く生まれました。");
     expect(calls).toHaveLength(0);
   });
 
@@ -114,7 +130,8 @@ describe("気づき: 鍵が無い時は、予定表の決まりから書く", ()
     // カードの2行に収まるよう、24字を超える時は前の町を省く（前の町は文面と「機械で確かめた事」に残る）
     expect(a.title).toBe("さいたま市へ: 転入の届けと健診の券の取り替え");
     fair(a);
-    expect(a.why.startsWith(RULE_MARK)).toBe(true);
+    // 題で省いた前の町は、表の1文目に出す
+    headIsCause(a.why, "1月18日に横浜市から引っ越しました。", RULE_MARK);
     expect(a.why).toContain("住民基本台帳法第22条");
     // 1月18日に引っ越した → 初日を数えず14日 → 2月1日まで
     expect(a.plan[0]).toBe("転入の届け: 2月1日まで（引っ越した日から14日以内）");

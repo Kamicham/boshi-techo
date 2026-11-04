@@ -51,7 +51,8 @@ function capture(content: Content) {
     deadlines: [],
     techo: [],
     oneQuestion: null,
-    reply: `${SAMPLE_MARK}書いた文を、そのまま${worry ? "気がかり" : "メモ"}に残しました。${noKey()}（いつ・誰の事・期限を読み分けます）`,
+    // 「（いつ・誰の事・期限を読み分けます）」を句点の後に浮かせない（UX 2026-11-05: 返事の真ん中で文が途切れて読めた）
+    reply: `${SAMPLE_MARK}書いた文を、そのまま${worry ? "気がかり" : "メモ"}に残しました。${noKey().replace("ここを Claude が書きます", "いつ・誰の事・期限を読み分けて、ここを Claude が書きます")}`,
   };
 }
 
@@ -120,7 +121,8 @@ function advice(content: Content) {
   // パートナーの育休の事は、仕事の無い人には言わない
   const partner = lines.map((l) => l.match(/^- (.+)（パートナー）$/)?.[1]).find(Boolean);
   const works = !!partner && !lines.includes(`- ${partner}の働き方: 仕事なし`);
-  const rule = ruleAdvice(facts, { today, partner: works ? partner : undefined });
+  const mother = lines.map((l) => l.match(/^- (.+)（母）$/)?.[1]).find(Boolean);
+  const rule = ruleAdvice(facts, { today, partner: works ? partner : undefined, mother });
   if (rule) {
     const note = process.env.ANTHROPIC_API_KEY
       ? "今日の体験で Claude を使える上限に達したので、予定表の決まりだけで書きました。明日はここを Claude が書きます。"
