@@ -4,7 +4,7 @@
 // どの問いも「わからない・答えない」を選べる（小さな文字で列の最後）。答えない欄は、今までどおりの予定が出る。
 // 押す所は 44px 以上。iPhone の 390px で横にはみ出さないよう、選びは折り返す。
 import { useState } from "react";
-import { LEAVE_LENS, MAX_OLDER_KIDS, OLDER_CARES, RETURN_ATS, type Leave, type MotherWork, type OlderKid, type Situation, type Work } from "@/lib/situation";
+import { LEAVE_LENS, MAX_OLDER_KIDS, OLDER_CARES, RETURN_ATS, SATOGAERI_BACKS, type Leave, type MotherWork, type OlderKid, type Situation, type Work } from "@/lib/situation";
 
 const MOTHER_WORKS: MotherWork[] = ["会社員・公務員", "パート・派遣", "自営・フリー", "仕事なし", "出産で辞める"];
 const WORKS: Work[] = ["会社員・公務員", "パート・派遣", "自営・フリー", "仕事なし"];
@@ -51,8 +51,38 @@ export function SituationForm({ value, onChange, hasPartner, disabled, born }: {
       </Ask>
 
       <Ask label="里帰り出産は？">
-        <YesNo yes="する" no="しない" value={value.satogaeri} onPick={(v) => set({ satogaeri: v })} name="satogaeri" />
+        <YesNo yes="する" no="しない" value={value.satogaeri} onPick={(v) => set({ satogaeri: v, ...(v ? {} : { satogaeriPlace: undefined, satogaeriBack: undefined }) })} name="satogaeri" />
       </Ask>
+      {value.satogaeri === true && (
+        <>
+          <Ask label="里帰り先の町（実家のある所）">
+            <div className="flex flex-wrap gap-2">
+              <input
+                id="satogaeri-pref"
+                aria-label="里帰り先の都道府県"
+                value={value.satogaeriPlace?.prefecture ?? ""}
+                maxLength={10}
+                placeholder="例: 鹿児島県"
+                onChange={(e) => set({ satogaeriPlace: { prefecture: e.target.value, city: value.satogaeriPlace?.city ?? "" } })}
+                className="min-h-11 w-36 rounded-lg border border-line bg-card px-2 text-base text-ink"
+              />
+              <input
+                id="satogaeri-city"
+                aria-label="里帰り先の市区町村"
+                value={value.satogaeriPlace?.city ?? ""}
+                maxLength={20}
+                placeholder="例: 霧島市"
+                onChange={(e) => set({ satogaeriPlace: { prefecture: value.satogaeriPlace?.prefecture ?? "", city: e.target.value } })}
+                className="min-h-11 min-w-0 flex-1 rounded-lg border border-line bg-card px-2 text-base text-ink"
+              />
+            </div>
+            <p className="text-sm text-muted">里帰り先の町の赤ちゃん訪問・受診券の扱い・出生届を出せる所を、その町のページで調べます</p>
+          </Ask>
+          <Ask label="住む町に戻る時期">
+            <Choice options={SATOGAERI_BACKS} value={value.satogaeriBack} onPick={(v) => set({ satogaeriBack: v })} name="satogaeri-back" />
+          </Ask>
+        </>
+      )}
     </>
   );
 

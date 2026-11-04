@@ -31,6 +31,10 @@ export interface Situation {
   babies?: number;
   /** 里帰り出産。true = する、false = しない、undefined = わからない */
   satogaeri?: boolean;
+  /** 里帰り先の町（第2波⑦。satogaeri が true の時だけ）。同じ市なら遠方向けの事を出さない */
+  satogaeriPlace?: { prefecture: string; city: string };
+  /** 住む町に戻る時期（第2波⑦）。undefined = 決めていない（1か月健診のあとの近似で置く） */
+  satogaeriBack?: SatogaeriBack;
   /**
    * 静かにする（安心のデザイン #5）。loss = 流産・死産など、つらい別れがあった。nicu = 赤ちゃんが入院している。
    * 選ぶと今日の画面は日数・週数・「次は」・お知らせを止め、橋と本当に要る物だけを出す。記録は消さない。設定で戻せる
@@ -41,6 +45,9 @@ export interface Situation {
   /** 赤ちゃんが入る健康保険。勤め先 = 会社などの保険（扶養）、国保 = 国民健康保険。undefined = 働き方から近似（birth-trip.ts の babyInsuranceOf） */
   babyInsurance?: "勤め先" | "国保";
 }
+
+export type SatogaeriBack = "1か月健診のあと" | "産後2か月ごろ" | "それより長く";
+export const SATOGAERI_BACKS: SatogaeriBack[] = ["1か月健診のあと", "産後2か月ごろ", "それより長く"];
 
 export type LeaveLen = "14日未満" | "2週間〜1か月" | "1か月以上";
 export const LEAVE_LENS: LeaveLen[] = ["14日未満", "2週間〜1か月", "1か月以上"];
