@@ -55,7 +55,8 @@ describe("サーバ全体の1日の上限", () => {
     expect(calls).toHaveLength(1);
     process.env.BOSHI_DAILY_USD = "0.5";
     recordSpend("structured", "claude-opus-5-5", { input_tokens: 200_000 }); // $0.8
-    await expect(structured(Ok, "s", "q", { who: sim })).rejects.toMatchObject({ status: 429 });
+    // 家族に見せる文に額（ドル）は書かない（UX 2026-11-05）
+    await expect(structured(Ok, "s", "q", { who: sim })).rejects.toMatchObject({ status: 429, message: expect.not.stringContaining("$") });
     expect(calls).toHaveLength(1);
     delete process.env.BOSHI_DAILY_USD;
   });

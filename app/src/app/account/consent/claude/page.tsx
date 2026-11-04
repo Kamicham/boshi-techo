@@ -19,8 +19,8 @@ export default function ClaudeConsent() {
   return (
     <ConsentScreen
       kind="claude_us"
-      title="記録の文字を、米国の Claude に送ってよいですか"
-      lead="話した事・撮った紙を手帳の欄に分ける時、文字を米国の会社のAI（Claude）に送ります。送り先が外国なので、記録を残す同意とは別に伺います。"
+      title="記録の文字と写真を、米国の Claude に送ってよいですか"
+      lead="手帳が書く・答える・分ける時（話す・撮る・健診のまとめ・手帳に聞く・下書き・気づき・一冊）、記録の文字や写真を米国の会社のAI（Claude）に送ります。送り先が外国なので、記録を残す同意とは別に伺います。"
       after={(next) => (
         <Btn href={next ?? "/"} full>
           手帳へ
@@ -53,7 +53,9 @@ export default function ClaudeConsent() {
         </div>
       </Box>
       <Box title="同意しないと？">
-        <p className="text-base">文字にまとめる処理は動きません。手で入れる・見る・書き出すは、そのまま使えます。いつでも同意し直せます。</p>
+        <p className="text-base">止まる物: 話す・撮るの振り分け、健診のまとめ、下書き、気づき、一冊。手帳に聞くは、予定表と使い方で答えられる問いだけに答えます。</p>
+        <p className="text-base">そのまま使える物: 予定表と期限、急ぎの時、手で入れる・見る・書き出す、町の窓口の調べ（Claude に送るのは町と手続きの名前だけで、家族の記録は送りません）。</p>
+        <p className="text-base">記録の本人（ママ・子など）のうち1人でも同意していない・撤回すると、この手帳の Claude の仕事は全部止まります。いつでも同意し直せます。</p>
       </Box>
     </ConsentScreen>
   );

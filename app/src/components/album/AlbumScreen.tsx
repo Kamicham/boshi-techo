@@ -113,7 +113,7 @@ export function AlbumScreen() {
             ))
           )}
           {canWrite && <Trash />}
-          <p className="pb-4 text-sm text-muted">Claude には見せていません（声も聞かせていません）。一冊を作る時も、Claude に渡すのは日付・一言・結んだ記録・声の最初の一文の文字だけです。</p>
+          <p className="pb-4 text-sm text-muted">Claude には見せていません（声も聞かせていません）。一冊を作る時も、Claude に渡すのは日付・一言・結んだ記録・声の題と最初の一文の文字だけです。</p>
         </>
       )}
       {shown && <PhotoSheet photo={shown} techo={techo} canWrite={canWrite} onClose={() => setOpen(null)} />}

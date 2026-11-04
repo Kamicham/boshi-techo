@@ -23,6 +23,14 @@ describe("119 の言い方は床とそろえる", () => {
     }
   });
 
+  it("話す・撮るを手帳に分ける Claude への指示（産院の夜間の窓口はそのまま）", async () => {
+    const { CAPTURE_SYSTEM } = await import("./capture");
+    expect(CAPTURE_SYSTEM).toContain(FLOOR);
+    expect(CAPTURE_SYSTEM).toContain("かかりつけの産院（夜間も）");
+    expect(CAPTURE_SYSTEM).not.toMatch(/産院（夜間も）・119/);
+    expect(CAPTURE_SYSTEM.replace(/「迷ったら119」とは書かない/g, "")).not.toMatch(/迷ったら ?119/);
+  });
+
   it("画面の地図の「急ぎの時」と、手帳に聞くへの指示", async () => {
     const { guideText } = await import("./app-guide");
     const g = guideText();

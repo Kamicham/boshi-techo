@@ -86,7 +86,8 @@ export function checkDailyBudget(): void {
   } catch {
     return;
   }
-  if (used >= cap) throw new HttpError(429, `この手帳が今日 Claude を使える上限（$${cap}）に達しました。予定表・期限・急ぎの時は今までどおり使えます。Claude の仕事は明日また使えます`);
+  // 家族に見せる文に額は書かない（何ドルかは家族の役に立たず、ドルの額だけが目に残る。UX 2026-11-05）
+  if (used >= cap) throw new HttpError(429, "この手帳が今日 Claude を使える上限に達しました。これまでの記録はそのままです。予定表・期限・急ぎの時は今までどおり使えます。Claude の仕事は明日0時からまた使えます");
 }
 
 /** Claude を呼ぶ前に毎回通す: サーバ全体の1日の上限と、シミュレーションの上限（BOSHI_SIM_BUDGET_USD。DATA_DIR/run-start の時刻から使った額） */
@@ -158,7 +159,7 @@ export function checkHouseholdBudget(householdId: string): void {
   } catch {
     return;
   }
-  if (used >= cap) throw new HttpError(429, `この家族が今日 Claude を使える上限（$${cap}）に達しました。明日また使えます`);
+  if (used >= cap) throw new HttpError(429, "この家族が今日 Claude を使える上限に達しました。これまでの記録はそのままです。予定表・期限・急ぎの時は今までどおり使えます。Claude の仕事は明日0時からまた使えます");
 }
 
 /**

@@ -43,7 +43,7 @@ export function claude(): Anthropic {
   // 作り手（配布した人）向けの直し方は、サーバの記録に出す
   if (!process.env.ANTHROPIC_API_KEY) {
     console.error("[claude] 鍵がありません。app/.env.local に ANTHROPIC_API_KEY を入れて、サーバを起動し直してください（鍵は Claude Console で作れます）");
-    throw new HttpError(503, "いまは手帳の中の AI（Claude）につながらないため、文字にまとめる・答えを作る事ができません。手で入れる・見る・書き出す・予定表は、そのまま使えます。");
+    throw new HttpError(503, "いまは手帳が使う AI（Claude）につながらないため、文字にまとめる・答えを作る事ができません。手で入れる・見る・書き出す・予定表は、そのまま使えます。");
   }
   client ??= new Anthropic();
   return client;
