@@ -6,6 +6,7 @@ import { z } from "zod";
 import type Anthropic from "@anthropic-ai/sdk";
 import { getPlan, ongoingVisit, savePlan } from "@/app/api/visit/_lib/server";
 import { EVERYDAY_MODEL, sampleMode, structured } from "./claude";
+import { publicOn } from "./trial-cookie";
 import { addDays, addMonths, clockAt, conceptionDate, lmpFromDue } from "./clock";
 import { list, patch, put, remove, type Doc } from "./db";
 import { DEMO_FAMILY, type Family } from "./demo-family";
@@ -258,7 +259,8 @@ export async function capture(input: CaptureInput, replaceCaptureId?: string): P
     records,
     deadlines: out.deadlines,
     oneQuestion,
-    reply: withAgendaNote(out.reply, agendaNote(sides, family.childName)),
+    // 体験版（公開版）では健診の画面を読むだけにしているので、「健診の聞く事にも並べました」は言わない（2026-11-05）
+    reply: withAgendaNote(out.reply, publicOn() ? "" : agendaNote(sides, family.childName)),
     basis,
     techo,
   };

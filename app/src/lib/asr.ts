@@ -2,6 +2,7 @@
 // 音声は家のネットワークの外に出ない。
 import "server-only";
 import http from "node:http";
+import { publicOn } from "./trial-cookie";
 
 export interface Transcript {
   text: string;
@@ -36,7 +37,8 @@ const DEMO_NOTE = "今日は夜に胎動をたくさん感じた。お腹が少�
 
 export async function transcribe(audio: Buffer, prompt?: string, kind: "visit" | "note" = "note"): Promise<Transcript> {
   const base = process.env.ASR_URL;
-  if (!base) {
+  // 体験版（公開版）は声を文字にしない（だれの声も、文字起こしの機械へ送らない。2026-11-05）
+  if (!base || publicOn()) {
     // 審査員がリポジトリを手元で動かしても、健診の1日を最後まで試せるようにする
     const { DEMO_TRANSCRIPT } = await import("@/components/visit/demoTranscript");
     const text = kind === "visit" ? DEMO_TRANSCRIPT : DEMO_NOTE;

@@ -192,4 +192,18 @@ describe("撮った紙: 見本の返事は事実どおり", () => {
     expect(r.reply).toContain("鍵を入れると");
     expect(calls).toHaveLength(0);
   });
+
+  it("撮った写真を読む頼みも、写真は読まず、記録を作らない（「（文字なし）」をメモにしない）", async () => {
+    const { structured } = await import("./claude");
+    const { CaptureSchema } = await import("./capture");
+    const parts = [
+      { type: "image", source: { type: "base64", media_type: "image/jpeg", data: "AAAA" } },
+      { type: "text", text: "今日: 2027-04-27\n\n撮った写真:\n（文字なし）" },
+    ];
+    const r = await structured(CaptureSchema, "s", parts as never, { who: demo, task: "capture" });
+    expect(r.records).toHaveLength(0);
+    expect(r.reply).toContain("写真は読まず、残してもいません");
+    expect(r.reply).toContain("鍵を入れると");
+    expect(calls).toHaveLength(0);
+  });
 });

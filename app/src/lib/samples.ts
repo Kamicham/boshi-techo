@@ -35,6 +35,20 @@ const WORRY = /気にな|心配|不安|痛|足がつ|こむら返り|つる|眠�
 
 /** 撮る・書く: 書いた文を、そのまま1つの記録として残す（気がかりに見える言葉なら気がかり、ほかはメモ） */
 function capture(content: Content) {
+  // 撮った写真を読む頼み: 見本では写真を読まない（記録も作らない。写真そのものは、もともと残さない＝api/capture/photo）
+  if (typeof content !== "string" && content.some((b) => b.type === "image")) {
+    const key = !!process.env.ANTHROPIC_API_KEY;
+    return {
+      gist: "",
+      records: [],
+      deadlines: [],
+      techo: [],
+      oneQuestion: null,
+      reply: publicOn()
+        ? `${SAMPLE_MARK}この体験版では Claude を呼ばないので、写真は読まず、残してもいません。Claude を使う手帳では、写った紙（お知らせ・予約票など）の文字を読んで、記録と予定にします。`
+        : `${SAMPLE_MARK}${key ? "今日の体験で Claude を使える上限に達したので" : "見本なので"}、写真は読まず、残してもいません。${key ? "明日は" : "Claude の鍵を入れると、"}写った紙の文字を読んで、記録と予定にします。`,
+    };
+  }
   const all = textOf(content);
   const today = firstDay(all) ?? new Date().toISOString().slice(0, 10);
   // context() の後ろに家族の文が来る。最後の空行の後を家族の文とみなす
@@ -42,6 +56,8 @@ function capture(content: Content) {
   const said = all.split(/\n\s*\n/).pop()?.replace(/^[^\n]*[:：]\n/, "").trim() || all.trim();
   const urgent = URGENT.test(said);
   const worry = urgent || WORRY.test(said);
+  // 話した事（文字起こし）か、書いた事か（capture() の見出しの行。話したのに「書いた文」と返さない）
+  const spoken = /^話した事/m.test(all);
   return {
     gist: "",
     records: [
@@ -58,7 +74,7 @@ function capture(content: Content) {
     techo: [],
     oneQuestion: null,
     // 「（いつ・誰の事・期限を読み分けます）」を句点の後に浮かせない（UX 2026-11-05: 返事の真ん中で文が途切れて読めた）
-    reply: `${SAMPLE_MARK}書いた文を、そのまま${worry ? "気がかり" : "メモ"}に残しました。${noKey().replace("ここを Claude が書きます", "いつ・誰の事・期限を読み分けて、ここを Claude が書きます")}`,
+    reply: `${SAMPLE_MARK}${spoken ? "話した事" : "書いた文"}を、そのまま${worry ? "気がかり" : "メモ"}に残しました。${noKey().replace("ここを Claude が書きます", "いつ・誰の事・期限を読み分けて、ここを Claude が書きます")}`,
   };
 }
 

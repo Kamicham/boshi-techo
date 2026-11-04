@@ -19,8 +19,10 @@ import { TechoCandidates } from "./TechoCandidates";
 import { TypeSheet } from "./TypeSheet";
 import { RecordItem, Timeline } from "./Timeline";
 import { afterConsentReturn, consentWaitKey, isClaudeConsentError, mayTrySend, readConsentState, type ClaudeConsentState } from "@/lib/claude-consent-flow";
+import { PUBLIC_UI, TRIAL_VOICE } from "@/lib/trial-words";
 
-type Last = CaptureResult & { transcript?: string; source: RecordSource };
+/** note: 見本の文を使った時の訳（文字起こしの機械が無い・体験版は声を文字にしない＝api/capture/voice） */
+type Last = CaptureResult & { transcript?: string; source: RecordSource; note?: string };
 
 /** まだ答えていない聞き返し（サーバに残っている。開き直しても答える欄を出す） */
 type Ask = { captureId: string; question: string; basis: string; source: RecordSource };
@@ -416,6 +418,8 @@ export function CaptureScreen() {
           }}
         />
       </section>
+      {/* 体験版: 話しても、その声は文字にしない（決まった見本の文が入る。2026-11-05） */}
+      {PUBLIC_UI && <p className="text-sm text-muted">{TRIAL_VOICE}</p>}
 
       {typing && (
         <TypeSheet
@@ -444,7 +448,11 @@ export function CaptureScreen() {
           onCancel={() => setShot(null)}
         />
       ) : typing ? null : (
-        <p className="text-sm text-muted">撮った後に選べます: 「読み取る」＝文字を手帳に書き写す／「残す」＝写真のまま取っておく。読み取る時だけ、写真を米国の AI（Claude）に送ります（その写真は手帳に残しません）</p>
+        <p className="text-sm text-muted">
+          {PUBLIC_UI
+            ? "撮った後に選べます: 「読み取る」＝文字を手帳に書き写す／「残す」＝写真のまま取っておく。体験版は AI（Claude）を呼ばないので、読み取る時も写真をどこへも送りません（見本の返事が出ます）"
+            : "撮った後に選べます: 「読み取る」＝文字を手帳に書き写す／「残す」＝写真のまま取っておく。読み取る時だけ、写真を米国の AI（Claude）に送ります（その写真は手帳に残しません）"}
+        </p>
       )}
       {keeping && <KeepSheet files={keeping} onClose={() => setKeeping(null)} />}
 
@@ -487,6 +495,7 @@ export function CaptureScreen() {
           {last.transcript && (
             <Why label="聞き取った言葉">
               <p>「{last.transcript}」</p>
+              {last.note && <p className="text-sm text-muted">{last.note}</p>}
             </Why>
           )}
         </section>

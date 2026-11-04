@@ -8,6 +8,8 @@ import { assertConsent, sendingAs } from "@/lib/claude";
 import { HttpError } from "@/lib/family";
 import { familyFor, WRITE_AND_SEND } from "../../_lib/household";
 import { todayOf } from "../shared";
+import { publicOn } from "@/lib/trial-cookie";
+import { TRIAL_VOICE } from "@/lib/trial-words";
 
 export const POST = route(async (req: Request) => {
   const q = new URL(req.url).searchParams;
@@ -25,7 +27,7 @@ export const POST = route(async (req: Request) => {
   if (!text) throw new HttpError(422, "声が聞き取れませんでした。もう一度話してみてください");
   try {
     const result = await sendingAs(h.who, () => capture({ family, today, source: "voice", text }));
-    return { ...result, transcript: text, ...(t.demo ? { demo: true, note: "文字起こしの機械が無いので、デモの文を使いました" } : {}) };
+    return { ...result, transcript: text, ...(t.demo ? { demo: true, note: publicOn() ? TRIAL_VOICE : "文字起こしの機械が無いので、デモの文を使いました" } : {}) };
   } catch (e) {
     // 文字起こしは済んでいるので捨てない。画面は書く欄に入れて送り直せる
     console.error(e);

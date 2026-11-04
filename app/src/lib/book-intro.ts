@@ -16,15 +16,32 @@ export const SAMPLE_BOOK_DAY = "2029-04-26";
 export const SAMPLE_BOOK_LABEL = "見本の家族の一冊を読む ›";
 /** 押した印（見本の家族へ切り替えた後に、一冊の画面がその日へ合わせて消す。この端末のこのタブだけ） */
 export const SAMPLE_BOOK_KEY = "boshi.readSampleBook";
+/**
+ * 見本の一冊が無い日に、見本の答えで一冊を作ろうとした時（lib/book.ts の makeBook。中身の無い一冊を作らず、保存もしない）。
+ * 見本の一冊は lib/demo-books.json の3冊（妊娠30週・生後2か月・2歳＝scripts/make-demo-books.mts）
+ */
+export const SAMPLE_BOOK_LATER = "この日までの見本の一冊は、まだありません。見本の家族の妊娠30週・生後2か月・2歳の日で、前に Claude が書いた一冊を読めます";
 
 export type BookIntro =
   | { kind: "gather"; eyebrow?: undefined; title: string; sub: string; cta: string; tryMake: boolean; sample: boolean }
   | { kind: "seed"; eyebrow: string; title: string; sub: string; cta: string }
-  | { kind: "make"; eyebrow: string; title: string; sub: string; cta: string };
+  | { kind: "make"; eyebrow: string; title: string; sub: string; cta: string }
+  /** 体験版（Claude を呼ばない）: 作る代わりに、前に Claude が書いた見本の一冊の日へ（SAMPLE_BOOK_DAY） */
+  | { kind: "read"; eyebrow: string; title: string; sub: string; cta: string };
 
-export function bookIntro(o: { childName?: string | null; count: number; born: boolean; isDemo: boolean }): BookIntro {
+export function bookIntro(o: { childName?: string | null; count: number; born: boolean; isDemo: boolean; trial?: boolean }): BookIntro {
   const child = o.childName?.trim() || "赤ちゃん";
   const n = Math.max(0, o.count);
+  // 体験版は Claude を呼ばないので、ここでは本を作らない。記録がある日は、前に Claude が書いた見本の一冊の日へ（記録が0件なら、下の「見本の記録を入れる」）
+  if ((o.trial ?? (PUBLIC_UI && o.isDemo)) && n > 0) {
+    return {
+      kind: "read",
+      eyebrow: `${child}への一冊`,
+      title: "記録を本にまとめる",
+      sub: "この体験版では Claude を呼ばないので、ここでは本を作りません。見本の家族の妊娠30週・生後2か月・2歳の日で、前に Claude がこの家族の記録から書いた一冊を読めます",
+      cta: "2歳の日の一冊を読む ›",
+    };
+  }
   const few = !o.born && n > 0 && n < FEW_RECORDS;
   if ((n === 0 && !o.isDemo) || few) {
     return {
@@ -44,10 +61,7 @@ export function bookIntro(o: { childName?: string | null; count: number; born: b
     kind: "make",
     eyebrow: `${child}への一冊`,
     title: "記録を本にまとめる",
-    // 体験版は Claude を呼ばない（作れるのは、前に Claude が書いた見本の一冊がある日だけ。lib/book.ts の makeBook）
-    sub: PUBLIC_UI
-      ? `この体験版では Claude を呼ばず、見本の答えを出しています。${n}件の記録から本にまとめるのは、Claude を使う手帳だけです。1歳・2歳の日で、前に Claude が書いた一冊を読めます`
-      : `${n}件の記録を、AI（Claude）が時期ごとの章に分けて、本の形にまとめます（数分かかります）。画面で読めて、何度でも作り直せます`,
+    sub: `${n}件の記録を、AI（Claude）が時期ごとの章に分けて、本の形にまとめます（数分かかります）。画面で読めて、何度でも作り直せます`,
     cta: "本にまとめてみる",
   };
 }

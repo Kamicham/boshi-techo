@@ -9,6 +9,7 @@ import { conceptionDate, secondBirthday } from "./clock";
 import { list, put, type Doc } from "./db";
 import type { Family } from "./demo-family";
 import { getFamily, HttpError } from "./family";
+import { SAMPLE_BOOK_LATER } from "./book-intro";
 import { bookPhotoCandidates, bookVoiceCandidates, type BookPhoto, type BookVoice } from "./media";
 import { PERIODS, periodOfDate, type Period } from "./media-shared";
 import type { TechoEntry } from "./techo";
@@ -465,6 +466,9 @@ export async function makeBook(f: Family, today: string): Promise<Book> {
   if (sampleMode()) {
     const bundled = demoBook(f, today);
     if (bundled) return bundled;
+    // 見本の一冊がまだ無い日（妊娠30週より前など）: 見本の答えで中身の無い一冊を作らず、保存もしない
+    // （保存すると、後の日に開いても latestBook がそれを先に返し、前に Claude が書いた見本の一冊を隠していた。2026-11-05）
+    throw new HttpError(409, SAMPLE_BOOK_LATER);
   }
   const { raw, keys, vkeys, entries } = await draftBook(f, today);
   const content = settleVoices(settlePhotos(raw, keys), keys, vkeys);

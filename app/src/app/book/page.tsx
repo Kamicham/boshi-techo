@@ -217,6 +217,13 @@ export default function BookPage() {
           )}
           <BookWhy />
         </NextStep>
+      ) : intro.kind === "read" ? (
+        /* 体験版: 作る代わりに、前に Claude が書いた見本の一冊の日へ（lib/book-intro.ts） */
+        <NextStep eyebrow={intro.eyebrow} title={intro.title}>
+          <p className="w-full text-base">{intro.sub}</p>
+          <Btn onClick={() => setToday(SAMPLE_BOOK_DAY)}>{intro.cta}</Btn>
+          <BookWhy />
+        </NextStep>
       ) : (
         <NextStep eyebrow={intro.eyebrow} title={intro.title}>
           <p className="w-full text-base">{intro.sub}</p>

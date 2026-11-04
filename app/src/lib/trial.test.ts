@@ -157,6 +157,42 @@ describe("公開版の体験用の家族", () => {
     expect(((await p.json()) as { error?: string }).error).toContain("体験版では、動画（mp4）の書き出しは閉じています");
   });
 
+  it("体験版の一冊: 見本の一冊が無い日は、中身の無い一冊を作らず（409）、保存もしない", async () => {
+    const book = await import("@/app/api/book/route");
+    const r = await book.POST(req("/api/book", { trial: A, body: { familyId: "demo-sato", today: "2026-12-01" } }));
+    expect(r.status).toBe(409);
+    expect(((await r.json()) as { error?: string }).error).toContain("妊娠30週・生後2か月・2歳の日で、前に Claude が書いた一冊を読めます");
+    const { list } = await import("./db");
+    expect(list(A, "book")).toHaveLength(0);
+  });
+
+  it("体験版では、話した気がかりの返事に「健診の聞く事にも並べました」を出さない", async () => {
+    const cap = await import("@/app/api/capture/route");
+    const r = await cap.POST(req("/api/capture", { trial: A, body: { familyId: "demo-sato", today: "2026-12-01", text: "足がつって眠れない" } }));
+    expect(r.status).toBe(200);
+    const j = (await r.json()) as { reply?: string; records?: { data?: { kind?: string } }[] };
+    expect(j.records?.[0]?.data?.kind).toBe("気がかり");
+    expect(j.reply).toContain("書いた文を、そのまま気がかりに残しました");
+    expect(j.reply).toContain("この体験版では Claude を呼ばず");
+    expect(j.reply).not.toMatch(/健診|聞く事/);
+  });
+
+  it("体験版の話す: 声は文字にせず見本の文が入り、返事は「話した事を…」（書いた文とは言わない）", async () => {
+    const voice = await import("@/app/api/capture/voice/route");
+    const ogg = Buffer.concat([Buffer.from("OggS"), Buffer.alloc(3000, 7)]);
+    const r = await voice.POST(
+      new Request(`${BASE}/api/capture/voice?familyId=demo-sato&today=2027-02-15`, {
+        method: "POST",
+        headers: { "content-type": "audio/ogg", origin: BASE, "fly-client-ip": "203.0.113.1", cookie: `boshi_try=${A}` },
+        body: ogg,
+      }),
+    );
+    expect(r.status).toBe(200);
+    const j = (await r.json()) as { reply?: string; note?: string; transcript?: string };
+    expect(j.note).toBe("体験版は声を文字にしません。決まった見本の文が入ります。");
+    expect(j.reply).toContain("話した事を、そのまま");
+  });
+
   it("1つの住所から作れる写しは1日10まで。7日たった写しは消える", async () => {
     const { ensureTrial, purgeExpiredTrials } = await import("./trial");
     for (let i = 0; i < 10; i++) await ensureTrial(`try-${String(i).padStart(32, "c")}`, "198.51.100.7");
