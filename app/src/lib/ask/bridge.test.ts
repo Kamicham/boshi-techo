@@ -36,6 +36,63 @@ describe("橋の床", () => {
     expect(tels("手をあげてしまいそうで怖い")).toContain("0120-189-783");
   });
 
+  // 言えない時の橋（C02）: 今まで拾えなかった言い方
+  it.each(["死にたくなる", "夜になると死にたくなってしまう", "消えてしまいたい", "もう無理", "泣き止まなくて揺さぶってしまいそう", "強く揺さぶった"])(
+    "心の危機（言い方を足した）: %s",
+    (t) => {
+      const b = bridgeFor(t, "child");
+      expect(b.crisis).toBe(true);
+      expect(tels(t)).toContain("0570-064-556");
+      expect(b.lead).toMatch(/ひとりで抱えなくていい/);
+    },
+  );
+
+  it("揺さぶってしまいそうな時は児童相談所も出す", () => {
+    expect(tels("泣き止まなくて揺さぶってしまいそう")).toContain("0120-189-783");
+    expect(tels("ゆさぶっちゃいそうで怖い")).toContain("0120-189-783");
+  });
+
+  it.each(["夫に殴られた", "パートナーからの暴力が怖い", "首を絞められた", "旦那に蹴られた", "DVを受けている気がする", "My husband hits me"])("暴力: %s", (t) => {
+    const b = bridgeFor(t, "child");
+    expect(b.crisis).toBe(true);
+    expect(tels(t)).toContain("0120-279-889");
+    expect(tels(t)).toContain("110");
+    expect(b.lead).toMatch(/110番/);
+    expect(b.note).toMatch(/相手に知らせる・話し合う事を勧めない/);
+  });
+
+  it("暴力と死にたいが一緒の時は、心の相談先も出す", () => {
+    const t = tels("夫に殴られて、もう死にたい");
+    expect(t).toContain("0120-279-889");
+    expect(t).toContain("0570-064-556");
+  });
+
+  it.each([
+    "揺さぶられ症候群が心配",
+    "抱っこで揺らすと揺さぶったらダメ？",
+    "お産で死にたくない、こわい",
+    "赤ちゃんにお腹を蹴られる",
+    "2歳の子に叩かれる",
+    "DVDを見ながら寝かしつけ",
+    "揺さぶりってどのくらいから危ないの？",
+  ])("言えない時の言葉に似た、ふつうの文には付けない: %s", (t) => {
+    const b = bridgeFor(t, "child");
+    expect(b.crisis).toBe(false);
+    expect(b.actions).toEqual([]);
+  });
+
+  it("急ぎの返事の頭と119のボタンは「迷ったら119」と言わない（迷う時は #8000・産院）", () => {
+    for (const phase of ["pregnant", "child", "other"] as const) {
+      const b = bridgeFor("出血が止まらない", phase);
+      expect(b.lead).toMatch(/命が危ないと思ったら、迷わず119/);
+      expect(b.lead).not.toMatch(/迷ったら119/);
+      expect(b.note).not.toMatch(/迷ったら119 を/);
+      const call119 = b.actions.find((a) => a.type === "call" && a.tel === "119");
+      expect(call119 && call119.type === "call" ? call119.label : null).toBe("命が危ない時は119");
+    }
+    expect(bridgeFor("39度の熱でぐったり", "child").lead).toMatch(/救急車を呼ぶか迷う時は、子どもの事はかかりつけか #8000/);
+  });
+
   it.each(["出生届はいつまで？", "児童手当はいくら？", "保育園の申し込みはどこ？", "撮った紙はどこで OK するの？"])("ふつうの問いには付けない: %s", (t) => {
     const b = bridgeFor(t, "child");
     expect(b.actions).toEqual([]);
