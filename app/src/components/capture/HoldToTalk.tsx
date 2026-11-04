@@ -87,20 +87,20 @@ export function HoldToTalk({ disabled, onAudio, onError }: { disabled: boolean; 
       }}
       onKeyUp={(e) => (e.key === " " || e.key === "Enter") && stop()}
       aria-pressed={on}
-      className={`flex aspect-square w-full touch-none select-none flex-col items-center justify-center gap-1 rounded-3xl border-2 transition [-webkit-touch-callout:none] disabled:opacity-50 ${
+      className={`flex min-h-36 w-full touch-none px-1 select-none flex-col items-center justify-center gap-1 rounded-3xl border-2 transition [-webkit-touch-callout:none] disabled:opacity-50 ${
         on ? "scale-[0.97] border-rose bg-rose text-white" : "border-rose bg-rose-soft text-rose"
       }`}
     >
       <MicIcon />
-      <span className="font-display text-2xl font-bold">{on ? "話しています" : phase === "starting" ? "マイク準備中" : "話す"}</span>
-      <span className={`tabular text-sm ${on ? "text-white/90" : "text-muted"}`}>{on ? `${secs}秒・指を離すと送ります` : "押している間だけ録音"}</span>
+      <span className="font-display text-xl font-bold">{on ? "話しています" : phase === "starting" ? "マイク準備中" : "話す"}</span>
+      <span className={`tabular text-xs ${on ? "text-white/90" : "text-muted"}`}>{on ? `${secs}秒・指を離すと送ります` : "押している間"}</span>
     </button>
   );
 }
 
 function MicIcon() {
   return (
-    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden>
       <rect x="9" y="3" width="6" height="11" rx="3" />
       <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
     </svg>

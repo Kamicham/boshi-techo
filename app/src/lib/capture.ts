@@ -9,6 +9,8 @@ import { addDays, addMonths, clockAt, conceptionDate, lmpFromDue } from "./clock
 import { list, put, remove, type Doc } from "./db";
 import { DEMO_FAMILY, type Family } from "./demo-family";
 import { TECHO_PAGES, TECHO_PAGE_IDS, type TechoPageId, type TechoSource } from "./techo";
+import { HttpError } from "./http-error";
+import { cleanManual, temperatureRecord, type ManualInput } from "./manual-entry";
 import { addTecho, removePendingByCapture, toNumber, VALUE_KEYS, type TechoDoc } from "./techo-store";
 
 export const RECORD_KINDS = ["気がかり", "できごと", "予定", "書類", "メモ"] as const;
@@ -533,3 +535,19 @@ export function seedDemo(familyId: string = DEMO_FAMILY.id): CaptureRecord[] {
 
 /** 答えの形（試験と、鍵の無い時の見本の答え lib/samples.ts の確かめに使う） */
 export { Schema as CaptureSchema, PageSchema };
+
+/** 打って入れた記録（VISION ①「押し付けない」）。家族が自分で書いた物なので、Claude を通さずそのまま入れる */
+export function addManualRecord(familyId: string, input: ManualInput, today: string): CaptureRecord {
+  const r = cleanManual(input, today);
+  if (!r.ok) throw new HttpError(400, r.error);
+  const { date, ...data } = r.value;
+  return put<RecordData>(familyId, "record", { ...data, source: "text" }, { date });
+}
+
+/** 体温を打って入れる */
+export function addTemperature(familyId: string, raw: string, date: string, today: string, who?: string): CaptureRecord {
+  const r = temperatureRecord(raw, date || today, today, who);
+  if (!r.ok) throw new HttpError(400, r.error);
+  const { date: day, ...data } = r.value;
+  return put<RecordData>(familyId, "record", { ...data, source: "text" }, { date: day });
+}

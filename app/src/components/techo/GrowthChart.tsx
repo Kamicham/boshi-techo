@@ -302,9 +302,14 @@ function AddFromPaper({ today, onAdd }: { today: string; onAdd: (values: Record<
   const [failed, setFailed] = useState(false);
   if (!open) {
     return (
-      <Btn kind="secondary" onClick={() => setOpen(true)}>
-        紙の手帳から写す
-      </Btn>
+      <div className="grid grid-cols-2 gap-2">
+        <Btn kind="secondary" full onClick={() => setOpen(true)}>
+          打って入れる
+        </Btn>
+        <Btn kind="secondary" full href="/capture">
+          話す・撮る
+        </Btn>
+      </div>
     );
   }
   const save = async () => {

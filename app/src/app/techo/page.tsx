@@ -32,11 +32,11 @@ const partLabel = (part: string) => (part === "つなぐ" ? "相談先" : part);
 /** 空の欄に出す「いつ・何を撮ると入るか」（紙の手帳のどの欄を、どの日に撮るか） */
 const WHEN: Partial<Record<TechoPageId, string>> = {
   "mother-health":
-    "紙の手帳のこのページ（自分で書く欄）を撮るか、話すと入ります",
+    "紙の手帳のこのページ（自分で書く欄）を撮る・話す・打つ、どれでも入ります",
   "pregnancy-checkup": "健診の日に、先生が書いた欄を撮ると入ります",
   "pregnancy-test": "検査の結果が書かれたら、その欄を撮ると入ります",
   birth: "退院の前に、病院が書いた出産の欄を撮ると入ります",
-  postpartum: "産後の健診の日に、その欄を撮るか、話すと入ります",
+  postpartum: "産後の健診の日に、その欄を撮る・話す・打つ、どれでも入ります",
   newborn: "退院の前に、病院が書いた新生児の欄を撮ると入ります",
   growth: "健診で測った日に、身長・体重の欄を撮っても入ります",
   "child-checkup": "健診の日に、先生が書いた欄を撮ると入ります",
@@ -121,9 +121,9 @@ export default function TechoPage() {
       <header className="flex flex-col gap-2">
         <h1 className="font-display text-2xl font-bold">手帳</h1>
         <p className="text-base">
-          紙の母子手帳の中身を、スマホにも写しておく所。健診の紙を撮るか、話すと、ここに入ります。
+          紙の母子手帳の中身を、スマホにも写しておく所。健診の紙を撮る・話す・欄ごとに打つ、楽な方で入ります。
         </p>
-        <Btn href="/capture">撮る・話す</Btn>
+        <Btn href="/capture">話す・撮る・打つ</Btn>
         <nav aria-label="手帳の部" className="-mx-4 overflow-x-auto px-4">
           <ul className="flex gap-2 whitespace-nowrap">
             {shown.map((part) => (

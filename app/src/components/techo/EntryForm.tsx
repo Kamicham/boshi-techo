@@ -1,11 +1,14 @@
 "use client";
 
-// 手帳の欄に手で入れる（撮る・話すのほかに）。紙の母子手帳の欄の名前のまま。値の良し悪しは言わない。
+// 手帳の欄に打って入れる（撮る・話すと同じ重さで。VISION ①「入力ゼロ、でも押し付けない」）。紙の母子手帳の欄の名前のまま。値の良し悪しは言わない。
+// 開いた時に、週数・生後の日数・医療機関など手帳が知っている値を先に入れておく（lib/techo-prefill.ts）。
 import { useState } from "react";
+import { api, useFamily } from "@/components/FamilyProvider";
+import { techoPrefill } from "@/lib/techo-prefill";
 import { Btn } from "@/components/ui";
 import type { TechoPageId } from "@/lib/techo";
 import { TECHO_FORMS, formValues } from "@/lib/techo-fields";
-import type { useTecho } from "./useTecho";
+import type { TechoItem, useTecho } from "./useTecho";
 
 type Add = ReturnType<typeof useTecho>["add"];
 
@@ -24,15 +27,27 @@ export function EntryForm({
   const [raw, setRaw] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const { family } = useFamily();
   if (!form) return null;
+  const start = async () => {
+    setOpen(true);
+    try {
+      const r = await api<{ techo?: { id: string; data: TechoItem }[] }>(`/api/techo?familyId=${encodeURIComponent(family.id)}&today=${today}`);
+      const items = (r.techo ?? []).map((d) => d.data).filter((x) => x && x.page);
+      const pre = techoPrefill(page, family, today, items);
+      setRaw((cur) => ({ ...pre, ...cur }));
+    } catch {
+      // 先入れが無くても打てる
+    }
+  };
   if (!open) {
     return (
-      <div className="flex flex-wrap gap-2">
-        <Btn kind="secondary" onClick={() => setOpen(true)}>
-          入力する
+      <div className="grid grid-cols-2 gap-2">
+        <Btn kind="secondary" full onClick={() => void start()}>
+          打って入れる
         </Btn>
-        <Btn kind="secondary" href="/capture">
-          撮る・話す
+        <Btn kind="secondary" full href="/capture">
+          話す・撮る
         </Btn>
       </div>
     );
@@ -63,7 +78,7 @@ export function EntryForm({
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-line p-3">
       <p className="text-sm text-muted">
-        分かる欄だけ入れれば足ります。紙の手帳の言葉のまま入れてください。
+        分かる欄だけで足ります。週数・医療機関など手帳が知っている所は入れてあります（違えば直してください）。
       </p>
       <label className="flex flex-col gap-1 text-sm text-muted">
         {form.dateLabel}

@@ -210,3 +210,22 @@ describe("候補の日付を直して OK する", () => {
     expect(S.cleanEntry({ page: "growth", values: { weightKg: 4 }, dateUnsure: "guess" }, { today: "2029-02-01" })?.dateUnsure).toBeUndefined();
   });
 });
+
+describe("打って入れる・読み取った値を直す（VISION ①「押し付けない」）", () => {
+  it("候補の値を OK の前に直す: 直した値で入り、空にした欄は消える", () => {
+    const [d] = S.addTecho("fam-edit", [{ page: "pregnancy-checkup", date: "2027-03-01", values: { weightKg: "85.2", bpHigh: "118", facility: "A" } }], { today: "2027-03-01", source: "photo", pending: true });
+    S.patchTecho(d.id, "fam-edit", { values: { weightKg: "58.2", bpHigh: "", facility: "A" } });
+    const ok = S.confirmTecho(d.id, "fam-edit", undefined, "2027-03-01");
+    expect(ok?.data.values).toEqual({ weightKg: 58.2, facility: "A" });
+    expect(ok?.data.pending).toBeUndefined();
+  });
+
+  it("一言・予定・体温は Claude を通さず、そのまま記録に入る", () => {
+    const a = C.addManualRecord("fam-edit", { kind: "予定", title: "保育園の見学", date: "2027-03-09", time: "10:30", deadline: true }, "2027-03-01");
+    expect(a.data).toMatchObject({ kind: "予定", title: "10:30 保育園の見学", isDeadline: true, source: "text" });
+    expect(a.date).toBe("2027-03-09");
+    const t = C.addTemperature("fam-edit", "36.8", "2027-03-01", "2027-03-01", "美咲");
+    expect(t.data).toMatchObject({ kind: "メモ", title: "体温 36.8℃", who: "美咲" });
+    expect(() => C.addManualRecord("fam-edit", { kind: "できごと", title: "" }, "2027-03-01")).toThrow("ひとことを入れてください");
+  });
+});
