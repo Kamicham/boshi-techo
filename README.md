@@ -109,17 +109,20 @@ npm run typecheck
 
 - 開いた人ごとに、見本の家族の写しを1つ作る（札＝クッキーの持ち主だけが開ける。7日で消える）。ほかの人の書き込みは見えない
 - 本物の家族の登録・招待・書き出しは閉じてある。健診の録音は、公開版ではまだ読むだけ
-- Claude は本物を使う。使い過ぎ止めは3段: 1つの写しの1日（`BOSHI_HOUSEHOLD_DAILY_USD`）・サーバ全体の1日（`BOSHI_DAILY_USD`）・Console のワークスペースの月の上限。上限に達した日は「見本の答え」に切り替わり、手帳は止まらない
+- **ハッカソンの間は、Claude を呼ばない**（Claude の鍵を入れない。鍵がうっかり入っても、公開版では呼ばない歯止めがある）。Claude の出番は、前に Claude が書いた一冊と、「見本の答え」の札が付いた答えで見せる。話した声は文字にせず、決まった見本の文が入る
 
-自分で立てる（Fly.io の東京・月 $3〜6 ほど）:
+自分で立てる（Fly.io の東京・月 $5 ほど）:
 
 ```bash
 cd app
 fly launch --no-deploy --copy-config --name <好きな名前>   # fly.toml の app を書き換える
-fly volumes create boshi_data --region nrt --size 1
-fly secrets set BETTER_AUTH_SECRET=… BOSHI_KEK=… ANTHROPIC_API_KEY=…   # 鍵は月の上限を付けたワークスペースで作る
-fly deploy
+fly volumes create boshi_data --region nrt --size 3
+# 秘密は2つだけ。命令の引数に載せず、標準入力で渡す（値は画面にも出さない）
+{ printf 'BETTER_AUTH_SECRET=%s\n' "$(openssl rand -hex 32)"; printf 'BOSHI_KEK=%s\n' "$(openssl rand -hex 32)"; } | fly secrets import --stage
+fly deploy --remote-only   # 組み立ては Fly の機械で。像は、きれいな main の写しの app/ から組む
 ```
+
+見本の素材は、すべて期間中に作った物で、実在の人ではありません。写真は Z-Image-Turbo（Apache-2.0）で生成。声は AivisSpeech の音声モデル「まお」「阿井田 茂」「ろてじん（長老ボイス）」（ACML 1.0）と、Qwen3-TTS 1.7B VoiceDesign（Apache-2.0・ばあばの声）で合成。映画の音楽は、端末で鳴らす自作のオルゴールです。
 
 ## しくみ
 
@@ -199,7 +202,9 @@ See the Japanese section above (`cd app && npm install && npm run dev`, with `AN
 
 ## Public trial
 
-`BOSHI_PUBLIC=1` runs a version anyone can try: each visitor gets a private copy of the demo family (bound to a cookie, deleted after 7 days). Sign-up, invites and export are closed. Claude runs for real, capped per copy per day, per server per day, and by the Console workspace limit; once a cap is hit the app falls back to clearly labeled sample answers instead of stopping. To host it yourself on Fly.io (Tokyo), see `app/Dockerfile` and `app/fly.toml` (`fly launch --no-deploy --copy-config`, create the `boshi_data` volume, set `BETTER_AUTH_SECRET`, `BOSHI_KEK` and `ANTHROPIC_API_KEY` as secrets, then `fly deploy`).
+`BOSHI_PUBLIC=1` runs a version anyone can try: each visitor gets a private copy of the demo family (bound to a cookie, deleted after 7 days). Sign-up, invites and export are closed. **During the hackathon the public trial does not call Claude**: no API key is set, and the public build refuses to call Claude even if one is. Claude's part is shown with a book Claude wrote earlier and with clearly labeled sample answers; spoken notes are not transcribed (a fixed sample sentence is used). To host it yourself on Fly.io (Tokyo), see `app/Dockerfile` and `app/fly.toml` (`fly launch --no-deploy --copy-config`, create a 3 GB `boshi_data` volume, pass only `BETTER_AUTH_SECRET` and `BOSHI_KEK` through stdin with `fly secrets import`, then `fly deploy --remote-only` from a clean checkout of main).
+
+Sample media were all made during the hackathon and show no real people: photos generated with Z-Image-Turbo (Apache-2.0); voices synthesized with the AivisSpeech models 「まお」, 「阿井田 茂」 and 「ろてじん（長老ボイス）」 (ACML 1.0) and with Qwen3-TTS 1.7B VoiceDesign (Apache-2.0); the film music is a music box played in the browser.
 
 ## License
 
