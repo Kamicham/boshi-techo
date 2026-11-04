@@ -7,7 +7,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { guideText } from "../app-guide";
 import { situationFacts } from "../advisor";
-import { CHARTER, claude, currentSender, EVERYDAY_MODEL, guardSend, LIGHT_MODEL, sampleMode, spendWho, structured } from "../claude";
+import { CHARTER, claude, ConsentRequiredError, currentSender, EVERYDAY_MODEL, guardSend, LIGHT_MODEL, sampleMode, spendWho, structured } from "../claude";
 import { sampleAskReply } from "../samples";
 import { clockAt } from "../clock";
 import { get, put } from "../db";
@@ -16,7 +16,11 @@ import { getKeep } from "../keep";
 import { checkBudget, recordSpend } from "../spend";
 import { STOOL_NOTE, DEVELOPMENT_NOTE, GROWTH_NOTE } from "../techo";
 import { bridgeFor } from "./bridge";
-import { runTool, TOOLS, type ToolCtx } from "./tools";
+import { ruleAnswer, ruleKind, type PlanView } from "./rule-answer";
+import { prenatalState } from "../prenatal";
+import { listTecho } from "../techo-store";
+import { getPlan } from "@/app/api/visit/_lib/server";
+import { planSnapshot, runTool, TOOLS, type ToolCtx } from "./tools";
 import type { AskAction, ChatTurn } from "./types";
 
 /** 道具を使う手の上限（無限に回らないように） */
@@ -179,6 +183,19 @@ const textOf = (res: Anthropic.Beta.BetaMessage) =>
     .replace(/\*\*/g, "")
     .trim();
 
+/** 次の妊婦健診の予約（「いま」の画面と同じ: 予約が無く、国の目安が7日以内の時だけ） */
+function prenatalBooking(family: Family, today: string): { when: string } | null {
+  if (getPlan(family.id).next) return null;
+  const checkups = listTecho(family.id, { family, today })
+    .filter((d) => d.data.page === "pregnancy-checkup" && !d.data.pending)
+    .map((d) => d.data.date);
+  const next = prenatalState(family, today, checkups)?.next;
+  if (!next) return null;
+  const days = Math.round((Date.parse(next) - Date.parse(today)) / 86_400_000);
+  if (days < 0 || days > 7) return null;
+  return { when: days === 0 ? "今日ごろ" : `あと${days}日ごろ` };
+}
+
 // ── 1回の問い ──
 
 export interface AskInput {
@@ -204,15 +221,33 @@ export interface AskResult {
 
 export async function ask(input: AskInput): Promise<AskResult> {
   const { family, today } = input;
-  // claude() を直に使うので、送る前の関所をここで1回通す（route が sendingAs で包む。同意が無ければ ConsentRequiredError）
-  guardSend("ask");
   const text = input.text.trim().slice(0, 2000);
   const onStatus = input.onStatus ?? (() => {});
   const c = clockAt(family, today);
   const bridge = bridgeFor(text, c.phase === "pregnant" ? "pregnant" : c.phase === "child" ? "child" : "other");
+  // 予定表と画面の地図だけで答えられる問いは、Claude を使えない時（見本で鍵が無い・同意の前）に決まりで答える（rule-answer.ts）。
+  // 体・心の言葉がある問い（bridge が拾う）には使わない
+  // 「過ぎた事」は予定表の言い方が「いま」の画面の「始める前の事」と合わないので、ここでは渡さない
+  const kind = bridge.lead ? null : ruleKind(text);
+  const byRule = (): AskResult | null => {
+    const r = kind && ruleAnswer(kind, text, { ...(planSnapshot(family, today) as unknown as PlanView), 過ぎた事: [], 健診の予約: prenatalBooking(family, today) }, input.path);
+    if (!r) return null;
+    const turn: ChatTurn = { role: "assistant", text: r.text, today, at: new Date().toISOString(), ...(r.actions.length ? { actions: r.actions } : {}) };
+    return { turn, rewritten: false, tools: ["rule"] };
+  };
+  // claude() を直に使うので、送る前の関所をここで1回通す（route が sendingAs で包む。同意が無ければ ConsentRequiredError）
+  try {
+    guardSend("ask");
+  } catch (e) {
+    const r = e instanceof ConsentRequiredError ? byRule() : null;
+    if (r) return r;
+    throw e;
+  }
 
-  // 鍵が無い見本の家族: 機械の床（急ぎ・心の危機の連絡先）はそのまま効かせ、返事は見本の言葉にする
+  // 鍵が無い見本の家族: 機械の床（急ぎ・心の危機の連絡先）はそのまま効かせ、決まりで答えられない問いは見本の言葉にする
   if (sampleMode()) {
+    const r = byRule();
+    if (r) return r;
     const reply = bridge.lead ? `${bridge.lead}\n\n${sampleAskReply()}` : sampleAskReply();
     const actions = dedupe([...bridge.actions]);
     const turn: ChatTurn = { role: "assistant", text: reply, today, at: new Date().toISOString(), ...(actions.length ? { actions } : {}) };

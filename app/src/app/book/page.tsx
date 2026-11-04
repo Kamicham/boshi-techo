@@ -130,20 +130,6 @@ export default function BookPage() {
         <>
           <Reader book={book} page={page} setPage={setPage} />
           {book.film.length > 0 && <FilmLink book={book} />}
-          {book.film.length > 0 && <FilmExport bookKey={book.generatedAt} />}
-          <div className="flex flex-wrap items-center gap-2">
-            <ShareButton title={book.title} text={bookText(book)} label="家族に渡す" fallback={false} />
-            <CopyButton text={bookText(book)} label="全部コピー" />
-            <Btn kind="secondary" href="/book/print">
-              印刷用（A5・PDF）
-            </Btn>
-          </div>
-          {book.photoCount != null && (
-            <p className="text-sm text-muted">
-              Claude に渡したのは、写真の日付・一言・結んだ記録{book.voiceCount ? "・声の題と最初の一文" : ""}の文字だけです（写真 {book.photoCount} 枚
-              {book.voiceCount ? `・声 ${book.voiceCount} 本` : ""}の候補。画像も声も渡していません）。
-            </p>
-          )}
           {book.outdated && (
             <div className="flex flex-col gap-2 rounded-xl bg-rose-soft px-4 py-3">
               <p className="text-base">この一冊は前の決まりで作ったので、「聞く」で相談した気がかりが文に入っているかもしれません。今の決まりでは、気がかりは一冊に入れません。</p>
@@ -154,7 +140,22 @@ export default function BookPage() {
               </div>
             </div>
           )}
-          <Fold title="作り直す">
+          {/* 本の下は「映画で見る」だけ。書き出しと作り直しは1つの畳みへ */}
+          <Fold title="書き出す・作り直す">
+            {book.film.length > 0 && <FilmExport bookKey={book.generatedAt} />}
+            <div className="flex flex-wrap items-center gap-2">
+              <ShareButton title={book.title} text={bookText(book)} label="家族に渡す" fallback={false} />
+              <CopyButton text={bookText(book)} label="全部コピー" />
+              <Btn kind="secondary" href="/book/print">
+                印刷用（A5・PDF）
+              </Btn>
+            </div>
+            {book.photoCount != null && (
+              <p className="text-sm text-muted">
+                Claude に渡したのは、写真の日付・一言・結んだ記録{book.voiceCount ? "・声の題と最初の一文" : ""}の文字だけです（写真 {book.photoCount} 枚
+                {book.voiceCount ? `・声 ${book.voiceCount} 本` : ""}の候補。画像も声も渡していません）。
+              </p>
+            )}
             <p className="text-base">
               {jpDay(book.asOf)}までの記録 <b className="tabular">{book.sourceCount}</b> 件から作りました
               {count != null && count > book.sourceCount && (
