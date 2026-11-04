@@ -62,6 +62,16 @@ export const VOICE_MOMENTS = [
   { id: "name", label: "名前を呼ぶ", hint: "はじめて・何度でも", short: "名前" },
 ] as const;
 export type VoiceMoment = (typeof VOICE_MOMENTS)[number]["id"] | "message";
+/**
+ * 今の時期に出す録り方の並び。おなかに話しかけるのは妊娠中（生まれた日が無い・今日より先）だけ。
+ * 生まれた後は出さず、今の声（寝る前のひとこと）を先頭にする。
+ */
+export function voiceMomentsFor(birthDate: string | undefined, today: string): (typeof VOICE_MOMENTS)[number][] {
+  const before = !birthDate || diffDays(today, birthDate) < 0;
+  if (before) return [...VOICE_MOMENTS];
+  const order = ["bedtime", "name"] as const;
+  return order.map((id) => VOICE_MOMENTS.find((m) => m.id === id)!).filter(Boolean);
+}
 export function voiceMomentById(id: string | null | undefined) {
   return VOICE_MOMENTS.find((m) => m.id === id);
 }

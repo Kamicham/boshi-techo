@@ -51,8 +51,8 @@ export function StartedLate({ family, today, onCount }: { family: Family; today:
       {ask.length > 0 && (
         <>
           <div className="flex flex-col gap-1">
-            <h2 className="font-display text-lg font-bold">手帳を始める前の事、済んでいますか？</h2>
-            <p className="text-sm text-muted">始める前に目安の日が過ぎていたので、済んだ事にしてあります。まだなら、ここに残します。</p>
+            <h2 className="font-display text-lg font-bold">もう済んでいますか？</h2>
+            <p className="text-sm text-muted">手帳を始める前の時期の事です。「まだ」を押すと、やる事に入れます。</p>
           </div>
           <ul className="flex flex-col divide-y divide-line">
             {ask.map((m) => (

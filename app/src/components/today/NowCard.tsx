@@ -85,18 +85,19 @@ export function NowCard(p: {
     });
     if (localState === "ok" && local?.bring?.length) lines.push({ key: "bring", state: "ok", text: `持ち物 ${local.bring.length}つ: ${local.bring.slice(0, 3).join("・")}${local.bring.length > 3 ? " ほか" : ""}` });
   }
-  if (canDraft && draftState !== "fail") {
+  // できた下書きは、下の主ボタン（「◯を見る」）が言うので、ここで「できています」を重ねない（UX 2026-11-04: 最初の箱に操作と行が7つ並んでいた）
+  if (canDraft && draftState !== "fail" && draftState !== "ok") {
     const noun = nounFor(draft?.kind ?? DRAFTABLE[t.id], t);
     lines.push({
       key: "draft",
       state: draftState,
-      text: draftState === "ok" ? `${noun}、できています` : `${noun}を作っています`,
+      text: `${noun}を作っています`,
     });
   }
 
   // 用意がすべてつまずいた時も、黙って「次にやる事」に戻さず、手帳が作れる事を1つのボタンで出す（最初の1分 2026-11-04）
-  const failed = preps && !busy && lines.length === 0 && (localState === "fail" || draftState === "fail");
-  const eyebrow = !preps ? undefined : busy ? "手帳が用意しています" : lines.some((l) => l.state === "ok") ? "手帳が用意しておいた事" : failed ? "手帳が用意できます" : undefined;
+  const failed = preps && !busy && lines.length === 0 && draftState !== "ok" && (localState === "fail" || draftState === "fail");
+  const eyebrow = !preps ? undefined : busy ? "手帳が用意しています" : lines.some((l) => l.state === "ok") || draftState === "ok" ? "いま、いちばん先の事" : failed ? "手帳が用意できます" : undefined;
   const failNoun = canDraft ? nounFor(DRAFTABLE[t.id], t) : `${family.city}の窓口と持ち物`;
 
   return (

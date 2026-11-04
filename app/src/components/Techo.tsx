@@ -23,7 +23,7 @@ import { AdvisorCard } from "./today/AdvisorCard";
 import { ConsultAsk } from "./today/ConsultAsk";
 import { PhotoNudge } from "./today/PhotoNudge";
 import { LetterNews } from "./today/LetterNews";
-import { byDays, dateWord, daysLeft, planToday, withAssignee, type Task } from "./today/task";
+import { byDays, daysLeft, planToday, withAssignee, type Task } from "./today/task";
 import { VisitToday, visitIsTop } from "./today/VisitToday";
 
 /** 「済んだにしました・もどす」を出しておく長さ */
@@ -342,8 +342,8 @@ export function Techo() {
             ) : r.kind === "prenatal" ? (
               <Link key="prenatal" href="/visit" className="flex min-h-12 items-center justify-between gap-3 border-b border-line py-2 last:border-b-0">
                 <span className="min-w-0">
-                  <span className="block text-base font-semibold">次の健診の予約は？</span>
-                  <span className="block text-sm text-muted">国の標準の目安です。病院が言った日が正</span>
+                  <span className="block text-base font-semibold">次の妊婦健診を予約する</span>
+                  <span className="block text-sm text-muted">国の目安では今ごろです。病院で日を言われていたら、そちらに合わせてください</span>
                 </span>
                 <span className="flex shrink-0 items-center gap-2">
                   <span className="tabular text-sm font-semibold">{daysUntil(today, guess!) === 0 ? "今日ごろ" : `あと${daysUntil(today, guess!)}日ごろ`}</span>
@@ -387,7 +387,7 @@ export function Techo() {
           {upcoming.length > 3 && (
             <details className="group">
               <summary className="flex min-h-12 cursor-pointer list-none items-center gap-1 text-base text-muted">
-                <span className="underline underline-offset-2">あと{upcoming.length - 3}件は、時期が来たら届きます</span>
+                <span className="underline underline-offset-2">ほかに{upcoming.length - 3}件あります</span>
                 <span className="transition-transform group-open:rotate-90" aria-hidden>›</span>
               </summary>
               <div className="flex flex-col">
@@ -481,29 +481,19 @@ function WeekBand({ family, today }: { family: Family; today: string }) {
 function Calm({ upcoming, today, others = 0, before = 0 }: { upcoming: Task[]; today: string; others?: number; before?: number }) {
   // 家族のほかの人の番で、期限のある事が「このあと」に残っている時は、家族全体が大丈夫とは言わない（なりきり sim-15・sim-14）
   // 上に「手帳を始める前の事」（聞く事・まだの事）がある時も、何もしなくて大丈夫とは言わない（2026-11-04）
-  const title = before > 0 ? "上の始める前の事のほかは、急ぐ事はありません" : others > 0 ? "あなたは今週、急ぐ事はありません" : "今週は、何もしなくて大丈夫";
+  // UX 2026-11-04: 上の箱を受ける言い回し（「上の…のほかは」）は一度で読めなかったので、それだけで読める見出しに
+  const title = before > 0 ? "ほかに、今すぐやる事はありません" : others > 0 ? "あなたは今週、急ぐ事はありません" : "今週は、何もしなくて大丈夫";
   const next = upcoming[0];
   if (!next) return <NextStep tone="ok" title={title} sub={others > 0 ? "家族の番の事は、下の「このあと」に日付の順で並べています。" : undefined} />;
-  const when = (t: Task) => (t.awaitingPregnancy ? "授かったら" : t.awaitingBirth ? "生まれたら" : `${dateWord(t.startDate, today)}ごろから`);
-  const watch = upcoming.slice(0, 3);
+  // 日付は下の一覧と同じ「11/19（木）ごろから」の形。先の事の一覧は下の「近づいたら、ここに出します」1か所だけ
+  // （UX 2026-11-04: ここの「見張っている事」と下の一覧に、同じ事が2回・2つの日付の形で出ていた）
+  const when = (t: Task) => (t.awaitingPregnancy ? "授かったら" : t.awaitingBirth ? "生まれたら" : `${jpShort(t.startDate, today)}ごろから`);
   return (
     <NextStep
       tone="ok"
       title={title}
-      sub={`${others > 0 ? "家族の番の事は、下の「このあと」に日付の順で並べています。" : ""}あなたが次に動くのは「${next.plain}」（${when(next)}）。近づいたら、ここの一番上に出します。`}
-    >
-      <div className="flex w-full flex-col gap-1">
-        <p className="text-sm text-muted">見張っている事</p>
-        <ul className="flex flex-col gap-0.5">
-          {watch.map((t) => (
-            <li key={t.id} className="flex items-baseline justify-between gap-3 text-base">
-              <span className="min-w-0">{t.plain}</span>
-              <span className="tabular shrink-0 text-sm text-muted">{t.awaitingPregnancy || t.awaitingBirth ? when(t) : jpShort(t.startDate, today)}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </NextStep>
+      sub={`${others > 0 ? "家族の番の事は、下の「このあと」に日付の順で並べています。" : ""}次は ${when(next)}、「${next.plain}」。近づいたら、ここの一番上に出します。`}
+    />
   );
 }
 

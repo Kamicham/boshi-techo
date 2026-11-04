@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useFamily } from "@/components/FamilyProvider";
 import { keptLine, type ClientMedia } from "@/lib/media-shared";
+import { minnaVoiceLabel } from "@/lib/book-intro";
 import { patchMedia, trashMedia } from "./useMedia";
 
 /** 声の中身を読んで、端末の中だけの URL にする（Safari の audio は範囲の読み出しを求めるので、まとめて読む） */
@@ -13,8 +14,9 @@ export async function voiceUrl(m: Pick<ClientMedia, "urls">): Promise<string> {
   return URL.createObjectURL(await r.blob());
 }
 
-/** full: 家族の記録を書ける人（一冊・映画に入れない を切り替えられる）。みんなの章の人は自分の声の一言・★・ゴミ箱だけ */
-export function VoiceItem({ m, canWrite, full = canWrite, focus }: { m: ClientMedia; canWrite: boolean; full?: boolean; focus?: boolean }) {
+/** full: 家族の記録を書ける人（一冊・映画に入れない を切り替えられる）。みんなの章の人は自分の声の一言・★・ゴミ箱だけ。
+ * minna: 一冊の「みんなの章」の中（見出しに名前があるので札を付けず「ばあばの声（17秒）」と出す） */
+export function VoiceItem({ m, canWrite, full = canWrite, focus, minna }: { m: ClientMedia; canWrite: boolean; full?: boolean; focus?: boolean; minna?: boolean }) {
   const { family, me } = useFamily();
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -77,13 +79,14 @@ export function VoiceItem({ m, canWrite, full = canWrite, focus }: { m: ClientMe
         </button>
         <button type="button" onClick={() => setOpen((o) => !o)} className="flex min-w-0 flex-1 flex-col text-left">
           <span className="truncate text-base font-semibold">
-            {m.title ?? "声"}
+            {minna && m.from ? minnaVoiceLabel(m.from.name, m.durationSec) : (m.title ?? "声")}
             {m.star > 0 && <span className="ml-1 text-warn">★</span>}
-            {m.from && <span className="ml-2 rounded-full bg-rose-soft px-2 py-0.5 text-xs font-bold text-rose">みんなの章</span>}
+            {m.from && !minna && <span className="ml-2 rounded-full bg-rose-soft px-2 py-0.5 text-xs font-bold text-rose">みんなの章</span>}
           </span>
           <span className="text-xs text-muted">
+            {minna && m.from && m.title ? `${m.title}・` : ""}
             {keptLine(family, m)}
-            {m.durationSec ? `・${Math.round(m.durationSec)}秒` : ""}
+            {!minna && m.durationSec ? `・${Math.round(m.durationSec)}秒` : ""}
           </span>
         </button>
       </div>

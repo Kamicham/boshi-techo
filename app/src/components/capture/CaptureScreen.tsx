@@ -23,9 +23,6 @@ type Last = CaptureResult & { transcript?: string; source: RecordSource };
 /** まだ答えていない聞き返し（サーバに残っている。開き直しても答える欄を出す） */
 type Ask = { captureId: string; question: string; basis: string; source: RecordSource };
 
-/** いつも出しておく道しるべ（固定の文。消さない）。赤は命の橋に取っておくので、ここは muted で「急ぎの時」の画面を指すだけ */
-const CALL_LINE = "急ぐ時は上の『急ぎの時』から";
-
 /** 仕組みの都合の知らせ（何が起きたか／書いた事は無事か／原文） */
 type Fail = { title: string; safe?: string; detail?: string };
 
@@ -297,7 +294,10 @@ export function CaptureScreen() {
   return (
     <main className="flex flex-col gap-4 px-4 pt-4">
       <h1 className="sr-only">話す・撮る</h1>
-      <p className="text-base text-muted">話すだけ・撮るだけで、手帳に書きます</p>
+      <div className="flex flex-col gap-1">
+        <p className="text-base text-muted">話すだけ・撮るだけで、手帳に書きます</p>
+        <p className="text-sm text-muted">健診で言われた事・体の様子・うれしかった事を話すか、健診の紙を撮ると、手帳が書き写します</p>
+      </div>
 
       {pending > 0 && (
         <Link href="/techo" className="flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-sky/40 bg-sky-soft px-4 py-2">
@@ -322,7 +322,7 @@ export function CaptureScreen() {
         >
           <CameraIcon />
           <span className="font-display text-2xl font-bold">撮る</span>
-          <span className="text-sm text-muted">紙も、思い出も</span>
+          <span className="text-sm text-muted">健診の紙も、写真も</span>
         </button>
         {/* capture を付けるとカメラロールから選べなくなるので付けない（撮る・選ぶは端末が聞く。MDN 2025） */}
         <input
@@ -350,14 +350,12 @@ export function CaptureScreen() {
           onCancel={() => setShot(null)}
         />
       ) : (
-        <p className="text-sm text-muted">撮った後に「読み取る」か「残す」かを選びます。読み取る時だけ、写真を手帳の中の AI（Claude）に送ります（残しません）</p>
+        <p className="text-sm text-muted">撮った後に選べます: 「読み取る」＝文字を手帳に書き写す／「残す」＝写真のまま取っておく。読み取る時だけ、写真を手帳の中の AI（Claude）に送ります（その写真は手帳に残しません）</p>
       )}
       {keeping && <KeepSheet files={keeping} onClose={() => setKeeping(null)} />}
 
       <VoiceKeeper unavailable={keepUnavailable} />
       <LetterKeeper unavailable={keepUnavailable} />
-
-      <p className="text-sm text-muted">{CALL_LINE}</p>
 
       {busy && (
         <p role="status" className="flex items-center gap-2 rounded-2xl bg-sky-soft px-4 py-4 text-lg font-semibold text-sky">
@@ -396,6 +394,7 @@ export function CaptureScreen() {
         </section>
       )}
 
+      <h2 className="font-display text-lg font-bold">記録と予定</h2>
       {writing ? (
         <section className="flex flex-col gap-2">
           <label htmlFor="capture-text" className="text-sm font-semibold text-muted">
