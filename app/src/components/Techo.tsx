@@ -35,6 +35,8 @@ export { jpDate } from "./today/dates";
 export function Techo() {
   const { family, today, isDemo, me } = useFamily();
   const [marked, setMarked] = useState<Set<string>>(new Set());
+  // 「手帳を始める前の事」の数（StartedLate が数える。「大丈夫」の言い方を変える）
+  const [beforeCount, setBeforeCount] = useState(0);
   const [lastDone, setLastDone] = useState<{ id: string; title: string; ids?: string[] } | null>(null);
   // 静かにする家族でも、いつもの今日の画面を見たい時に開ける
   const [showAll, setShowAll] = useState(false);
@@ -308,7 +310,7 @@ export function Techo() {
         <VisitToday family={family} today={today} next={nextVisit} agendaCount={visit?.agenda ?? 0} keep={keep} />
       ) : null}
       {/* 途中から始めた家族: 始める前に目安が過ぎた事を、済んでいるか1回聞く */}
-      {!loading && <StartedLate family={family} today={today} />}
+      {!loading && <StartedLate family={family} today={today} onCount={setBeforeCount} />}
       {!loading && staleFirst && <StaleBox key={`${family.id}:first`} tasks={stale} {...common} defaultOpen onDone={(ids) => void setManyDone(ids)} />}
       {!loading && trip && !(visitTop && nextVisit) && !focus && (
         <BirthTripCard
@@ -325,7 +327,7 @@ export function Techo() {
       {loading || (visitTop && nextVisit) ? null : top ? (
         <NowCard key={`${family.id}:${top.id}`} task={top} soon={!focus && !trip && plan.topIsSoon} {...common} onDone={() => void setDone(top, true)} />
       ) : (
-        <Calm upcoming={me ? upcoming.filter((t) => t.who === "家族" || t.who === me.role) : upcoming} today={today} others={rows.filter((r) => r.kind === "task").length} />
+        <Calm upcoming={me ? upcoming.filter((t) => t.who === "家族" || t.who === me.role) : upcoming} today={today} others={rows.filter((r) => r.kind === "task").length} before={beforeCount} />
       )}
 
       {/* 手帳が見渡して気づいた事は、一番上の1枚の次に（大きな札を2枚並べない） */}
@@ -476,9 +478,10 @@ function WeekBand({ family, today }: { family: Family; today: string }) {
  * 「大丈夫」を一番大きく。日数は数えず日付で。見張っている近い3件を見せ、見落としの不安を減らす。
  * 町の予定まで確かめたとは書かない（期限表から決まる事だけ）。
  */
-function Calm({ upcoming, today, others = 0 }: { upcoming: Task[]; today: string; others?: number }) {
+function Calm({ upcoming, today, others = 0, before = 0 }: { upcoming: Task[]; today: string; others?: number; before?: number }) {
   // 家族のほかの人の番で、期限のある事が「このあと」に残っている時は、家族全体が大丈夫とは言わない（なりきり sim-15・sim-14）
-  const title = others > 0 ? "あなたは今週、急ぐ事はありません" : "今週は、何もしなくて大丈夫";
+  // 上に「手帳を始める前の事」（聞く事・まだの事）がある時も、何もしなくて大丈夫とは言わない（2026-11-04）
+  const title = before > 0 ? "上の始める前の事のほかは、急ぐ事はありません" : others > 0 ? "あなたは今週、急ぐ事はありません" : "今週は、何もしなくて大丈夫";
   const next = upcoming[0];
   if (!next) return <NextStep tone="ok" title={title} sub={others > 0 ? "家族の番の事は、下の「このあと」に日付の順で並べています。" : undefined} />;
   const when = (t: Task) => (t.awaitingPregnancy ? "授かったら" : t.awaitingBirth ? "生まれたら" : `${dateWord(t.startDate, today)}ごろから`);

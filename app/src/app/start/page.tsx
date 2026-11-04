@@ -218,7 +218,7 @@ function Preview({ a, today, busy, msg, onEdit, onKeep, canKeep }: { a: Answers;
 
       {!top && next[0] && (
         <section className="flex flex-col gap-2 rounded-3xl border border-line bg-card px-5 py-5">
-          <h2 className="font-display text-2xl leading-snug font-bold">今週は、何もしなくて大丈夫</h2>
+          <h2 className="font-display text-2xl leading-snug font-bold">{plan.before.length > 0 ? "始める前の事のほかは、急ぐ事はありません" : "今週は、何もしなくて大丈夫"}</h2>
           <p className="text-base">
             次に動くのは「{next[0].plain}」（{when(next[0])}）。近づいたら、手帳が一番上に出します。
           </p>
