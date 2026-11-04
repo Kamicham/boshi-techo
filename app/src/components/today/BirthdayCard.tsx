@@ -2,22 +2,11 @@
 
 // 1歳・2歳の誕生日から2週間、今日の画面の一番上に出す1枚。「ひなた、1歳おめでとう」と、
 // その日に開いた手紙・一冊・映画への入口（思い出は、これまで下の小さな枠と、3回押した先にあった。2026-11-04 初見の目 L3）。
-// 祝う言葉だけで、体や発達の事には触れない。静かにする間は今日の画面ごと別の形になるので、ここには来ない。
+// 祝う言葉だけで、体や発達の事には触れない。出す日は lib/media-shared.ts の birthdayFor（静かにする間は、いつもの画面を開いても出さない）。
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { addMonths, diffDays } from "@/lib/clock";
 import type { Family } from "@/lib/demo-family";
 import { recentlyOpened, type ClientLetter } from "@/lib/letters-shared";
-
-/** 今日が1歳・2歳の誕生日から2週間の内なら、その歳（無ければ null） */
-export function birthdayAge(f: { birthDate?: string }, today: string): 1 | 2 | null {
-  if (!f.birthDate) return null;
-  for (const age of [1, 2] as const) {
-    const d = diffDays(today, addMonths(f.birthDate, age * 12));
-    if (d >= 0 && d <= 14) return age;
-  }
-  return null;
-}
 
 export function BirthdayCard({ family, today, by, age }: { family: Family; today: string; by?: string; age: 1 | 2 }) {
   const [letters, setLetters] = useState<ClientLetter[]>([]);
