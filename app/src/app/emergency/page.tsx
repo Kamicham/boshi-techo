@@ -4,12 +4,16 @@
 // 言い分け: 命が危ないと思ったら、迷わず 119（通報すると、電話の向こうで手当を教えてもらえる）。救急車を呼ぶか迷う時は、子どもの事は #8000、
 // 大人の体（ママ）の事は #7119（家族の町で実施している時だけ。lib/emergency-lines.ts）。「迷ったら119」とは書かない（迷う時の相談先より先に119へ向かわせる）。
 // 1画面目（iPhone 390×844）に、ママの体の札（妊娠中・産後8週まで）・119・#8000（・#7119）が収まるよう、119 の赤を画面いっぱいに伸ばさない。
+// Safari のツールバーが出ている高さ（664px ほど）でも、妊娠中の札・119・#8000 が入るよう、高さ760px以下では余白と119を詰める。
+// 「#」の入った番号（#8000・#7119）のボタンには、すぐ下に家族の県の窓口のふつうの番号を添える（電話によって「#」のリンクがかからない事がある。
+// 番号の表と出典は lib/emergency-lines.ts。家族の県が分からない時は添えない）。
 //
 // 119 の例（息をしていない・反応が無い・けいれんが止まらない）は消防庁の言葉に合わせた:
 // - 消防庁「緊急度判定プロトコル Ver.3 救急受診ガイド」（「呼吸をしていない。息がない。」「呼びかけても、反応がない。」）
 //   https://www.fdma.go.jp/mission/enrichment/appropriate/items/kyuukyuuzyushinngaido.pdf
 // - 消防庁「救急車を上手に使いましょう」令和7年12月 p.4（「けいれんが止まらない」）https://www.fdma.go.jp/publication/portal/items/portal002_japanese121.pdf
-// #7119: 消防庁「救急安心センター事業（♯7119）ってナニ？」https://www.fdma.go.jp/mission/enrichment/appropriate/appropriate007.html （2026-11-04 に確かめた）
+// #7119: 消防庁「救急安心センター事業（♯7119）ってナニ？」https://www.fdma.go.jp/mission/enrichment/appropriate/appropriate007.html （2026-11-04 に確かめた。
+//   つながらない時のふつうの番号は 2026-11-05 に「♯7119 又は」の後の番号を写した）
 // 泣きやまない時: こども家庭庁「赤ちゃんが泣きやまない」とガイドブック（制作 厚生労働省。p.2・3・7〜10）の文を、言い換えずに引く（2026-11-05 にページで確かめた）
 //   https://www.cfa.go.jp/policies/jidougyakutai/nakiyamanai
 //   0120-189-783: こども家庭庁「出産や子育てに悩んだ時は、こちらにお電話ください。」https://kodomoshien.cfa.go.jp/no-gyakutai/ （受付時間は確かめられなかったので書かない）
@@ -22,13 +26,14 @@
 // - こども家庭庁「母子健康手帳 任意様式」2026-01-15版 p.73-75「子どもの事故の手当」（2025年版より前の物。新しい方に合わせた）
 //   https://www.cfa.go.jp/policies/boshihoken/techou
 // - 厚生労働省「子ども医療電話相談事業（#8000）」（都道府県が行う）https://www.mhlw.go.jp/topics/2006/10/tp1010-3.html
+//   （つながらない時のふつうの番号は、同じページの「子ども医療電話相談事業実施状況（令和８年５月22日現在）」の表。2026-11-05 に写した）
 // - 消防庁「NET119緊急通報システム」（2026-04-01 で719本部のうち677本部が導入・事前の登録が要る）
 //   https://www.fdma.go.jp/mission/enrichment/kyukyumusen_kinkyutuhou/net119.html
 // - 電話リレーサービス: 聴覚障害者等による電話の利用の円滑化に関する法律（令和2年法律第53号）。総務大臣指定の提供機関
 //   一般財団法人日本財団電話リレーサービス https://www.nftrs.or.jp/ （24時間・110/119/118 に発信できる）
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChokeOrder, Line7119, MamaUrgent } from "./ChokeOrder";
+import { Alt8000, ChokeOrder, Line7119, MamaUrgent } from "./ChokeOrder";
 
 export const metadata: Metadata = { title: "急ぎの時 | 母子手帳" };
 // 通信が無くても開けるよう、作る時に1回だけ組み立てる（家族の情報は何も入らない）
@@ -91,7 +96,8 @@ function Card({
 
 export default function EmergencyPage() {
   return (
-    <main className="flex flex-col gap-4 px-4 pt-4 pb-12">
+    // 高さの低い画面（Safari のツールバーが出ている iPhone は 664px ほど）では、上の余白・119・#8000 を詰める（妊娠中でも札・119・#8000 を1画面目に）
+    <main className="flex flex-col gap-4 px-4 pt-4 pb-12 [@media(max-height:760px)]:gap-3 [@media(max-height:760px)]:pt-2">
       <div className="flex items-center justify-between gap-2">
         <Link
           href="/"
@@ -111,25 +117,29 @@ export default function EmergencyPage() {
       <section aria-label="電話する" className="flex flex-col gap-3">
         <a
           href="tel:119"
-          className="flex min-h-36 flex-col items-center justify-center gap-1 rounded-2xl bg-alert px-4 py-4 text-center text-white"
+          className="flex min-h-36 flex-col items-center justify-center gap-1 rounded-2xl bg-alert px-4 py-4 text-center text-white [@media(max-height:760px)]:min-h-0 [@media(max-height:760px)]:gap-0.5 [@media(max-height:760px)]:py-3"
         >
-          <span className="font-display text-4xl font-bold">119 にかける</span>
+          <span className="font-display text-4xl font-bold [@media(max-height:760px)]:text-3xl">119 にかける</span>
           <span className="text-base font-semibold">命が危ないと思ったら、迷わずこちら</span>
           <span className="text-sm">
             息をしていない・反応が無い・けいれんが止まらない。手当のしかたも電話で教えてもらえます
           </span>
         </a>
-        <a
-          href="tel:%238000"
-          className="flex min-h-20 flex-col items-center justify-center gap-1 rounded-2xl border-2 border-sky bg-card px-4 py-3 text-center"
-        >
-          <span className="font-display text-2xl font-bold text-sky">
-            #8000 に聞く
-          </span>
-          <span className="text-sm text-muted">
-            子どもの事で、救急車を呼ぶか迷う時はまずこちら。夜や休みの日に、小児科の先生や看護師さんに聞けます
-          </span>
-        </a>
+        {/* #8000 のボタンと、つながらない時の家族の県のふつうの番号（Alt8000。県が分かる時だけ）を1つの枠に */}
+        <div className="flex flex-col overflow-hidden rounded-2xl border-2 border-sky bg-card">
+          <a
+            href="tel:%238000"
+            className="flex min-h-20 flex-col items-center justify-center gap-1 px-4 py-3 text-center [@media(max-height:760px)]:py-2"
+          >
+            <span className="font-display text-2xl font-bold text-sky">
+              #8000 に聞く
+            </span>
+            <span className="text-sm text-muted">
+              子どもの事で、救急車を呼ぶか迷う時はまずこちら。夜や休みの日に、小児科の先生や看護師さんに聞けます
+            </span>
+          </a>
+          <Alt8000 />
+        </div>
         {/* 大人の体（ママ）の事で迷う時。家族の町で実施している時だけ（消防庁の一覧） */}
         <Line7119 />
         {/* 耳が聞こえにくい・声で話せない時の道（消防庁 NET119・電話リレーサービス） */}
@@ -294,16 +304,16 @@ export default function EmergencyPage() {
           </li>
         </ul>
         <div className="flex flex-col gap-2">
-          <a
-            href="tel:%238000"
-            className="flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-sky/50 px-4 py-2"
-          >
-            <span className="min-w-0">
-              <span className="block text-base font-semibold text-sky">#8000</span>
-              <span className="block text-sm text-muted">子どもの事で、受診するか迷う時（夜や休みの日）</span>
-            </span>
-            <span className="shrink-0 text-sm font-semibold">電話する</span>
-          </a>
+          <div className="flex flex-col overflow-hidden rounded-2xl border border-sky/50">
+            <a href="tel:%238000" className="flex min-h-12 items-center justify-between gap-3 px-4 py-2">
+              <span className="min-w-0">
+                <span className="block text-base font-semibold text-sky">#8000</span>
+                <span className="block text-sm text-muted">子どもの事で、受診するか迷う時（夜や休みの日）</span>
+              </span>
+              <span className="shrink-0 text-sm font-semibold">電話する</span>
+            </a>
+            <Alt8000 />
+          </div>
           <a
             href="tel:0120189783"
             className="flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-ink/20 px-4 py-2"
@@ -361,6 +371,9 @@ export default function EmergencyPage() {
             <p>
               #8000
               は、厚生労働省の「子ども医療電話相談事業」で、都道府県が行っています（つながる時間は都道府県ごとに違います）。
+            </p>
+            <p>
+              「#8000」「#7119」のように「#」の入った番号は、電話によっては、画面のボタンからかからない事があります。そのため、すぐ下に、わが家の県の窓口のふつうの番号を添えています（#8000 は厚生労働省の実施状況の表〈2026年5月22日現在〉の「一般ダイヤル回線」の番号、#7119 は消防庁の一覧の「♯7119 又は」の後の番号）。
             </p>
             <p>
               #7119 は、消防庁の「救急安心センター事業」で、救急車を呼ぶか・今すぐ病院へ行くかを迷う時に相談できます。2026年10月の一覧では42の地域が行っていて、三重・島根・佐賀・宮崎・鹿児島はまだ無く、北海道・愛知・和歌山は一部の町だけです。このページは、わが家の住む町にある時だけ出します（町は、わが家の情報の都道府県と市区町村から）。
