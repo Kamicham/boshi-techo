@@ -366,6 +366,50 @@ describe("一冊と写真", () => {
 
 // ───────── 画像を Claude に渡せるのは mediaForClaude だけ（grep） ─────────
 
+describe("一冊と声", () => {
+  const photo = (id: string, date: string, period: "はじめての一年" | "おなかにいた日々") => ({ id, date, period, age: "", techo: [], star: 0, score: 0 });
+  const voice = (id: string, date: string, period: "はじめての一年" | "おなかにいた日々", star = 0) => ({ id, date, period, age: "", title: "パパから おなかへ", first: "", star });
+
+  it("声の番号を id に戻し、知らない番号は落とす。映画で同じ声は1回だけ。声のある行は5秒以上", () => {
+    const pk = B.photoKeys([photo("p1", "2027-02-01", "おなかにいた日々"), photo("p2", "2027-06-01", "はじめての一年")]);
+    const vk = B.voiceKeys([voice("v1", "2027-02-03", "おなかにいた日々")]);
+    expect(vk.map((k) => k.key)).toEqual(["V1"]);
+    const content = {
+      title: "t", dedication: "d", closing: "c", cover: "",
+      chapters: [{ period: "おなかにいた日々", title: "a", text: "b", moments: [], photos: [], voices: [{ voiceId: "V1", line: "パパから" }, { voiceId: "V9", line: "x" }] }],
+      film: [
+        { mediaId: "p1", sec: 3, caption: "", voiceId: "V1" },
+        { mediaId: "p2", sec: 3, caption: "", voiceId: "V1" },
+      ],
+    };
+    const out = B.settleVoices(content, pk, vk);
+    expect(out.chapters[0].voices).toEqual([{ voiceId: "v1", line: "パパから" }]);
+    expect(out.film[0]).toMatchObject({ voiceId: "v1", sec: 5 });
+    expect(out.film[1].voiceId).toBe("");
+  });
+
+  it("Claude が声を選ばなかった時（見本の答え）も、章に1本・映画の近い日の写真に声を付ける。半年より離れた写真には付けない", () => {
+    const pk = B.photoKeys([photo("p1", "2027-02-01", "おなかにいた日々"), photo("p2", "2027-12-01", "はじめての一年")]);
+    const vk = B.voiceKeys([voice("v1", "2027-02-10", "おなかにいた日々"), voice("v2", "2029-01-01", "はじめての一年")]);
+    const content = {
+      title: "t", dedication: "d", closing: "c", cover: "",
+      chapters: [{ period: "おなかにいた日々", title: "a", text: "b", moments: [], photos: [], voices: [] }],
+      film: [],
+    };
+    const settled = B.settlePhotos(content, pk);
+    expect(settled.film.map((x) => x.mediaId)).toContain("p1");
+    const out = B.settleVoices(settled, pk, vk);
+    expect(out.chapters[0].voices[0].voiceId).toBe("v1");
+    expect(out.film.find((x) => x.mediaId === "p1")?.voiceId).toBe("v1");
+    expect(out.film.some((x) => x.voiceId === "v2")).toBe(false);
+    // Claude への文に声の id は出さない（番号だけ）
+    const f = { id: "x", city: "", prefecture: "", dueDate: "2027-05-10", birthDate: "2027-04-26", members: [] };
+    const text = B.bookInput(f, "2027-12-31", [], pk, vk);
+    expect(text).toContain("V1");
+    expect(text).not.toContain("v1");
+  });
+});
+
 describe("imageBlock を呼ぶ所（grep）", () => {
   const SRC = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const files: string[] = [];

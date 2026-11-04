@@ -7,14 +7,16 @@ import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn, CopyButton, Fold, NextStep, Pill, ShareButton, Why } from "@/components/ui";
 import type { Book } from "@/lib/book";
 import { useMedia } from "@/components/album/useMedia";
+import { VoiceItem } from "@/components/album/VoiceItem";
 import type { ClientMedia } from "@/lib/media-shared";
 
 /** 一冊に描ける写真（ある・隠していない）。消した写真の id は飛ばして描く */
 type Photos = Map<string, ClientMedia>;
 function usePhotos(): Photos {
   const { media } = useMedia();
+  const { media: voices } = useMedia({ kind: "audio" });
   const m = new Map<string, ClientMedia>();
-  for (const x of media) if (!x.hidden) m.set(x.id, x);
+  for (const x of [...media, ...voices]) if (!x.hidden) m.set(x.id, x);
   return m;
 }
 
@@ -122,6 +124,21 @@ export default function BookPage() {
       ) : book ? (
         <>
           <Reader book={book} page={page} setPage={setPage} />
+          {book.film.length > 0 && (
+            <Link
+              href="/book/film"
+              className="flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-ink px-5 text-paper"
+            >
+              <span className="flex flex-col">
+                <span className="font-display text-lg font-bold">▶ 映画で見る</span>
+                <span className="text-xs opacity-80">
+                  写真 {book.film.length} 枚{book.film.some((x) => x.voiceId) ? `・家族の声 ${book.film.filter((x) => x.voiceId).length} 本` : ""}・約
+                  {Math.max(1, Math.round(book.film.reduce((n, x) => n + x.sec, 0) / 60))}分
+                </span>
+              </span>
+              <span aria-hidden>›</span>
+            </Link>
+          )}
           <div className="flex flex-wrap items-center gap-2">
             <ShareButton title={book.title} text={bookText(book)} label="家族に渡す" />
             <CopyButton text={bookText(book)} label="全部コピー" />
@@ -131,7 +148,8 @@ export default function BookPage() {
           </div>
           {book.photoCount != null && (
             <p className="text-sm text-muted">
-              Claude に渡したのは、写真の日付・一言・結んだ記録の文字だけです（写真 {book.photoCount} 枚の候補。画像は渡していません）。
+              Claude に渡したのは、写真の日付・一言・結んだ記録{book.voiceCount ? "・声の題と最初の一文" : ""}の文字だけです（写真 {book.photoCount} 枚
+              {book.voiceCount ? `・声 ${book.voiceCount} 本` : ""}の候補。画像も声も渡していません）。
             </p>
           )}
           {book.outdated && (
@@ -334,6 +352,22 @@ function ChapterPhotos({ list, photos }: { list: { mediaId: string; line: string
   );
 }
 
+/** 章の声（一冊を開いた人が、その場で聞ける。紙では書き起こしを添える） */
+function ChapterVoices({ list, media }: { list: { voiceId: string; line: string }[]; media: Photos }) {
+  const xs = list.flatMap((v) => {
+    const m = media.get(v.voiceId);
+    return m && m.kind === "audio" ? [{ m: { ...m, title: v.line || m.title }, line: v.line }] : [];
+  });
+  if (!xs.length) return null;
+  return (
+    <ul aria-label="この章の声" className="flex flex-col gap-1.5">
+      {xs.map(({ m }) => (
+        <VoiceItem key={m.id} m={m} canWrite={false} />
+      ))}
+    </ul>
+  );
+}
+
 function PageBody({ book, page, photos }: { book: Book; page: Page; photos: Photos }) {
   if (page.kind === "cover") {
     const cover = book.cover ? photos.get(book.cover) : undefined;
@@ -381,6 +415,7 @@ function PageBody({ book, page, photos }: { book: Book; page: Page; photos: Phot
       </header>
       <Paragraphs text={ch.text} />
       <ChapterPhotos list={ch.photos ?? []} photos={photos} />
+      <ChapterVoices list={ch.voices ?? []} media={photos} />
       {ch.moments.length > 0 && (
         <ol className="flex flex-col gap-2 border-t border-dashed border-line pt-4 text-base">
           {ch.moments.map((m, i) => (

@@ -84,7 +84,7 @@ function look() {
   return { found: false, basis: [] };
 }
 
-/** 一冊: 記録から語りかける本は、鍵がある時だけ書く */
+/** 一冊: 記録から語りかける本は、鍵がある時だけ書く（映画と声は lib/book.ts の settlePhotos・settleVoices が候補から古い順に作る） */
 function book() {
   return {
     title: "見本の一冊",

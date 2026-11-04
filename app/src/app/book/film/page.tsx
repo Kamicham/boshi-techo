@@ -1,0 +1,250 @@
+"use client";
+
+// 映画: 一冊を作る時に Claude が書いた台本（book.film）を、写真と家族の声で流す。
+// 写真はゆっくり寄り・字幕・重ねて切り替え。声のある写真では、その声を流し、音楽を小さくする。
+// 音楽は端末の中で鳴らす自作のオルゴール（Web Audio。外の曲・管理曲は使わない）。写真も声も外に送らない。
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { api, useFamily } from "@/components/FamilyProvider";
+import { useMedia } from "@/components/album/useMedia";
+import { voiceUrl } from "@/components/album/VoiceItem";
+import type { Book } from "@/lib/book";
+import type { ClientMedia } from "@/lib/media-shared";
+import { MusicBox } from "./music";
+
+type Shot = { kind: "title" | "end"; sec: number } | { kind: "photo"; photo: ClientMedia; caption: string; sec: number; voice: ClientMedia | null };
+
+export default function FilmPage() {
+  const { family, today } = useFamily();
+  const [book, setBook] = useState<Book | null>(null);
+  const [error, setError] = useState("");
+  const { media: photos, loading: lp } = useMedia();
+  const { media: voices, loading: lv } = useMedia({ kind: "audio" });
+
+  useEffect(() => {
+    api<{ book: Book | null }>(`/api/book?familyId=${encodeURIComponent(family.id)}&today=${today}`)
+      .then((r) => setBook(r.book))
+      .catch((e: Error) => setError(e.message));
+  }, [family.id, today]);
+
+  const shots = useMemo<Shot[]>(() => {
+    if (!book) return [];
+    const byId = new Map([...photos, ...voices].filter((m) => !m.hidden).map((m) => [m.id, m]));
+    const xs: Shot[] = book.film.flatMap((x) => {
+      const photo = byId.get(x.mediaId);
+      if (!photo || photo.kind === "audio") return [];
+      const v = x.voiceId ? (byId.get(x.voiceId) ?? null) : null;
+      const voice = v && v.kind === "audio" ? v : null;
+      // 声のある写真は、声が終わるまで映す（12秒まで）
+      const sec = voice ? Math.min(12, Math.max(x.sec, (voice.durationSec ?? x.sec) + 1.2)) : x.sec;
+      return [{ kind: "photo" as const, photo, caption: x.caption, sec, voice }];
+    });
+    return xs.length ? [{ kind: "title", sec: 4 }, ...xs, { kind: "end", sec: 6 }] : [];
+  }, [book, photos, voices]);
+
+  if (error) return <Frame><p className="text-paper">{error}</p></Frame>;
+  if (!book || lp || lv) return <Frame><p className="text-paper/70">映画を用意しています…</p></Frame>;
+  if (!shots.length)
+    return (
+      <Frame>
+        <p className="text-paper">映画にする写真がまだありません。アルバムに写真を残して、一冊を作り直すと映画になります。</p>
+        <Link href="/book" className="text-paper underline">一冊へ戻る</Link>
+      </Frame>
+    );
+  return <Player book={book} shots={shots} />;
+}
+
+function Frame({ children }: { children: React.ReactNode }) {
+  return <main className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-ink px-6 text-center">{children}</main>;
+}
+
+function Player({ book, shots }: { book: Book; shots: Shot[] }) {
+  const [i, setI] = useState(-1); // -1 = 始める前
+  const [paused, setPaused] = useState(false);
+  const music = useRef<MusicBox | null>(null);
+  const audio = useRef<HTMLAudioElement | null>(null);
+  const urls = useRef(new Map<string, string>());
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const total = useMemo(() => shots.reduce((n, s) => n + s.sec, 0), [shots]);
+
+  // 声は先に読んでおく（切り替えの時に待たない）
+  useEffect(() => {
+    const map = urls.current;
+    for (const s of shots)
+      if (s.kind === "photo" && s.voice && !map.has(s.voice.id))
+        voiceUrl(s.voice)
+          .then((u) => map.set(s.voice!.id, u))
+          .catch(() => {});
+    return () => {
+      for (const u of map.values()) URL.revokeObjectURL(u);
+      map.clear();
+    };
+  }, [shots]);
+  useEffect(
+    () => () => {
+      music.current?.stop();
+      audio.current?.pause();
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
+
+  const playVoice = useCallback(async (s: Shot) => {
+    audio.current?.pause();
+    audio.current = null;
+    if (s.kind !== "photo" || !s.voice) {
+      music.current?.duck(false);
+      return;
+    }
+    try {
+      const u = urls.current.get(s.voice.id) ?? (await voiceUrl(s.voice));
+      urls.current.set(s.voice.id, u);
+      const a = new Audio(u);
+      a.onended = () => music.current?.duck(false);
+      audio.current = a;
+      music.current?.duck(true);
+      // 写真が映ってから少し置いて話し始める
+      setTimeout(() => void a.play().catch(() => music.current?.duck(false)), 600);
+    } catch {
+      music.current?.duck(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (i < 0 || paused) return;
+    if (i >= shots.length) {
+      music.current?.fadeOut(3);
+      return;
+    }
+    void playVoice(shots[i]);
+    timer.current = setTimeout(() => setI((n) => n + 1), shots[i].sec * 1000);
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, [i, paused, shots, playVoice]);
+
+  const start = () => {
+    music.current = new MusicBox();
+    music.current.start();
+    setPaused(false);
+    setI(0);
+  };
+  const togglePause = () => {
+    if (paused) {
+      music.current?.resume();
+      void audio.current?.play().catch(() => {});
+      setPaused(false);
+    } else {
+      music.current?.pause();
+      audio.current?.pause();
+      setPaused(true);
+    }
+  };
+
+  const cur = i >= 0 && i < shots.length ? shots[i] : null;
+  const done = i >= shots.length;
+  const elapsed = shots.slice(0, Math.max(0, i)).reduce((n, s) => n + s.sec, 0);
+
+  return (
+    <main className="relative flex h-dvh w-full flex-col overflow-hidden bg-[#0d0c10] text-[#f4f1ea]" onClick={i >= 0 && !done ? togglePause : undefined}>
+      {/* 写真は前後の2枚を重ねて置き、今の1枚だけを見せる（重ねて切り替える） */}
+      {shots.map((s, n) =>
+        s.kind === "photo" && Math.abs(n - i) <= 1 ? (
+          <div
+            key={n}
+            className="absolute inset-0 transition-opacity duration-[1400ms] ease-in-out"
+            style={{ opacity: n === i ? 1 : 0 }}
+            aria-hidden={n !== i}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={s.photo.urls.view}
+              alt=""
+              className="h-full w-full object-cover"
+              style={{
+                animation: n === i && !paused ? `kb${n % 4} ${s.sec + 1.4}s linear both` : undefined,
+                animationPlayState: paused ? "paused" : "running",
+              }}
+            />
+            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 to-transparent" />
+          </div>
+        ) : null,
+      )}
+
+      {cur?.kind === "photo" && (
+        <div key={`cap${i}`} className="film-cap absolute inset-x-0 bottom-0 flex flex-col items-center gap-1 px-6 pb-[max(3rem,env(safe-area-inset-bottom))] text-center">
+          <p className="font-display text-2xl font-bold leading-snug drop-shadow-[0_1px_8px_rgba(0,0,0,0.6)]">{cur.caption}</p>
+          <p className="tabular text-sm opacity-80">{dayLine(cur.photo.date)}</p>
+          {cur.voice && <p className="mt-1 rounded-full bg-black/40 px-3 py-1 text-xs">♪ {cur.voice.title}</p>}
+        </div>
+      )}
+
+      {(cur?.kind === "title" || i < 0) && (
+        <div className="film-cap absolute inset-0 flex flex-col items-center justify-center gap-4 px-8 text-center">
+          <p className="text-xs tracking-[0.5em] opacity-70">1000 日 の 記 録</p>
+          <h1 className="font-display text-3xl font-bold leading-snug">{book.title}</h1>
+          <p className="font-display text-lg opacity-90">{book.childName}へ</p>
+          {i < 0 && (
+            <>
+              <button type="button" onClick={start} className="mt-6 min-h-14 rounded-full bg-[#f4f1ea] px-8 font-display text-lg font-bold text-[#0d0c10]">
+                ▶ 再生する
+              </button>
+              <p className="text-xs opacity-60">
+                約{Math.round(total / 60) || 1}分・音が出ます。画面を押すと止まります
+              </p>
+            </>
+          )}
+        </div>
+      )}
+
+      {(cur?.kind === "end" || done) && (
+        <div className="film-cap absolute inset-0 flex flex-col items-center justify-center gap-5 bg-[#0d0c10]/80 px-8 text-center">
+          <p className="max-w-md font-display text-xl leading-loose">{firstSentences(book.closing)}</p>
+          <p className="tabular text-sm opacity-70">{dayLine(book.asOf)}</p>
+          {done && (
+            <div className="mt-4 flex gap-3">
+              <button type="button" onClick={start} className="min-h-12 rounded-full border border-[#f4f1ea]/60 px-6">
+                もう一度
+              </button>
+              <Link href="/book" className="inline-flex min-h-12 items-center rounded-full bg-[#f4f1ea] px-6 font-bold text-[#0d0c10]">
+                一冊へ
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
+        <Link href="/book" onClick={(e) => e.stopPropagation()} className="min-h-11 rounded-full bg-black/40 px-4 py-2 text-sm">
+          ✕ 閉じる
+        </Link>
+        {i >= 0 && !done && <span className="rounded-full bg-black/40 px-3 py-1 text-xs">{paused ? "止めています・押すと続き" : ""}</span>}
+      </div>
+      {i >= 0 && !done && (
+        <div className="absolute inset-x-0 bottom-0 h-1 bg-white/10">
+          <div className="h-full bg-[#f4f1ea]/70 transition-[width] duration-1000" style={{ width: `${Math.min(100, (elapsed / total) * 100)}%` }} />
+        </div>
+      )}
+
+      <style>{`
+        @keyframes kb0 { from { transform: scale(1.02) translate(0,0) } to { transform: scale(1.14) translate(-2%,-1.5%) } }
+        @keyframes kb1 { from { transform: scale(1.14) translate(2%,1%) } to { transform: scale(1.03) translate(0,0) } }
+        @keyframes kb2 { from { transform: scale(1.05) translate(-2%,0) } to { transform: scale(1.15) translate(2%,-1%) } }
+        @keyframes kb3 { from { transform: scale(1.12) translate(0,2%) } to { transform: scale(1.02) translate(0,-1%) } }
+        .film-cap { animation: capIn 1.6s ease-out both }
+        @keyframes capIn { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
+        @media (prefers-reduced-motion: reduce) { .film-cap, img { animation: none !important } }
+      `}</style>
+    </main>
+  );
+}
+
+function dayLine(d: string): string {
+  const [y, m, day] = d.split("-").map(Number);
+  return `${y}年${m}月${day}日`;
+}
+
+function firstSentences(s: string): string {
+  const xs = s.split(/(?<=[。！？])/).filter((x) => x.trim());
+  return xs.slice(0, 2).join("");
+}
