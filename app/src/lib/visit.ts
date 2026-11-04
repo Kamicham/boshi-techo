@@ -89,6 +89,10 @@ export interface VisitPlan {
   concerns: { id: string; text: string; date: string; for?: "child" | "mother" }[];
   /** 前回の質問を、どの健診まで持ち越したか */
   carriedFrom?: string;
+  /** 妊婦健診の受診券の数（家族が直した時だけ。無ければ国の標準14回） */
+  tickets?: number;
+  /** 妊婦健診で払った額（家族が入れた物。医療費控除・里帰りの払い戻しの材料。平均とは比べない） */
+  paid?: { id: string; date: string; yen: number }[];
 }
 
 export const planId = (familyId: string) => `visit-plan:${familyId}`;
@@ -343,8 +347,8 @@ export function visitLabel(f: FamilyDates, date: string): string {
 /** 持ち物（全国共通の物だけ。名前は町や病院によって違う事がある） */
 export function bringList(f: FamilyDates, date: string): string[] {
   const c = clockAt(f, date);
-  if (c.phase === "pregnant" || c.phase === "trying") return ["母子健康手帳", "健康保険証（マイナ保険証）", "妊婦健診の受診券", "診察券"];
-  return ["母子健康手帳", "健康保険証（マイナ保険証）", "子どもの医療証", "診察券"];
+  if (c.phase === "pregnant" || c.phase === "trying") return ["母子健康手帳", "マイナ保険証か資格確認書", "妊婦健診の受診券", "診察券"];
+  return ["母子健康手帳", "マイナ保険証か資格確認書", "子どもの医療証", "診察券"];
 }
 
 /** 一覧に並べる新しい順（同じ日なら後に作った方を先） */

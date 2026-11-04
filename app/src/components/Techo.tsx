@@ -42,7 +42,7 @@ export function Techo() {
   // 予防接種の次の回の打てる最短日（/api/done の retime。手帳の接種の日付から数え直した物）
   const [retime, setRetime] = useState<Record<string, Retime>>({});
   const [doneError, setDoneError] = useState("");
-  const [visit, setVisit] = useState<{ next: VisitPlan["next"]; agenda: number } | null>(null);
+  const [visit, setVisit] = useState<{ next: VisitPlan["next"]; agenda: number; guess: string | null } | null>(null);
   const [keep, setKeep] = useState<Keep | null>(null);
   // 下書きに「送った」「使った」の印が付いた事（済んだ事として扱う）
   const [sent, setSent] = useState<Set<string>>(new Set());
@@ -147,8 +147,8 @@ export function Techo() {
   // 次の健診（健診の画面と同じ GET /api/visit の plan.next）
   useEffect(() => {
     let alive = true;
-    api<{ plan: VisitPlan; agenda?: unknown[] }>(`/api/visit?familyId=${encodeURIComponent(family.id)}&today=${today}`)
-      .then((j) => alive && setVisit({ next: j.plan?.next ?? null, agenda: j.agenda?.length ?? 0 }))
+    api<{ plan: VisitPlan; agenda?: unknown[]; prenatal?: { next: string | null } | null }>(`/api/visit?familyId=${encodeURIComponent(family.id)}&today=${today}`)
+      .then((j) => alive && setVisit({ next: j.plan?.next ?? null, agenda: j.agenda?.length ?? 0, guess: j.prenatal?.next ?? null }))
       .catch(() => alive && setVisit(null));
     return () => {
       alive = false;
@@ -242,10 +242,16 @@ export function Techo() {
   const restTasks = byDays(pool.filter((t) => t.id !== focus?.id), (t) => daysLeft(t, today));
   const visitRow = nextVisit && !visitTop && diffDays(nextVisit.date, today) > 0 ? nextVisit : null;
   // 「このあと」は、あと何日の順だけ（次の健診の1行も同じ並びに入れる）
-  type Row = { kind: "task"; task: Task } | { kind: "visit" };
+  // 妊婦健診の予約がまだで、国の標準の目安が7日以内なら「予約を」の1行（第1波⑧。病院が言った日が正）
+  const guess = !nextVisit && visit?.guess && diffDays(visit.guess, today) >= 0 && diffDays(visit.guess, today) <= 7 ? visit.guess : null;
+  type Row = { kind: "task"; task: Task } | { kind: "visit" } | { kind: "prenatal" };
   const rows = byDays<Row>(
-    [...restTasks.map((task) => ({ kind: "task" as const, task })), ...(visitRow ? [{ kind: "visit" as const }] : [])],
-    (r) => (r.kind === "visit" ? daysUntil(today, visitRow!.date) : daysLeft(r.task, today)),
+    [
+      ...restTasks.map((task) => ({ kind: "task" as const, task })),
+      ...(visitRow ? [{ kind: "visit" as const }] : []),
+      ...(guess ? [{ kind: "prenatal" as const }] : []),
+    ],
+    (r) => (r.kind === "visit" ? daysUntil(today, visitRow!.date) : r.kind === "prenatal" ? daysUntil(today, guess!) : daysLeft(r.task, today)),
   );
   const upcoming = plan.upcoming;
   const onAssign = (milestoneId: string, who: string) => {
@@ -328,6 +334,19 @@ export function Techo() {
           {rows.map((r) =>
             r.kind === "task" ? (
               <TaskRow key={`${family.id}:${r.task.id}`} task={r.task} {...common} onDone={() => void setDone(r.task, true)} />
+            ) : r.kind === "prenatal" ? (
+              <Link key="prenatal" href="/visit" className="flex min-h-12 items-center justify-between gap-3 border-b border-line py-2 last:border-b-0">
+                <span className="min-w-0">
+                  <span className="block text-base font-semibold">次の健診の予約は？</span>
+                  <span className="block text-sm text-muted">国の標準の目安です。病院が言った日が正</span>
+                </span>
+                <span className="flex shrink-0 items-center gap-2">
+                  <span className="tabular text-sm font-semibold">{daysUntil(today, guess!) === 0 ? "今日ごろ" : `あと${daysUntil(today, guess!)}日ごろ`}</span>
+                  <span className="text-muted" aria-hidden>
+                    ›
+                  </span>
+                </span>
+              </Link>
             ) : (
               <Link key="visit" href="/visit" className="flex min-h-12 items-center justify-between gap-3 border-b border-line py-2 last:border-b-0">
                 <span className="text-base font-semibold">次の健診{visitRow!.time ? ` ${visitRow!.time}` : ""}</span>

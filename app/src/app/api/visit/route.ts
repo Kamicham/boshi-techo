@@ -3,6 +3,8 @@ import { body, route } from "@/lib/api";
 import { requireFamily } from "@/lib/family";
 import { concernSide, nextAgenda, type VisitData } from "@/lib/visit";
 import { bornOn, createVisit, getPlan, ongoingVisit, visitsOf } from "./_lib/server";
+import { prenatalState } from "@/lib/prenatal";
+import { listTecho } from "@/lib/techo-store";
 
 export const GET = route(async (req: Request) => {
   const q = new URL(req.url).searchParams;
@@ -29,6 +31,14 @@ export const GET = route(async (req: Request) => {
     const last = docs.find((d) => d.data.status === "done" && d.data.nextDate);
     if (last) plan.next = { date: last.data.nextDate!, time: last.data.result?.nextAppointment?.time ?? null, source: "visit", visitId: last.id, said: last.data.result?.nextAppointment?.said };
   }
+  // 妊婦健診の次の目安と受診券の残り（第1波⑧）。受けた日は、妊娠中の健診の記録と手帳の妊婦健診のページから
+  const checkups = [
+    ...docs.filter((d) => d.data.status === "done" && !d.data.demo).map((d) => d.data.date),
+    ...listTecho(fam.id, { family: fam, today })
+      .filter((d) => d.data.page === "pregnancy-checkup" && !d.data.pending)
+      .map((d) => d.data.date),
+  ];
+  const prenatal = prenatalState(fam, today, checkups, { tickets: plan.tickets, paid: plan.paid });
   // 今日の健診が始まっていれば、聞く事はその健診の物を見せる
   const ongoing = ongoingVisit(fam.id, q.get("today") ?? undefined);
   if (ongoing) {
@@ -38,9 +48,9 @@ export const GET = route(async (req: Request) => {
       const c = a.from === "気がかり" ? carried.get(a.id) : undefined;
       return !c || concernSide(c, bornOn(fam, today)) === "mother";
     });
-    return { visits, plan, agenda, agendaFor: "today" as const };
+    return { visits, plan, agenda, agendaFor: "today" as const, prenatal };
   }
-  return { visits, plan, agenda: items, agendaFor: "next" as const };
+  return { visits, plan, agenda: items, agendaFor: "next" as const, prenatal };
 });
 
 export const POST = route(async (req: Request) => {

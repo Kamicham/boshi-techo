@@ -14,6 +14,11 @@ export const POST = route(async (req: Request) => {
     concernFor?: "child" | "mother";
     today?: string;
     removeConcern?: string;
+    /** 妊婦健診の受診券の数（0 は国の標準に戻す） */
+    tickets?: number;
+    /** 妊婦健診で払った額を足す・消す */
+    paid?: { date: string; yen: number };
+    removePaid?: string;
   }>(req);
   const fam = requireFamily(b.familyId);
   const plan = getPlan(fam.id);
@@ -48,5 +53,16 @@ export const POST = route(async (req: Request) => {
       });
     }
   }
+  if (typeof b.tickets === "number") {
+    if (b.tickets === 0) delete plan.tickets;
+    else if (Number.isInteger(b.tickets) && b.tickets >= 1 && b.tickets <= 40) plan.tickets = b.tickets;
+    else throw new HttpError(400, "受診券の数が読めません");
+  }
+  if (b.paid) {
+    const yen = Math.round(Number(b.paid.yen));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(b.paid.date)) || !Number.isFinite(yen) || yen <= 0 || yen > 1_000_000) throw new HttpError(400, "日付か額が読めません");
+    plan.paid = [...(plan.paid ?? []), { id: newId(), date: b.paid.date, yen }].slice(-60);
+  }
+  if (b.removePaid) plan.paid = (plan.paid ?? []).filter((p) => p.id !== b.removePaid);
   return { plan: savePlan(fam.id, plan) };
 });

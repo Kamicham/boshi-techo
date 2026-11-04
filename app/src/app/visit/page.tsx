@@ -12,6 +12,7 @@ import { StatusChip } from "@/components/visit/StatusChip";
 import { DEMO_AGENDA, DEMO_TRANSCRIPT, DEMO_VISIT_WEEKS } from "@/components/visit/demoTranscript";
 import { addDays, lmpFromDue } from "@/lib/clock";
 import { deadlineKindOf, scheduleFor, statusOf, type Milestone, type Status } from "@/lib/milestones";
+import type { PrenatalState } from "@/lib/prenatal";
 import { briefingDay, concernSide, visitLabel, type AgendaItem, type VisitPlan, type VisitStatus } from "@/lib/visit";
 
 interface Row {
@@ -27,6 +28,8 @@ interface ListRes {
   plan: VisitPlan;
   agenda: AgendaItem[];
   agendaFor?: "today" | "next";
+  /** 妊婦健診の次の目安と受診券の残り（妊娠中だけ） */
+  prenatal?: PrenatalState | null;
 }
 
 export default function VisitList() {
@@ -235,6 +238,8 @@ export default function VisitList() {
 
       {born && <h2 className="pt-2 text-sm font-semibold text-muted">ママの健診</h2>}
       {top}
+
+      {!born && data?.prenatal && <PrenatalBox s={data.prenatal} today={today} paid={data.plan.paid ?? []} hasNext={!!next} onSave={(b) => void savePlan(b)} />}
 
       {isDemo && data && (
         <Btn kind="quiet" onClick={() => void demo()} disabled={!!busy}>
@@ -534,5 +539,95 @@ function BabyRow({ m, st, today }: { m: Milestone; st: Status; today: string }) 
         </span>
       </Link>
     </li>
+  );
+}
+
+/**
+ * 妊婦健診の受診券と次の目安（第1波⑧）。予約がまだの時の目安は国の標準の間隔から出す（病院が言った日が正）。
+ * 券の数は既定14回（国の標準）で、町の数に直せる。払った額は家族が入れた分の合計だけ（平均とは比べない）。
+ */
+function PrenatalBox({
+  s,
+  today,
+  paid,
+  hasNext,
+  onSave,
+}: {
+  s: PrenatalState;
+  today: string;
+  paid: { id: string; date: string; yen: number }[];
+  hasNext: boolean;
+  onSave: (b: Record<string, unknown>) => void;
+}) {
+  const [yen, setYen] = useState("");
+  const [tickets, setTickets] = useState("");
+  return (
+    <section aria-label="受診券と次の健診の目安" className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4">
+      <h2 className="font-display text-lg font-bold">受診券と次の健診</h2>
+      {!hasNext && s.next && (
+        <p className="text-base">
+          次の健診の目安 <b className="tabular">{jpDate(s.next, today)}</b>ごろ
+          <span className="block text-sm text-muted">今は国の標準で{s.interval}。病院が言った日が正です（予約が決まったら上で入れてください）</span>
+        </p>
+      )}
+      <p className="text-base">
+        受診券 <b className="tabular">{s.total}</b> 回中 <b className="tabular">{s.used}</b> 回・あと <b className="tabular">{s.remaining}</b> 回
+        <span className="block text-sm text-muted">
+          {s.totalSource === "国の標準" ? "回数は国の標準（14回）。町で違う時は直せます" : "家族が直した回数"}
+          {s.over && "。券の数を超えた分は自分で払う事が多いので、町で確かめてください"}
+        </span>
+      </p>
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="flex flex-col text-sm text-muted">
+          券の数を直す
+          <input inputMode="numeric" value={tickets} onChange={(e) => setTickets(e.target.value.replace(/\D/g, ""))} className="min-h-11 w-24 rounded-lg border border-line bg-card px-2 text-base" placeholder="14" />
+        </label>
+        <Btn
+          kind="secondary"
+          disabled={!tickets}
+          onClick={() => {
+            onSave({ tickets: Number(tickets) });
+            setTickets("");
+          }}
+        >
+          直す
+        </Btn>
+      </div>
+      <div className="flex flex-col gap-1">
+        <p className="text-sm font-semibold text-muted">今日払った額（領収書から。医療費控除や、里帰りの払い戻しに使えます）</p>
+        <div className="flex flex-wrap items-end gap-2">
+          <input inputMode="numeric" value={yen} onChange={(e) => setYen(e.target.value.replace(/\D/g, ""))} className="min-h-11 w-32 rounded-lg border border-line bg-card px-2 text-base" placeholder="例: 3000" aria-label="払った額（円）" />
+          <Btn
+            kind="secondary"
+            disabled={!yen}
+            onClick={() => {
+              onSave({ paid: { date: today, yen: Number(yen) } });
+              setYen("");
+            }}
+          >
+            残す
+          </Btn>
+        </div>
+        {paid.length > 0 && (
+          <>
+            <p className="text-base">
+              これまでに払った額 <b className="tabular">{s.paidYen.toLocaleString("ja-JP")}</b> 円（{paid.length}回分）
+            </p>
+            <ul className="flex flex-col text-sm text-muted">
+              {paid.slice(-5).map((p) => (
+                <li key={p.id} className="flex items-center justify-between gap-2">
+                  <span className="tabular">
+                    {jpDate(p.date, today)} {p.yen.toLocaleString("ja-JP")} 円
+                  </span>
+                  <button type="button" onClick={() => onSave({ removePaid: p.id })} className="min-h-11 px-2 underline underline-offset-2">
+                    消す
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </section>
   );
 }

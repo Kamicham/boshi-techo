@@ -26,6 +26,7 @@ import { fileURLToPath } from "node:url";
 import { addDays, addMonths, clockAt, diffDays, lmpFromDue, secondBirthday } from "../lib/clock";
 import { BIRTH_TRIP_IDS, planBirthTrip } from "../lib/birth-trip";
 import { vaxRetime } from "../lib/vax-next";
+import { intervalDays, prenatalState } from "../lib/prenatal";
 import type { Family, Member } from "../lib/demo-family";
 import { PREGNANCY_ONLY, scheduleFor, statusOf } from "../lib/milestones";
 import { motherEmployed, partnerEmployed } from "../lib/situation";
@@ -64,6 +65,7 @@ const RULES = {
   h: "家族に合わない項目が出ない（仕事のない母・パートナーに職場の事・パートナーのいない家族にパートナーの事・育休を取らないパートナーに育休の事）",
   i: "妊娠中、予定日の8週前を過ぎたら、支援給付の2回目が今やる（か済み）に出る（第1波③）",
   j: "生まれた日から15日の間、出生届がまだなら、届けの束の1件目が出生届で、束の期限は生まれた日を含めて14日目（第1波②）",
+  k: "妊娠中の妊婦健診の目安は、今日より前にならず予定日より前で、今日受けた時の次は国の標準の間隔を超えない（第1波⑧）",
 } as const;
 type Rule = keyof typeof RULES;
 const RULE_IDS = Object.keys(RULES) as Rule[];
@@ -358,6 +360,16 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
           if (trip.items[0].task.id !== "birth-registration") push("j", "order", `束の1件目が「${trip.items[0].task.plain}」`);
           if (trip.deadline !== addDays(f.birthDate, 13)) push("j", "deadline", `束の期限が ${trip.deadline}`);
         }
+      }
+    }
+    // k: 妊婦健診の次の目安（受けていない時・今日受けた時）
+    if (!isBorn) {
+      for (const ck of [[], [day]] as string[][]) {
+        const ps = prenatalState(f, day, ck);
+        if (!ps || !ps.next) continue;
+        if (ps.next < day) push("k", "past", `健診の目安 ${ps.next} が今日より前`);
+        if (ps.next >= f.dueDate) push("k", "due", `健診の目安 ${ps.next} が予定日以降`);
+        if (ck.length && diffDays(day, lmpFromDue(f.dueDate)) >= 56 && diffDays(ps.next, day) > intervalDays(Math.floor(diffDays(day, lmpFromDue(f.dueDate)) / 7))) push("k", "gap", `今日受けたのに次の目安が ${diffDays(ps.next, day)} 日後`);
       }
     }
     // f: 参謀のきっかけ
