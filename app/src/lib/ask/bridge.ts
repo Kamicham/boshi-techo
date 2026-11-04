@@ -171,8 +171,8 @@ export function bridgeFor(text: string, phase: "pregnant" | "child" | "other"): 
   }
   if (stool && !urgent) {
     leads.push(`母子手帳の便色カードには「${STOOL_NOTE}」と書いてあります。${N8000_ALT_NOTE}`);
+    // つながらない時の一言は lead にだけ置き、ボタンは足さない（聞く画面は /emergency へのボタンを大きく出すので、受診と #8000 より目立ってしまう）
     actions.push({ type: "call", label: "子どもの急な病気の相談 #8000", tel: "#8000" });
-    actions.push({ type: "open", href: "/emergency", label: "#8000 につながらない時の番号" });
     actions.push({ type: "open", href: "/techo#page-stool", label: "便色カードを開く" });
     notes.push("便色カードの1〜3番に近い色と言っている。手帳の注意書き（1日も早く受診）は機械が返事の頭に置く。次の健診まで待つ書き方（健診で聞く）をしない。色の良し悪しは言わない。かかりつけの小児科（生後1か月ごろまでは生まれた産院でもよい）へ電話する事と、番号を選んで記録できる事だけ");
   }

@@ -125,9 +125,12 @@ describe("返事の頭の1文", () => {
     expect(u.actions.some((a) => a.type === "open" && a.href === "/emergency")).toBe(true);
     const s = bridgeFor("便の色が3番っぽい", "child");
     expect(s.lead).toContain(N8000_ALT_NOTE);
-    const i = s.actions.findIndex((a) => a.type === "call" && a.tel === "#8000");
-    expect(i).toBeGreaterThanOrEqual(0);
-    expect(s.actions[i + 1]).toEqual({ type: "open", href: "/emergency", label: "#8000 につながらない時の番号" });
+    // 便の色の時は一言だけ。ボタンは今夜の前と同じ2つのまま（一番目立つのは #8000 の電話。聞く画面は /emergency へのボタンを大きく出すので、足さない）
+    expect(s.actions).toEqual([
+      { type: "call", label: "子どもの急な病気の相談 #8000", tel: "#8000" },
+      { type: "open", href: "/techo#page-stool", label: "便色カードを開く" },
+    ]);
+    expect(s.actions.some((a) => a.type === "open" && a.href.startsWith("/emergency"))).toBe(false);
     // 妊娠中の急ぎは #8000 を出さないので、添えない
     expect(bridgeFor("出血がある", "pregnant").lead).not.toContain("#8000");
   });
