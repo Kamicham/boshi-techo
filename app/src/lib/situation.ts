@@ -13,6 +13,8 @@ export interface Situation {
   /** パートナーの働き方・育休（パートナーがいる時だけ。いるかどうかは members の role で決まる） */
   partnerWork?: Work;
   partnerLeave?: Leave;
+  /** パートナーの育休の長さ（第2波⑤。取る時だけ）。14日以上で、2025年4月からの出生後休業支援給付の上乗せの条件に届く */
+  partnerLeaveLen?: LeaveLen;
   /** 上の子。true = いる、false = いない（第1子）、undefined = わからない */
   olderChildren?: boolean;
   /**
@@ -39,6 +41,9 @@ export interface Situation {
   /** 赤ちゃんが入る健康保険。勤め先 = 会社などの保険（扶養）、国保 = 国民健康保険。undefined = 働き方から近似（birth-trip.ts の babyInsuranceOf） */
   babyInsurance?: "勤め先" | "国保";
 }
+
+export type LeaveLen = "14日未満" | "2週間〜1か月" | "1か月以上";
+export const LEAVE_LENS: LeaveLen[] = ["14日未満", "2週間〜1か月", "1か月以上"];
 
 export type ReturnAt = "1歳まで" | "1歳を過ぎて";
 export const RETURN_ATS: ReturnAt[] = ["1歳まで", "1歳を過ぎて"];

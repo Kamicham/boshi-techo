@@ -143,7 +143,7 @@ export function ConsultAsk({ family, today, meName }: { family: Family; today: s
   return (
     <section aria-label="相談できる人" className="flex flex-col gap-2 rounded-2xl border border-line bg-card px-4 py-3">
       <p className="text-base">
-        <span className="mr-2 text-xs font-semibold text-muted">手帳から1つ聞きます（{period.label}）</span>
+        <span className="mr-2 text-xs font-semibold text-muted">手帳から1つ聞きます</span>
         <br />
         {CONSULT_QUESTION}
       </p>

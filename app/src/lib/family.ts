@@ -5,7 +5,7 @@ import { get, put } from "./db";
 import { scheduleFor } from "./milestones";
 import { birthFacts, isMadeFamily } from "./techo-seed";
 import { listTecho } from "./techo-store";
-import { RETURN_ATS, cleanOlderKids, cleanQuiet, type Leave, type MotherWork, type Situation, type Work } from "./situation";
+import { LEAVE_LENS, RETURN_ATS, cleanOlderKids, cleanQuiet, type Leave, type MotherWork, type Situation, type Work } from "./situation";
 import { HttpError } from "./http-error";
 import { isTrialId } from "./trial-cookie";
 
@@ -189,6 +189,7 @@ export function cleanSituation(x: unknown, hasPartner: boolean): Situation | und
   if (hasPartner) {
     s.partnerWork = oneOf(r.partnerWork, WORKS);
     s.partnerLeave = oneOf(r.partnerLeave, LEAVES);
+    if (s.partnerLeave === "取る") s.partnerLeaveLen = oneOf(r.partnerLeaveLen, LEAVE_LENS);
   }
   s.olderChildren = yesNo(r.olderChildren);
   if (s.olderChildren === true) {

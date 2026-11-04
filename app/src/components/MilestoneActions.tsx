@@ -36,6 +36,9 @@ export const DRAFTABLE: Record<string, DraftKind> = {
   "daycare-extend": "メール",
   "daycare-extend-2": "メール",
   "daycare-prep": "頼み文",
+  "leave-money-request": "メール",
+  "partner-leave-14": "メール",
+  "childcare-benefit-first": "メール",
 };
 
 /** 下書きの呼び名（種類ごと） */

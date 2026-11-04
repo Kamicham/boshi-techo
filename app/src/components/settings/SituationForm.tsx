@@ -4,7 +4,7 @@
 // どの問いも「わからない・答えない」を選べる（小さな文字で列の最後）。答えない欄は、今までどおりの予定が出る。
 // 押す所は 44px 以上。iPhone の 390px で横にはみ出さないよう、選びは折り返す。
 import { useState } from "react";
-import { MAX_OLDER_KIDS, OLDER_CARES, RETURN_ATS, type Leave, type MotherWork, type OlderKid, type Situation, type Work } from "@/lib/situation";
+import { LEAVE_LENS, MAX_OLDER_KIDS, OLDER_CARES, RETURN_ATS, type Leave, type MotherWork, type OlderKid, type Situation, type Work } from "@/lib/situation";
 
 const MOTHER_WORKS: MotherWork[] = ["会社員・公務員", "パート・派遣", "自営・フリー", "仕事なし", "出産で辞める"];
 const WORKS: Work[] = ["会社員・公務員", "パート・派遣", "自営・フリー", "仕事なし"];
@@ -20,6 +20,7 @@ export function tidySituation(s: Situation, hasPartner: boolean): Situation {
     delete out.partnerWork;
     delete out.partnerLeave;
   } else if (!employed(out.partnerWork)) delete out.partnerLeave;
+  if (out.partnerLeave !== "取る") delete out.partnerLeaveLen;
   return out;
 }
 
@@ -73,7 +74,13 @@ export function SituationForm({ value, onChange, hasPartner, disabled, born }: {
           </Ask>
           {employed(value.partnerWork) && (
             <Ask label="パートナーの育休">
-              <Choice options={LEAVES} value={value.partnerLeave} onPick={(v) => set({ partnerLeave: v })} name="partner-leave" />
+              <Choice options={LEAVES} value={value.partnerLeave} onPick={(v) => set({ partnerLeave: v, ...(v === "取る" ? {} : { partnerLeaveLen: undefined }) })} name="partner-leave" />
+            </Ask>
+          )}
+          {employed(value.partnerWork) && value.partnerLeave === "取る" && (
+            <Ask label="パートナーの育休の長さ（生まれて8週の間に）">
+              <Choice options={LEAVE_LENS} value={value.partnerLeaveLen} onPick={(v) => set({ partnerLeaveLen: v })} name="partner-leave-len" />
+              <p className="text-sm text-muted">14日以上だと、2025年4月からの給付の上乗せの条件の1つに届きます（雇用保険法）</p>
             </Ask>
           )}
         </>
@@ -82,11 +89,11 @@ export function SituationForm({ value, onChange, hasPartner, disabled, born }: {
       )}
 
       {/* 生まれた日の届けの行き先が変わる2問（第1波②）: 児童手当は公務員なら勤め先、赤ちゃんの保険が国保なら役所に14日以内 */}
-      <Ask label="ママかパートナーは公務員？（児童手当の出し先が勤め先になります）">
+      <Ask label="ママかパートナーは公務員？（公務員だと、児童手当の申し込み先が町ではなく職場になります）">
         <YesNo yes="はい" no="いいえ" value={value.publicServant} onPick={(v) => set({ publicServant: v })} name="public-servant" />
       </Ask>
-      <Ask label="赤ちゃんが入る健康保険">
-        <Choice options={["勤め先", "国保"] as const} value={value.babyInsurance} onPick={(v) => set({ babyInsurance: v })} name="baby-insurance" />
+      <Ask label="赤ちゃんの保険証は、どれになりそう？">
+        <Choice options={["勤め先", "国保"] as const} labels={{ 勤め先: "親の勤め先の保険", 国保: "国民健康保険（町の保険）" }} value={value.babyInsurance} onPick={(v) => set({ babyInsurance: v })} name="baby-insurance" />
       </Ask>
 
       <Ask label="上の子は？">
@@ -206,7 +213,8 @@ function Ask({ label, children }: { label: string; children: React.ReactNode }) 
  * 未回答と「わからない」は値で見分けられないので、この画面で押したかどうかで見分ける。
  * まだ答えていない問いは、どれも同じ薄い色（答え済みに見せない）。押した物だけ濃くする。
  */
-function Choice<T extends string>({ options, value, onPick, name }: { options: readonly T[]; value: T | undefined; onPick: (v: T | undefined) => void; name: string }) {
+/** labels: 保存する値とは別に、画面に出す言葉（制度の略語を、初めての人に分かる言葉で） */
+function Choice<T extends string>({ options, labels, value, onPick, name }: { options: readonly T[]; labels?: Partial<Record<T, string>>; value: T | undefined; onPick: (v: T | undefined) => void; name: string }) {
   const [saidUnknown, setSaidUnknown] = useState(false);
   return (
     <div className="flex flex-wrap items-center gap-2" role="group">
@@ -220,7 +228,7 @@ function Choice<T extends string>({ options, value, onPick, name }: { options: r
           }}
           id={`${name}-${o}`}
         >
-          {o}
+          {labels?.[o] ?? o}
         </Chip>
       ))}
       <button

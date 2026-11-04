@@ -28,6 +28,7 @@ import { BIRTH_TRIP_IDS, planBirthTrip } from "../lib/birth-trip";
 import { vaxRetime } from "../lib/vax-next";
 import { intervalDays, prenatalState } from "../lib/prenatal";
 import { olderOf } from "../lib/older";
+import { benefitFirst } from "../lib/leave-money";
 import type { Family, Member } from "../lib/demo-family";
 import { PREGNANCY_ONLY, scheduleFor, statusOf } from "../lib/milestones";
 import { motherEmployed, partnerEmployed } from "../lib/situation";
@@ -68,6 +69,8 @@ const RULES = {
   j: "生まれた日から15日の間、出生届がまだなら、届けの束の1件目が出生届で、束の期限は生まれた日を含めて14日目（第1波②）",
   k: "妊娠中の妊婦健診の目安は、今日より前にならず予定日より前で、今日受けた時の次は国の標準の間隔を超えない（第1波⑧）",
   l: "上の子の予定は上の子がいる家族だけに出て、健診・接種の日は上の子の生まれた日から数え、期限切れにならない。園の継続は保育園の上の子がいる時だけ（第2波①）",
+  m: "保育園の入る4月が仕事に戻りたい時期に合い（1歳まで＝1歳の誕生日まで・1歳を過ぎて＝その後）、見学は生後1か月より前に来ず、延長の申し出の期限は1歳の誕生日の2週間前（第2波④）",
+  n: "産休・育休のお金: 育休の給付の初回の期限は育休の4か月目の月末で、自営・仕事なし・辞める母には育休の給付が出ず、パパの14日の1件は14日以上の家族に出ない（第2波⑤）",
 } as const;
 type Rule = keyof typeof RULES;
 const RULE_IDS = Object.keys(RULES) as Rule[];
@@ -392,6 +395,37 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
       const daycare = kids.some((k) => k.care === "保育園");
       if (!daycare && tasks.some((t) => t.id === "older-daycare-continue")) push("l", "daycare", "保育園の上の子がいないのに、園の継続の申請が出る");
       if (daycare && !tasks.some((t) => t.id === "older-daycare-continue")) push("l", "daycare-missing", "保育園の上の子がいるのに、園の継続の申請が無い");
+    }
+    // m: 保育園の逆算
+    {
+      const ra = fv.situation?.returnAt;
+      const born = isBorn && f.birthDate ? f.birthDate : f.dueDate;
+      // 入る4月は、入園の準備の期限（入る日の1週後）から読む
+      const prep = tasks.find((t) => t.id === "daycare-prep");
+      if (prep?.deadlineDate && ra) {
+        const entry = addDays(prep.deadlineDate, -7);
+        const one = addMonths(born, 12);
+        if (ra === "1歳まで" && entry > one && entry >= addDays(born, 57) && `${Number(entry.slice(0, 4)) - 1}-04-01` >= addDays(born, 57)) push("m", "late", `1歳までの家族の入る4月が ${entry}（1歳の誕生日 ${one} の後）`);
+        if (ra === "1歳を過ぎて" && entry < one) push("m", "early", `1歳を過ぎての家族の入る4月が ${entry}（1歳の誕生日 ${one} より前）`);
+      }
+      const research = tasks.find((t) => t.id === "daycare-research");
+      if (research && isBorn && f.birthDate && research.startDate < addMonths(f.birthDate, 1) && !research.awaitingBirth) push("m", "research", `見学が生後1か月より前（${research.startDate}）`);
+      const ext = tasks.find((t) => t.id === "daycare-extend");
+      if (ext && isBorn && f.birthDate && ext.deadlineDate !== addDays(addMonths(f.birthDate, 12), -14)) push("m", "extend", `延長の申し出の期限が ${ext.deadlineDate}`);
+      if (tasks.some((t) => t.id === "daycare-extend-2") && ra !== "1歳を過ぎて") push("m", "extend2", "1歳を過ぎての家族でないのに、2回目の延長が出る");
+    }
+    // n: 産休・育休のお金
+    {
+      const mw = fv.situation?.motherWork;
+      const first = tasks.find((t) => t.id === "childcare-benefit-first");
+      if (first && (mw === "自営・フリー" || mw === "仕事なし" || mw === "出産で辞める")) push("n", "who", `${mw}の母に育休の給付の申請が出る`);
+      if (first && isBorn && f.birthDate) {
+        const b = benefitFirst(f.birthDate);
+        if (first.startDate !== b.start || first.deadlineDate !== b.deadline) push("n", "first", `育休の給付の初回が ${first.startDate}〜${first.deadlineDate}`);
+        if (first.deadlineDate && first.deadlineDate.slice(8) < "28") push("n", "eom", `初回の期限 ${first.deadlineDate} が月末でない`);
+      }
+      const len = fv.situation?.partnerLeaveLen;
+      if (tasks.some((t) => t.id === "partner-leave-14") && (len === "2週間〜1か月" || len === "1か月以上")) push("n", "14", `パパの育休が${len}なのに、14日の1件が出る`);
     }
     // f: 参謀のきっかけ
     const trig = detectTriggers({ family: fv, today: day, done: new Set(done), isDemo: false });

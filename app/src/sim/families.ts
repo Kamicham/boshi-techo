@@ -662,7 +662,7 @@ export const SIM_FAMILIES: SimFamily[] = [
       { id: "makoto", name: "誠", role: "パートナー" }, // 34歳。会社員。1年の育休を取った。家の事の主担当
       { id: "ai", name: "愛", role: "母" }, // 33歳。研究職。産後3か月で職場に戻った
     ],
-    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", partnerLeave: "取る", olderChildren: false, babies: 1 },
+    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", partnerLeave: "取る", olderChildren: false, babies: 1, returnAt: "1歳まで" }, // パパの1年の育休が明ける1歳までの4月に入る（近似）
     persona: {
       label: "生後数か月・パパがおもに使う（1年の育休）・ママは仕事に復帰",
       meId: "makoto",

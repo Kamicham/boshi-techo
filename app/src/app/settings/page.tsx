@@ -156,7 +156,8 @@ export default function Settings() {
             ) : (
               <Question q="いつ生まれる予定？" n={1}>
                 {dueField}
-                <Fold title="もう生まれた・呼び名">
+                {/* 妊娠中は呼び名が先（「もう生まれた」を大きく出さない。UX 2026-11-04） */}
+                <Fold title="おなかの赤ちゃんの呼び名" note="生まれたら、生まれた日もここで入れます">
                   {birthField}
                   {childField}
                 </Fold>
