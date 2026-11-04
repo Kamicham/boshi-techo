@@ -26,7 +26,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { addDays, addMonths, clockAt, diffDays, lmpFromDue, secondBirthday } from "../lib/clock";
-import { BIRTH_TRIP_IDS, planBirthTrip } from "../lib/birth-trip";
+import { BIRTH_TRIP_IDS, planBirthTrip, tripScreen, type TripScreen } from "../lib/birth-trip";
 import { vaxRetime } from "../lib/vax-next";
 import { intervalDays, prenatalState } from "../lib/prenatal";
 import { olderOf } from "../lib/older";
@@ -68,7 +68,7 @@ const RULES = {
   g: "今やる事が0の日も「次に来る事」が見つかる（予定表の最後の事を過ぎた後を除く。1歳半健診の後は2歳まで何も無い）",
   h: "家族に合わない項目が出ない（仕事のない母・パートナーに職場の事・パートナーのいない家族にパートナーの事・育休を取らないパートナーに育休の事）",
   i: "妊娠中、予定日の8週前を過ぎたら、支援給付の2回目が今やる（か済み）に出る（第1波③）",
-  j: "生まれた日から15日の間、出生届がまだなら、届けの束の1件目が出生届で、束の期限は生まれた日を含めて14日目（第1波②）",
+  j: "生まれた日から15日の間、出生届がまだなら、届けの束の1件目が出生届で、束の期限は生まれた日を含めて14日目。束を一番上の1枚に出す日は、束の届けを「このあと」に重ねない＝出生届を2回出さない（第1波②・UX の見直し C08）",
   k: "妊娠中の妊婦健診の目安は、今日より前にならず予定日より前で、今日受けた時の次は国の標準の間隔を超えない（第1波⑧）",
   l: "上の子の予定は上の子がいる家族だけに出て、健診・接種の日は上の子の生まれた日から数え、期限切れにならない。園の継続は保育園の上の子がいる時だけ（第2波①）",
   m: "保育園の入る4月が仕事に戻りたい時期に合い（1歳まで＝1歳の誕生日まで・1歳を過ぎて＝その後）、見学は生後1か月より前に来ず、延長の申し出の期限は1歳の誕生日の2週間前（第2波④）",
@@ -216,16 +216,33 @@ interface Screen {
   topIsSoon: boolean;
   rows: Task[];
   calmNext: Task | null;
+  /** 生まれた日から15日の間の届けの束（束を一番上の1枚にするか、母の画面で1行にたたむか） */
+  trip: TripScreen<Task> | null;
 }
 
-/** Techo.tsx と同じ組み立て（focus 無し） */
-function screenFor(tasks: Task[], day: string, me: Member | null, nextVisit: string | null): Screen {
+/**
+ * Techo.tsx と同じ組み立て（focus 無し）。
+ * 生まれた日から15日の間は、届けの束（lib/birth-trip.ts の tripScreen・UX の見直し C08）: 束を開く画面は束の1件目が一番上で、束の届けは「このあと」に出さない。
+ * 母の画面で届けをパートナーの番に決めた時は、一番上は母の今日の一番上（この検査の家族は担当を決めないので、たたむ型は components/today/trip.test.ts で見る）
+ */
+function screenFor(tasks: Task[], day: string, me: Member | null, nextVisit: string | null, fv: Family): Screen {
   const plan = planToday(tasks, day, me);
+  const born = fv.birthDate && fv.birthDate <= day ? fv.birthDate : undefined;
+  const trip = tripScreen(
+    planBirthTrip(tasks, day, born, fv.situation),
+    tasks,
+    plan,
+    me?.role,
+    fv.members.some((m) => m.role === "パートナー"),
+    day,
+  );
+  const baseTop = trip ? trip.top : plan.top;
+  const baseRest = trip ? trip.rest : plan.rest;
   const visitTop = !!nextVisit && !!briefingDay(day, nextVisit);
-  const top = visitTop ? null : plan.top;
-  const rows = visitTop && plan.top ? [plan.top, ...plan.rest] : plan.rest;
+  const top = visitTop ? null : baseTop;
+  const rows = visitTop && baseTop ? [baseTop, ...baseRest] : baseRest;
   const calmNext = !visitTop && !top ? ((me && plan.upcoming.find((t) => t.who === "家族" || t.who === me.role)) || plan.upcoming[0] || null) : null;
-  return { visitTop, top, topIsSoon: plan.topIsSoon, rows, calmNext };
+  return { visitTop, top, topIsSoon: !trip?.full && plan.topIsSoon, rows, calmNext, trip };
 }
 
 interface CheckpointRow extends Checkpoint {
@@ -330,7 +347,7 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
     const tasksNow = (): Task[] => schedule.map((m) => ({ ...m, status: statusOf(m, day, done) }));
     const nextVisit = visits.find((d) => d >= day) ?? null;
     if (toCheck && !toCheck.has(day)) {
-      act(day, isBorn, tasksNow, nextVisit);
+      act(day, isBorn, tasksNow, nextVisit, fv);
       continue;
     }
     const at = clockAt(fv, day).label;
@@ -494,9 +511,13 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
     const scheduleEnded = !tasks.some((t) => t.status === "まだ先");
     // ── 使う人ごとの決まり（家族の一人ずつが me） ──
     for (const me of f.members) {
-      const s = screenFor(tasks, day, me, nextVisit);
+      const s = screenFor(tasks, day, me, nextVisit, fv);
       // a
       if (s.top && !(s.top.who === "家族" || s.top.who === me.role)) push("a", `${me.id}:${s.top.id}`, `${me.name}（${me.role}）の一番上が「${s.top.plain}」（${s.top.who}の番）`, me.id);
+      // j（使う人の画面）: 束を一番上の1枚に出す日は、束の届けを「このあと」に重ねない（期限切れの届けは束に入らず、ふり返りが受け持つ）
+      if (s.trip?.full && !s.visitTop) {
+        for (const t of s.rows) if (BIRTH_TRIP_IDS.has(t.id) && t.status !== "期限切れ") push("j", `twice:${me.id}:${t.id}`, `束の「${t.plain}」が、${me.name}の「このあと」にも出る`, me.id);
+      }
       // b
       for (const t of [s.top, ...s.rows]) {
         if (!t || t.who === "家族" || t.who === me.role) continue;
@@ -528,7 +549,7 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
 
     // ── 日記（アンケート用。persona の使う人の画面が変わった日だけ書く） ──
     if (DIARY && isPop(f)) {
-      const s = screenFor(tasks, day, persona, nextVisit);
+      const s = screenFor(tasks, day, persona, nextVisit, fv);
       const top = s.visitTop
         ? `${briefingDay(day, nextVisit) === "eve" ? "明日" : "今日"}の健診の準備`
         : s.top
@@ -549,7 +570,7 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
 
     // ── 節目の記録（persona の使う人の画面） ──
     for (const c of cpByDate.get(day) ?? []) {
-      const s = screenFor(tasks, day, persona, nextVisit);
+      const s = screenFor(tasks, day, persona, nextVisit, fv);
       const top = s.visitTop
         ? `${briefingDay(day, nextVisit) === "eve" ? "明日" : "今日"} 10:30 健診`
         : s.top
@@ -560,15 +581,15 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
       checkpoints.push({ ...c, clock: at, top, rows: s.rows.length, overdue: overdue.length, triggers: [...kinds] });
     }
 
-    act(day, isBorn, tasksNow, nextVisit);
+    act(day, isBorn, tasksNow, nextVisit, fv);
   }
 
   /** 家族が動く（一人ずつ、動く日に自分の一番上を1つ済ませる） */
-  function act(day: string, isBorn: boolean, tasksNow: () => Task[], nextVisit: string | null) {
+  function act(day: string, isBorn: boolean, tasksNow: () => Task[], nextVisit: string | null, fv: Family) {
     for (const m of f.members) {
       const pace = paceOf(f, m);
       if (pace <= 0 || diffDays(day, start) % pace !== 0) continue;
-      const s = screenFor(tasksNow(), day, m, nextVisit);
+      const s = screenFor(tasksNow(), day, m, nextVisit, fv);
       if (s.visitTop || !s.top || s.topIsSoon || !NOW.has(s.top.status)) continue;
       if (s.top.anchor === "birth" && !isBorn) continue; // 生まれる前には出せない
       done.add(s.top.id);

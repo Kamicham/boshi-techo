@@ -34,25 +34,29 @@ export function NowCard(p: {
   const who = whoLabel(t, family, me);
   const others = me && !isMine(t, me) && who ? `（${who}の番）` : "";
   const eyebrow = !prep.preps ? undefined : prep.busy ? "手帳が用意しています" : prep.made ? `手帳が用意しておきました${others}` : prep.settled ? "いま、いちばん先の事" : undefined;
-  const failNoun = `${family.city}の窓口と持ち物`;
 
   return (
     <TopTask {...p} key={prep.ver} eyebrowOverride={eyebrow}>
+      <PrepBox prep={prep} family={family} onRetry={() => setTries((n) => n + 1)} />
+    </TopTask>
+  );
+}
+
+/** 用意の行と、つまずいた時の「作る」（一番上の札と、届けの束の1行目で使う） */
+export function PrepBox({ prep, family, onRetry }: { prep: ReturnType<typeof usePrep>; family: Family; onRetry: () => void }) {
+  return (
+    <>
       {/* 書く事のメモは、下の「◯を作る」が同じ事をするので、ここで重ねて出さない（UX 2026-11-04: 同じ札にメモを作るが2つ並んでいた） */}
       {prep.failed && !prep.canDraft && (
         <div className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl bg-card/70 px-3 py-2">
-          <span className="text-base">{failNoun}を、手帳が作れます</span>
-          <button
-            type="button"
-            onClick={() => setTries((n) => n + 1)}
-            className="min-h-11 rounded-full bg-rose px-4 text-base font-semibold text-white"
-          >
+          <span className="text-base">{family.city}の窓口と持ち物を、手帳が作れます</span>
+          <button type="button" onClick={onRetry} className="min-h-11 rounded-full bg-rose px-4 text-base font-semibold text-white">
             作る
           </button>
         </div>
       )}
       <PrepLines lines={prep.lines} />
-    </TopTask>
+    </>
   );
 }
 

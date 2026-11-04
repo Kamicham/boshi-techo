@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { babyInsuranceOf, mergeBring, planBirthTrip, tripWhere } from "./birth-trip";
+import { babyInsuranceOf, foldTrip, mergeBring, planBirthTrip, tripDue, tripScreen, tripWhere } from "./birth-trip";
 import { scheduleFor, statusOf } from "./milestones";
 import type { Situation } from "./situation";
 
@@ -52,5 +52,62 @@ describe("生まれた届けの束（第1波②）", () => {
     ]);
     expect(m.find((x) => x.item === "母子手帳")?.for).toEqual(["出生届", "児童手当"]);
     expect(m.length).toBe(4);
+  });
+});
+
+describe("生まれた翌日の母の画面を軽く（UX の見直し C08）", () => {
+  // 家族みんなの事（「家族」）を、決めた人の番にする（今日の画面の withAssignee と同じ置き換え）
+  const assigned = (who: string) => <T extends { who: string }>(t: T): T => (t.who === "家族" ? { ...t, who } : t);
+  const day = "2027-05-02";
+
+  it("たたむのは、届けをパートナーの番に決めた家族の母の画面だけ。出生連絡票（母の番）はたたまない", () => {
+    const tasks = at(day).map(assigned("パートナー"));
+    const trip = planBirthTrip(tasks, day, "2027-05-01", undefined)!;
+    const f = foldTrip(trip, tasks, "母", true, day)!;
+    expect(f.who).toBe("パートナー");
+    expect(f.items.map((t) => t.id)).toContain("birth-registration");
+    expect(f.items.some((t) => t.id === "birth-notice")).toBe(false);
+    expect(f.items.every((t) => t.who === "パートナー")).toBe(true);
+    expect([f.done, f.total]).toEqual([0, f.items.length]);
+    expect([f.due?.task.id, f.due?.date, f.due?.left, f.nudge]).toEqual(["birth-registration", "2027-05-14", 12, false]);
+    // パートナーの画面・パートナーのいない家族は、たたまない
+    expect(foldTrip(trip, tasks, "パートナー", true, day)).toBeNull();
+    expect(foldTrip(trip, tasks, "母", false, day)).toBeNull();
+    // まだ誰が行くか決めていない家族・母が行く家族・2人で行く家族（「家族」のまま）は、たたまない
+    for (const xs of [at(day), at(day).map(assigned("母"))]) expect(foldTrip(planBirthTrip(xs, day, "2027-05-01", undefined)!, xs, "母", true, day)).toBeNull();
+  });
+
+  it("法の期限まで5日を切ったら、声をかける文に変える。済んだ数は、その人の番の届けで数える", () => {
+    const today = "2027-05-10";
+    const tasks = at(today, undefined, ["child-allowance"]).map(assigned("パートナー"));
+    const f = foldTrip(planBirthTrip(tasks, today, "2027-05-01", undefined)!, tasks, "母", true, today)!;
+    expect([f.due?.task.id, f.due?.left]).toEqual(["birth-registration", 4]);
+    expect(f.nudge).toBe(true);
+    expect(f.done).toBe(1);
+    expect(f.total).toBe(f.items.length + 1);
+    // 目安の届けしか残っていない時は、期限で急かさない
+    const left = at(today, undefined, ["birth-registration", "child-allowance"]).map(assigned("パートナー"));
+    const g = foldTrip(planBirthTrip(left, today, "2027-05-01", undefined)!, left, "母", true, today)!;
+    expect([g.due, g.nudge]).toEqual([null, false]);
+  });
+
+  it("束を開く画面は、束の1件目が一番上で、束の届けを「このあと」に出さない。たたむ画面は、その人の一番上で、たたんだ届けを出さない", () => {
+    const tasks = at(day).map(assigned("パートナー"));
+    const trip = planBirthTrip(tasks, day, "2027-05-01", undefined)!;
+    const reg = tasks.find((t) => t.id === "birth-registration")!;
+    const notice = tasks.find((t) => t.id === "birth-notice")!;
+    const mom = tripScreen(trip, tasks, { top: notice, rest: [reg] }, "母", true, day)!;
+    expect([mom.full, mom.top?.id, mom.rest.map((t) => t.id)]).toEqual([false, "birth-notice", []]);
+    const dad = tripScreen(trip, tasks, { top: reg, rest: [notice] }, "パートナー", true, day)!;
+    expect([dad.full, dad.top?.id, dad.rest.map((t) => t.id)]).toEqual([true, "birth-registration", []]);
+    expect(tripScreen(null, tasks, { top: reg, rest: [] }, "母", true, day)).toBeNull();
+    // まだ誰が行くか決めていない家族で、出生届と児童手当が済み、行く順の先頭が母の出生連絡票になった日: パートナーの一番上は、自分の番の最初の届け
+    const later = at("2027-05-05", undefined, ["birth-registration", "child-allowance"]);
+    const t2 = planBirthTrip(later, "2027-05-05", "2027-05-01", undefined)!;
+    expect(t2.items[0].task.id).toBe("birth-notice");
+    const partner = tripScreen(t2, later, { top: null, rest: [] }, "パートナー", true, "2027-05-05")!;
+    expect([partner.full, partner.top?.who]).toEqual([true, "家族"]);
+    expect(tripScreen(t2, later, { top: null, rest: [] }, "母", true, "2027-05-05")!.top?.id).toBe("birth-notice");
+    expect(tripDue([notice], day)).toBeNull();
   });
 });

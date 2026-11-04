@@ -2,18 +2,21 @@
 
 // 生まれた届けを、まとめて（第1波②）。生まれた日から15日の間、出生届・児童手当・保険・医療証などを1枚に並べる。
 // 行く順と理由、どこに出すか（役所・勤め先・保険が届いたら）、合わせた持ち物、行く日を1つにまとめる。
-// 1件目は、すぐ下の1枚（NowCard）が窓口と書く事のメモを先に用意する。ほかの行は開くと、ふつうの行と同じ中身（TaskBody）。
+// 束が自分の番の画面では、この1枚が一番上（一番上の札を重ねない）。自分の番の最初の届けは、中で窓口と書く事を用意する（UX の見直し C08）。
+// 誰が役所へ行くかは、見出しでまとめて決める。母の画面で、届けをパートナーの番に決めた時は、1行にたたむ（TripFolded）。
 // 外へは何も送らない。「1回で全部」とは言い切らない（会社の保険の家族は、医療証が後になる）。
 import { useEffect, useMemo, useState } from "react";
 import type { Family, Member } from "@/lib/demo-family";
 import type { Keep } from "@/lib/keep";
 import type { LocalInfo } from "@/lib/local";
-import { mergeBring, type BirthTrip, type TripWhere } from "@/lib/birth-trip";
+import { mergeBring, tripDue, type BirthTrip, type TripFold, type TripWhere } from "@/lib/birth-trip";
 import { api } from "../FamilyProvider";
-import { Btn, Pill, daysUntil } from "../ui";
-import { jpDate } from "./dates";
+import { Btn, CopyButton, Pill } from "../ui";
+import { PrepBox } from "./NowCard";
 import { TaskBody, type ShownTask } from "./TaskCard";
 import { whoLabel } from "./task";
+import { dueName, nudgeText, untilWords } from "./trip";
+import { usePrep } from "./usePrep";
 
 const STAGE: Record<TripWhere, string> = {
   役所: "役所で",
@@ -27,7 +30,9 @@ export function BirthTripCard({
   family,
   me,
   keep,
+  firstId,
   onAssign,
+  onAssignMany,
   onDone,
   onKeep,
 }: {
@@ -36,7 +41,11 @@ export function BirthTripCard({
   family: Family;
   me: Member | null;
   keep: Keep | null;
+  /** 束の中で開いて、窓口と書く事を用意する1件（今日の画面の一番上の事＝lib/birth-trip.ts の tripScreen の top。たたんだ束を開いた時は無し） */
+  firstId?: string | null;
   onAssign?: (milestoneId: string, who: string) => void;
+  /** 束の届けの担当をまとめて決める（家族の id か "together"。"" は決め直し） */
+  onAssignMany?: (milestoneIds: string[], who: string) => void;
   onDone: (ids: string[]) => void;
   /** 行く日を覚える */
   onKeep: (date: string) => void;
@@ -46,7 +55,7 @@ export function BirthTripCard({
   const office = trip.items.filter((i) => i.where === "役所" && i.task.needsLocal);
   const officeKey = office.map((i) => i.task.id).join(",");
 
-  // 調べ済みの町の窓口と持ち物だけ読む（ここでは調べに行かない。費用をかけない）
+  // 調べ済みの町の窓口と持ち物だけ読む（ここでは調べに行かない。費用をかけない。自分の番の最初の届けの調べは FirstRow が受け持つ）
   useEffect(() => {
     let alive = true;
     for (const id of officeKey.split(",").filter(Boolean)) {
@@ -66,8 +75,12 @@ export function BirthTripCard({
     [locals, officeKey],
   );
   const notYet = office.filter((i) => !locals[i.task.id]);
-  const left = daysUntil(today, trip.deadline);
-  const who = whoLabel(trip.items[0].task, family, me);
+  const due = tripDue(
+    trip.items.map((i) => i.task),
+    today,
+  );
+  const picker = !!onAssignMany && family.members.length >= 2 && trip.items.some((i) => i.task.shared);
+  const who = picker ? "" : whoLabel(trip.items[0].task, family, me);
   const stages = (["役所", "勤め先", "保険が届いたら"] as TripWhere[]).filter((w) => trip.items.some((i) => i.where === w));
 
   return (
@@ -75,12 +88,19 @@ export function BirthTripCard({
       <div className="flex flex-col gap-1">
         <p className="text-sm font-semibold text-rose">生まれた届けを、まとめて</p>
         <h2 className="font-display text-xl leading-snug font-bold">役所へ行く日を1つにしましょう</h2>
-        <p className="text-base">
-          出生届は <b className="tabular">{jpDate(trip.deadline, today)}</b> まで
-          {left >= 0 && <span className="tabular">（あと{left}日）</span>}
-          {who && <Pill tone="sky">{who}の番</Pill>}
-        </p>
+        {(due || who) && (
+          <p className="flex flex-wrap items-center gap-x-2 text-base">
+            {due && (
+              <span>
+                {dueName(due.task)}は <b className="tabular">{untilWords(due.left, due.date, today)}</b>
+              </span>
+            )}
+            {who && <Pill tone="sky">{who}の番</Pill>}
+          </p>
+        )}
       </div>
+
+      {picker && <TripWho trip={trip} family={family} onAssignMany={onAssignMany!} />}
 
       <label className="flex flex-wrap items-center gap-2 text-base">
         <span className="text-sm font-semibold text-muted">行く日</span>
@@ -100,39 +120,45 @@ export function BirthTripCard({
           <ol className="flex flex-col">
             {trip.items
               .filter((i) => i.where === w)
-              .map((i) => (
-                <li key={i.task.id} className="flex flex-col gap-1 border-b border-line py-2 last:border-b-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="min-w-0 text-base leading-snug font-semibold">
-                      <span className="tabular mr-1 text-rose">{i.step}.</span>
-                      {i.task.plain}
-                    </span>
-                    <div className="flex shrink-0 gap-1">
-                      <Btn kind="secondary" onClick={() => onDone([i.task.id])} ariaLabel={`${i.task.plain}を済んだにする`}>
-                        済んだ
-                      </Btn>
+              .map((i) => {
+                // 自分の番の最初の届けは、窓口と書く事をこの中で用意して開いておく（一番上の札を重ねない）
+                const first = !!firstId && i.task.id === firstId;
+                return (
+                  <li key={i.task.id} className="flex flex-col gap-1 border-b border-line py-2 last:border-b-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="min-w-0 text-base leading-snug font-semibold">
+                        <span className="tabular mr-1 text-rose">{i.step}.</span>
+                        {i.task.plain}
+                      </span>
+                      <div className="flex shrink-0 gap-1">
+                        <Btn kind="secondary" onClick={() => onDone([i.task.id])} ariaLabel={`${i.task.plain}を済んだにする`}>
+                          済んだ
+                        </Btn>
+                      </div>
                     </div>
-                  </div>
-                  <p className="text-sm text-muted">{i.reason}</p>
-                  {i.step === 1 ? (
-                    <p className="text-sm text-sky">すぐ下で、窓口と書く事を用意しています</p>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setOpen(open === i.task.id ? null : i.task.id)}
-                      className="min-h-11 self-start text-sm text-sky underline underline-offset-2"
-                      aria-expanded={open === i.task.id}
-                    >
-                      {open === i.task.id ? "閉じる" : "窓口・書く事を見る"}
-                    </button>
-                  )}
-                  {open === i.task.id && (
-                    <div className="flex flex-col gap-2 rounded-lg bg-sky-soft px-3 py-2">
-                      <TaskBody task={i.task} today={today} family={family} me={me} keep={keep} onAssign={onAssign} onDone={() => onDone([i.task.id])} />
-                    </div>
-                  )}
-                </li>
-              ))}
+                    <p className="text-sm text-muted">{i.reason}</p>
+                    {first ? (
+                      <FirstRow task={i.task} today={today} family={family} me={me} keep={keep} onAssign={onAssign} onDone={() => onDone([i.task.id])} />
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setOpen(open === i.task.id ? null : i.task.id)}
+                          className="min-h-11 self-start text-sm text-sky underline underline-offset-2"
+                          aria-expanded={open === i.task.id}
+                        >
+                          {open === i.task.id ? "閉じる" : "窓口・書く事を見る"}
+                        </button>
+                        {open === i.task.id && (
+                          <div className="flex flex-col gap-2 rounded-lg bg-sky-soft px-3 py-2">
+                            <TaskBody task={i.task} today={today} family={family} me={me} keep={keep} onAssign={onAssign} onDone={() => onDone([i.task.id])} noDone />
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </li>
+                );
+              })}
           </ol>
         </div>
       ))}
@@ -163,6 +189,118 @@ export function BirthTripCard({
           </Btn>
         </div>
       )}
+    </section>
+  );
+}
+
+/**
+ * 「役所へ行くのは？［翔太］［美咲］［2人で］」: 束の届け（家族みんなの事）の担当を、まとめて決める。
+ * パートナーを先に並べる（産んだ人は休む事が先。どちらにするかは家族が決める）。もう一度押すと決め直せる
+ */
+function TripWho({ trip, family, onAssignMany }: { trip: BirthTrip<ShownTask>; family: Family; onAssignMany: (ids: string[], who: string) => void }) {
+  const shared = trip.items.map((i) => i.task).filter((t) => t.shared);
+  const pickOf = (t: ShownTask) => (t.together ? "together" : (family.members.find((m) => m.role === t.who)?.id ?? ""));
+  const picks = new Set(shared.map(pickOf));
+  const current = picks.size === 1 ? [...picks][0] : "";
+  const people = [...family.members].sort((a, b) => Number(a.role !== "パートナー") - Number(b.role !== "パートナー"));
+  const choices = [...people.map((m) => ({ id: m.id, label: m.name })), { id: "together", label: "2人で" }];
+  return (
+    <div className="flex flex-wrap items-center gap-2" role="group" aria-label="生まれた届けを、誰が出しに行くか">
+      <span className="text-sm text-muted">{current ? "役所へ行く人" : "役所へ行くのは？"}</span>
+      {choices.map((c) => (
+        <button
+          key={c.id}
+          type="button"
+          aria-pressed={current === c.id}
+          onClick={() =>
+            onAssignMany(
+              shared.map((t) => t.id),
+              current === c.id ? "" : c.id,
+            )
+          }
+          className={`min-h-11 rounded-full border px-4 text-base ${current === c.id ? "border-rose bg-rose text-white" : "border-line bg-card text-ink"}`}
+        >
+          {c.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** 束の中の、自分の番の最初の届け: 手帳が窓口を調べ、書く事のメモを作っておく。中身はふつうの行と同じ（済んだは行の右、担当は見出し） */
+function FirstRow({
+  task,
+  today,
+  family,
+  me,
+  keep,
+  onAssign,
+  onDone,
+}: {
+  task: ShownTask;
+  today: string;
+  family: Family;
+  me: Member | null;
+  keep: Keep | null;
+  onAssign?: (milestoneId: string, who: string) => void;
+  onDone: () => void;
+}) {
+  const [tries, setTries] = useState(0);
+  const prep = usePrep(task, today, family, me, tries);
+  const label = !prep.preps ? null : prep.busy ? "手帳が用意しています" : prep.made ? "手帳が用意しておきました" : null;
+  return (
+    <div className="flex flex-col gap-2 rounded-lg bg-sky-soft px-3 py-2">
+      {label && <p className="text-sm font-semibold text-sky">{label}</p>}
+      <PrepBox prep={prep} family={family} onRetry={() => setTries((n) => n + 1)} />
+      <TaskBody key={prep.ver} task={task} today={today} family={family} me={me} keep={keep} onAssign={onAssign} onDone={onDone} top noDone noWho />
+    </div>
+  );
+}
+
+/**
+ * 母の画面: パートナーの番に決めた届けを1行にたたむ（UX の見直し C08）。
+ * 「生まれた届け5件は、翔太さんの番です（済んだ 0/5）›」。押すと束が開く。
+ * 法の期限まで5日を切ったら「翔太さんに声をかける文を作る」（写して LINE などに貼る。外へは送らない）
+ */
+export function TripFolded({ fold, family, today, open, onToggle }: { fold: TripFold<ShownTask>; family: Family; today: string; open: boolean; onToggle: () => void }) {
+  const person = family.members.find((m) => m.role === fold.who);
+  const name = person ? `${person.name}さん` : "パートナー";
+  const due = fold.due ? `${dueName(fold.due.task)}は ${untilWords(fold.due.left, fold.due.date, today)}` : null;
+  const count = `済んだ ${fold.done}/${fold.total}`;
+  const text = fold.due ? nudgeText(fold.items.length, fold.due, today) : "";
+  return (
+    <section aria-label="生まれた届け" className="flex flex-col rounded-2xl border border-line bg-card px-4 py-1">
+      {fold.nudge && (
+        <details className="group border-b border-line">
+          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 py-2">
+            <span className="min-w-0">
+              <span className="block text-base font-semibold">{name}に声をかける文を作る</span>
+              {due && <span className="tabular block text-sm text-muted">{due}</span>}
+            </span>
+            <span className="shrink-0 text-muted transition-transform group-open:rotate-90" aria-hidden>
+              ›
+            </span>
+          </summary>
+          <div className="flex flex-col gap-2 pb-3">
+            <p className="rounded-lg bg-sky-soft px-3 py-2 text-base">{text}</p>
+            <div>
+              <CopyButton label="文を写す" text={text} />
+            </div>
+          </div>
+        </details>
+      )}
+      <button type="button" onClick={onToggle} aria-expanded={open} className="flex min-h-12 w-full items-center justify-between gap-3 py-2 text-left">
+        <span className="min-w-0">
+          <span className="block text-base">
+            {fold.nudge ? "届けを見る" : `生まれた届け${fold.total}件は、${name}の番です`}
+            <span className="tabular text-sm text-muted">（{count}）</span>
+          </span>
+          {!fold.nudge && due && <span className="tabular block text-sm text-muted">{due}</span>}
+        </span>
+        <span className={`shrink-0 text-muted transition-transform ${open ? "rotate-90" : ""}`} aria-hidden>
+          ›
+        </span>
+      </button>
     </section>
   );
 }

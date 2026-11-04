@@ -199,7 +199,24 @@ function WhoPicker({ task: t, family, onAssign }: Pick<Common, "task" | "family"
 }
 
 /** 行を開いた時の中身（下書き・町の調べ・カレンダー・担当）。ふり返りの「まだ」からも使う */
-export function TaskBody({ task: t, today, family, me, keep, onDone, onAssign, top }: Common & { top?: boolean }) {
+export function TaskBody({
+  task: t,
+  today,
+  family,
+  me,
+  keep,
+  onDone,
+  onAssign,
+  top,
+  noDone,
+  noWho,
+}: Common & {
+  top?: boolean;
+  /** 「済んだ」を出さない（届けの束の行は、行の右に「済んだ」がある） */
+  noDone?: boolean;
+  /** 担当の選びを出さない（届けの束は、見出しでまとめて決める） */
+  noWho?: boolean;
+}) {
   const box = useRef<HTMLDivElement>(null);
   const [hasActions, setHasActions] = useState(false);
   // MilestoneActions は、下書きも町の調べも無い事では何も出さない。出た時だけ、それを主にする
@@ -230,11 +247,13 @@ export function TaskBody({ task: t, today, family, me, keep, onDone, onAssign, t
           <MilestoneActions milestone={t} today={today} compact onDoneChange={notifyDone} />
         )}
       </div>
-      <WhoPicker task={t} family={family} onAssign={onAssign} />
+      {!noWho && <WhoPicker task={t} family={family} onAssign={onAssign} />}
       <div className="flex flex-wrap items-center gap-x-2">
-        <Btn kind={doneKind} onClick={onDone} ariaLabel={`${t.plain}を${doneWord}にする`}>
-          {doneWord}
-        </Btn>
+        {!noDone && (
+          <Btn kind={doneKind} onClick={onDone} ariaLabel={`${t.plain}を${doneWord}にする`}>
+            {doneWord}
+          </Btn>
+        )}
         {calendar && (
           <details className="group/cal text-sm">
             <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 px-1 text-muted">

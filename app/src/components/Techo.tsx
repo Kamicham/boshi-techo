@@ -16,8 +16,8 @@ import { HelpPlaces } from "./today/HelpPlaces";
 import { jpShort } from "./today/dates";
 import { TaskRow, isGuide, type ShownTask } from "./today/TaskCard";
 import { NowCard } from "./today/NowCard";
-import { BirthTripCard } from "./today/BirthTripCard";
-import { planBirthTrip } from "@/lib/birth-trip";
+import { BirthTripCard, TripFolded } from "./today/BirthTripCard";
+import { planBirthTrip, tripScreen } from "@/lib/birth-trip";
 import { applyRetime, type Retime } from "@/lib/vax-next";
 import { StaleBox } from "./today/StaleBox";
 import { StartedLate } from "./today/StartedLate";
@@ -76,6 +76,8 @@ export function Techo() {
   // 手帳が前に用意した物（下書き・町の窓口。GET /api/prep）と、用意ができた時に読み直す印（UX の見直し C07）
   const [prepared, setPrepared] = useState<Record<string, Prepared>>({});
   const [prepVer, setPrepVer] = useState(0);
+  // 母の画面でたたんだ生まれた届け（パートナーの番）を開いているか（UX の見直し C08）
+  const [tripOpen, setTripOpen] = useState(false);
   // ほかの画面から「この事を今日の画面で開く」（/?focus=<id>）
   const [focusId, setFocusId] = useState<string | null>(null);
   useEffect(() => {
@@ -113,6 +115,7 @@ export function Techo() {
     setKeep(null);
     setSent(new Set());
     setPrepared({});
+    setTripOpen(false);
     setDoneReady(false);
     setSentReady(false);
     const fid = encodeURIComponent(family.id);
@@ -294,11 +297,20 @@ export function Techo() {
   const nextVisit = visit?.next ?? null;
   const visitTop = visitIsTop(today, nextVisit);
   const focus = focusId ? tasks.find((t) => t.id === focusId && t.status !== "済み" && t.status !== "過ぎた") ?? null : null;
-  // 生まれた日から15日の間は、届けの束を一番上に（1件目は下の1枚が用意する。ほかは束の中に並べ、「このあと」には出さない）
+  // 生まれた日から15日の間は、届けの束（UX の見直し C08。決め方は lib/birth-trip.ts の tripScreen）:
+  // 束が自分の番の画面・まだ誰が行くか決めていない家族は、束を一番上の1枚に（自分の番の最初の届けは、束の中で用意する。一番上の札を重ねない）。
+  // 母の画面で、届けをパートナーの番に決めた時は、束を1行にたたみ、一番上は母の今日の一番上（無ければ休む札）。束の届けは「このあと」に出さない
   const trip = planBirthTrip(tasks, today, family.birthDate && family.birthDate <= today ? family.birthDate : undefined, family.situation);
-  const tripIds = new Set(trip?.items.map((i) => i.task.id) ?? []);
-  const baseTop = trip ? trip.items[0].task : plan.top;
-  const baseRest = trip ? [plan.top, ...plan.rest].filter((t): t is ShownTask => !!t && !tripIds.has(t.id)) : plan.rest;
+  const ts = tripScreen(
+    trip,
+    tasks,
+    plan,
+    me?.role,
+    family.members.some((m) => m.role === "パートナー"),
+    today,
+  );
+  const baseTop = ts ? ts.top : plan.top;
+  const baseRest = ts ? ts.rest : plan.rest;
   // 始める前の事で「まだ」と答えた事は、見本の家族の一番上と同じ札に上げる（どこへ行くか・書く事のメモ・カレンダー）。
   // 目安は過ぎているので「今からでも」の形（期限切れ）で出す。届けの束・健診の日・押して来た事がある時は、そちらが先（UX 2026-11-04）
   const lateTask = lateOpen.length && !visitTop && !trip && !focus ? tasks.find((t) => t.id === lateOpen[0]) : undefined;
@@ -332,6 +344,18 @@ export function Techo() {
     });
     void api("/api/keep", { body: { familyId: family.id, keep: { assign: { [milestoneId]: who } } } }).catch(() => {});
   };
+  // 生まれた届けの担当を、まとめて決める（束の見出しの「役所へ行くのは？」）
+  const onAssignMany = (ids: string[], who: string) => {
+    setKeep((k) => {
+      const assign = { ...(k?.assign ?? {}) };
+      for (const id of ids) {
+        if (who) assign[id] = who;
+        else delete assign[id];
+      }
+      return { ...(k ?? {}), assign };
+    });
+    void api("/api/keep", { body: { familyId: family.id, keep: { assign: Object.fromEntries(ids.map((id) => [id, who])) } } }).catch(() => {});
+  };
   const common = { today, family, me, keep, onAssign, prepared };
   const bday = birthdayFor(family, today);
   // 「生まれました」の儀式: 37週から「生まれたら、ここから」、生まれた日からお七夜の前の日まで「ようこそ」（components/today/WelcomeBaby.tsx）
@@ -339,10 +363,12 @@ export function Techo() {
   const welcome = welcomeFor(family, today);
   // 節目の日（お七夜・お宮参り・お食い初め・ハーフ・1歳6か月）の1枚（components/today/MilestoneDay.tsx）
   const celebration = celebrationFor(family, today);
-  const tripShown = !!trip && !(visitTop && nextVisit) && !focus;
+  // 束を一番上の1枚に出す（健診の日・押して来た事がある時は、そちらが先）。たたんだ1行は、一番上の札の下にいつも出す
+  const tripShown = !!ts?.full && !(visitTop && nextVisit) && !focus;
+  const tripFold = ts?.fold ?? null;
   // 法の期限を過ぎてまだの事があり、一番上が目安の事か何も無い時は、ふり返りを開いて一番上に出す（祝いの日は、祝いを上に。ふり返りはいつもの場所）
   const festive = !!bday || welcome !== null || !!celebration;
-  const staleFirst = stale.length > 0 && !(visitTop && nextVisit) && !focus && (!top || isGuide(top)) && !festive;
+  const staleFirst = stale.length > 0 && !(visitTop && nextVisit) && !focus && !tripShown && (!top || isGuide(top)) && !festive;
   const loading = !(doneReady && sentReady && advisorOpen !== null);
   const quiet = family.situation?.quiet;
 
@@ -382,6 +408,22 @@ export function Techo() {
 
 
   if (quiet && !showAll) return <QuietDay family={family} quiet={quiet} onShowAll={() => setShowAll(true)} />;
+
+  // 生まれた届けの束（一番上の1枚か、たたんだ1行を開いた時）
+  const tripCard = trip ? (
+    <BirthTripCard
+      key={`${family.id}:trip`}
+      trip={trip}
+      {...common}
+      firstId={ts?.full ? (ts.top?.id ?? null) : null}
+      onAssignMany={onAssignMany}
+      onDone={(ids) => void setManyDone(ids)}
+      onKeep={(date) => {
+        setKeep((k) => ({ ...(k ?? {}), birthTrip: { date } }));
+        void api("/api/keep", { body: { familyId: family.id, keep: { birthTrip: { date } } } }).catch(() => {});
+      }}
+    />
+  ) : null;
 
   return (
     <main className="flex flex-col gap-5 px-4 pt-4 pb-8">
@@ -436,26 +478,18 @@ export function Techo() {
       {/* 途中から始めた家族: 始める前に目安が過ぎた事を、済んでいるか1回聞く */}
       {!loading && <StartedLate family={family} today={today} onCount={setBeforeCount} onOpen={setLateOpen} lifted={lifted?.id} version={lateVer} forPartner={me?.role === "パートナー"} />}
       {!loading && staleFirst && <StaleBox key={`${family.id}:first`} tasks={stale} {...common} defaultOpen onDone={(ids) => void setManyDone(ids)} />}
-      {!loading && tripShown && trip && (
-        <BirthTripCard
-          key={`${family.id}:trip`}
-          trip={trip}
-          {...common}
-          onDone={(ids) => void setManyDone(ids)}
-          onKeep={(date) => {
-            setKeep((k) => ({ ...(k ?? {}), birthTrip: { date } }));
-            void api("/api/keep", { body: { familyId: family.id, keep: { birthTrip: { date } } } }).catch(() => {});
-          }}
-        />
-      )}
-      {loading || (visitTop && nextVisit) ? null : top ? (
+      {!loading && tripShown && tripCard}
+      {loading || (visitTop && nextVisit) || tripShown ? null : top ? (
         <NowCard
           key={`${family.id}:${top.id}`}
           task={top}
-          soon={!focus && !trip && !lifted && plan.topIsSoon}
+          soon={!focus && !lifted && (!trip || !!tripFold) && plan.topIsSoon}
           {...common}
           onDone={() => void setDone(top, true).then(() => lifted && setLateVer((v) => v + 1))}
         />
+      ) : tripFold && me ? (
+        // 届けはパートナーの番で、母が今やる事が無い日（UX の見直し C08）
+        <NextStep tone="ok" title={`${me.name}さんが今やる事はありません`} sub="体を休めてください。" />
       ) : guess ? (
         // 今やる事が無く、妊婦健診の予約の目安が近い日は「今すぐやる事はありません」と言わず、予約を一番上に（UX 2026-11-04: 大きな箱の真下に「今日ごろ」が出て、言う事が食い違っていた）
         <NextStep
@@ -469,6 +503,12 @@ export function Techo() {
       ) : (
         <Calm upcoming={me ? upcoming.filter((t) => t.who === "家族" || t.who === me.role) : upcoming} today={today} others={rows.filter((r) => r.kind === "task").length} before={beforeCount} />
       )}
+
+      {/* 母の画面: パートナーの番に決めた生まれた届けは1行に（押すと束が開く。UX の見直し C08） */}
+      {!loading && tripFold && (
+        <TripFolded fold={tripFold} family={family} today={today} open={tripOpen} onToggle={() => setTripOpen((v) => !v)} />
+      )}
+      {!loading && tripFold && tripOpen && tripCard}
 
       {/* 手帳が見渡して気づいた事は、一番上の1枚の次に（大きな札を2枚並べない） */}
       {!loading && advisorOpen! > 0 && <AdvisorCard key={`${family.id}:${today}`} familyId={family.id} today={today} meId={me?.id} />}

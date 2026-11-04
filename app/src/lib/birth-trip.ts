@@ -83,6 +83,96 @@ export function planBirthTrip<T extends { id: string; status: string }>(tasks: T
   };
 }
 
+/** 束の中で、担当と期限を見るための形（今日の画面の Task の一部） */
+export interface TripTask {
+  id: string;
+  status: string;
+  who: string;
+  deadlineDate?: string;
+  deadlineKind?: "期限" | "目安";
+}
+
+/** 法の期限（目安ではない期限）がある事か。milestones.ts の deadlineKindOf と同じ（milestones.ts がこのファイルを読むので、ここで書く） */
+const legal = (t: TripTask) => !!t.deadlineDate && (t.deadlineKind ?? "期限") === "期限";
+
+/** 届けのうち、いちばん近い法の期限（同じ日なら行く順）。目安の届けしか無ければ null */
+export function tripDue<T extends TripTask>(tasks: T[], today: string): { task: T; date: string; left: number } | null {
+  const t = tasks.filter(legal).sort((a, b) => a.deadlineDate!.localeCompare(b.deadlineDate!) || (ORDER.get(a.id) ?? 99) - (ORDER.get(b.id) ?? 99))[0];
+  return t ? { task: t, date: t.deadlineDate!, left: diffDays(t.deadlineDate!, today) } : null;
+}
+
+/** 法の期限までこの日数を切ったら、たたんだ1行を「声をかける文を作る」に変える */
+export const NUDGE_DAYS = 5;
+
+export interface TripFold<T> {
+  /** たたんだ届け（まだの物。束の順） */
+  items: T[];
+  /** 担当の役 */
+  who: string;
+  /** その人の番の届けのうち、済んだ数と全部の数（過ぎた・期限切れは数えない） */
+  done: number;
+  total: number;
+  /** たたんだ届けの、いちばん近い法の期限 */
+  due: { task: T; date: string; left: number } | null;
+  /** 期限まで5日を切った（声をかける文を作る） */
+  nudge: boolean;
+}
+
+/**
+ * 母の画面で、届けの束を1行にたたむか（UX の見直し C08: 生まれた翌日の母の画面を軽く）。
+ * たたむのは、パートナーのいる家族で、束の届けを誰が出すかを決め終え（「家族」＝まだ決めていない・2人で、が残っていない）、
+ * パートナーの番の届けがある時だけ。母の番の届け（出生連絡票など）は、たたまずに母の一番上へ回す。
+ */
+export function foldTrip<T extends TripTask>(trip: BirthTrip<T>, tasks: T[], meRole: string | undefined, hasPartner: boolean, today: string): TripFold<T> | null {
+  if (meRole !== "母" || !hasPartner) return null;
+  const open = trip.items.map((i) => i.task);
+  if (open.some((t) => t.who === "家族")) return null;
+  const items = open.filter((t) => t.who !== meRole);
+  if (items.length === 0) return null;
+  const who = items[0].who;
+  const done = tasks.filter((t) => BIRTH_TRIP_IDS.has(t.id) && t.who === who && t.status === "済み").length;
+  const due = tripDue(items, today);
+  return { items, who, done, total: done + items.length, due, nudge: !!due && due.left >= 0 && due.left < NUDGE_DAYS };
+}
+
+export interface TripScreen<T> {
+  /** 束を一番上の1枚にする（一番上の札を重ねない。自分の番の最初の届けの窓口と書く事は、束の中で用意する） */
+  full: boolean;
+  /** 母の画面で1行にたたむ届け */
+  fold: TripFold<T> | null;
+  /**
+   * 一番上の事。束を開く時は、束のうち自分の番（「家族」を含む）の最初の届け（行く順。無ければ null）。
+   * たたむ時はその人の今日の一番上で、無ければ null＝休む札
+   */
+  top: T | null;
+  /** このあと（束に入れた事・たたんだ事は出さない） */
+  rest: T[];
+}
+
+/**
+ * 生まれた日から15日の間の、今日の画面の上の方の決め方（UX の見直し C08）。
+ * - 束が自分の番の画面（パートナー・ひとりの家族・母が行く家族）と、まだ誰が行くか決めていない家族: 束を一番上の1枚に。出生届を2回出さない。
+ *   一番上の事（束の中で開いて用意する1件）は、束のうち自分の番の最初の届け（行く順の先頭が母の出生連絡票の日に、パートナーの一番上を母の事にしない）
+ * - 母の画面で、届けをパートナーの番に決めた時: 一番上は母の今日の一番上（planToday の top）。パートナーの番の届けは1行にたたむ
+ * plan は同じ人の planToday（top と rest）。meRole が無い時（使う人を決めていない）は、束の1件目
+ */
+export function tripScreen<T extends TripTask>(
+  trip: BirthTrip<T> | null,
+  tasks: T[],
+  plan: { top: T | null; rest: T[] },
+  meRole: string | undefined,
+  hasPartner: boolean,
+  today: string,
+): TripScreen<T> | null {
+  if (!trip) return null;
+  const fold = foldTrip(trip, tasks, meRole, hasPartner, today);
+  const hidden = new Set((fold ? fold.items : trip.items.map((i) => i.task)).map((t) => t.id));
+  const mine = (t: T) => !meRole || t.who === "家族" || t.who === meRole;
+  const top = fold ? (plan.top && !hidden.has(plan.top.id) ? plan.top : null) : (trip.items.map((i) => i.task).find(mine) ?? null);
+  const rest = [plan.top, ...plan.rest].filter((t): t is T => !!t && !hidden.has(t.id) && t.id !== top?.id);
+  return { full: !fold, fold, top, rest };
+}
+
 /** 持ち物の言い方の揺れをそろえる（Claude は使わない。書かれていない物は足さない） */
 const SAME: [RegExp, string][] = [
   [/^母子(健康)?手帳.*/, "母子手帳"],
