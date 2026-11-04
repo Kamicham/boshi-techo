@@ -12,10 +12,10 @@ import { bytesLabel, groupForAlbum, milestoneById, TRASH_DAYS, type ClientMedia 
 import { KeepButtons } from "./KeepButtons";
 import { PhotoSheet } from "./PhotoSheet";
 import { VoiceItem } from "./VoiceItem";
-import { trashMedia, patchMedia, useMedia } from "./useMedia";
+import { invalidateMedia, trashMedia, patchMedia, useMedia } from "./useMedia";
 
 export function AlbumScreen() {
-  const { family } = useFamily();
+  const { family, isDemo } = useFamily();
   const { media, usage, canWrite, loading, unavailable, error } = useMedia();
   const { media: voices } = useMedia({ kind: "audio" });
   const [focusVoice, setFocusVoice] = useState<string | null>(null);
@@ -70,7 +70,10 @@ export function AlbumScreen() {
           )}
           {error && <p className="rounded-xl bg-alert/10 px-4 py-3 text-base text-alert">{error}</p>}
           {media.length === 0 && voices.length === 0 ? (
-            <p className="rounded-2xl bg-card px-4 py-6 text-center text-base text-muted">まだ写真がありません。「🌸 残す」から足すと、月ごとに並びます。</p>
+            <div className="flex flex-col items-center gap-3 rounded-2xl bg-card px-4 py-6 text-center">
+              <p className="text-base text-muted">まだ写真がありません。「🌸 残す」から足すと、月ごとに並びます。</p>
+              {isDemo && canWrite && <SeedDemo />}
+            </div>
           ) : (
             groups.map((g) => (
               <section key={g.period} className="flex flex-col gap-3">
@@ -134,6 +137,35 @@ function Pick({ m, titles, onOpen }: { m: ClientMedia; titles: Map<string, strin
       </span>
       {m.caption && <span className="text-base">{m.caption}</span>}
     </button>
+  );
+}
+
+/** 見本の家族だけ: 作った写真と声を入れる（作った記録と一緒に） */
+function SeedDemo() {
+  const { family, today } = useFamily();
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  return (
+    <>
+      <Btn
+        kind="secondary"
+        disabled={busy}
+        onClick={() => {
+          setBusy(true);
+          fetch("/api/capture/seed", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ familyId: family.id, today }) })
+            .then(async (r) => {
+              if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { error?: string }).error ?? `入れられませんでした（${r.status}）`);
+              invalidateMedia();
+            })
+            .catch((e: Error) => setMsg(e.message))
+            .finally(() => setBusy(false));
+        }}
+      >
+        {busy ? "入れています…" : "見本の写真と声を入れる"}
+      </Btn>
+      <p className="text-xs text-muted">見本の写真は画像生成、声は合成音声で作った物です（作った家族・実在の人ではありません）。</p>
+      {msg && <p className="text-sm text-alert">{msg}</p>}
+    </>
   );
 }
 

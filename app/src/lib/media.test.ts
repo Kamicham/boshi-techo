@@ -366,6 +366,22 @@ describe("一冊と写真", () => {
 
 // ───────── 画像を Claude に渡せるのは mediaForClaude だけ（grep） ─────────
 
+describe("見本の家族の写真と声", () => {
+  it("作った家族の世帯に、作った写真と声を入れる。二度呼んでも増えない。本物の世帯には入れない", async () => {
+    const D = await import("./demo-media");
+    const ctx = await A.withHousehold(req(), "demo-sato", "media:write");
+    const first = await D.seedDemoMedia(ctx);
+    expect(first).toBeGreaterThan(0);
+    expect(await D.seedDemoMedia(ctx)).toBe(0);
+    const voices = ctx.db.media.list<import("./media-shared").MediaData>({ kind: "audio" }).filter((r) => r.data.made);
+    expect(voices.length).toBeGreaterThanOrEqual(7);
+    expect(voices.every((v) => v.data.transcript && v.data.title)).toBe(true);
+    // 種の日付は筋書きどおり（20週の夜の話しかけ）
+    expect(voices.some((v) => v.data.title === "翔太から おなかへ")).toBe(true);
+    expect(await D.seedDemoMedia({ ...ctx, household: { ...ctx.household, kind: "real" } })).toBe(0);
+  });
+});
+
 describe("一冊と声", () => {
   const photo = (id: string, date: string, period: "はじめての一年" | "おなかにいた日々") => ({ id, date, period, age: "", techo: [], star: 0, score: 0 });
   const voice = (id: string, date: string, period: "はじめての一年" | "おなかにいた日々", star = 0) => ({ id, date, period, age: "", title: "パパから おなかへ", first: "", star });
