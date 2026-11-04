@@ -8,12 +8,18 @@ import path from "node:path";
 import type { HouseholdCtx } from "./access";
 import { addDays, addMonths, conceptionDate, lmpFromDue } from "./clock";
 import { DEMO_FAMILY } from "./demo-family";
+import { writeLetter } from "./letters";
+import type { LetterOpen } from "./letters-shared";
 import { saveAudio, saveUpload } from "./media";
-import type { VoiceMoment } from "./media-shared";
+import type { MediaFrom, VoiceMoment } from "./media-shared";
 
 type Seed =
-  | { kind: "photo"; file: string; at: string; caption?: string; who?: string; star?: boolean }
-  | { kind: "audio"; file: string; at: string; moment: VoiceMoment; who: string; spokenTo?: string; transcript: string; sec: number; star?: boolean };
+  | { kind: "photo"; file: string; at: string; caption?: string; who?: string; star?: boolean; from?: MediaFrom }
+  | { kind: "audio"; file: string; at: string; moment: VoiceMoment; who: string; spokenTo?: string; transcript: string; sec: number; star?: boolean; from?: MediaFrom };
+
+// みんなの章の2人（作った祖父母）。母方の祖母は鹿児島、父方の祖父は大阪に住む筋書き
+const BAABA: MediaFrom = { name: "ばあば", relation: "鹿児島・美咲の母" };
+const JIIJI: MediaFrom = { name: "じいじ", relation: "大阪・翔太の父" };
 
 export function demoMediaSeeds(): Seed[] {
   const f = DEMO_FAMILY;
@@ -54,8 +60,55 @@ export function demoMediaSeeds(): Seed[] {
     { kind: "photo", file: "y05-shoes.jpg", at: mo(14), caption: "はじめての靴", who: "美咲" },
     { kind: "photo", file: "y04-park.jpg", at: mo(18), caption: "落ち葉の公園", who: "翔太" },
     { kind: "photo", file: "y06-sofa24.jpg", at: mo(24), caption: "2歳。うさぎが小さくなった", who: "美咲", star: true },
+    // みんなの章（祖父母が招待から足した物の筋書き）
+    { kind: "photo", file: "g01-parcel.jpg", at: addDays(birth, 10), caption: "鹿児島から箱が届いた。手編みの帽子とお守り", who: "ばあば", from: BAABA },
+    { kind: "audio", file: "g-baaba.m4a", at: addDays(birth, 10), moment: "message", who: "ばあば", spokenTo: child, transcript: "ひなちゃん、ばあばだよ。鹿児島は、今日もあったかかったよ。早く抱っこしたいねえ。元気に大きくなってね。", sec: 17.0, from: BAABA },
+    { kind: "photo", file: "g02-hands.jpg", at: mo(2, 3), caption: "はじめて会えた日。小さいのに、ぎゅっと握る", who: "じいじ", from: JIIJI },
+    { kind: "audio", file: "g-jiiji.m4a", at: mo(2, 3), moment: "message", who: "じいじ", spokenTo: child, transcript: "ひなた。じいじだ。おまえの手は、小さいのに、強いなあ。大きくなったら、また大阪においで。", sec: 10.1, from: JIIJI },
+    { kind: "photo", file: "g03-engawa.jpg", at: mo(18, 10), caption: "はじめての帰省。縁側でずっと庭を見ていた", who: "ばあば", from: BAABA },
   ];
 }
+
+/** 見本の家族の、封をした手紙（作った手紙）。書いた日と開く日は筋書きに合わせる */
+export function demoLetterSeeds(): { key: string; at: string; from: string; relation?: string; open: LetterOpen; body: string }[] {
+  const f = DEMO_FAMILY;
+  const lmp = lmpFromDue(f.dueDate);
+  const birth = f.birthDate!;
+  const child = f.childName!;
+  return [
+    {
+      key: "letter-1y",
+      at: addDays(lmp, 30 * 7),
+      from: "美咲",
+      open: "1y",
+      body: `1歳の${child}へ。\n\nこれを書いているのは、まだあなたがおなかの中にいる、30週の夜です。夜になるとよく動いて、パパと二人で「いま蹴った」と笑っています。\n\nあなたがどんな顔で、どんな声で泣くのか、まだ知りません。でも、この1年がきっと大変で、きっとかけがえのない1年だったことは、もう分かる気がします。\n\n1歳おめでとう。会いに来てくれて、ありがとう。`,
+    },
+    {
+      key: "letter-school",
+      at: addDays(birth, 3),
+      from: "翔太",
+      open: "school",
+      body: `小学校に入る${child}へ。\n\n生まれて3日目の夜、病院から帰ってきて、これを書いています。抱っこの仕方もまだぎこちないパパです。\n\nランドセルは重いかな。友だちはできたかな。困った時は、いつでも話してね。パパはずっと、あなたの一番の味方です。`,
+    },
+    {
+      key: "letter-10y-baaba",
+      at: mo(birth, 12),
+      from: "ばあば",
+      relation: "鹿児島・美咲の母",
+      open: "10y",
+      body: `10歳のひなちゃんへ。\n\nばあばです。1歳のお誕生日に、この手紙を書いています。一升餅を背負って3歩歩いたと、写真で見ましたよ。\n\n10歳のあなたは、鹿児島の夏を覚えているかな。縁側でスイカを食べようね。ばあばは、いつまでもあなたを待っています。`,
+    },
+    {
+      key: "letter-20y",
+      at: mo(birth, 12),
+      from: "美咲",
+      open: "20y",
+      body: `20歳の${child}へ。\n\nママです。あなたの1歳の誕生日の夜に、これを書いています。\n\nこの手帳には、あなたがおなかにいた頃からの、たくさんの記録と声が残っています。読み返すと、毎日が必死で、毎日が宝物でした。\n\nこれからどんな道を選んでも、あなたが生まれてきてくれた日のことを、ママはずっと誇りに思っています。20歳、おめでとう。`,
+    },
+  ];
+}
+
+const mo = (birth: string, m: number) => addMonths(birth, m);
 
 function dir(): string {
   for (const d of [path.join(process.cwd(), "demo-media"), path.join(process.cwd(), "app", "demo-media")]) if (fs.existsSync(d)) return d;
@@ -76,14 +129,23 @@ export async function seedDemoMedia(ctx: HouseholdCtx): Promise<number> {
     const buf = fs.readFileSync(p);
     const starBy = s.star ? "name:美咲" : null;
     if (s.kind === "photo") {
-      const r = await saveUpload(ctx, { orig: buf, caption: s.caption, who: s.who, today: s.at, made: true, starBy });
+      const r = await saveUpload(ctx, { orig: buf, caption: s.caption, who: s.who, today: s.at, made: true, starBy, from: s.from });
       if (!r.duplicate) added++;
     } else {
-      const r = await saveAudio(ctx, { audio: buf, moment: s.moment, who: s.who, spokenTo: s.spokenTo, transcript: s.transcript, durationSec: s.sec, today: s.at, made: true, seedKey: s.file });
+      const r = await saveAudio(ctx, { audio: buf, moment: s.moment, who: s.who, spokenTo: s.spokenTo, transcript: s.transcript, durationSec: s.sec, today: s.at, made: true, seedKey: s.file, from: s.from });
       if (!r.duplicate) {
         added++;
         if (starBy) ctx.db.media.patch(r.media.id, { data: { star: [starBy] } });
       }
+    }
+  }
+  // 封をした手紙（同じ種は二度入れない）
+  for (const l of demoLetterSeeds()) {
+    try {
+      writeLetter(ctx, { body: l.body, open: l.open, from: l.from, relation: l.relation, today: l.at, made: true, seedKey: l.key });
+      added++;
+    } catch (e) {
+      if ((e as { status?: number }).status !== 409) throw e;
     }
   }
   return added;

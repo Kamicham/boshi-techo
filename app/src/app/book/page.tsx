@@ -8,6 +8,7 @@ import { Btn, CopyButton, Fold, NextStep, Pill, ShareButton, Why } from "@/compo
 import type { Book } from "@/lib/book";
 import { useMedia } from "@/components/album/useMedia";
 import { VoiceItem } from "@/components/album/VoiceItem";
+import { FutureLetters, MinnaChapter } from "@/components/album/Minna";
 import type { ClientMedia } from "@/lib/media-shared";
 
 /** 一冊に描ける写真（ある・隠していない）。消した写真の id は飛ばして描く */
@@ -203,6 +204,12 @@ export default function BookPage() {
         </NextStep>
       )}
 
+      {!loading && (
+        <>
+          <MinnaChapter />
+          <FutureLetters />
+        </>
+      )}
       {error && <p className="rounded-xl bg-alert/10 px-4 py-3 text-base text-alert">{error}</p>}
       <Link href="/album" className="flex min-h-12 items-center justify-between rounded-2xl border border-ok/40 bg-ok/5 px-4 text-base font-semibold text-ok">
         <span>🌸 アルバム（月ごとの写真）</span>

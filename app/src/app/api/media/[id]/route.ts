@@ -4,7 +4,7 @@ import { body, route } from "@/lib/api";
 import { withHousehold } from "@/lib/access";
 import { HttpError } from "@/lib/http-error";
 import { audit } from "@/lib/households";
-import { existingTechoIds, purgePhoto, readVariant, relinkForDate, starKey, toClient, type MediaData, type PhotoVariant } from "@/lib/media";
+import { canEditMedia, existingTechoIds, purgePhoto, readVariant, relinkForDate, starKey, toClient, type MediaData, type PhotoVariant } from "@/lib/media";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -53,9 +53,15 @@ type Patch = {
 export const PATCH = route(async (req: Request, { params }: Params) => {
   const { id } = await params;
   const b = await body<Patch>(req);
-  const ctx = await withHousehold(req, b.familyId, "media:write");
+  const ctx = await withHousehold(req, b.familyId, "media:contribute");
   const row = ctx.db.media.get<MediaData>(id, { includeTrashed: true });
   if (!row) throw new HttpError(404, "見つかりません");
+  // みんなの章の人（祖父母など）は、自分が足した物の一言・★・ゴミ箱から戻すだけ
+  const full = ctx.can("media:write");
+  if (!canEditMedia(ctx, row) && !(typeof b.star === "boolean" && Object.keys(b).every((k) => ["familyId", "today", "by", "star"].includes(k))))
+    throw new HttpError(403, "この操作はできません");
+  if (!full && (b.hidden !== undefined || b.techoIds !== undefined || b.date !== undefined || b.shareWithClaude !== undefined))
+    throw new HttpError(403, "この操作は、家族の記録を書ける人だけができます");
   const me = starKey(ctx.account?.id, b.by);
   const data: Partial<MediaData> = {};
   let takenAt: string | undefined;
@@ -101,9 +107,10 @@ export const PATCH = route(async (req: Request, { params }: Params) => {
 export const DELETE = route(async (req: Request, { params }: Params) => {
   const { id } = await params;
   const q = new URL(req.url).searchParams;
-  const ctx = await withHousehold(req, q.get("familyId"), "media:write");
+  const ctx = await withHousehold(req, q.get("familyId"), "media:contribute");
   const row = ctx.db.media.get<MediaData>(id, { includeTrashed: true });
   if (!row) throw new HttpError(404, "見つかりません");
+  if (!canEditMedia(ctx, row)) throw new HttpError(403, "自分が足した物だけ消せます");
   if (q.get("purge") === "1") {
     if (!row.trashedAt) throw new HttpError(400, "先にゴミ箱へ入れてください");
     await purgePhoto(ctx, row);

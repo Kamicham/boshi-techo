@@ -32,19 +32,20 @@ export type Perm =
   | "record:write" // 記録を足す・直す・消す
   | "media:read" // 写真・録音を見る
   | "media:write" // 写真・録音を足す・直す・ゴミ箱へ
+  | "media:contribute" // みんなの章: 自分の写真・声・手紙を足し、自分が足した物だけ直す・消す（祖父母など）
   | "claude:send" // 記録を Claude に送る処理を動かす（本人ごとの同意は別に確かめる）
   | "household:admin" // 家族の設定・本人・代理・招待
   | "household:delete"; // 世帯を消す・書き出す
 
 export type Role = "owner" | "admin" | "member" | "guest";
 
-const ALL: Perm[] = ["record:read", "record:write", "media:read", "media:write", "claude:send", "household:admin", "household:delete"];
+const ALL: Perm[] = ["record:read", "record:write", "media:read", "media:write", "media:contribute", "claude:send", "household:admin", "household:delete"];
 
 export const ROLE_PERMS: Record<Role, readonly Perm[]> = {
   owner: ALL, // 持ち主
   admin: ALL.filter((p) => p !== "household:delete"), // 共同の管理（パートナーなど）
-  member: ["record:read", "media:read"], // 読むだけ（祖父母など）。見える本人は代理の印と子だけ
-  guest: ["record:read", "record:write", "media:read", "media:write", "claude:send"], // 公開の世帯（作った家族）を、ログインなしで
+  member: ["record:read", "media:read", "media:contribute"], // 読む・みんなの章に足す（祖父母など）。見える本人は代理の印と子だけ
+  guest: ["record:read", "record:write", "media:read", "media:write", "media:contribute", "claude:send"], // 公開の世帯（作った家族）を、ログインなしで
 };
 
 export type Account = { id: string; email: string; name: string };

@@ -4,6 +4,7 @@
 // を確かめる。30家族はそのまま・loss にした写し・nicu にした写しの3通りで通す（作った家族だけ。Claude は呼ばない）。
 import { describe, expect, it } from "vitest";
 import { addDays, diffDays, lmpFromDue, secondBirthday } from "../lib/clock";
+import { letterOpenOn, recentlyOpened, schoolEntry } from "../lib/letters-shared";
 import { memoryNudgeFor, PHOTO_MILESTONES } from "../lib/media-shared";
 import type { Quiet } from "../lib/situation";
 import { SIM_FAMILIES } from "./families";
@@ -38,4 +39,32 @@ describe("思い出の一言（節目の写真）", () => {
       }
     });
   }
+});
+
+// 未来の手紙: 30家族それぞれで、開く日が筋の通った日になるか（生まれる前に開かない・小学校は6〜7歳の春・20歳の誕生日）。
+// 開いた知らせ（LetterNews と同じ recentlyOpened）は、開く日から2週間だけで、1000日の中で何度も出ない
+
+describe("未来の手紙（30家族）", () => {
+  it("開く日: 1歳・小学校・10歳・20歳とも生まれた日より後。小学校は満6歳の次の4月1日", () => {
+    for (const f of SIM_FAMILIES) {
+      const birth = f.birthDate ?? f.dueDate;
+      for (const o of ["1y", "school", "10y", "20y"] as const) {
+        const on = letterOpenOn(o, f)!;
+        expect(on > birth, `${f.id} ${o} ${on}`).toBe(true);
+      }
+      const s = schoolEntry(birth);
+      const age = Number(s.slice(0, 4)) - Number(birth.slice(0, 4));
+      expect(s.endsWith("-04-01") && (age === 6 || age === 7), `${f.id} ${birth} → ${s}`).toBe(true);
+      expect(letterOpenOn("20y", f)!.slice(5)).toBe(birth.slice(5) === "02-29" ? "02-28" : birth.slice(5));
+    }
+  });
+
+  it("1歳の手紙の知らせは、1000日の中で開いた日から2週間だけ出る", () => {
+    for (const f of SIM_FAMILIES.filter((x) => x.birthDate)) {
+      const on = letterOpenOn("1y", f)!;
+      const shown = days(f).filter((d) => recentlyOpened({ openOn: on, opened: d >= on }, d));
+      expect(shown.length, f.id).toBe(14);
+      expect(shown[0]).toBe(on);
+    }
+  });
 });

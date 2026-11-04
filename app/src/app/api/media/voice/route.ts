@@ -5,22 +5,24 @@ import { route } from "@/lib/api";
 import { withHousehold } from "@/lib/access";
 import { transcribe } from "@/lib/asr";
 import { HttpError } from "@/lib/http-error";
-import { saveAudio, toClient, VOICE_MOMENTS, type VoiceMoment } from "@/lib/media";
+import { contributorFrom, saveAudio, toClient, VOICE_MOMENTS, type VoiceMoment } from "@/lib/media";
 
 export const maxDuration = 120;
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
-const MOMENTS = VOICE_MOMENTS.map((m) => m.id) as string[];
+const MOMENTS = [...VOICE_MOMENTS.map((m) => m.id), "message"] as string[];
 
 export const POST = route(async (req: Request) => {
   const q = new URL(req.url).searchParams;
-  const ctx = await withHousehold(req, q.get("familyId"), "media:write");
+  // 家族の記録を書ける人と、みんなの章に足せる人（祖父母など）が通る
+  const ctx = await withHousehold(req, q.get("familyId"), "media:contribute");
+  const from = contributorFrom(ctx, q.get("relation"));
   const audio = Buffer.from(await req.arrayBuffer());
   if (audio.length < 1000) throw new HttpError(400, "録音が短すぎました。もう少し長く押してください");
   const m = q.get("moment") ?? "";
   if (!MOMENTS.includes(m)) throw new HttpError(400, "録り方が分かりません");
   const today = DAY.test(q.get("today") ?? "") ? q.get("today")! : undefined;
-  const who = q.get("who");
+  const who = from ? from.name : q.get("who");
   // 文字は、声を聞き返す時の手がかりと一冊の候補に使う。機械が無い所（デモの文が返る）では残さない
   let transcript: string | null = null;
   try {
@@ -40,6 +42,7 @@ export const POST = route(async (req: Request) => {
     transcript,
     durationSec: Number.isFinite(dur) ? dur : null,
     today,
+    from,
   });
-  return { media: toClient(ctx.household.id, r.media), duplicate: r.duplicate };
+  return { media: toClient(ctx.household.id, r.media, ctx.account?.id), duplicate: r.duplicate };
 });

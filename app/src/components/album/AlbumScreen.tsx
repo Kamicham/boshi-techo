@@ -16,7 +16,7 @@ import { invalidateMedia, trashMedia, patchMedia, useMedia } from "./useMedia";
 
 export function AlbumScreen() {
   const { family, isDemo } = useFamily();
-  const { media, usage, canWrite, loading, unavailable, error } = useMedia();
+  const { media, usage, canWrite, canContribute, loading, unavailable, error } = useMedia();
   const { media: voices } = useMedia({ kind: "audio" });
   const [focusVoice, setFocusVoice] = useState<string | null>(null);
   // 準備中の時は、仕組みの言葉（エラーの文）を家族に見せない
@@ -61,7 +61,7 @@ export function AlbumScreen() {
         </div>
       ) : (
         <>
-          {canWrite && <KeepButtons />}
+          {(canWrite || canContribute) && <KeepButtons />}
           {usage && (
             <p className="text-sm text-muted">
               写真 <b className="tabular text-ink">{usage.count}</b> 枚{voices.length ? <>・声 <b className="tabular text-ink">{voices.length}</b> 本</> : null}・
@@ -92,6 +92,7 @@ export function AlbumScreen() {
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={m.urls.thumb} alt="" loading="lazy" className={`h-full w-full object-cover ${m.hidden ? "opacity-40" : ""}`} />
                                 {m.star > 0 && <span className="absolute top-0.5 right-1 text-sm text-warn">★</span>}
+                                {m.from && <span className="absolute bottom-0.5 left-0.5 rounded-full bg-card/90 px-1.5 text-[10px] font-bold text-rose">{m.from.name}</span>}
                               </button>
                             </li>
                           ))}
@@ -102,7 +103,7 @@ export function AlbumScreen() {
                         {mo.items
                           .filter((m) => m.kind === "audio")
                           .map((m) => (
-                            <VoiceItem key={m.id} m={m} canWrite={canWrite} focus={focusVoice === m.id} />
+                            <VoiceItem key={m.id} m={m} canWrite={canWrite || !!m.mine} full={canWrite} focus={focusVoice === m.id} />
                           ))}
                       </ul>
                     )}

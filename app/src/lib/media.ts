@@ -38,6 +38,7 @@ import {
   sniffMime,
   stripGps,
   voiceTitle,
+  type MediaFrom,
   TRASH_DAYS,
   VIEW_SIDE,
   THUMB_SIDE,
@@ -111,6 +112,8 @@ export interface UploadInput {
   subjectId?: string | null;
   made?: boolean;
   today?: string;
+  /** みんなの章（祖父母など）が足した物 */
+  from?: MediaFrom | null;
 }
 
 export interface UploadResult {
@@ -253,6 +256,7 @@ export async function saveUpload(ctx: HouseholdCtx, input: UploadInput): Promise
     ...(birth ? { ageDays: Math.round((Date.parse(date) - Date.parse(birth)) / 86_400_000) } : {}),
     ...(input.made ? { made: true as const } : {}),
     ...(size ? { w: size.w, h: size.h } : {}),
+    ...(cleanFrom(input.from) ? { from: cleanFrom(input.from) } : {}),
   };
   let row: PhotoRow;
   try {
@@ -293,6 +297,7 @@ export interface VoiceInput {
   today?: string;
   made?: boolean;
   seedKey?: string;
+  from?: MediaFrom | null;
 }
 
 /**
@@ -347,6 +352,7 @@ export async function saveAudio(ctx: HouseholdCtx, input: VoiceInput): Promise<{
     ...(birth ? { ageDays: Math.round((Date.parse(date) - Date.parse(birth)) / 86_400_000) } : {}),
     ...(input.made ? { made: true as const } : {}),
     ...(input.seedKey ? { seedKey: input.seedKey } : {}),
+    ...(cleanFrom(input.from) ? { from: cleanFrom(input.from) } : {}),
   };
   let row: PhotoRow;
   try {
@@ -424,7 +430,36 @@ export function toClient(familyId: string, row: PhotoRow, me?: string | null, li
           title: row.data.title ?? voiceTitle(row.data),
         }
       : {}),
+    ...(row.data.from ? { from: { name: row.data.from.name, ...(row.data.from.relation ? { relation: row.data.from.relation } : {}) } } : {}),
+    ...(row.data.from?.account && me && row.data.from.account === me ? { mine: true } : {}),
   };
+}
+
+// ───────── みんなの章（祖父母など） ─────────
+
+function cleanFrom(f: MediaFrom | null | undefined): MediaFrom | undefined {
+  if (!f || typeof f.name !== "string" || !f.name.trim()) return undefined;
+  return {
+    name: f.name.trim().slice(0, 40),
+    ...(typeof f.relation === "string" && f.relation.trim() ? { relation: f.relation.trim().slice(0, 40) } : {}),
+    ...(typeof f.account === "string" && f.account ? { account: f.account } : {}),
+  };
+}
+
+/**
+ * 足す人の印。家族の記録を書ける人（media:write）は null（ふつうの写真・声）。
+ * みんなの章だけに足せる人（祖父母など・media:contribute）は、ログインした本人の名前とアカウントを必ず付ける（名乗りを偽れない）
+ */
+export function contributorFrom(ctx: HouseholdCtx, relation?: string | null): MediaFrom | null {
+  if (ctx.can("media:write")) return null;
+  if (!ctx.can("media:contribute") || !ctx.account) throw new HttpError(403, "この操作はできません");
+  return { name: ctx.account.name || "家族", account: ctx.account.id, ...(relation ? { relation: relation.slice(0, 40) } : {}) };
+}
+
+/** その写真・声を直せる・消せるか。書ける人は全部、みんなの章の人は自分が足した物だけ */
+export function canEditMedia(ctx: HouseholdCtx, row: { data: MediaData }): boolean {
+  if (ctx.can("media:write")) return true;
+  return ctx.can("media:contribute") && !!ctx.account && row.data.from?.account === ctx.account.id;
 }
 
 /** ★を付けた人の印: ログインした人はアカウントの id、公開の世帯は画面で選んだ呼び名 */

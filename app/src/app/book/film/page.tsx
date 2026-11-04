@@ -35,11 +35,21 @@ export default function FilmPage() {
       if (!photo || photo.kind === "audio") return [];
       const v = x.voiceId ? (byId.get(x.voiceId) ?? null) : null;
       const voice = v && v.kind === "audio" ? v : null;
-      // 声のある写真は、声が終わるまで映す（12秒まで）
-      const sec = voice ? Math.min(12, Math.max(x.sec, (voice.durationSec ?? x.sec) + 1.2)) : x.sec;
+      // 声のある写真は、声が終わるまで映す（18秒まで。祖父母の声はゆっくりで長い）
+      const sec = voice ? Math.min(18, Math.max(x.sec, (voice.durationSec ?? x.sec) + 1.2)) : x.sec;
       return [{ kind: "photo" as const, photo, caption: x.caption, sec, voice }];
     });
-    return xs.length ? [{ kind: "title", sec: 4 }, ...xs, { kind: "end", sec: 6 }] : [];
+    // みんなの章: 終わりの前に、家族みんな（祖父母など）が足した写真と声を流す。写真と声は足した人ごとに組む
+    const used = new Set(xs.flatMap((x) => (x.kind === "photo" ? [x.photo.id, x.voice?.id] : [])));
+    const fromPhotos = photos.filter((m) => m.from && !m.hidden && !used.has(m.id));
+    const fromVoices = voices.filter((m) => m.from && !m.hidden && !used.has(m.id));
+    const minna: Shot[] = fromPhotos.map((photo) => {
+      const vi = fromVoices.findIndex((v) => v.from!.name === photo.from!.name);
+      const voice = vi >= 0 ? fromVoices.splice(vi, 1)[0] : null;
+      const sec = voice ? Math.min(18, (voice.durationSec ?? 5) + 1.2) : 5;
+      return { kind: "photo" as const, photo, caption: photo.caption ?? `${photo.from!.name}から`, sec, voice };
+    });
+    return xs.length ? [{ kind: "title", sec: 4 }, ...xs, ...minna, { kind: "end", sec: 6 }] : [];
   }, [book, photos, voices]);
 
   if (error) return <Frame><p className="text-paper">{error}</p></Frame>;
