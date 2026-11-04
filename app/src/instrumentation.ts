@@ -1,18 +1,10 @@
-// サーバが立った時に1度だけ動く（Next.js の instrumentation）。
-// 公開版（体験）: 7日たった写しを、立った時と、その後1日1回消す（2026-11-05 体験版を API なしで開ける前に）。
-// 写しを新しく作る時にも消している（lib/trial.ts の ensureTrial）が、新しい人が来ない日にも消えるように。
-// 組み立て（next build）の間と、体験版でない置き場では何もしない
+// サーバが立った時に1度だけ動く（Next.js の instrumentation）。node と edge の両方で組み立てられる。
+// node の部品（DB）は instrumentation-node.ts に分け、NEXT_RUNTIME が "nodejs" の時だけ読む
+// （NEXT_RUNTIME は組み立ての時に字に置き換わるので、edge の組み立てからはこの読み込みごと消える。
+//  早めに return する書き方だと消えずに edge へ束ねられ、next build が落ちた。2026-11-05）
 export async function register() {
-  if (process.env.NEXT_RUNTIME !== "nodejs" || process.env.BOSHI_PUBLIC !== "1" || process.env.NEXT_PHASE === "phase-production-build") return;
-  // 掃除が動かなくても、サーバは立てる（写しを作る時の掃除は残る）
-  const sweep = () =>
-    import("./lib/trial")
-      .then(({ purgeExpiredTrials }) => purgeExpiredTrials())
-      .then((n) => {
-        if (n) console.log(`[体験] 7日たった写しを ${n} 件消しました`);
-      })
-      .catch((e: unknown) => console.error("[体験] 7日たった写しを消せませんでした", e));
-  // 立ち上がりを待たせない（消すのは裏で）
-  void sweep();
-  setInterval(() => void sweep(), 86_400_000).unref();
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    const { sweepTrials } = await import("./instrumentation-node");
+    sweepTrials();
+  }
 }
