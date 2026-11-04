@@ -93,6 +93,30 @@ function checkupMilestone(months: number): string | null {
 
 type Rec = Pick<TechoEntry, "page" | "date" | "values"> & { pending?: boolean };
 
+/** 接種の種類ごとの、受けた回と日付（回の無い記録は日付の順に数える。候補と今日より後は数えない）。予防接種の数え直し（vax-next.ts）が使う */
+export function vaxHistory(entries: Rec[], today: string): Map<Vax, { n: number; date: string; facility?: string }[]> {
+  const live = entries.filter((e) => !e.pending && typeof e.date === "string" && e.date <= today && e.page === "vaccine").sort((a, b) => a.date.localeCompare(b.date));
+  const out = new Map<Vax, { n: number; date: string; facility?: string }[]>();
+  for (const e of live) {
+    const k = vaxKind(e.values?.vaccine);
+    if (!k) continue;
+    const read = doseOf(k, e.values?.dose);
+    if (read === 0) continue;
+    const list = out.get(k) ?? [];
+    // 同じ日の2本（四種混合とヒブなど）は1回と数える
+    if (list.some((x) => x.date === e.date)) continue;
+    const used = new Set(list.map((x) => x.n));
+    let n = read ?? 1;
+    if (read == null) while (used.has(n)) n++;
+    const facility = typeof e.values?.facility === "string" && e.values.facility.trim() ? e.values.facility.trim() : undefined;
+    list.push({ n, date: e.date, ...(facility ? { facility } : {}) });
+    out.set(k, list);
+  }
+  return out;
+}
+
+export type { Vax };
+
 /**
  * 手帳の記録から、済んだ予定の id を出す。
  * 接種の予定は、その日に受ける標準の接種がそろった時だけ済みにする（足りない物があれば済みにしない＝受け損ねを隠さない）:

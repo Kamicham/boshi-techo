@@ -16,6 +16,7 @@ import { TaskRow, isGuide, type ShownTask } from "./today/TaskCard";
 import { NowCard } from "./today/NowCard";
 import { BirthTripCard } from "./today/BirthTripCard";
 import { planBirthTrip } from "@/lib/birth-trip";
+import { applyRetime, type Retime } from "@/lib/vax-next";
 import { StaleBox } from "./today/StaleBox";
 import { AdvisorCard } from "./today/AdvisorCard";
 import { ConsultAsk } from "./today/ConsultAsk";
@@ -37,6 +38,8 @@ export function Techo() {
   const [showAll, setShowAll] = useState(false);
   // 手帳の記録（接種・健診など）から済みにした事（/api/done の fromTecho。無い版では空）。「戻す」は出さない
   const [fromTecho, setFromTecho] = useState<Set<string>>(new Set());
+  // 予防接種の次の回の打てる最短日（/api/done の retime。手帳の接種の日付から数え直した物）
+  const [retime, setRetime] = useState<Record<string, Retime>>({});
   const [doneError, setDoneError] = useState("");
   const [visit, setVisit] = useState<{ next: VisitPlan["next"]; agenda: number } | null>(null);
   const [keep, setKeep] = useState<Keep | null>(null);
@@ -54,10 +57,11 @@ export function Techo() {
   }, []);
 
   /** GET /api/done の返り（fromTecho は担当A の版から。無ければ空として読む） */
-  type DoneRes = { done: string[]; fromTecho?: string[] };
+  type DoneRes = { done: string[]; fromTecho?: string[]; retime?: Record<string, Retime> };
   const readDone = useCallback((j: DoneRes) => {
     setMarked(new Set(Array.isArray(j.done) ? j.done : []));
     setFromTecho(new Set(Array.isArray(j.fromTecho) ? j.fromTecho : []));
+    setRetime(j.retime && typeof j.retime === "object" ? j.retime : {});
   }, []);
 
   // 「済んだにしました・もどす」は数秒だけ出す（押し間違えた時に戻せるように）
@@ -72,6 +76,7 @@ export function Techo() {
     let alive = true;
     setMarked(new Set());
     setFromTecho(new Set());
+    setRetime({});
     setLastDone(null);
     setDoneError("");
     setKeep(null);
@@ -169,7 +174,7 @@ export function Techo() {
     [marked, family.id, today],
   );
 
-  const schedule = useMemo(() => scheduleFor(family, today), [family, today]);
+  const schedule = useMemo(() => applyRetime(scheduleFor(family, today), retime), [family, today, retime]);
 
   const setManyDone = useCallback(
     async (ids: string[]) => {

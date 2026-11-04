@@ -12,7 +12,8 @@ import { fetchLocal, getLocal, isOfficial } from "../local";
 import { deadlineKindOf, MILESTONES, scheduleFor, statusOf, type Milestone } from "../milestones";
 import { TECHO_PAGES } from "../techo";
 import { listTecho } from "../techo-store";
-import { doneSetFor } from "@/app/api/done/_lib/done";
+import { doneSetFor, vaxRetimeFor } from "@/app/api/done/_lib/done";
+import { applyRetime } from "../vax-next";
 import { getPlan } from "@/app/api/visit/_lib/server";
 import type { AskAction } from "./types";
 
@@ -56,6 +57,7 @@ function row(family: Family, m: Milestone, today: string, done: Set<string>) {
     やさしい題: m.plain,
     正式な名前: m.title,
     一言: m.hint,
+    ...(m.retimeNote ? { 打てる最短日の理由: `${m.retimeNote}（手帳の接種の日付から数え直した）` } : {}),
     担当: whoName(family, m.who),
     状態: status,
     始まり: m.awaitingPregnancy
@@ -73,7 +75,8 @@ function row(family: Family, m: Milestone, today: string, done: Set<string>) {
 
 /** 予定の全体（今やる・もうすぐ・まだ先の数件・済んだ事の名前） */
 export function planSnapshot(family: Family, today: string) {
-  const schedule = scheduleFor(family, today);
+  // 予防接種は、手帳の接種の日付から数え直した日（打てる最短日）にする（第1波⑥）
+  const schedule = applyRetime(scheduleFor(family, today), vaxRetimeFor(family, today));
   const done = doneOf(family, today, schedule);
   const rows = schedule.map((m) => row(family, m, today, done));
   const c = clockAt(family, today);

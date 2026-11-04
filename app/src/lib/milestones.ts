@@ -186,6 +186,10 @@ export interface Milestone extends MilestoneDef {
    * scheduleFor に today を渡した時だけ付く。画面は awaitingBirth と同じく日数・日付を出さない
    */
   awaitingPregnancy?: boolean;
+  /** 予防接種で、手帳の接種の日付から始まりを数え直した時の理由（vax-next.ts の applyRetime） */
+  retimeNote?: string;
+  /** 数え直した時の、打つ物と前の回（予約の電話メモに使う） */
+  retime?: { doses: string[]; lastDate: string; lastFacility?: string };
 }
 
 /** scheduleFor に渡す家族（FamilyDates に、家族の形と人の役を足した物。どちらも無ければ今までどおり） */

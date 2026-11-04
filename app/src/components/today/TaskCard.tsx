@@ -6,7 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import type { Family, Member } from "@/lib/demo-family";
 import type { Keep } from "@/lib/keep";
 import { deadlineKindOf } from "@/lib/milestones";
-import { Btn, HandoffRow, NextStep, Pill, Why } from "../ui";
+import { Btn, CopyButton, HandoffRow, NextStep, Pill, Why } from "../ui";
+import { callMemo } from "@/lib/vax-next";
 import { MilestoneActions } from "../MilestoneActions";
 import { jpShort } from "./dates";
 import { FAR_DAYS, daysLeft, isMine, whenDate, whoLabel, type Task } from "./task";
@@ -239,11 +240,18 @@ export function TaskBody({ task: t, today, family, me, keep, onDone, onAssign, t
           </details>
         )}
       </div>
+      {t.retime && (
+        <CopyButton
+          label="予約の電話メモをコピー"
+          text={callMemo({ childName: family.childName, birthDate: family.birthDate, plain: t.plain, start: t.startDate, doses: t.retime.doses, lastDate: t.retime.lastDate, lastFacility: t.retime.lastFacility })}
+        />
+      )}
       <Why>
         <span>
           {t.title}（{[t.kind, whoLabel(t, family, me)].filter(Boolean).join("・")}）
         </span>
         <span>根拠: {t.basis}</span>
+        {t.retimeNote && <span>打てる最短日: {jpShort(t.startDate, today)}（{t.retimeNote}。回数や間隔が標準と違う時は小児科で確かめる）</span>}
         {t.deadlineDate && (
           <span>
             始まり {jpShort(t.startDate, today)}・{isGuide(t) ? "目安" : "期限"} {jpShort(t.deadlineDate, today)}

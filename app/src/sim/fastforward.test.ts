@@ -25,6 +25,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { addDays, addMonths, clockAt, diffDays, lmpFromDue, secondBirthday } from "../lib/clock";
 import { BIRTH_TRIP_IDS, planBirthTrip } from "../lib/birth-trip";
+import { vaxRetime } from "../lib/vax-next";
 import type { Family, Member } from "../lib/demo-family";
 import { PREGNANCY_ONLY, scheduleFor, statusOf } from "../lib/milestones";
 import { motherEmployed, partnerEmployed } from "../lib/situation";
@@ -38,7 +39,7 @@ import { BIRTHS_2025, PER_FAMILY } from "./stats";
 import { birthFacts, birthWeightMedian, growthMedian, isMadeFamily, seedTecho } from "../lib/techo-seed";
 import { DEMO_FAMILY } from "../lib/demo-family";
 import type { TechoEntry } from "../lib/techo";
-import { doneFromTecho } from "../lib/techo-done";
+import { doneFromTecho, vaxHistory } from "../lib/techo-done";
 import { isPopulationFamily, madeHouseholdKind } from "./kind";
 
 const FULL = process.env.SIM_FULL === "1";
@@ -872,6 +873,26 @@ describe("① 早送りの検査: 手帳で済んだ接種・健診", () => {
           // 手帳に記録がある（作った記録は標準の時期に必ず入る）のに、今やる・期限切れに出たら破れ
           if (fromTecho.has(t.id) && st !== "済み") bad.push(`${f.id} ${day} ${t.id} が ${st}`);
           if (st === "期限切れ") bad.push(`${f.id} ${day}（生後${m}か月）${t.plain} が期限切れ（手帳の記録: ${records.filter((e) => e.page === "vaccine" || e.page === "child-checkup").map((e) => e.title).join("・")}）`);
+        }
+      }
+    }
+    expect(bad.slice(0, 20)).toEqual([]);
+  });
+
+  it("予防接種の数え直し（第1波⑥）: 標準の時期に打った家族は日がずれず、数え直した日は前の回＋間隔より早くならない", () => {
+    const bad: string[] = [];
+    for (const f of families) {
+      const birth = f.birthDate!;
+      for (const m of [2, 3, 4, 6, 9, 13, 20, 24]) {
+        const day = addDays(addMonths(birth, m), 12);
+        const fv = viewAt(f as SimFamily, day);
+        const sched = scheduleFor(fv, day);
+        const r = vaxRetime(vaxHistory(seedTecho(f, day), day), sched);
+        for (const [id, x] of Object.entries(r)) {
+          const base = sched.find((t) => t.id === id)!;
+          // 作った記録は標準の時期に入るので、ずれても2週より大きくはならない
+          if (diffDays(x.start, base.startDate) > 14) bad.push(`${f.id} ${day} ${id} が ${base.startDate} → ${x.start}（${x.note}）`);
+          if (x.start <= x.lastDate) bad.push(`${f.id} ${day} ${id} の最短日 ${x.start} が前の回 ${x.lastDate} より早い`);
         }
       }
     }

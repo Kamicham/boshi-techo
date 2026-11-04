@@ -5,7 +5,9 @@ import "server-only";
 import { get, list, put, remove } from "@/lib/db";
 import type { Family } from "@/lib/demo-family";
 import { listTecho } from "@/lib/techo-store";
-import { doneFromTecho } from "@/lib/techo-done";
+import { doneFromTecho, vaxHistory } from "@/lib/techo-done";
+import { vaxRetime, type Retime } from "@/lib/vax-next";
+import { scheduleFor } from "@/lib/milestones";
 import { isMadeFamily } from "@/lib/techo-seed";
 
 export interface DoneData {
@@ -72,6 +74,13 @@ export function doneFromTechoFor(family: Family, today?: string): string[] {
     docs = listTecho(family.id, { family, today: cut });
   }
   return [...doneFromTecho(docs.map((d) => d.data), cut)];
+}
+
+/** 予防接種の次の回を、手帳の接種の日付から数え直す（予定の id → 打てる最短日。第1波⑥） */
+export function vaxRetimeFor(family: Family, today?: string): Record<string, Retime> {
+  const cut = today ?? (timeTravel(family.id) ? "9999-12-31" : jstToday());
+  const docs = today || !timeTravel(family.id) ? listTecho(family.id, { family, today: cut }) : listTecho(family.id);
+  return vaxRetime(vaxHistory(docs.map((d) => d.data), cut), scheduleFor(family, today));
 }
 
 /** DB の済み＋手帳から合成した済み（今日の画面・参謀・健診のタブが同じ「済み」を見るため） */

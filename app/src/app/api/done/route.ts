@@ -6,7 +6,7 @@ import { body, route } from "@/lib/api";
 import { list } from "@/lib/db";
 import { HttpError } from "@/lib/family";
 import { familyFor } from "../_lib/household";
-import { doneFromTechoFor, markDone, removeDone, type DoneData } from "./_lib/done";
+import { doneFromTechoFor, markDone, removeDone, vaxRetimeFor, type DoneData } from "./_lib/done";
 
 function milestoneOf(v: unknown): string {
   if (typeof v !== "string" || !/^[a-zA-Z0-9_-]{1,80}$/.test(v)) throw new HttpError(400, "済んだ事の id が読めません");
@@ -28,6 +28,8 @@ export const GET = route(async (req: Request) => {
     fromTecho,
     /** 下書きの印から済みになった事（自分で押した物と見分けたい画面のため） */
     fromDraft: docs.filter((d) => d.data.auto === "draft").map((d) => d.data.milestoneId),
+    /** 予防接種の次の回の打てる最短日（手帳の接種の日付から数え直した物。表の日より遅い時だけ） */
+    retime: vaxRetimeFor(family, today),
   };
 });
 
