@@ -1,5 +1,5 @@
 import { body, route } from "@/lib/api";
-import { confirmDraft, getDraft, listDrafts, makeDraft, saveDraft, viewDraft, writerName } from "@/lib/drafts";
+import { confirmDraft, getDraft, listDrafts, makeDraft, saveDraft, viewDraft, writerName, writerWork } from "@/lib/drafts";
 import { getKeep } from "@/lib/keep";
 import { sendingAs } from "@/lib/claude";
 import { HttpError } from "@/lib/family";
@@ -61,7 +61,8 @@ export const PUT = route(async (req: Request) => {
   const b = await body<EditBody>(req);
   const { family } = await familyFor(req, b.familyId, "record:write");
   const m = findMilestone(b.milestoneId);
-  const draft = confirmDraft(family.id, m.id, readEdits(b), dayOf(b.today));
+  // 空欄は書き手（その事の担当の人）の職場で埋める
+  const draft = confirmDraft(family.id, m.id, readEdits(b), dayOf(b.today), { work: writerWork(family, getKeep(family.id), meOf(b.meId), m.id) });
   if (!draft) throw new HttpError(404, "下書きが見つかりません。先に作ってください");
   return viewDraft(family, draft, meOf(b.meId));
 });
@@ -72,7 +73,8 @@ export const PATCH = route(async (req: Request) => {
   const { family } = await familyFor(req, b.familyId, "record:write");
   const m = findMilestone(b.milestoneId);
   const meId = meOf(b.meId);
-  const draft = saveDraft(family.id, m.id, readEdits(b), { unmark: b.unmark === true, writer: writerName(family, getKeep(family.id), meId) });
+  const keep = getKeep(family.id);
+  const draft = saveDraft(family.id, m.id, readEdits(b), { unmark: b.unmark === true, writer: writerName(family, keep, meId, m.id), work: writerWork(family, keep, meId, m.id) });
   if (!draft) throw new HttpError(404, "下書きが見つかりません。先に作ってください");
   return viewDraft(family, draft, meId);
 });

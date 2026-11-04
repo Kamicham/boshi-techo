@@ -10,8 +10,9 @@ import { EVERYDAY_MODEL, structured } from "./claude";
 import { get, list, put } from "./db";
 import type { Family, Member } from "./demo-family";
 import { fillBlanks, getKeep, type Keep } from "./keep";
-import { getLocal } from "./local";
+import { findMilestone, getLocal } from "./local";
 import { MILESTONES, scheduleFor, type MilestoneDef } from "./milestones";
+import { assigneeOf, workOf, type Work } from "./whose";
 
 export const DRAFT_KINDS = ["メール", "記入メモ", "質問リスト", "頼み文"] as const;
 export type DraftKind = (typeof DRAFT_KINDS)[number];
@@ -56,6 +57,8 @@ export interface DraftView {
   fromName: string;
   /** メールなのに宛先のアドレスが分からず、欄で聞かない時の案内（町の窓口あて: 「宛先は町のページで」） */
   mailHint: string;
+  /** 開いた人が担当でない時の、担当の人（「翔太さんの番です。LINE で頼む」の1行を出す）。担当が開いた時・開いた人が分からない時は null */
+  handTo: { id: string; name: string } | null;
 }
 
 export function draftId(familyId: string, milestoneId: string): string {
@@ -78,9 +81,31 @@ export function listDrafts(familyId: string): Draft[] {
     .filter((d) => d.status === "ok");
 }
 
-/** 書き手: 開いた人（me）。選んでいなければ母（いなければ家族の最初の人） */
-export function writerOf(family: Family, meId?: string | null): Member | null {
-  return family.members.find((x) => x.id === meId) ?? family.members.find((x) => x.role === "母") ?? family.members[0] ?? null;
+/** その事の id と担当（家族に当てはめた後の担当。予定表に無い事は表の定義から） */
+function taskOf(family: Family, milestoneId: string): { id: string; who: MilestoneDef["who"] } | undefined {
+  const s = scheduleFor(family).find((x) => x.id === milestoneId);
+  if (s) return { id: s.id, who: s.who };
+  try {
+    const def = findMilestone(milestoneId);
+    return { id: def.id, who: def.who };
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * 書き手: その事の担当の人（見直し C09: 翔太さんの事は、美咲さんが開いても翔太さんの名前と職場で書く）。
+ * 担当が決まらない事（家族みんなの事で、誰がやるかまだ決めていない・2人で）は開いた人（me）。
+ * それも分からなければ母（いなければ家族の最初の人）
+ */
+export function writerOf(family: Family, meId?: string | null, milestoneId?: string, assign?: Record<string, string>): Member | null {
+  const t = milestoneId ? taskOf(family, milestoneId) : undefined;
+  return (t && assigneeOf(t, family, assign)) || family.members.find((x) => x.id === meId) || family.members.find((x) => x.role === "母") || family.members[0] || null;
+}
+
+/** 書き手の職場（書き手が決まらなければ無し＝職場の空欄は埋めない） */
+export function writerWork(family: Family, keep: Keep, meId?: string | null, milestoneId?: string): Work | undefined {
+  return workOf(keep, family, writerOf(family, meId, milestoneId, keep.assign)?.id);
 }
 
 /** 宛先が職場（上司・人事）か。職場でなければ、上司のメールアドレスを聞かない */
@@ -91,14 +116,18 @@ function toWork(d: Pick<Draft, "to" | "title" | "body">, milestoneId: string): b
 }
 
 /** 手紙に書く書き手の名前: 覚えた名前 → 呼び名（「パパ」など役割の言葉なら使わない） */
-export function writerName(family: Family, keep: Keep, meId?: string | null): string | null {
-  const w = writerOf(family, meId);
+export function writerName(family: Family, keep: Keep, meId?: string | null, milestoneId?: string): string | null {
+  const w = writerOf(family, meId, milestoneId, keep.assign);
   if (!w) return null;
   return keep.names?.[w.id] || (isRoleWord(w.name) ? null : w.name);
 }
 
-function fillDraft(d: Draft, keep: Keep, writer?: string | null, family?: Family): Draft {
-  const o = { writer };
+/** 空欄を埋める時の書き手（名前と職場） */
+export type DraftFill = { writer?: string | null; work?: Work };
+
+function fillDraft(d: Draft, keep: Keep, fill: DraftFill = {}, family?: Family): Draft {
+  const { writer } = fill;
+  const o = { writer, work: fill.work };
   // 家族の情報で分かる物（町名・パートナーの名前・予定日など）も埋める
   const fam = (t: string) => (family ? fillFamilyBlanks(t, family, { writer, names: keep.names }) : t);
   return { ...d, title: fam(fillBlanks(d.title, keep, o)), to: fam(fillBlanks(d.to, keep, o)), body: fam(fillBlanks(d.body, keep, o)) };
@@ -126,17 +155,18 @@ export function splitTo(to: string): { name: string; email: string; cc: string }
 
 /** 下書きと「いつもの」から、画面へ返す形を作る。meId は「この手帳を使っている人」（【自分の名前】を埋める） */
 export function viewDraft(family: Family, draft: Draft | null, meId?: string | null): DraftView {
-  if (!draft) return { draft: null, blanks: [], mailTo: "", toName: "", cc: "", writerId: null, fromName: "", mailHint: "" };
+  if (!draft) return { draft: null, blanks: [], mailTo: "", toName: "", cc: "", writerId: null, fromName: "", mailHint: "", handTo: null };
   const keep = getKeep(family.id);
-  const writer = writerOf(family, meId);
-  const d = fillDraft(draft, keep, writerName(family, keep, meId), family);
+  const writer = writerOf(family, meId, draft.milestoneId, keep.assign);
+  const work = workOf(keep, family, writer?.id);
+  const d = fillDraft(draft, keep, { writer: writerName(family, keep, meId, draft.milestoneId), work }, family);
   const split = splitTo(d.to);
   const isMail = d.kind === "メール";
-  const work = isMail && toWork(d, draft.milestoneId);
-  const mailTo = split.email || (work ? (keep.work?.email ?? "") : "");
+  const toBoss = isMail && toWork(d, draft.milestoneId);
+  const mailTo = split.email || (toBoss ? (work?.email ?? "") : "");
   const blanks = findBlanks({ to: d.to, title: d.title, body: d.body });
   // 職場あてのメールなのにアドレスが無い時は、上司のメールアドレスを欄で聞く。町の窓口などは聞かず、町のページで調べてもらう
-  if (work && !mailTo && !blanks.some((b) => b.key === "email")) {
+  if (toBoss && !mailTo && !blanks.some((b) => b.key === "email")) {
     blanks.unshift({ raw: "【上司のメールアドレス】", label: "上司のメールアドレス", key: "email", input: "email" });
   }
   return {
@@ -147,7 +177,9 @@ export function viewDraft(family: Family, draft: Draft | null, meId?: string | n
     cc: isMail ? split.cc : "",
     writerId: writer?.id ?? null,
     fromName: writer ? keep.names?.[writer.id] || writer.name : "",
-    mailHint: isMail && !mailTo && !work ? `宛先は${family.city}のページで（問い合わせのフォームやメールアドレス）` : "",
+    mailHint: isMail && !mailTo && !toBoss ? `宛先は${family.city}のページで（問い合わせのフォームやメールアドレス）` : "",
+    // 開いた人が担当でない時だけ（開いた人がこの家族の人の時）
+    handTo: writer && meId && writer.id !== meId && family.members.some((x) => x.id === meId) ? { id: writer.id, name: keep.names?.[writer.id] || writer.name } : null,
   };
 }
 
@@ -169,8 +201,9 @@ function olderDraftLines(id: string, family: Family): string[] {
 
 const SYSTEM = `あなたの役割: 家族の「やる事」1件について、家族がそのまま使える下書きを1つ作る係。家族がするのは最後に送る・使うだけにする。
 - 種類（kind）は事に合う物を選ぶ: 職場への相談・報告は「メール」、役所の届出・申請書は「記入メモ」（欄ごとに何を書くか・どこで分かるか）、窓口や保育園・病院で聞く事は「質問リスト」（1行に1つ）、祖父母・親せき・パートナーへの頼み事は「頼み文」（LINE などでそのまま送れる、短くあたたかい話し言葉。宛名は「お母さんへ」などの呼び方で、分からなければ【頼む人の呼び方】）。
-- 書き手は、この手帳を開いた家族の一人（呼び名と役割を渡す）。
-- 「覚えている事」が渡された時は、会社名・上司の名前・病院の名前などをそれで書く。
+- 書き手は、その事の担当の家族の一人（担当が決まっていない事は、この手帳を開いた人。呼び名と役割を渡す）。
+- 「覚えている事」が渡された時は、会社名・上司の名前・病院の名前などをそれで書く。渡す職場は書き手の職場。
+- 職場あての文は、書き手の職場の事だけを書く。家族のほかの人の勤め先・上司の名前は書かない（分からない所は空欄）。
 - 書き手の名前は、家族が送る文の最後に必ず書く（分からなければ【自分の名前】）。町名・都道府県・家族の名前・予定日・生まれた日は、渡した家族の情報で書く（空欄にしない）。
 - 宛先・会社名・上司の名前・住所・番号など分からない所は空欄で残す。作り話で埋めない。空欄の名前はそろえる（家族が一度入れると次から自動で埋まる）: 会社は【会社名】、部署は【部署名】、上司は【上司の名前】、上司のメールは【上司のメールアドレス】、人事の担当は【人事のご担当者名】、書き手の名前は【自分の名前】、病院・産院は【産院名】。
 - 空欄には必ず中に名前を入れる（【 】のような名前の無い空欄は作らない）。日付で分からない所は【育休を始める日】【育休を終える日】のように「〜日」で終わる空欄にする（1つの空欄に1つの日付。「2026年【 】月【 】日」のように分けない）。
@@ -190,10 +223,11 @@ export async function makeDraft(family: Family, m: MilestoneDef, today: string, 
   const sched = scheduleFor(family).find((x) => x.id === m.id);
   const local = getLocal(family, m.id);
   const keep = getKeep(family.id);
-  // 書き手は開いた人（選んでいなければ母）
-  const writer = writerOf(family, meId);
+  // 書き手はその事の担当の人（担当が決まらない事は開いた人。選んでいなければ母）
+  const writer = writerOf(family, meId, m.id, keep.assign);
   const born = family.birthDate && family.birthDate <= today;
-  const w = keep.work ?? {};
+  // 職場は書き手の職場だけ（ほかの家族の会社・上司を渡さない＝見直し C09）
+  const w: Work = workOf(keep, family, writer?.id) ?? {};
   const known = [
     w.company && `会社名: ${w.company}`,
     w.dept && `部署名: ${w.dept}`,
@@ -222,7 +256,7 @@ export async function makeDraft(family: Family, m: MilestoneDef, today: string, 
           ? "手紙に書く書き手の名前: 分からない（【自分の名前】の空欄にする）"
           : ""
       : "",
-    ...(known.length ? ["", "覚えている事:", ...known.map((k) => `- ${k}`)] : []),
+    ...(known.length ? ["", `覚えている事（職場は${writer ? `${writer.name}の` : "書き手の"}職場）:`, ...known.map((k) => `- ${k}`)] : []),
     ...(m.id === "pregnancy-support-2"
       ? [
           "",
@@ -277,14 +311,14 @@ export async function makeDraft(family: Family, m: MilestoneDef, today: string, 
   const out = await structured(DraftSchema, SYSTEM, lines.filter(Boolean).join("\n"), { model: EVERYDAY_MODEL, effort: "low", maxTokens: 6000, task: "draft" });
   // 作り直したら、前の「送った」の印から付いた済みは外す（新しい下書きはまだ送っていない）
   clearDoneFromDraft(family.id, m.id);
-  const draft = fillDraft({ ...out, milestoneId: m.id, milestoneTitle: m.title, status: "draft", usedLocal: !!local, today }, keep, undefined, family);
+  const draft = fillDraft({ ...out, milestoneId: m.id, milestoneTitle: m.title, status: "draft", usedLocal: !!local, today }, keep, { work: w }, family);
   put(family.id, "draft", draft, { id: draftId(family.id, m.id), date: today });
   return viewDraft(family, draft, meId);
 }
 
 type Edits = Partial<Pick<Draft, "title" | "to" | "body" | "checklist">>;
 
-function applyEdits(cur: Draft, edits: Edits, keep: Keep): Draft {
+function applyEdits(cur: Draft, edits: Edits, keep: Keep, fill: DraftFill = {}): Draft {
   return fillDraft(
     {
       ...cur,
@@ -294,18 +328,19 @@ function applyEdits(cur: Draft, edits: Edits, keep: Keep): Draft {
       checklist: edits.checklist ?? cur.checklist,
     },
     keep,
+    { work: fill.work },
   );
 }
 
 /** 直した文を残す（「いつもの」で空欄も埋める）。文が変われば印は外す（unmark でも外す）。送信はしない。
  * 印を外したら、印から付いた済みも外す */
-export function saveDraft(familyId: string, milestoneId: string, edits: Edits, opts: { unmark?: boolean; writer?: string | null } = {}): Draft | null {
+export function saveDraft(familyId: string, milestoneId: string, edits: Edits, opts: { unmark?: boolean; writer?: string | null; work?: Work } = {}): Draft | null {
   const cur = stored(familyId, milestoneId);
   if (!cur) return null;
   const keep = getKeep(familyId);
-  const next = applyEdits(cur, edits, keep);
-  // 「いつもの」（書き手の名前を含む）で空欄が埋まっただけなら印は残す。家族が文を直した時だけ外す
-  const before = fillDraft(cur, keep, opts.writer);
+  const next = applyEdits(cur, edits, keep, { work: opts.work });
+  // 「いつもの」（書き手の名前と職場を含む）で空欄が埋まっただけなら印は残す。家族が文を直した時だけ外す
+  const before = fillDraft(cur, keep, { writer: opts.writer, work: opts.work });
   const changed = next.title !== before.title || next.to !== before.to || next.body !== before.body;
   const unmarked = (changed || opts.unmark) && cur.status === "ok";
   const out: Draft = unmarked ? { ...next, status: "draft", okAt: undefined } : next;
@@ -316,10 +351,10 @@ export function saveDraft(familyId: string, milestoneId: string, edits: Edits, o
 
 /** 家族が「送った」「使った」の印を付ける（直した文もここで保存）。送信はしない。
  * 同時にその事を済みにする（auto: "draft"。印を外すと済みも外れる）。today は押した時の「今日」 */
-export function confirmDraft(familyId: string, milestoneId: string, edits: Edits, today?: string): Draft | null {
+export function confirmDraft(familyId: string, milestoneId: string, edits: Edits, today?: string, fill: DraftFill = {}): Draft | null {
   const cur = stored(familyId, milestoneId);
   if (!cur) return null;
-  const next: Draft = { ...applyEdits(cur, edits, getKeep(familyId)), status: "ok", okAt: new Date().toISOString() };
+  const next: Draft = { ...applyEdits(cur, edits, getKeep(familyId), fill), status: "ok", okAt: new Date().toISOString() };
   put(familyId, "draft", next, { id: draftId(familyId, milestoneId), date: cur.today });
   markDoneFromDraft(familyId, milestoneId, today ?? cur.today);
   return next;

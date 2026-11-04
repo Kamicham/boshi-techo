@@ -4,6 +4,7 @@ import "server-only";
 import { get, put } from "./db";
 import type { GuideStep } from "./visit";
 import { blankKey, type BlankKey } from "./blanks";
+import type { Work } from "./whose";
 
 export interface Keep {
   /** 通う病院 */
@@ -13,19 +14,13 @@ export interface Keep {
     guide?: { steps: GuideStep[]; unsure?: string | null; at: string; fromVisit?: string };
     phone?: string;
   };
-  /** 職場（職場あての下書きの空欄を埋める） */
-  work?: {
-    company?: string;
-    /** 部署名 */
-    dept?: string;
-    boss?: string;
-    /** 上司のメールアドレス */
-    email?: string;
-    /** 人事の担当（名前） */
-    hr?: string;
-    /** 人事のメールアドレス */
-    hrEmail?: string;
-  };
+  /**
+   * 職場（職場あての下書きの空欄を埋める）。11/3 から家族に1つだった欄で、今は「母（いなければ家族の最初の人）」の職場として読む。
+   * 人ごとの職場は workBy。読むのは lib/whose.ts の workOf（だれの職場かを決める所を1つにする）
+   */
+  work?: Work;
+  /** 人ごとの職場（家族の id → 職場。2026-11-05 から。母の分は work に書く） */
+  workBy?: Record<string, Work>;
   /** 手紙に書く名前（家族の id ごと。呼び名が「パパ」などの時に、空欄へ入れた名前を覚える） */
   names?: Record<string, string>;
   /** 役所の窓口（町の調べ・行ってみた話から） */
@@ -57,6 +52,23 @@ export function remember(familyId: string, patch: Partial<Keep>): Keep {
   const next: Keep = { ...cur, updatedAt: new Date().toISOString() };
   for (const [k, v] of Object.entries(patch) as [keyof Keep, unknown][]) {
     if (v === undefined) continue;
+    if (k === "workBy" && v && typeof v === "object") {
+      // 人ごとの職場は、人ごとに1つ下の欄まで混ぜる（ほかの人の職場・同じ人のほかの欄を消さない）
+      const all: Record<string, Work> = { ...(cur.workBy ?? {}) };
+      for (const [id, w] of Object.entries(v as Record<string, Work>)) {
+        const merged: Record<string, unknown> = { ...(all[id] ?? {}) };
+        for (const [f, x] of Object.entries(w ?? {})) {
+          if (x === undefined) continue;
+          if (x === "") delete merged[f];
+          else merged[f] = x;
+        }
+        if (Object.keys(merged).length) all[id] = merged as Work;
+        else delete all[id];
+      }
+      if (Object.keys(all).length) next.workBy = all;
+      else delete next.workBy;
+      continue;
+    }
     if (v && typeof v === "object" && !Array.isArray(v)) {
       const merged: Record<string, unknown> = { ...((cur[k] as object) ?? {}) };
       for (const [f, x] of Object.entries(v)) {
@@ -76,9 +88,12 @@ export function remember(familyId: string, patch: Partial<Keep>): Keep {
   return next;
 }
 
-/** 空欄の種類ごとの「いつもの」の値 */
-export function keepValue(key: BlankKey, keep: Keep, writer?: string | null): string | undefined {
-  const w = keep.work ?? {};
+/**
+ * 空欄の種類ごとの「いつもの」の値。職場の欄は、渡した職場（書き手の職場＝lib/whose.ts の workOf）だけで埋める。
+ * 職場を渡さない時は職場の欄を埋めない（家族のほかの人の会社・上司を入れない＝見直し C09）
+ */
+export function keepValue(key: BlankKey, keep: Keep, writer?: string | null, work?: Work): string | undefined {
+  const w = work ?? {};
   switch (key) {
     case "company":
       return w.company;
@@ -100,14 +115,14 @@ export function keepValue(key: BlankKey, keep: Keep, writer?: string | null): st
 }
 
 /**
- * 下書きの【 】を、覚えている事と書き手の名前で埋める。
+ * 下書きの【 】を、覚えている事と書き手の名前・書き手の職場で埋める。
  * 「【上司の名前】様」のように後ろに敬称がある時は、値の敬称を重ねない。
  */
-export function fillBlanks(text: string, keep: Keep, opts: { writer?: string | null } = {}): string {
+export function fillBlanks(text: string, keep: Keep, opts: { writer?: string | null; work?: Work } = {}): string {
   return text.replace(/【([^】\n]{1,40})】/g, (m, inner: string, at: number, all: string) => {
     const key = blankKey(inner, all.slice(Math.max(0, at - 8), at));
     if (!key) return m;
-    let v = keepValue(key, keep, opts.writer)?.trim();
+    let v = keepValue(key, keep, opts.writer, opts.work)?.trim();
     if (!v) return m;
     if (key === "boss" || key === "hr") {
       // 後ろに「様」が続くなら、値の敬称は外す（山田さん様 にしない）

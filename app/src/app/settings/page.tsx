@@ -9,13 +9,15 @@
 // 家族の形の保存（/api/family）は「わが家」だけなので、作った家族では見るだけ。いつもの場所（/api/keep）はどの家族でも覚える。
 // アカウントの仕組みが動くサーバでは、「わが家」の代わりにログインした人の世帯（持ち主・共同の管理）へ保存する（/api/account/profile）。
 // 読むだけの役の世帯は見るだけ。ログイン・同意・招待・書き出し・消すはアカウントの画面（/account）。
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { jpDate } from "@/components/Techo";
 import { Btn, Fold, NextStep, Pill, Why, plainError } from "@/components/ui";
 import { SituationForm, tidySituation } from "@/components/settings/SituationForm";
 import type { Situation } from "@/lib/situation";
 import type { Keep } from "@/lib/keep";
+import { isRoleWord } from "@/lib/blanks";
+import { legacyWorkOwner, workOf, type Work } from "@/lib/whose";
 import type { Family, Member } from "@/lib/demo-family";
 
 const ROLES: Member["role"][] = ["母", "パートナー"];
@@ -241,7 +243,7 @@ export default function Settings() {
             </p>
           )}
 
-          {shown ? <KeepForm key={shown.id} familyId={shown.id} /> : <p className="text-sm text-muted">保存すると「いつもの場所と人」を入れられます</p>}
+          {shown ? <KeepForm key={shown.id} familyId={shown.id} members={shown.members} /> :<p className="text-sm text-muted">保存すると「いつもの場所と人」を入れられます</p>}
         </>
       )}
 
@@ -292,11 +294,30 @@ function Question({ q, n, children }: { q: string; n?: number; children: React.R
   );
 }
 
-/** いつもの場所と人（GET/POST /api/keep） */
-function KeepForm({ familyId }: { familyId: string }) {
+/** 設定で入れる職場の欄（部署・人事は下書きの画面で覚える。ここで送らないので消えない） */
+type WorkForm = { company: string; boss: string; email: string };
+const toWorkForm = (w?: Work): WorkForm => ({ company: w?.company ?? "", boss: w?.boss ?? "", email: w?.email ?? "" });
+
+/**
+ * 職場が人ごとになった版（見直し C09）が本番に届くのは 11/6 の朝の組み直し。それより前に書いた「いつもの」は、職場の欄が1つの版で入れた物。
+ * 今はそれを母（いなければ家族の最初の人）の職場として読むので、2人以上の家族には、設定で一言添える。
+ * 日付で分けるのは近似（その後に「いつもの」のどれかを保存すると消える）
+ */
+const WORK_SPLIT_AT = "2026-11-05T15:00:00.000Z";
+
+/** 設定の画面で人を呼ぶ形（ママ・パパのような呼び名はそのまま、名前には「さん」） */
+function whoLabel(m: Member): string {
+  const n = m.name.trim();
+  if (!n) return m.role === "母" ? "母" : "パートナー";
+  return isRoleWord(n) ? n : `${n}さん`;
+}
+
+/** いつもの場所と人（GET/POST /api/keep）。職場は人ごと（members＝保存した家族の人） */
+function KeepForm({ familyId, members }: { familyId: string; members: Member[] }) {
   const [keep, setKeep] = useState<Keep | null>(null);
   const [hospital, setHospital] = useState({ name: "", phone: "" });
-  const [work, setWork] = useState({ company: "", boss: "", email: "" });
+  // 職場は、読んだ「いつもの」から人ごとに出し、直した人の分だけここに持つ（家族の欄で人が増えても読み直さない）
+  const [workEdits, setWorkEdits] = useState<Record<string, WorkForm>>({});
   const [office, setOffice] = useState({ name: "", address: "" });
   const [msg, setMsg] = useFlash();
   const [saving, setSaving] = useState(false);
@@ -308,7 +329,7 @@ function KeepForm({ familyId }: { familyId: string }) {
         if (!alive) return;
         setKeep(k);
         setHospital({ name: k.hospital?.name ?? "", phone: k.hospital?.phone ?? "" });
-        setWork({ company: k.work?.company ?? "", boss: k.work?.boss ?? "", email: k.work?.email ?? "" });
+        setWorkEdits({});
         setOffice({ name: k.office?.name ?? "", address: k.office?.address ?? "" });
       })
       .catch((e: Error) => alive && setMsg({ ok: false, text: plainError(e) }));
@@ -317,12 +338,26 @@ function KeepForm({ familyId }: { familyId: string }) {
     };
   }, [familyId, setMsg]);
 
+  const owner = legacyWorkOwner({ members });
+  const people = members.filter((m) => m.name.trim() || m.id === owner?.id);
+  const savedWork = (id: string) => toWorkForm(keep ? workOf(keep, { members }, id) : undefined);
+  const workFor = (id: string) => workEdits[id] ?? savedWork(id);
+  const oldOneWork =
+    people.length >= 2 &&
+    !!keep?.work &&
+    Object.values(keep.work).some((v) => typeof v === "string" && v.trim()) &&
+    !keep.workBy &&
+    (keep.updatedAt ?? "") < WORK_SPLIT_AT;
+  const others = people.filter((m) => m.id !== owner?.id);
+
   const save = async () => {
     setSaving(true);
     setMsg(null);
     try {
-      const r = await api<{ keep: Keep }>("/api/keep", { body: { familyId, keep: { hospital, work, office } } });
+      const workBy = Object.fromEntries(people.map((m) => [m.id, workFor(m.id)]));
+      const r = await api<{ keep: Keep }>("/api/keep", { body: { familyId, keep: { hospital, workBy, office } } });
       setKeep(r.keep);
+      setWorkEdits({});
       setMsg({ ok: true, text: "保存しました" });
     } catch (e) {
       setMsg({ ok: false, text: plainError(e) });
@@ -356,18 +391,34 @@ function KeepForm({ familyId }: { familyId: string }) {
         <p className="text-sm text-muted">健診の日に病院の中の案内を撮っておくと、次から迷わずに行けます</p>
       )}
 
-      <h3 className="pt-2 text-base font-bold">職場</h3>
-      <input aria-label="会社名" className={field} value={work.company} onChange={(e) => setWork({ ...work, company: e.target.value })} placeholder="会社名" />
-      <details className="group" open={work.boss || work.email ? true : undefined}>
-        <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-base text-muted">
-          <span className="underline underline-offset-2">職場に伝える時に使う欄（あとででよい）</span>
-          <span className="transition-transform group-open:rotate-90" aria-hidden>›</span>
-        </summary>
-        <div className="flex flex-col gap-3 pt-2">
-          <input aria-label="上司の名前" className={field} value={work.boss} onChange={(e) => setWork({ ...work, boss: e.target.value })} placeholder="上司の名前" />
-          <input aria-label="上司のメール" type="email" inputMode="email" className={field} value={work.email} onChange={(e) => setWork({ ...work, email: e.target.value })} placeholder="上司のメール" />
-        </div>
-      </details>
+      {people.map((m) => {
+        const who = whoLabel(m);
+        const w = workFor(m.id);
+        const saved = savedWork(m.id);
+        const set = (p: Partial<WorkForm>) => setWorkEdits((e) => ({ ...e, [m.id]: { ...w, ...p } }));
+        return (
+          <Fragment key={m.id}>
+            <h3 className="pt-2 text-base font-bold">{who}の職場</h3>
+            {oldOneWork && m.id === owner?.id && (
+              <p className="text-sm text-muted">
+                職場の欄が1つだった時に入れた職場は、{who}の職場として読んでいます。{others.length === 1 ? whoLabel(others[0]) : "ほかの人"}の職場だった時は、ここで直してください
+              </p>
+            )}
+            <input aria-label={`${who}の会社名`} className={field} value={w.company} onChange={(e) => set({ company: e.target.value })} placeholder="会社名" />
+            {/* 開いておくかは保存した値で決める（打っている間に閉じない） */}
+            <details className="group" open={saved.boss || saved.email ? true : undefined}>
+              <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-base text-muted">
+                <span className="underline underline-offset-2">職場に伝える時に使う欄（あとででよい）</span>
+                <span className="transition-transform group-open:rotate-90" aria-hidden>›</span>
+              </summary>
+              <div className="flex flex-col gap-3 pt-2">
+                <input aria-label={`${who}の上司の名前`} className={field} value={w.boss} onChange={(e) => set({ boss: e.target.value })} placeholder="上司の名前" />
+                <input aria-label={`${who}の上司のメール`} type="email" inputMode="email" className={field} value={w.email} onChange={(e) => set({ email: e.target.value })} placeholder="上司のメール" />
+              </div>
+            </details>
+          </Fragment>
+        );
+      })}
 
       <h3 className="pt-2 text-base font-bold">役所の窓口</h3>
       <input aria-label="窓口の名前" className={field} value={office.name} onChange={(e) => setOffice({ ...office, name: e.target.value })} placeholder="例: 町役場 こども課" />
@@ -382,7 +433,7 @@ function KeepForm({ familyId }: { familyId: string }) {
         </p>
       )}
       <Why>
-        <p>職場あての下書きの【会社名】【上司の名前】が、最初から埋まります。</p>
+        <p>職場あての下書きの【会社名】【上司の名前】が、書く人の職場で最初から埋まります（パートナーの育休の申し出は、パートナーの職場で）。</p>
         <p>役所の窓口と病院は、予定をカレンダーに入れる時の場所に入ります。</p>
         <p>欄を空にして「場所と人を保存する」を押すと、その事は消えます。</p>
       </Why>

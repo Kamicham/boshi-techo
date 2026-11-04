@@ -3,6 +3,7 @@
 import { body, route } from "@/lib/api";
 import { familyFor } from "../_lib/household";
 import { getKeep, remember, type Keep } from "@/lib/keep";
+import { cleanWork, splitWorkInput } from "@/lib/whose";
 
 export const GET = route(async (req: Request) => {
   const { family: fam } = await familyFor(req, new URL(req.url).searchParams.get("familyId"), "record:read");
@@ -16,15 +17,10 @@ export const POST = route(async (req: Request) => {
   const str = (v: unknown, n = 200) => (typeof v === "string" ? v.trim().slice(0, n) : undefined);
   const patch: Partial<Keep> = {};
   if (k.hospital) patch.hospital = { name: str(k.hospital.name), phone: str(k.hospital.phone, 30), ...(k.hospital.guide ? { guide: k.hospital.guide } : {}) };
-  if (k.work)
-    patch.work = {
-      company: str(k.work.company),
-      dept: str(k.work.dept),
-      boss: str(k.work.boss),
-      email: str(k.work.email),
-      hr: str(k.work.hr),
-      hrEmail: str(k.work.hrEmail),
-    };
+  // 職場（前の版の画面は work だけを送る＝母の職場として覚える）
+  if (k.work && typeof k.work === "object") patch.work = cleanWork(k.work);
+  // 人ごとの職場（見直し C09）。その家族にいる人の分だけ。母の分は work、ほかの人は workBy に（lib/whose.ts）
+  if (k.workBy) Object.assign(patch, splitWorkInput(fam, k.workBy));
   // 手紙に書く名前（家族の id ごと）。その家族にいる人の分だけ
   if (k.names && typeof k.names === "object") {
     const ids = new Set(fam.members.map((m) => m.id));
