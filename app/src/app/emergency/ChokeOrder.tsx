@@ -3,10 +3,12 @@
 // 窒息の手当の2つ（1歳になる前／1歳を過ぎた子）を、見ている家族の子の月齢に合う方から出す。
 // このページは家族の読み込みを待たない（通信が無くても開く）ので、端末に覚えた家族と「今日」（デモ・シミュレーションは早送りの日）だけで決める。
 // 妊娠中・生まれた日が分からない・読めない時は、今までどおり「1歳になる前」が先。
-// 妊娠中の体の急ぎ（PregnancyUrgent）も同じ読み方で、妊娠中の家族では一番上に出す。
-import { useEffect, useState } from "react";
+// ママの体の急ぎ（MamaUrgent）も同じ読み方で、妊娠中と産後8週までの家族では一番上に出す。
+// #7119（Line7119）も同じ読み方で、家族の住む町で実施している時だけ出す（lib/emergency-lines.ts）。
+import { useEffect, useRef, useState } from "react";
 import { clockAt } from "@/lib/clock";
 import { DEMO_FAMILY, type Family } from "@/lib/demo-family";
+import { line7119, telLink } from "@/lib/emergency-lines";
 
 function read(key: string): string | null {
   try {
@@ -16,8 +18,11 @@ function read(key: string): string | null {
   }
 }
 
-/** FamilyProvider と同じ決まりで、端末が見ている家族と今日を読む（通信なしで読める物だけ） */
-function currentFamily(): { family: Family; today: string | null } | null {
+/**
+ * FamilyProvider と同じ決まりで、端末が見ている家族と今日を読む（通信なしで読める物だけ）。
+ * chosen は、端末が家族を選んでいるか（何も覚えていなくて見本の家族に落ちた時は false。町で出し分ける物は、その時は出さない）。
+ */
+function currentFamily(): { family: Family; today: string | null; chosen: boolean } | null {
   let cached: Family[] = [];
   try {
     // ログインした人の控えは、アカウントごとの名前（boshi.families:<アカウント>）に入っている
@@ -33,7 +38,7 @@ function currentFamily(): { family: Family; today: string | null } | null {
   const real = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
   const demo = read("boshi.demoToday");
   const today = timeTravel ? (demo && /^\d{4}-\d{2}-\d{2}$/.test(demo) ? demo : null) : real;
-  return { family, today };
+  return { family, today, chosen: id !== DEMO_FAMILY.id || saved === DEMO_FAMILY.id };
 }
 
 function currentChild(): { name?: string; over1: boolean } | null {
@@ -86,13 +91,59 @@ function isPregnantNow(): { familyId: string } | null {
   return clockAt(cur.family, cur.today).phase === "pregnant" ? { familyId: cur.family.id } : null;
 }
 
+/** 家族の住む町の #7119（実施していなければ null）。家族を読めない時・見本の家族に落ちただけの時も null（ほかの町の人に、見本の町の番号を出さない） */
+function use7119(): { hours: string | null; tel: string } | null {
+  const [line, setLine] = useState<{ hours: string | null; tel: string } | null>(null);
+  useEffect(() => {
+    const cur = currentFamily();
+    setLine(cur?.chosen ? line7119(cur.family.prefecture, cur.family.city) : null);
+  }, []);
+  return line;
+}
+
 /**
- * 妊娠中の体の急ぎ → かかっている産院に電話（夜間も）。症状の判断はせず、電話先だけ。
- * 妊娠中の家族では一番上（slot="top"）、ほかは下（slot="bottom"）に出す。組み立てたページ（通信なしで出す物）では下に出し、
- * 端末の家族を読めたら上へ移す。産院の番号は設定（/api/keep の hospital.phone）から読み、端末にも写しておく。
+ * #7119（救急安心センター事業）: 大人の体（ママ）の事で、救急車を呼ぶか迷う時の相談先。家族の町で実施している時だけ、電話の段に1行足す。
+ * 実施していない町・家族を読めない時（組み立てたページ）は出さない。受付が24時間でない県は時間を、一覧に別の番号が書かれた町はその番号を添える。
  */
-export function PregnancyUrgent({ slot }: { slot: "top" | "bottom" }) {
+export function Line7119() {
+  const line = use7119();
+  if (!line) return null;
+  return (
+    <a
+      href={telLink(line.tel)}
+      className="flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-2xl border-2 border-sky/50 bg-card px-4 py-2 text-center"
+    >
+      <span className="font-display text-xl font-bold text-sky">#7119 に聞く</span>
+      <span className="text-sm text-muted">大人の体（ママ）の事で、救急車を呼ぶか迷う時</span>
+      {line.tel !== "#7119" && <span className="tabular text-xs text-muted">この町からは {line.tel} にかけます</span>}
+      {line.hours && <span className="text-xs text-muted">受付: {line.hours}</span>}
+    </a>
+  );
+}
+
+/** 母子手帳（国の様式）の言葉をそのまま引く。cite は最後の引用にだけ付ける */
+function Quote({ children, small, cite }: { children: React.ReactNode; small?: boolean; cite?: boolean }) {
+  return (
+    <blockquote className={`border-l-4 border-alert/40 pl-3 leading-relaxed ${small ? "text-sm" : "text-base"}`}>
+      {children}
+      {cite && <span className="text-xs text-muted">（母子手帳・国の様式）</span>}
+    </blockquote>
+  );
+}
+
+/**
+ * ママの体の急ぎ → かかっている産院に電話（夜間も）。症状の判断はせず、母子手帳（国の様式）の言葉と電話先だけ。
+ * 妊娠中と産後8週までは一番上（slot="top"）、ほかは下（slot="bottom"）に出す。組み立てたページ（通信なしで出す物）では下に出し、
+ * 端末の家族を読めたら上へ移す。id は "mama"（聞くの床と聞く窓が /emergency#mama を開く）。
+ * 産院の番号は設定（/api/keep の hospital.phone）から読み、端末にも写しておく。無い時は、番号の探し方を書く（急ぎの時に設定へ送らない）。
+ * 出典: こども家庭庁 母子健康手帳の様式（府令様式・令和8年4月1日施行）p.6「※出血や破水、…すぐに医療機関を受診しましょう。」、
+ * p.5「妊娠中注意したい症状」の「また、つわりで…すぐに医師などに相談しましょう。」（その前の症状の一覧は「医師などに相談」なので、急ぎの札には引かない）、
+ * p.17「退院時の記録」（施設名又は担当者名と電話の欄）。表紙には電話の欄が無いので、表紙とは書かない。
+ */
+export function MamaUrgent({ slot }: { slot: "top" | "bottom" }) {
   const [state, setState] = useState<{ pregnant: boolean; postpartum?: boolean; phone: string | null; name: string | null } | null>(null);
+  const line = use7119();
+  const ref = useRef<HTMLElement>(null);
   useEffect(() => {
     const p = isPregnantNow();
     const after = !p && isPostpartumNow();
@@ -129,19 +180,47 @@ export function PregnancyUrgent({ slot }: { slot: "top" | "bottom" }) {
       alive = false;
     };
   }, []);
+  // 聞くの床から /emergency#mama で開いた時: 組み立てたページでは札が下にあり、家族を読んでから上へ移るので、移った先へ送り直す
+  useEffect(() => {
+    if (state && window.location.hash === "#mama") ref.current?.scrollIntoView({ block: "start" });
+  }, [state]);
   // 妊娠中と産後8週までは、ママの体の急ぎを一番上に（なりきり sim-15: 産後の急ぎが一番下で見つからなかった）
-  const pregnant = !!state?.pregnant || !!state?.postpartum;
-  if ((slot === "top") !== pregnant) return null;
+  const kind: "pregnant" | "postpartum" | "other" = state?.pregnant ? "pregnant" : state?.postpartum ? "postpartum" : "other";
+  if ((slot === "top") !== (kind !== "other")) return null;
   const digits = state?.phone?.replace(/[^\d+]/g, "") ?? "";
+  const title = kind === "pregnant" ? "妊娠中の体の急ぎ" : kind === "postpartum" ? "産後の体の急ぎ" : "妊娠中・産後のママの体";
+  const call =
+    kind === "pregnant"
+      ? "かかっている産院に電話します（夜間も）。"
+      : kind === "postpartum"
+        ? "お産をした産院に電話します（夜間も）。どうするかは、電話で産院が教えてくれます。"
+        : "体の事で心配な時は、かかっている産院（お産をした産院）に電話します（夜間も）。どうするかは、電話で産院が教えてくれます。";
+  const find =
+    kind === "pregnant"
+      ? "番号は、診察券や産院からもらった書類で探せます。"
+      : kind === "postpartum"
+        ? "番号は、母子手帳の「退院時の記録」の欄や、診察券で探せます。"
+        : "番号は、診察券や産院からもらった書類、母子手帳の「退院時の記録」の欄で探せます。";
   return (
-    <section id="pregnancy" aria-labelledby="pregnancy-h" className="flex scroll-mt-4 flex-col gap-3 rounded-2xl border border-line bg-card p-4">
+    <section ref={ref} id="mama" aria-labelledby="mama-h" className="flex scroll-mt-4 flex-col gap-3 rounded-2xl border border-line bg-card p-4">
       <div>
-        <h2 id="pregnancy-h" className="font-display text-xl font-bold">
-          {state?.postpartum ? "産後の体の急ぎ" : "妊娠中の体の急ぎ"}
+        <h2 id="mama-h" className="font-display text-xl font-bold">
+          {title}
         </h2>
-        <p className="text-sm text-muted">{state?.postpartum ? "出血・熱・強い痛み・息苦しさなど、ママの体の事で心配な時" : "出血・破水・強いおなかの痛み・胎動が気になる"}</p>
+        {kind === "postpartum" && <p className="text-sm text-muted">出血・熱・強い痛み・息苦しさなど、ママの体の事で心配な時</p>}
       </div>
-      <p className="text-base">{state?.postpartum ? "お産をした産院に電話します（夜間も）。" : "かかっている産院に電話します（夜間も）。"}どうするかは、電話で産院が教えてくれます。</p>
+      {kind !== "postpartum" && (
+        <div className="flex flex-col gap-2">
+          {kind === "other" && <p className="text-sm font-semibold text-muted">妊娠中</p>}
+          <Quote cite={kind === "other"}>出血や破水、おなかの強い張りや痛み、胎動の減少を感じたら、すぐに医療機関を受診しましょう。</Quote>
+          {kind === "pregnant" && (
+            <Quote small cite>
+              また、つわりで衰弱がひどいとき、イライラや動悸がはげしく、不安感が強いとき、今まであった胎動を感じなくなったときは、すぐに医師などに相談しましょう。
+            </Quote>
+          )}
+        </div>
+      )}
+      <p className="text-base">{call}</p>
       {digits ? (
         <a href={`tel:${digits}`} className="flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-alert px-4 py-3 text-white">
           <span className="min-w-0">
@@ -151,16 +230,23 @@ export function PregnancyUrgent({ slot }: { slot: "top" | "bottom" }) {
           <span className="shrink-0 text-base font-semibold">電話する</span>
         </a>
       ) : (
-        <a href="/settings" className="flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-ink/20 px-4 py-2">
-          <span className="text-base font-semibold">設定で産院の電話を入れる</span>
-          <span className="shrink-0 text-muted" aria-hidden>
-            ›
-          </span>
-        </a>
+        <p className="text-sm text-muted">{find}</p>
       )}
-      <p className="text-sm text-muted">
-        産院につながらない時・迷う時は <a href="tel:119" className="font-semibold text-alert underline underline-offset-2">119</a>。
-      </p>
+      {/* 一番上に出す時は、すぐ下に119と #7119 のボタンがあるので繰り返さない（1画面目に #8000 まで収める）。ページの下に出す時だけ書く */}
+      {slot === "bottom" && (
+        <p className="text-sm text-muted">
+          命が危ないと思ったら、迷わず <a href="tel:119" className="font-semibold text-alert underline underline-offset-2">119</a>。
+          {line && (
+            <>
+              救急車を呼ぶか迷う時は{" "}
+              <a href={telLink(line.tel)} className="font-semibold text-sky underline underline-offset-2">
+                #7119
+              </a>
+              。
+            </>
+          )}
+        </p>
+      )}
     </section>
   );
 }

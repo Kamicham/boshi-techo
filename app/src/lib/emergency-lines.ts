@@ -95,6 +95,11 @@ export const N7119: Readonly<Partial<Record<Prefecture, Area>>> = {
   // 未実施（2026-10-23 の一覧に無い）: 三重県・島根県・佐賀県・宮崎県・鹿児島県
 };
 
+/** 電話をかけるリンク（#7119 の # は %23。lib/ask/bridge.ts の telHref と同じ。急ぎの画面の荷を軽くするため、bridge を読み込まない） */
+export function telLink(tel: string): string {
+  return `tel:${tel.replace(/#/g, "%23").replace(/[^0-9%+]/g, "")}`;
+}
+
 /** 家族が入れた都道府県を、47の名前のどれかに寄せる（「埼玉」「東京」のように都・府・県の無い書き方も）。当たらなければ null */
 export function normPref(s: string | undefined | null): Prefecture | null {
   const t = (s ?? "").replace(/\s+/g, "");
