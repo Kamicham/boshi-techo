@@ -14,15 +14,38 @@
 //   - こころの健康相談統一ダイヤル 0570-064-556・よりそいホットライン 0120-279-338:
 //     厚生労働省「まもろうよ こころ」https://www.mhlw.go.jp/mamorouyokokoro/soudan/tel/ （2026-11 確認）
 //   - 児童相談所 相談専用ダイヤル 0120-189-783: こども家庭庁（ConsultAsk.tsx と同じ出典）
-//   - 便色カード: 母子健康手帳の便色カードの注意書き（lib/techo.ts の STOOL_NOTE）
+//   - 便色カード: 母子健康手帳の便色カードの頁の言葉（lib/techo.ts の STOOL_NOTE。府令様式 p.19 の原文そのまま）。
+//     「」の中は手帳の文だけにし、手帳の文でない「迷う時は #8000。」（STOOL_ASIDE）は「」の外に書く（2026-11-05 統括の決め）
 //   - #8000 につながらない時: 「#」の入った番号は、電話によっては画面のリンクからかからない事がある。床は家族の県を知らないので番号は書かず、
 //     県のふつうの番号が出る急ぎの時の画面（/emergency。表は lib/emergency-lines.ts の N8000）を指す一言だけを添える（2026-11-05 統括の決め）
 // 画面からもサーバからも読む（server-only にしない）。
-import { STOOL_NOTE } from "../techo";
+import { STOOL_ASIDE, STOOL_NOTE } from "../techo";
 import type { AskAction } from "./types";
 
 /** #8000 の後に添える一言（番号は書かない。県の番号は急ぎの時の画面にある） */
 export const N8000_ALT_NOTE = "#8000 につながらない時の県の番号は、急ぎの時の画面にあります。";
+
+/**
+ * Claude の返事から、機械が頭に置く文（手帳の注意書きの引用）の繰り返しを除く。
+ * 引用は数文あるので、まるごとの他に、文ごと（。で切る。頭の『』の枠を外した形・終わりの。が無い形も）に、長い方から除く。
+ * 12字より短い切れ端は除かない（ほかの文を壊さない）。
+ * 除いた後に残る「」（空の引用）を含む文と、「便色カードにはこう書いてあります」の前置きも除く。
+ */
+export function stripLeadRepeats(reply: string, lead: string | null): string {
+  if (!lead) return reply;
+  let out = reply;
+  for (const line of lead.split("\n")) {
+    const core = line.match(/「(.+)」/)?.[1];
+    if (!core) continue;
+    const forms = [core, ...core.split(/(?<=。)/).map((s) => s.trim())].flatMap((s) => {
+      const bare = s.replace(/^(『[^』]*』)+/, "");
+      return [s, bare, s.replace(/。$/, ""), bare.replace(/。$/, "")];
+    });
+    const parts = [...new Set(forms)].filter((s) => s.length >= 12).sort((a, b) => b.length - a.length);
+    for (const p of parts) out = out.split(p).join("");
+  }
+  return out.replace(/[^。\n]*「[\s、。]*」[^。\n]*。?/g, "").replace(/(母子手帳の)?便色カードには、?(こう)?書いてあります。?/g, "");
+}
 
 /** その日のうちに医療機関へ連絡した方がよさそうに見える言葉（capture.ts の urgent と同じ考え方） */
 const URGENT =
@@ -170,7 +193,7 @@ export function bridgeFor(text: string, phase: "pregnant" | "child" | "other"): 
     );
   }
   if (stool && !urgent) {
-    leads.push(`母子手帳の便色カードには「${STOOL_NOTE}」と書いてあります。${N8000_ALT_NOTE}`);
+    leads.push(`母子手帳の便色カードには「${STOOL_NOTE}」と書いてあります。${STOOL_ASIDE}${N8000_ALT_NOTE}`);
     // つながらない時の一言は lead にだけ置き、ボタンは足さない（聞く画面は /emergency へのボタンを大きく出すので、受診と #8000 より目立ってしまう）
     actions.push({ type: "call", label: "子どもの急な病気の相談 #8000", tel: "#8000" });
     actions.push({ type: "open", href: "/techo#page-stool", label: "便色カードを開く" });

@@ -1,6 +1,7 @@
 // 橋の床: 急ぎ・心の危機の言葉に、必ず連絡先が付くか。ふつうの問いには付かないか。
 import { describe, expect, it } from "vitest";
-import { bridgeFor, N8000_ALT_NOTE, telHref } from "./bridge";
+import { STOOL_ASIDE, STOOL_NOTE } from "../techo";
+import { bridgeFor, N8000_ALT_NOTE, stripLeadRepeats, telHref } from "./bridge";
 
 const tels = (text: string, phase: "pregnant" | "child" | "other" = "child") =>
   bridgeFor(text, phase).actions.filter((a) => a.type === "call").map((a) => (a.type === "call" ? a.tel : ""));
@@ -133,6 +134,31 @@ describe("返事の頭の1文", () => {
     expect(s.actions.some((a) => a.type === "open" && a.href.startsWith("/emergency"))).toBe(false);
     // 妊娠中の急ぎは #8000 を出さないので、添えない
     expect(bridgeFor("出血がある", "pregnant").lead).not.toContain("#8000");
+  });
+  it("便色の時、「」の中は手帳の原文（府令様式 p.19）だけ。「迷う時は #8000。」は「」の外", () => {
+    const s = bridgeFor("便の色が3番っぽい", "child");
+    const quoted = s.lead?.match(/便色カードには「(.+)」と書いてあります。/)?.[1];
+    expect(quoted).toBe(STOOL_NOTE);
+    expect(quoted).not.toMatch(/#8000|迷う/);
+    expect(s.lead).toContain(`」と書いてあります。${STOOL_ASIDE}${N8000_ALT_NOTE}`);
+  });
+});
+
+describe("返事の頭の繰り返しを除く", () => {
+  const lead = bridgeFor("便の色が3番っぽい", "child").lead;
+  const keep = "かかりつけの小児科へ電話してください。番号を選んで記録もできます。";
+  it("手帳の引用を、まるごと・1文だけ・終わりの。無しで繰り返しても除き、ほかの文は残す", () => {
+    expect(stripLeadRepeats(`母子手帳の便色カードには「${STOOL_NOTE}」と書いてあります。${keep}`, lead).trim()).toBe(keep);
+    expect(
+      stripLeadRepeats(`手帳には「どちらかが当てはまるときは、胆道閉鎖症などの病気の可能性がありますので、1日も早く小児科医、小児外科医等の診察を受けてください」とあります。${keep}`, lead).trim(),
+    ).toBe(keep);
+    expect(stripLeadRepeats(`生後4か月くらいまでは、うんちの色に注意が必要です。${keep}`, lead).trim()).toBe(keep);
+  });
+  it("短い切れ端・引用の無い頭（急ぎ）・頭が無い時は、何も除かない", () => {
+    const own = "『1番～3番に近い色だと思う』に当てはまるか、明るいところで見比べてください。";
+    expect(stripLeadRepeats(own, lead)).toBe(own);
+    expect(stripLeadRepeats("今すぐ電話してください。", bridgeFor("高熱でぐったりしている", "child").lead)).toBe("今すぐ電話してください。");
+    expect(stripLeadRepeats(keep, null)).toBe(keep);
   });
 });
 

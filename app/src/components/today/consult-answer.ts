@@ -1,4 +1,4 @@
-// 「困った時に相談できる人はいますか？」の答えを、答えた人ごとに読む（画面を持たない純粋な関数。試験は consult-answer.test.ts）。
+// 「子育てについて気軽に相談できる人はいますか。」（CONSULT_QUESTION）の答えを、答えた人ごとに読む（画面を持たない純粋な関数。試験は consult-answer.test.ts）。
 //
 // 答えは4つ: いる／いるけど頼みにくい／いない／今は答えない。
 // 保存の形は今の手帳の記録（page "consult"、values は has・whom・text だけ。lib/techo-store.ts の VALUE_KEYS）に合わせ、

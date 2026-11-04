@@ -2,13 +2,15 @@
 
 // 便色カード: 国の7色を番号つきで並べ、親が押して選んだ番号を記録する。AI は色を判定しない。
 // 出典: 母子健康手帳 府令様式の便色カード（こども家庭庁「母子健康手帳について」2026年版）。
-// 色: ふだんは空色の情報箱（手帳の決まりの説明）。最新の記録が1〜3番の時と、1〜3番を選んだ・入れた直後だけ赤くし、
-//   #8000 と かかりつけへの電話を主ボタンにする（赤は命の橋だけ。判断の言葉は足さず、手帳の決まりをそのまま言う）。
-// 画面の見本の色は印刷の色の近似。画面では色が変わるので、実物は紙の手帳のカードで見比べる。
+// 手帳の頁の言葉（府令様式 p.19 の枠2つ・本文・注記）は、lib/techo.ts の原文をそのまま出す（下の StoolRule）。
+//   「迷う時は #8000」は手帳の文ではないので、引用の外に書く（STOOL_ASIDE）。
+// 色: ふだんは空色の情報箱。最新の記録が1〜3番の時と、1〜3番を選んだ・入れた直後だけ赤くし、
+//   #8000 と かかりつけへの電話を主ボタンにする（赤は命の橋だけ。判断の言葉は足さず、手帳の言葉をそのまま言う）。
+// 画面の見本の色は印刷の色の近似。画面では色が変わるので、実物は紙の手帳のカードで（手帳の言葉どおり明るいところで）見比べる。
 import { useEffect, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn, Notice, plainError, Why } from "@/components/ui";
-import { STOOL_COLORS, STOOL_NOTE } from "@/lib/techo";
+import { STOOL_ASIDE, STOOL_CHECKS, STOOL_COLORS, STOOL_NOTE_MORE, STOOL_RULE } from "@/lib/techo";
 import { RemoveRow } from "./EntryCard";
 import { jpDay } from "./labels";
 import type { TechoItem } from "./useTecho";
@@ -56,7 +58,7 @@ export function StoolCard({
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-base">紙の手帳の便色カードと見比べて、近い番号を押してください。</p>
+      <p className="text-base">明るいところで、紙の手帳の便色カードと見比べて、近い番号を押してください。</p>
       <ul className="grid grid-cols-4 gap-2" aria-label="便の色の番号">
         {STOOL_COLORS.map((c) => (
           <li key={c.no}>
@@ -94,11 +96,12 @@ export function StoolCard({
       )}
       {saved && <p className="text-sm text-muted" aria-live="polite">{saved}</p>}
       {error && <Notice title="記録に届きませんでした" safe="選んだ番号はまだ入っていません。もう一度「記録する」を押してください。" detail={error} />}
-      {/* 手帳の決まり（便色カードの説明）は消さない。ふだんは情報、1〜3番の時だけ赤い橋 */}
+      {/* 手帳の言葉（便色カードの頁）は消さない。ふだんは情報、1〜3番の時だけ赤い橋。#8000 の一言は引用の外 */}
       {urgent ? (
-        <div role="alert" className="flex flex-col gap-2 rounded-xl border-l-4 border-alert bg-alert/10 px-3 py-3">
-          <p className="text-base font-semibold text-alert">{STOOL_NOTE}</p>
+        <div role="alert" className="flex flex-col gap-3 rounded-xl border-l-4 border-alert bg-alert/10 px-3 py-3">
+          <StoolRule alert />
           <div className="flex flex-col gap-2">
+            <p className="text-base">{STOOL_ASIDE}</p>
             <a href="tel:%238000" className="inline-flex min-h-12 items-center justify-center rounded-full bg-alert px-5 text-base font-semibold text-white">
               #8000 に電話（こども医療でんわ相談）
             </a>
@@ -112,9 +115,10 @@ export function StoolCard({
           </div>
         </div>
       ) : (
-        <div className="flex flex-col gap-2 rounded-xl bg-sky-soft px-3 py-2">
-          <p className="text-base">便色カードの決まり: 1〜3番に近い色の時は、1日も早く小児科へ。迷う時は #8000。</p>
-          <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col gap-3 rounded-xl bg-sky-soft px-3 py-3">
+          <StoolRule alert={false} />
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-base">{STOOL_ASIDE}</p>
             <Btn href="tel:%238000" kind="secondary">
               #8000 に電話
             </Btn>
@@ -147,6 +151,29 @@ export function StoolCard({
         <p>紙の手帳には、生後2週・1か月・1〜4か月ごろに見た番号を書く欄があります（母子健康手帳の便色カード）。</p>
       </Why>
     </div>
+  );
+}
+
+/**
+ * 手帳の便色カードの頁の言葉（府令様式 p.19 の原文そのまま。言い換えない）。
+ * 手帳と同じ並び: 枠の2つ → 本文（どちらかが当てはまるときは…）、その下に注記（生後4か月くらいまでは…）。
+ */
+function StoolRule({ alert }: { alert: boolean }) {
+  return (
+    <figure className="flex flex-col gap-2">
+      <figcaption className="text-sm text-muted">母子手帳の言葉（便色カードの頁）</figcaption>
+      <blockquote className="flex flex-col gap-2">
+        <ul className="grid grid-cols-2 gap-2">
+          {STOOL_CHECKS.map((c) => (
+            <li key={c} className={`rounded-lg border bg-card px-2 py-1.5 text-base ${alert ? "border-alert/40" : "border-line"}`}>
+              {c}
+            </li>
+          ))}
+        </ul>
+        <p className={`text-base font-semibold ${alert ? "text-alert" : ""}`}>{STOOL_RULE}</p>
+        <p className="text-base">{STOOL_NOTE_MORE}</p>
+      </blockquote>
+    </figure>
   );
 }
 

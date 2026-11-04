@@ -6,7 +6,7 @@ import { useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { vaccineLabel } from "@/components/techo/labels";
 import { Btn, Notice, Pill, plainError, Why } from "@/components/ui";
-import { DEVELOPMENT_NOTE, GROWTH_NOTE, STOOL_COLORS, STOOL_NOTE, TECHO_PAGES, type TechoEntry } from "@/lib/techo";
+import { DEVELOPMENT_NOTE, GROWTH_NOTE, STOOL_ASIDE, STOOL_COLORS, STOOL_NOTE, TECHO_PAGES, type TechoEntry } from "@/lib/techo";
 import type { TechoDoc } from "@/lib/techo-store";
 import { TECHO_FORMS } from "@/lib/techo-fields";
 import { DateCheck, initialDate } from "./DateCheck";
@@ -97,7 +97,9 @@ function Candidate({
 }) {
   const e = d.data;
   const color = e.page === "stool" && typeof e.values.colorNo === "number" ? STOOL_COLORS.find((c) => c.no === e.values.colorNo) : undefined;
-  const note = e.page === "stool" ? STOOL_NOTE : e.page === "growth" ? GROWTH_NOTE : e.page === "development" ? DEVELOPMENT_NOTE : null;
+  // 便色は手帳の原文（府令様式 p.19）を「」で引き、手帳の文でない #8000 の一言は引用の外に書く
+  const note =
+    e.page === "stool" ? `母子手帳の便色カード「${STOOL_NOTE}」${STOOL_ASIDE}` : e.page === "growth" ? GROWTH_NOTE : e.page === "development" ? DEVELOPMENT_NOTE : null;
   const shown = Object.entries(e.values).filter(([k]) => !(e.page === "development" && k === "item") && !(e.page === "feeling" && k === "text"));
   return (
     <li className="flex flex-col gap-2 rounded-xl bg-card p-3">

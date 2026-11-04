@@ -67,7 +67,7 @@
 
 - **手帳のタブ**: 国の様式と同じ並び（妊婦健診 → 出産 → 新生児 → 便色カード → 成長・できた日 → 予防接種 → 相談した記録 → 一冊）で記録を見る。発育曲線は国の調査の値、便色カードは国の7色から親が番号を選ぶ（アプリは判定しない。注意書きは手帳と同じ文言）
 - **撮るだけ・話すだけで記録**: 紙の手帳のページを撮ると、Claude がどのページかを見分けて記録の候補を出す。「今日寝返りした」「BCG を受けた」と話しても候補になる。家族の「OK」で入る。紙の手帳が正本のまま、二重に書かせない
-- **相談できる人**: 時期ごとに1回だけ「困った時に相談できる人はいますか？」と聞く（紙の手帳の毎回の問い）。「いない」なら、町のこども家庭センター・産後ケア・#8000・児童相談所の相談ダイヤルへ橋をかける
+- **相談できる人**: 時期ごとに1回だけ「子育てについて気軽に相談できる人はいますか。」と聞く（紙の手帳の保護者の記録の毎回の問い。言葉もそのまま）。「いない」なら、町のこども家庭センター・産後ケア・#8000・児童相談所の相談ダイヤルへ橋をかける
 - **急ぎの時**: 「迷ったら 119」と #8000、窒息の手当と心肺蘇生の要点（こども家庭庁の任意様式・日本蘇生協議会のガイドラインを元に短く）。電波が無くても開ける
 
 作り手自身が、使う人の1号目です。家族の妊婦健診で、このアプリで先生の説明を録音して使っています（本物の記録は公開しません）。
@@ -182,7 +182,7 @@ The national handbook format has been refined for 78 years. We keep its seven qu
 
 - **Handbook tab**: records in the same order as the national format (prenatal checkups, birth, newborn, stool color card, growth and milestones, vaccinations, consultations, and finally the book). Growth charts use national survey values; for the stool color card the parent picks one of the seven official colors (the app never judges; the notes are the handbook's own wording).
 - **Record by photo or voice**: photograph a page of the paper handbook and Claude identifies the page and proposes entries; saying "rolled over today" or "got the BCG shot" works too. Nothing is saved until the family taps OK. The paper handbook stays the original.
-- **Someone to talk to**: once per stage, the app asks the handbook's recurring question, "Do you have someone to talk to when things are hard?" If not, it links to the city's child and family center, postpartum care, the #8000 pediatric line and the child guidance hotline.
+- **Someone to talk to**: once per stage, the app asks the handbook's recurring question (kept word for word in Japanese), "Is there someone you can casually talk to about raising your child?" If not, it links to the city's child and family center, postpartum care, the #8000 pediatric line and the child guidance hotline.
 - **Emergency page**: "When in doubt, call 119" plus #8000, and short steps for choking and CPR (based on the Children and Families Agency's handbook pages and the Japan Resuscitation Council guidelines). It opens even offline.
 
 The author is user #1, using it at a family member's real prenatal checkups (real records are never published).

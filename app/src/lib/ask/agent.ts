@@ -15,7 +15,7 @@ import type { Family } from "../demo-family";
 import { getKeep } from "../keep";
 import { checkBudget, recordSpend } from "../spend";
 import { STOOL_NOTE, DEVELOPMENT_NOTE, GROWTH_NOTE } from "../techo";
-import { bridgeFor } from "./bridge";
+import { bridgeFor, stripLeadRepeats } from "./bridge";
 import { ruleAnswer, ruleKind, type PlanView } from "./rule-answer";
 import { prenatalState } from "../prenatal";
 import { listTecho } from "../techo-store";
@@ -55,7 +55,7 @@ export const ASK_RULES = `あなたは今、家族からの問いに答えてい
 - 代わりに、受け止める1文 → 日付つきで記録する（add_record）か次の健診で先生に聞く（add_checkup_question）を、必ず道具で出す → 連絡先（妊娠中・産後の体はかかりつけの産院・夜間も、子どもはかかりつけか #8000。119 は「命が危ないと思ったら、迷わず119。救急車を呼ぶか迷う時は、子どもは #8000、ママの体は産院」と書く。「迷ったら119」とは書かない。119 を「息をしていない時だけ」などに狭めない）。
 - 急ぎでない問い（発達・数値・様子の気がかり）には、119 を添えない。連絡先は、かかりつけ・#8000（子ども）・産院（ママの体）まで。
 - 発達・ことばの気がかりで、次の健診（get_notebook の予約、無ければ get_plan のまだ先の健診）が2か月より先なら、町の保健センター（こども家庭センター）の子育て・発達の相談も文で案内する（判断はしない。相談できる所があると伝えるだけ）。
-- 母子手帳そのものの注意書きは、そのまま伝えてよい（言い換えない）: 便色「${STOOL_NOTE}」 発達「${DEVELOPMENT_NOTE}」 発育曲線「${GROWTH_NOTE}」
+- 母子手帳そのものの注意書きは、そのまま伝えてよい（言い換えない）: 便色「${STOOL_NOTE}」 発達「${DEVELOPMENT_NOTE}」 発育曲線「${GROWTH_NOTE}」。便色を引く時、「」の中は手帳の文だけにし、#8000 やかかりつけへの案内は「」の外に書く（手帳が言った事にしない）。
 - 心のつらさ（イライラ・涙・不安・孤独・夫婦の事も）は、相談やカウンセリングをしない。気持ちの言い換え・原因の見立て・対処のこつ・相手への文（頼まれていない時）も出さない。受け止める1文と、町のこども家庭センター・電話の相談先（こころの健康相談統一ダイヤル 0570-064-556・よりそいホットライン 0120-279-338）を必ず文で案内する。気持ちを手帳の「気持ちの記録」に残す事はできる（add_record）。
 - 授乳・ミルクの量・離乳食・食事の指導はしない。健診と町の保健センターの栄養相談へつなぐ。
 - 子育ての一般知識の講義をしない。この家族の今と、次の一手に絞る。
@@ -144,7 +144,7 @@ const GUARD_SYSTEM = `あなたは母子手帳アプリの返事を出す前に�
 - 心の相談・カウンセリングをしている（受け止める1文と相談先の案内は問題ない）
 - 授乳量・離乳食・栄養の指導をしている
 - 「送りました」「予約しました」など、していない事をした事にしている
-- 母子手帳の注意書き（便色カードの「1〜3番に近い色の時は…受診」など）をそのまま伝えるのは問題ない
+- 母子手帳の注意書きを、手帳の言葉として「」でそのまま引くのは問題ない（便色カードの「${STOOL_NOTE}」など。手帳の文の中の「病気の可能性」は返事の判断ではない）
 手続き・期限・お金・仕事・アプリの操作の答えは、内容の正しさは見ず、上の点だけを見る。`;
 
 async function guard(question: string, reply: string): Promise<z.infer<typeof GuardSchema>> {
@@ -349,12 +349,8 @@ export async function ask(input: AskInput): Promise<AskResult> {
 
   // 急ぎ・心の危機・便色カードの1〜3番は、返事の頭に機械で決めた1文を置く（Claude の書き方に任せない）
   if (bridge.lead) {
-    // Claude が同じ文を繰り返していたら除く（手帳の注意書きの引用など）
-    for (const line of bridge.lead.split("\n")) {
-      const core = line.match(/「(.+)」/)?.[1];
-      if (core) reply = reply.split(core).join("").replace(/「」(と書いてあります。?)?/g, "").replace(/(母子手帳の)?便色カードには、?(こう)?書いてあります。?/g, "");
-    }
-    reply = `${bridge.lead}\n\n${reply.replace(/\n{3,}/g, "\n\n").trim()}`;
+    // Claude が同じ文を繰り返していたら除く（手帳の注意書きの引用など。試験は bridge.test.ts）
+    reply = `${bridge.lead}\n\n${stripLeadRepeats(reply, bridge.lead).replace(/\n{3,}/g, "\n\n").trim()}`;
   }
   // 妊娠中・産後の急ぎは、通う産院の電話が分かればそれを一番上に（「産院へ電話」と言うのにボタンが無い、を無くす）
   const hospital = getKeep(family.id).hospital;
