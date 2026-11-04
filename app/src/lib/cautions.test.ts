@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { addDays, addMonths, lmpFromDue } from "./clock";
-import { CRY_LINES, cautionFor, cautionShareText, devDatesOf, type Caution, type CautionCtx, type CautionFamily, type CautionSeen } from "./cautions";
+import { CAUTION_IDS, CRY_LINES, cautionFor, cautionShareText, devDatesOf, type Caution, type CautionCtx, type CautionFamily, type CautionSeen } from "./cautions";
 import { DEMO_FAMILY } from "./demo-family";
 
 const MOM: CautionCtx = { role: "母", busy: false, birthFiled: false };
@@ -136,9 +136,8 @@ describe("中身", () => {
 
   it("出る札がそろう（15種）", () => {
     const kinds = new Set([...all.keys()].map((id) => id.replace(/-\d{4}$/, "")));
-    expect([...kinds].sort()).toEqual(
-      ["acc-1m", "acc-5m", "acc-crawl", "acc-roll", "acc-stand", "acc-walk", "birth-proof", "birth-proof-again", "cry", "skip-after", "skip-before", "skip-june", "sleep", "sleep-home", "sleep-nov"].sort(),
-    );
+    expect([...kinds].sort()).toEqual([...CAUTION_IDS].sort());
+    expect(CAUTION_IDS).toHaveLength(15);
   });
 
   it("どの札も、引用に出典があり、出典のページの URL がある。なぜ今？の1行目は出す時期", () => {

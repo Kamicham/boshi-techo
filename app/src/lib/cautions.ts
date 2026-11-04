@@ -69,6 +69,8 @@ export interface Caution {
 }
 
 export const CAUTION_LABEL: Record<CautionKind, string> = { safety: "気をつける事", know: "知っておく事", skip: "しなくていい事" };
+/** 札の種類（年の付く札は、年を外した形。試験と早送りの検査が「そろって出るか」を見る） */
+export const CAUTION_IDS = ["skip-before", "sleep", "birth-proof", "birth-proof-again", "cry", "skip-after", "acc-1m", "acc-5m", "acc-roll", "acc-crawl", "acc-stand", "acc-walk", "sleep-nov", "sleep-home", "skip-june"] as const;
 const RANK: Record<CautionKind, number> = { safety: 0, know: 1, skip: 2 };
 /** 期限が近い札は種類より先に（出生届は生まれた日を含めて14日以内） */
 const FIRST = new Set(["birth-proof-again"]);

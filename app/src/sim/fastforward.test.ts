@@ -46,6 +46,8 @@ import { DEMO_FAMILY } from "../lib/demo-family";
 import type { TechoEntry } from "../lib/techo";
 import { doneFromTecho, vaxHistory } from "../lib/techo-done";
 import { isPopulationFamily, madeHouseholdKind } from "./kind";
+import { CAUTION_IDS, CAUTION_LABEL, cautionFor, devDatesOf, type CautionSeen } from "../lib/cautions";
+import { birthdayFor, celebrationFor, welcomeFor } from "../lib/media-shared";
 
 const FULL = process.env.SIM_FULL === "1";
 /** アンケート用の日記（1000組が1000日の間に見た物）を sim/out/diary.json に書き出す（npm run survey が使う） */
@@ -76,6 +78,7 @@ const RULES = {
   p: "お金の1000日: 児童手当の最初の振込は偶数月で申請の後・届いたか確かめる件は申請が済んだ物だけで額を出さない・自営や仕事なしの母に出産手当金が出ない（辞める母には出す＝健康保険法第104条）",
   n: "産休・育休のお金: 育休の給付の初回の期限は育休の4か月目の月末で、自営・仕事なし・辞める母には育休の給付が出ず、パートナーの14日の1件は14日以上の家族に出ない（第2波⑤）",
   q: "呼び名と担当: 短い題・一言に「パパ」が出ず、正式な題は法の呼び名「産後パパ育休」の中だけ。法律上の親が出す届け（出生届・児童手当・保険証・医療費助成）の担当がパートナーに決め打ちにならない（2026-11-04 見直し L2-2・同性の家族 sim-03・未婚の父 sim-05）",
+  r: "気をつける事の札（lib/cautions.ts）: 1日に1枚まで。静かにする家族・生まれた日・母の画面の生後14日まで・お祝いや届けの束や手帳の気づきの日には出ず、読んだ札は同じ端末に二度出ない。引用ごとに出典があり、出生届出済証明の念押しはパートナーの画面で出生届がまだの時だけ、労基法の引用は働く母の家族だけ（2026-11-05 総点検の札）",
 } as const;
 type Rule = keyof typeof RULES;
 const RULE_IDS = Object.keys(RULES) as Rule[];
@@ -269,6 +272,17 @@ interface FamilyResult {
   triggersSeen: Partial<Record<TriggerKind, string>>;
   /** アンケート用の日記（DIARY の時だけ。persona の使う人の画面が変わった日だけ） */
   diary: string[];
+  /** 気をつける事の札が出た日（使う人ごと。出た日に「読んだ」を押す筋書き） */
+  cautions: CautionShown[];
+}
+
+interface CautionShown {
+  id: string;
+  title: string;
+  kind: keyof typeof CAUTION_LABEL;
+  meId: string;
+  date: string;
+  at: string;
 }
 
 /** 確かめる日（間引く時）: 1週おき＋節目＋きっかけの窓（生まれた日の前後・引っ越し・使い始め） */
@@ -312,6 +326,11 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
   const checkpoints: CheckpointRow[] = [];
   const triggersSeen: Partial<Record<TriggerKind, string>> = {};
   const toCheck = sampled ? checkDays(f, start, end, cps) : null;
+  // r: 気をつける事の札。「読んだ」は使う人の端末ごと（components/today/CautionCard.tsx と同じ）。筋書きは、出た日に読む。
+  // 手帳のできた日（寝返り・はいはい・つかまり立ち・ひとり歩き）は、作った家族の記録（techo-seed）から。画面と同じく生後3か月〜1歳2か月だけ渡す
+  const cautionSeen = new Map<string, CautionSeen>();
+  const cautions: CautionShown[] = [];
+  const devAll = f.birthDate ? devDatesOf(seedTecho(viewAt(f, end), end)) : {};
   // 期限表は、生まれた日と引っ越しを知っているかだけで変わる（同じ形なら作り直さない）
   const schedules = new Map<string, ReturnType<typeof scheduleFor>>();
   // 授かる前（最終月経の日より前）は、どの事も「授かったら」になる（scheduleFor に今日を渡す）
@@ -509,6 +528,8 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
 
     // 予定表の最後の事まで来たか（まだ先の事が1つも無い。「一冊を作る」を消したので、1歳半健診の後は2歳まで何も無い）
     const scheduleEnded = !tasks.some((t) => t.status === "まだ先");
+    // r: 画面が札を出さない日（Techo.tsx の cautionBusy）: お祝いの日・手帳の気づきが開いている日（届けの束は使う人ごとに下で）
+    const festive = !!birthdayFor(fv, day) || welcomeFor(fv, day) !== null || !!celebrationFor(fv, day);
     // ── 使う人ごとの決まり（家族の一人ずつが me） ──
     for (const me of f.members) {
       const s = screenFor(tasks, day, me, nextVisit, fv);
@@ -545,6 +566,31 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
       }
       // g
       if (!s.visitTop && !s.top && !s.calmNext && day <= lastDay && !scheduleEnded) push("g", "nothing-next", `${me.name}の画面に、今やる事も次に来る事も無い`, me.id);
+      // r: 気をつける事の札（画面と同じ入力: 役・出さない日・出生届が済んだか・手帳のできた日）
+      {
+        const role = me.role === "パートナー" ? "パートナー" : "母";
+        const seen = cautionSeen.get(me.id) ?? { ids: [] };
+        const b = fv.birthDate && fv.birthDate <= day ? fv.birthDate : null;
+        const dev = b && day >= addMonths(b, 3) && day < addMonths(b, 14) ? Object.fromEntries(Object.entries(devAll).filter(([, d]) => !!d && d <= day)) : undefined;
+        const busy = festive || (!!s.trip?.full && !s.visitTop) || kinds.size > 0;
+        const filed = done.has("birth-registration");
+        const c = cautionFor(fv, day, seen, { role, busy, birthFiled: filed, dev });
+        if (c) {
+          const since = b ? diffDays(day, b) : null;
+          const was = `${me.name}の画面に「${c.title}」`;
+          if (busy) push("r", `busy:${c.id}`, `お祝い・届けの束・手帳の気づきの日に、${was}`, me.id);
+          if (fv.situation?.quiet) push("r", `quiet:${c.id}`, `静かにする家族（${fv.situation.quiet}）の${was}`, me.id);
+          if (since === 0) push("r", `birthday:${c.id}`, `生まれた日に、${was}`, me.id);
+          if (role === "母" && since !== null && since <= 14) push("r", `mother14:${c.id}`, `生後${since}日の${was}`, me.id);
+          if (seen.ids.includes(c.id)) push("r", `again:${c.id}`, `読んだ札がまた出た: ${was}`, me.id);
+          if (!c.quotes.length || c.quotes.some((q) => !q.from) || !c.sources.length || c.sources.some((x) => !x.href.startsWith("https://")))
+            push("r", `source:${c.id}`, `引用か出典が欠けている: ${was}`, me.id);
+          if (c.id === "birth-proof-again" && (role !== "パートナー" || filed)) push("r", `proof:${me.id}`, `出生届出済証明の念押しが、${role !== "パートナー" ? "パートナーでない人" : "出生届の済んだ後"}に出た`, me.id);
+          if (c.quotes.some((q) => q.from.includes("労働基準法")) && !motherEmployed(fv.situation)) push("r", `labor:${c.id}`, `働いていない母の家族に、労基法の引用: ${was}`, me.id);
+          cautionSeen.set(me.id, { ids: [...seen.ids, c.id], day });
+          cautions.push({ id: c.id, title: c.title, kind: c.kind, meId: me.id, date: day, at });
+        }
+      }
     }
 
     // ── 日記（アンケート用。persona の使う人の画面が変わった日だけ書く） ──
@@ -596,7 +642,7 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
     }
   }
 
-  return { id: f.id, label: f.persona.label, meId: f.persona.meId, days, checked: toCheck ? toCheck.size : days, start, end, startPileWithoutSeed, violations, checkpoints, triggersSeen, diary };
+  return { id: f.id, label: f.persona.label, meId: f.persona.meId, days, checked: toCheck ? toCheck.size : days, start, end, startPileWithoutSeed, violations, checkpoints, triggersSeen, diary, cautions };
 }
 
 // ───────── まとめ ─────────
@@ -706,6 +752,69 @@ const UNREPRESENTABLE: { label: string; why: string; hit: (f: PopFamily) => bool
   { label: "離島に住む", why: "島外の産院へ移る（出産前の滞在）・船の時刻を表せない", hit: (f) => f.profile.placeType === "離島" },
 ];
 
+/** 決まり r の報告: 気をつける事の札が、どの家族に・いつ出たか（家族ごとに、使う人の誰かに最初に出た時。妊娠中の時期は週にまとめる） */
+function cautionLines(rs: Result[], heading: string, sampled: boolean): string[] {
+  const week = (at: string) => at.replace(/^(妊娠\d+週)\d+日$/, "$1");
+  const keyOf = (id: string) => id.replace(/-\d{4}$/, "");
+  const top = (m: Map<string, number>, n: number) =>
+    [...m.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, n)
+      .map(([k, v]) => `${k}（${v}）`)
+      .join("・");
+  const cards = new Map<string, { title: string; kind: string; families: number; times: number; when: Map<string, number> }>();
+  const firstOf = new Map<string, number>();
+  const none: Result[] = [];
+  const perFamily: number[] = [];
+  for (const x of rs) {
+    const cs = x.r.cautions;
+    if (!cs.length) {
+      none.push(x);
+      perFamily.push(0);
+      continue;
+    }
+    const first = cs.reduce((a, c) => (c.date < a.date ? c : a));
+    const fk = `${week(first.at)}「${first.title}」`;
+    firstOf.set(fk, (firstOf.get(fk) ?? 0) + 1);
+    const here = new Map<string, CautionShown>();
+    for (const c of cs) {
+      const k = keyOf(c.id);
+      const cur = cards.get(k) ?? { title: c.title, kind: CAUTION_LABEL[c.kind], families: 0, times: 0, when: new Map<string, number>() };
+      cur.times++;
+      cards.set(k, cur);
+      const prev = here.get(k);
+      if (!prev || c.date < prev.date) here.set(k, c);
+    }
+    for (const [k, c] of here) {
+      const cur = cards.get(k)!;
+      cur.families++;
+      cur.when.set(week(c.at), (cur.when.get(week(c.at)) ?? 0) + 1);
+    }
+    perFamily.push(here.size);
+  }
+  const sorted = [...perFamily].sort((a, b) => a - b);
+  const median = sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0;
+  const quietNone = none.filter((x) => x.f.situation?.quiet).length;
+  const L: string[] = [`### 気をつける事の札（決まり r・${heading}）`, ""];
+  L.push(
+    `札が出た家族 ${rs.length - none.length}/${rs.length}（出なかった ${none.length}・うち静かにする家族 ${quietNone}）。1家族に出た札の種類は中央値 ${median}。筋書きは、出た日に「読んだ」を押す（1日に1枚・端末ごと）。${sampled ? "確かめる日（1週おき＋節目）だけ見るので、出た日は最大6日遅れる。" : ""}`,
+    "",
+  );
+  const never = CAUTION_IDS.filter((id) => !cards.has(id));
+  if (never.length) L.push(`一度も出なかった札: ${never.join("・")}（時期が、出さない日＝お祝い・届けの束・手帳の気づきの日と重なっていないか見る）`, "");
+  L.push("| 札 | 種類 | 出た家族 | のべ（人・年） | よく出た時期（その家族で最初に出た時） |", "|---|---|---|---|---|");
+  for (const [k, c] of [...cards.entries()].sort((a, b) => b[1].families - a[1].families)) L.push(`| ${k} ${c.title} | ${c.kind} | ${c.families} | ${c.times} | ${top(c.when, 3)} |`);
+  L.push("", "家族ごとに最初に出た札（多い順）:", "", "| 時期と札 | 家族 |", "|---|---|");
+  for (const [k, v] of [...firstOf.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10)) L.push(`| ${k} | ${v} |`);
+  if (firstOf.size > 10) L.push(`| ほか ${firstOf.size - 10}通り | ${[...firstOf.values()].sort((a, b) => b - a).slice(10).reduce((n, v) => n + v, 0)} |`);
+  if (none.length && rs.length <= 30) {
+    L.push("", "出なかった家族:", "");
+    for (const x of none) L.push(`- ${x.r.id} ${x.r.label}${x.f.situation?.quiet ? `（静かにする家族: ${x.f.situation.quiet}）` : ""}`);
+  }
+  L.push("");
+  return L;
+}
+
 function writeReport() {
   fs.mkdirSync(OUT, { recursive: true });
   const count = countOf(results);
@@ -754,7 +863,7 @@ function writeReport() {
     }
     L.push("", "### 今のアプリが表せない状況（1000組の人数と全国換算）", "", "今の Family 型・期限表では持てない状況。困る人の多い順に、作る物の優先順位を決められる。", "", "| 状況 | 1000組 | 全国（年） | 何が表せないか |", "|---|---|---|---|");
     for (const u of unrep) L.push(`| ${u.label} | ${u.n} | ${nation(u.n)}家族 | ${u.why} |`);
-    L.push("");
+    L.push("", ...cautionLines(popResults, "1000組", !FULL));
   }
 
   L.push("## 30家族（珍しい型の見本・毎日確かめる）", "");
@@ -768,11 +877,16 @@ function writeReport() {
     for (const e of g.examples) L.push(`- 例: ${e}`);
     L.push("");
   }
+  L.push(...cautionLines(results, "30家族", false));
   L.push("### 家族ごと", "", `| id | 一言 | ${RULE_IDS.join(" | ")} |`, `|---|---|${RULE_IDS.map(() => "---").join("|")}|`);
   for (const x of results) L.push(`| ${x.r.id} | ${x.r.label} | ${RULE_IDS.map((r) => x.marks[r]).join(" | ")} |`);
   L.push("");
   for (const x of results) {
     L.push(`#### ${x.r.id} ${x.r.label}`, "", `使う人: ${x.r.meId}／${x.r.start} 〜 ${x.r.end}（${x.r.days}日）／参謀が最初に出た日: ${Object.entries(x.r.triggersSeen).map(([k, d]) => `${k} ${d}`).join("・") || "無し"}${x.r.startPileWithoutSeed ? `／途中からの済み扱いが無ければ、使い始めた日に期限切れ${x.r.startPileWithoutSeed}件` : ""}`, "");
+    {
+      const cs = x.r.cautions;
+      L.push(`気をつける事の札: ${cs.length ? `のべ${cs.length}回（最初は ${cs[0].date}・${cs[0].at}・${cs[0].meId}「${cs[0].title}」）` : "出ない"}`, "");
+    }
     if (x.groups.length) {
       L.push("| 印 | 決まり | 最初の日 | 時期 | 日数 | 使う人 | 中身 |", "|---|---|---|---|---|---|---|");
       for (const g of [...x.groups].sort((a, b) => (a.mark === b.mark ? a.first.localeCompare(b.first) : a.mark === "×" ? -1 : 1)))
@@ -1096,6 +1210,20 @@ describe("静かにする間の気づきと数", () => {
         }
       }
       expect(hideCounts(SIM_FAMILIES[0])).toBe(false);
+    }
+  });
+
+  it("30家族の loss・nicu の写し: 1000日の毎日、母にもパートナーにも気をつける事の札が出ない（決まり r）", () => {
+    for (const quiet of ["loss", "nicu"] as const) {
+      for (const f0 of SIM_FAMILIES) {
+        const f = { ...f0, situation: { ...f0.situation, quiet } };
+        const start = lmpFromDue(f.dueDate);
+        for (let i = 0; i <= 1000; i++) {
+          const day = addDays(start, i);
+          const fv = viewAt(f, day);
+          for (const role of ["母", "パートナー"] as const) expect(cautionFor(fv, day, { ids: [] }, { role, busy: false, birthFiled: false }), `${f.id} ${quiet} ${role} ${day}`).toBeNull();
+        }
+      }
     }
   });
 });
