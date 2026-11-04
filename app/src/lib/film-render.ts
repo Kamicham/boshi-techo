@@ -15,9 +15,10 @@ import type { HouseholdCtx } from "./access";
 import type { Book } from "./book";
 import { sealForHousehold } from "./crypto";
 import type { MediaRow } from "./db";
-import { CROSSFADE_SEC, dayLine, filmShots, filmTimeline, firstSentences, voiceSpans, type Shot } from "./film-plan";
+import { CROSSFADE_SEC, dayLine, filmShots, filmTimeline, firstSentences, letterLine, voiceSpans, type FilmLetter, type Shot } from "./film-plan";
 import { audit } from "./households";
 import { HttpError } from "./http-error";
+import { openedVoiceLetters, readLetterVoice } from "./letters";
 import { readVariant, toClient, type MediaData } from "./media";
 import type { ClientMedia } from "./media-shared";
 import { renderMusicWav } from "./musicbox";
@@ -32,15 +33,16 @@ const FONT = "Hiragino Maru Gothic ProN, Zen Maru Gothic, Noto Sans CJK JP, Noto
 
 /** 一冊の映画の印（同じ一冊・同じ写真と声なら、作り直さない） */
 export function filmKey(book: Book, shots: readonly Shot<ClientMedia>[]): string {
-  const ids = shots.map((s) => (s.kind === "photo" ? `${s.photo.id}:${s.voice?.id ?? ""}:${s.caption}:${s.sec}` : s.kind));
+  const ids = shots.map((s) => (s.kind === "photo" ? `${s.photo.id}:${s.voice?.id ?? ""}:${s.caption}:${s.sec}` : s.kind === "letter" ? `letter:${s.letter.id}:${s.sec}` : s.kind));
   return createHash("sha256").update(JSON.stringify([book.generatedAt, book.title, ids])).digest("hex").slice(0, 32);
 }
 
-export function filmFor(ctx: HouseholdCtx, book: Book): { shots: Shot<ClientMedia>[]; rows: Map<string, MediaRow<MediaData>> } {
+/** 映画の場面と、使う写真・声の行。today は開いた手紙を決める日（本物の家族はサーバの日付・作った家族だけ画面の「今日」） */
+export function filmFor(ctx: HouseholdCtx, book: Book, today?: string | null): { shots: Shot<ClientMedia>[]; rows: Map<string, MediaRow<MediaData>> } {
   const rows = new Map<string, MediaRow<MediaData>>();
   for (const kind of ["photo", "audio"] as const) for (const r of ctx.db.media.list<MediaData>({ kind })) if (!r.trashedAt) rows.set(r.id, r);
   const media = [...rows.values()].map((r) => toClient(ctx.household.id, r));
-  return { shots: filmShots(book.film, media), rows };
+  return { shots: filmShots(book.film, media, openedVoiceLetters(ctx, today)), rows };
 }
 
 /** 書き出した動画（この一冊の物）。無ければ null */
@@ -97,6 +99,14 @@ export async function titlePng(book: Pick<Book, "title" | "childName">): Promise
   return sharp(svg(inner, `<rect width="${W}" height="${H}" fill="#0d0c10"/>`)).png().toBuffer();
 }
 
+/** 開いた手紙の場面: 封筒の絵と「誰から 誰へ」「書いた日・開いた日」。手紙の文字は出さない */
+export async function letterPng(l: Pick<FilmLetter, "from" | "to" | "sealedOn" | "openOn">): Promise<Buffer> {
+  const cx = W / 2;
+  const env = `<g transform="translate(${cx - 70} 170)" fill="none" stroke="#e9c9a8" stroke-width="5" stroke-linejoin="round"><rect x="0" y="0" width="140" height="96" rx="10"/><path d="M4 8 L70 58 L136 8"/></g>`;
+  const inner = `${env}${text(cx, 330, 22, "未 来 の 手 紙", { opacity: 0.7, spacing: 8 })}${text(cx, 400, 46, `${l.from}から ${l.to}へ`, { weight: 700 })}${text(cx, 460, 24, letterLine(l), { opacity: 0.85 })}${text(cx, 560, 22, "♪ 声の手紙", { opacity: 0.75 })}`;
+  return sharp(svg(inner, `<rect width="${W}" height="${H}" fill="#1f1812"/>`)).png().toBuffer();
+}
+
 export async function endPng(book: Pick<Book, "closing" | "asOf">): Promise<Buffer> {
   const lines = wrapJa(firstSentences(book.closing), 26, 5);
   const top = H / 2 - (lines.length * 54) / 2;
@@ -128,12 +138,19 @@ export async function ffmpegBin(): Promise<string | null> {
  * 動画を組んで、mp4 の中身と長さを返す（置くのは saveFilmVideo）。
  * 一時フォルダは必ず消す（途中で失敗しても）。
  */
-export async function renderFilm(ctx: HouseholdCtx, book: Book, shots: readonly Shot<ClientMedia>[], rows: ReadonlyMap<string, MediaRow<MediaData>>): Promise<{ mp4: Buffer; durationSec: number }> {
+export async function renderFilm(
+  ctx: HouseholdCtx,
+  book: Book,
+  shots: readonly Shot<ClientMedia>[],
+  rows: ReadonlyMap<string, MediaRow<MediaData>>,
+  today?: string | null,
+): Promise<{ mp4: Buffer; durationSec: number }> {
   const ff = await ffmpegBin();
   if (!ff) throw new HttpError(503, "この置き場では動画を作れません（ffmpeg がありません）");
   if (!shots.length) throw new HttpError(400, "映画にする写真がまだありません");
   const { items, total } = filmTimeline(shots);
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "boshi-film-"));
+  // 一時フォルダの親は BOSHI_TMP_DIR（試験で、ほかの書き出しと混ざらないように）か、機械の一時フォルダ
+  const dir = fs.mkdtempSync(path.join(process.env.BOSHI_TMP_DIR || os.tmpdir(), "boshi-film-"));
   try {
     const args: string[] = ["-hide_banner", "-loglevel", "error", "-y"];
     const filters: string[] = [];
@@ -160,7 +177,7 @@ export async function renderFilm(ctx: HouseholdCtx, book: Book, shots: readonly 
         input += 2;
       } else {
         const card = path.join(dir, `k${i}.png`);
-        fs.writeFileSync(card, s.kind === "title" ? await titlePng(book) : await endPng(book));
+        fs.writeFileSync(card, s.kind === "title" ? await titlePng(book) : s.kind === "letter" ? await letterPng(s.letter) : await endPng(book));
         args.push("-loop", "1", "-framerate", String(FPS), "-t", len.toFixed(3), "-i", card);
         filters.push(`[${input}:v]scale=${W}:${H},format=yuv420p,setsar=1,fps=${FPS}[v${i}]`);
         input += 1;
@@ -183,9 +200,15 @@ export async function renderFilm(ctx: HouseholdCtx, book: Book, shots: readonly 
     const mIn = input++;
     const alabels = [`[${mIn}:a]`];
     for (const [i, it] of items.entries()) {
-      if (it.voiceAt == null || it.shot.kind !== "photo" || !it.shot.voice) continue;
-      const row = rows.get(it.shot.voice.id);
-      const got = row ? await readVariant(ctx, row, "orig") : null;
+      if (it.voiceAt == null) continue;
+      let got: { buf: Buffer; mime: string } | null = null;
+      if (it.shot.kind === "photo" && it.shot.voice) {
+        const row = rows.get(it.shot.voice.id);
+        got = row ? await readVariant(ctx, row, "orig") : null;
+      } else if (it.shot.kind === "letter") {
+        // 手紙の関所を通して解く（開く日の前なら 403 で止まる）
+        got = await readLetterVoice(ctx, it.shot.letter.id, today);
+      }
       if (!got) continue;
       const f = path.join(dir, `a${i}.${extOf(got.mime)}`);
       fs.writeFileSync(f, got.buf);

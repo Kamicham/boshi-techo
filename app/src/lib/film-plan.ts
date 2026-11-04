@@ -1,6 +1,7 @@
 // 映画の台本（画面の映画 /book/film と、書き出す動画の両方が使う）。
 // 一冊の film（Claude が書いた写真の順・秒・字幕・声）と、今ある写真・声から、場面の並びと秒・声を流し始める時刻を決める。
-// 決まり: 題（4秒）→ 写真の場面 → みんなの章（祖父母などが足した写真と声。足した人ごとに組む）→ 終わり（6秒）。
+// 決まり: 題（4秒）→ 写真の場面 → みんなの章（祖父母などが足した写真と声。足した人ごとに組む）→ 開いた声の手紙 → 終わり（6秒）。
+// 手紙は、開く日を過ぎて声のある物だけ（封の間の手紙は数も出さない）。手紙の文字は映画に出さず、誰から誰へ・書いた日と開いた日と、声だけ。
 // 声のある場面は、声が終わるまで映す（18秒まで。祖父母の声はゆっくりで長い）。声は場面が映ってから 0.6 秒置いて話し始める。
 // 画面とは別に読む（server-only ではない）。Claude には何も送らない。
 
@@ -22,9 +23,21 @@ export interface FilmCue {
   voiceId?: string;
 }
 
+/** 映画に入れる手紙（画面に渡す手紙の形から、要る所だけ） */
+export interface FilmLetter {
+  id: string;
+  from: string;
+  to: string;
+  sealedOn: string;
+  openOn: string | null;
+  opened: boolean;
+  voiceSec?: number;
+}
+
 export type Shot<M extends FilmMedia = FilmMedia> =
   | { kind: "title" | "end"; sec: number }
-  | { kind: "photo"; photo: M; caption: string; sec: number; voice: M | null };
+  | { kind: "photo"; photo: M; caption: string; sec: number; voice: M | null }
+  | { kind: "letter"; letter: FilmLetter; sec: number };
 
 export const TITLE_SEC = 4;
 export const END_SEC = 6;
@@ -36,7 +49,7 @@ export const CROSSFADE_SEC = 1;
 
 const voiceSec = (voice: FilmMedia, base: number) => Math.min(MAX_VOICE_SHOT_SEC, Math.max(base, (voice.durationSec ?? base) + 1.2));
 
-export function filmShots<M extends FilmMedia>(film: readonly FilmCue[], media: readonly M[]): Shot<M>[] {
+export function filmShots<M extends FilmMedia>(film: readonly FilmCue[], media: readonly M[], letters: readonly FilmLetter[] = []): Shot<M>[] {
   const byId = new Map(media.filter((m) => !m.hidden).map((m) => [m.id, m]));
   const xs: Shot<M>[] = film.flatMap((x) => {
     const photo = byId.get(x.mediaId);
@@ -55,7 +68,12 @@ export function filmShots<M extends FilmMedia>(film: readonly FilmCue[], media: 
     const voice = vi >= 0 ? fromVoices.splice(vi, 1)[0] : null;
     return { kind: "photo" as const, photo, caption: photo.caption ?? `${photo.from!.name}から`, sec: voice ? voiceSec(voice, 5) : 5, voice };
   });
-  return xs.length ? [{ kind: "title", sec: TITLE_SEC }, ...xs, ...minna, { kind: "end", sec: END_SEC }] : [];
+  // 開いた声の手紙（開いた日の順）。封の間・声の無い手紙は入れない
+  const opened: Shot<M>[] = letters
+    .filter((l) => l.opened && l.voiceSec !== undefined)
+    .sort((a, b) => (a.openOn ?? a.sealedOn).localeCompare(b.openOn ?? b.sealedOn))
+    .map((letter) => ({ kind: "letter" as const, letter, sec: Math.min(MAX_VOICE_SHOT_SEC, Math.max(6, (letter.voiceSec || 6) + 1.2)) }));
+  return xs.length ? [{ kind: "title", sec: TITLE_SEC }, ...xs, ...minna, ...opened, { kind: "end", sec: END_SEC }] : [];
 }
 
 export interface Timed<M extends FilmMedia = FilmMedia> {
@@ -70,7 +88,7 @@ export interface Timed<M extends FilmMedia = FilmMedia> {
 export function filmTimeline<M extends FilmMedia>(shots: readonly Shot<M>[]): { items: Timed<M>[]; total: number } {
   let t = 0;
   const items = shots.map((shot) => {
-    const it: Timed<M> = { shot, start: t, voiceAt: shot.kind === "photo" && shot.voice ? t + VOICE_LEAD_SEC : null };
+    const it: Timed<M> = { shot, start: t, voiceAt: (shot.kind === "photo" && shot.voice) || shot.kind === "letter" ? t + VOICE_LEAD_SEC : null };
     t += shot.sec;
     return it;
   });
@@ -79,9 +97,12 @@ export function filmTimeline<M extends FilmMedia>(shots: readonly Shot<M>[]): { 
 
 /** 声が流れている間（音楽を小さくする間） */
 export function voiceSpans(items: readonly Timed[]): { from: number; to: number }[] {
-  return items.flatMap((it) =>
-    it.voiceAt != null && it.shot.kind === "photo" && it.shot.voice ? [{ from: it.voiceAt, to: it.voiceAt + (it.shot.voice.durationSec ?? it.shot.sec - 1.2) }] : [],
-  );
+  return items.flatMap((it) => {
+    if (it.voiceAt == null) return [];
+    if (it.shot.kind === "photo" && it.shot.voice) return [{ from: it.voiceAt, to: it.voiceAt + (it.shot.voice.durationSec ?? it.shot.sec - 1.2) }];
+    if (it.shot.kind === "letter") return [{ from: it.voiceAt, to: it.voiceAt + (it.shot.letter.voiceSec || it.shot.sec - 1.2) }];
+    return [];
+  });
 }
 
 /** 終わりの言葉: 最初の2文 */
@@ -93,4 +114,9 @@ export function firstSentences(s: string): string {
 export function dayLine(d: string): string {
   const [y, m, day] = d.split("-").map(Number);
   return `${y}年${m}月${day}日`;
+}
+
+/** 手紙の場面の言葉: 「2027年3月1日に書いて、2028年4月26日に開いた手紙」 */
+export function letterLine(l: Pick<FilmLetter, "sealedOn" | "openOn">): string {
+  return l.openOn ? `${dayLine(l.sealedOn)}に書いて、${dayLine(l.openOn)}に開いた手紙` : `${dayLine(l.sealedOn)}に書いた手紙`;
 }

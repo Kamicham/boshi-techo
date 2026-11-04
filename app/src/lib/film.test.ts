@@ -1,7 +1,7 @@
 // 映画の書き出しの試験: 台本から秒と声の時刻が決まる・みんなの章が終わりの前に入る・音楽の長さと声の間の小ささ・
 // 見本の家族の写真3枚と声1本で本当に mp4 ができ、長さと音が入り、一時フォルダが残らない（ffmpeg がある所だけ）。
 // DB と置き場は一時フォルダに作る（わが家の app/data には触らない）。写真と声は作った見本の家族の物だけ。
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -13,6 +13,9 @@ const dir = fs.mkdtempSync(path.join(os.tmpdir(), "boshi-film-test-"));
 process.env.BOSHI_DATA_DIR = dir;
 process.env.BETTER_AUTH_SECRET = "test-secret-0123456789abcdef0123456789abcdef";
 process.env.BOSHI_KEK = "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff";
+const tmp = path.join(dir, "tmp");
+fs.mkdirSync(tmp);
+process.env.BOSHI_TMP_DIR = tmp;
 delete process.env.BOSHI_STORAGE;
 delete process.env.BOSHI_SIM;
 
@@ -58,6 +61,15 @@ describe("台本", () => {
     expect(items[0].voiceAt).toBeNull();
     expect(total).toBeCloseTo(39.4 + P.END_SEC + P.CROSSFADE_SEC);
     expect(P.voiceSpans(items)[0]).toEqual({ from: 4.6, to: 10.6 });
+    // 開いた声の手紙は、みんなの章の後・終わりの前に入る。封の間・声の無い手紙は入らない
+    const L = (id: string, o: Partial<import("./film-plan").FilmLetter>) => ({ id, from: "美咲", to: "ひなた", sealedOn: "2027-03-01", openOn: "2028-04-26", opened: true, voiceSec: 18, ...o });
+    const withL = P.filmShots(film, media, [L("sealed", { opened: false }), L("novoice", { voiceSec: undefined }), L("late", { openOn: "2029-01-01", voiceSec: 4 }), L("l1", {})]);
+    expect(withL.map((s) => (s.kind === "photo" ? s.photo.id : s.kind === "letter" ? s.letter.id : s.kind))).toEqual(["title", "p1", "p3", "g1", "l1", "late", "end"]);
+    expect(withL.map((s) => s.sec).slice(4, 6)).toEqual([P.MAX_VOICE_SHOT_SEC, 6]);
+    const tl = P.filmTimeline(withL);
+    expect(tl.items[4].voiceAt).toBeCloseTo(tl.items[4].start + P.VOICE_LEAD_SEC);
+    expect(P.voiceSpans(tl.items).at(-1)).toEqual({ from: tl.items[5].start + P.VOICE_LEAD_SEC, to: tl.items[5].start + P.VOICE_LEAD_SEC + 4 });
+    expect(P.letterLine({ sealedOn: "2027-03-01", openOn: "2028-04-26" })).toBe("2027年3月1日に書いて、2028年4月26日に開いた手紙");
     // 写真が1枚も無い台本は、映画にしない
     expect(P.filmShots([{ mediaId: "gone", sec: 4, caption: "" }], media)).toEqual([]);
   });
@@ -109,11 +121,20 @@ describe.skipIf(!ffmpeg || !fs.existsSync(ffprobe ?? ""))("見本の家族で mp
         { mediaId: c.media.id, sec: 3, caption: "鹿児島から箱が届いた" },
       ],
     } as unknown as import("./book").Book;
-    const { shots, rows } = R.filmFor(ctx, book);
-    expect(shots.length).toBe(5);
-    const before = fs.readdirSync(os.tmpdir()).filter((x) => x.startsWith("boshi-film-") && !x.startsWith("boshi-film-test-")).length;
-    const { mp4, durationSec } = await R.renderFilm(ctx, book, shots, rows);
-    const after = fs.readdirSync(os.tmpdir()).filter((x) => x.startsWith("boshi-film-") && !x.startsWith("boshi-film-test-")).length;
+    const before0 = R.filmKey(book, R.filmFor(ctx, book).shots);
+    // 開いた声の手紙（封をしない＝いつでも読める）と、封の間の声の手紙
+    const Lt = await import("./letters");
+    const lv = fs.readFileSync(path.join(base, "l-1y.m4a"));
+    const opened = await Lt.writeVoiceLetter(ctx, { body: "", open: "now", from: "美咲", today: "2027-05-01" }, { audio: lv, sec: 18.1 });
+    await Lt.writeVoiceLetter(ctx, { body: "", open: "20y", from: "翔太", today: "2027-05-01" }, { audio: fs.readFileSync(path.join(base, "v01.m4a")), sec: 5.7 });
+    const { shots, rows } = R.filmFor(ctx, book, "2027-06-01");
+    expect(shots.map((s) => s.kind)).toEqual(["title", "photo", "photo", "photo", "letter", "end"]);
+    expect(shots[4].kind === "letter" && shots[4].letter.id).toBe(opened.id);
+    // 手紙が入ると、作り直しの印が変わる
+    expect(R.filmKey(book, shots)).not.toBe(before0);
+    const before = fs.readdirSync(tmp).length;
+    const { mp4, durationSec } = await R.renderFilm(ctx, book, shots, rows, "2027-06-01");
+    const after = fs.readdirSync(tmp).length;
     expect(after).toBe(before);
     const out = path.join(dir, "out.mp4");
     fs.writeFileSync(out, mp4);
@@ -124,6 +145,14 @@ describe.skipIf(!ffmpeg || !fs.existsSync(ffprobe ?? ""))("見本の家族で mp
     expect(probe.streams.map((s) => s.codec_type).sort()).toEqual(["audio", "video"]);
     expect(probe.streams.find((s) => s.codec_type === "video")).toMatchObject({ width: 1280, height: 720 });
     expect(Math.abs(Number(probe.format.duration) - durationSec)).toBeLessThan(0.5);
+    // 手紙の声が、手紙の場面の時刻に入っている（その間の音が、声の無い題の間より大きい）
+    const tl = (await import("./film-plan")).filmTimeline(shots);
+    const at = tl.items[4].voiceAt!;
+    const vol = (from: number, len: number) => {
+      const o = spawnSync(ffmpeg!, ["-hide_banner", "-ss", String(from), "-t", String(len), "-i", out, "-af", "volumedetect", "-f", "null", "-"]).stderr.toString();
+      return Number(/mean_volume: (-?[\d.]+) dB/.exec(o)?.[1] ?? -99);
+    };
+    expect(vol(at + 1, 5)).toBeGreaterThan(vol(1, 2.5) + 3);
 
     const key = R.filmKey(book, shots);
     const row = await R.saveFilmVideo(ctx, mp4, { key, title: book.title, durationSec, date: book.asOf });

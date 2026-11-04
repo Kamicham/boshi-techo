@@ -23,8 +23,8 @@ function view(ctx: HouseholdCtx, row: MediaRow<{ durationSec?: number }>) {
 function bookOf(ctx: HouseholdCtx, today: string | null) {
   const book = latestBook(ctx.household.id, today && DAY.test(today) ? today : undefined);
   if (!book) throw new HttpError(404, "まだ一冊がありません");
-  const { shots, rows } = filmFor(ctx, book);
-  return { book, shots, rows, key: filmKey(book, shots) };
+  const { shots, rows } = filmFor(ctx, book, today);
+  return { book, shots, rows, today, key: filmKey(book, shots) };
 }
 
 export const GET = route(async (req: Request) => {
@@ -38,7 +38,7 @@ export const GET = route(async (req: Request) => {
 export const POST = route(async (req: Request) => {
   const b = await body<{ familyId?: string; today?: string }>(req);
   const ctx = await withHousehold(req, b.familyId, "media:write");
-  const { book, shots, rows, key } = bookOf(ctx, b.today ?? null);
+  const { book, shots, rows, key, today } = bookOf(ctx, b.today ?? null);
   const have = existingFilm(ctx, key);
   if (have) return { video: view(ctx, have) };
   const hid = ctx.household.id;
@@ -50,7 +50,7 @@ export const POST = route(async (req: Request) => {
   }
   busy.add(hid);
   try {
-    const { mp4, durationSec } = await renderFilm(ctx, book, shots, rows);
+    const { mp4, durationSec } = await renderFilm(ctx, book, shots, rows, today);
     const row = await saveFilmVideo(ctx, mp4, { key, title: book.title, durationSec, date: book.asOf });
     return { video: view(ctx, row) };
   } finally {
