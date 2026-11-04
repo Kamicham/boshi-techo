@@ -4,7 +4,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type Anthropic from "@anthropic-ai/sdk";
-import { EVERYDAY_MODEL, structured } from "./claude";
+import { EVERYDAY_MODEL, sampleMode, structured } from "./claude";
 import { addDays, addMonths, clockAt, conceptionDate, lmpFromDue } from "./clock";
 import { list, put, remove, type Doc } from "./db";
 import { DEMO_FAMILY, type Family } from "./demo-family";
@@ -182,6 +182,12 @@ export async function capture(input: CaptureInput, replaceCaptureId?: string): P
 
   const out = await structured(Schema, SYSTEM, parts, { model: EVERYDAY_MODEL, maxTokens: 6000, task: "capture" });
 
+  // 見本の答え（鍵の無い見本の家族）は、同じ入力なら毎回同じ。同じ日に同じ文を送り直しても（写真は除く）記録へ足さず、前に入れた同じ見本を置き換える
+  if (!replaceCaptureId && source !== "photo" && sampleMode() && out.records[0]) {
+    const first = out.records[0];
+    const prev = listRecords(family.id).find((r) => r.data.captureId && r.data.source === source && r.data.kind === first.kind && r.data.title === first.title && r.date === (isDate(first.date) ? first.date : today));
+    if (prev) replaceCaptureId = prev.data.captureId;
+  }
   // 聞き返しの後は、前回の記録を作り直した物で置き換える
   if (replaceCaptureId) {
     for (const r of listRecords(family.id)) if (r.data.captureId === replaceCaptureId) remove(r.id);

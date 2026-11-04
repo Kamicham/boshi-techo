@@ -105,6 +105,20 @@ describe("鍵が無くても動く床", () => {
     expect(calls).toHaveLength(0);
   });
 
+  it("見本の家族が同じ日に同じ文を送り直しても、見本の記録は増えない（置き換える）。違う文は足す", async () => {
+    const { sendingAs } = await import("./claude");
+    const { capture, listRecords } = await import("./capture");
+    const { DEMO_FAMILY } = await import("./demo-family");
+    const family = { ...DEMO_FAMILY, id: "demo-sample-once" };
+    const send = (text: string) => sendingAs(demo, () => capture({ family, today: "2026-11-04", source: "text", text }));
+    await send("健診で次は2週間後と言われた");
+    await send("健診で次は2週間後と言われた");
+    expect(listRecords(family.id).filter((r) => r.data.title.startsWith("健診で次は"))).toHaveLength(1);
+    await send("区役所で受診票をもらった");
+    expect(listRecords(family.id)).toHaveLength(2);
+    expect(calls).toHaveLength(0);
+  });
+
   it("見本の無い仕事・調べ物・本物とシミュレーションの世帯は、鍵がありませんの 503", async () => {
     const { structured, research, sampleMode } = await import("./claude");
     expect(sampleMode(sim)).toBe(false);

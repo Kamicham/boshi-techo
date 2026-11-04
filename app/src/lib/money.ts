@@ -90,3 +90,17 @@ export function moneyWatch(schedule: Milestone[], done: Set<string>, appliedOn: 
   }
   return out;
 }
+
+/**
+ * 見本の家族: 期限を過ぎた手続きは、始まりから3日後（期限がそれより前なら期限の日）に出したとみなす。
+ * 期限の日に出したとみなすと、届いたかの確かめが1歳・2歳の頃の一番上に来てしまう（医療費控除の還付など）。近似
+ */
+export function demoAppliedOn(schedule: Milestone[], today: string): Record<string, string> {
+  const on: Record<string, string> = {};
+  for (const m of schedule) {
+    if (!m.deadlineDate || m.deadlineDate >= today) continue;
+    const d = addDays(m.startDate, 3);
+    on[m.id] = d < m.deadlineDate ? d : m.deadlineDate;
+  }
+  return on;
+}

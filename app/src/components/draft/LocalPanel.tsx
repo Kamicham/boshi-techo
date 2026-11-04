@@ -23,7 +23,7 @@ function mdDate(s: string) {
   return `${m}月${d}日`;
 }
 
-export function LocalPanel(p: { city: string; title: string; local: LocalInfo | null; busy: boolean; err: string; onRetry: () => void; onRefresh: () => void }) {
+export function LocalPanel(p: { city: string; title: string; local: LocalInfo | null; busy: boolean; err: string; settled?: boolean; onRetry: () => void; onRefresh: () => void }) {
   const { local } = p;
   return (
     <section aria-label={`${p.city}での手続き`} className="flex flex-col gap-3 rounded-2xl bg-sky-soft/60 p-4">
@@ -38,7 +38,7 @@ export function LocalPanel(p: { city: string; title: string; local: LocalInfo | 
           then="できたら、ここに「どこへ・何を持って」が出ます"
         />
       )}
-      {p.err && <ErrorLine text={p.err} onRetry={p.onRetry} />}
+      {p.err && <ErrorLine text={p.err} settled={p.settled} onRetry={p.onRetry} />}
       {local && !p.busy && <LocalBody local={local} title={p.title} onRefresh={p.onRefresh} />}
     </section>
   );

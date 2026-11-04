@@ -217,7 +217,7 @@ export async function research(
       503,
       process.env.ANTHROPIC_API_KEY
         ? "今日の体験で Claude を使える上限に達したので、公式のページは調べませんでした。明日また試してください"
-        : "見本の手帳では、公式のページを調べるのに Claude の鍵が要ります。app/.env.local に ANTHROPIC_API_KEY を入れると調べます",
+        : "見本の手帳では、町の公式ページを調べません。本物の手帳では、手帳が町の公式ページから窓口・持ち物・期限を取ってきます",
     );
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: question }];
   let res: Anthropic.Beta.BetaMessage | undefined;

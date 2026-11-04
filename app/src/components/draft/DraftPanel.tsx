@@ -33,6 +33,7 @@ type PanelProps = {
   view: DraftView | null;
   busy: DraftBusy;
   err: string;
+  settled?: boolean;
   onView: (v: DraftView) => void;
   onRemake: () => void;
   onRetry: () => void;
@@ -53,7 +54,7 @@ export function DraftPanel(p: PanelProps) {
           then="できたら、ここに宛先・件名・本文が出ます"
         />
       )}
-      {p.err && <ErrorLine text={p.err} onRetry={p.onRetry} />}
+      {p.err && <ErrorLine text={p.err} settled={p.settled} onRetry={p.onRetry} />}
       {draft && p.view && p.busy !== "make" && (
         <DraftBody key={`${draft.title}\n${draft.to}\n${draft.body}\n${draft.status}`} {...p} view={p.view} draft={draft} />
       )}
@@ -61,7 +62,7 @@ export function DraftPanel(p: PanelProps) {
   );
 }
 
-function DraftBody(p: Omit<PanelProps, "view" | "err" | "onRetry"> & { view: DraftView; draft: Draft }) {
+function DraftBody(p: Omit<PanelProps, "view" | "err" | "settled" | "onRetry"> & { view: DraftView; draft: Draft }) {
   const { draft, view } = p;
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState<"" | "mark" | "save" | "fill">("");

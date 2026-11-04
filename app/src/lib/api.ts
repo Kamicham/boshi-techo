@@ -12,7 +12,7 @@ export function route<A extends unknown[]>(fn: (...args: A) => Promise<unknown>)
     } catch (e) {
       if (e instanceof HttpError) return NextResponse.json({ error: e.message }, { status: e.status });
       if (e instanceof Anthropic.RateLimitError) return NextResponse.json({ error: "Claude が混み合っています。少し待ってもう一度" }, { status: 429 });
-      if (e instanceof Anthropic.AuthenticationError) return NextResponse.json({ error: "Claude の鍵が使えません（.env.local を確かめる）" }, { status: 500 });
+      if (e instanceof Anthropic.AuthenticationError) return NextResponse.json({ error: "いま Claude につながりません。手帳の予定と記録はそのまま使えます" }, { status: 500 });
       if (e instanceof Anthropic.APIError) return NextResponse.json({ error: `Claude の呼び出しに失敗しました（${e.status}）` }, { status: 502 });
       console.error(e);
       return NextResponse.json({ error: e instanceof Error ? e.message : "うまくいきませんでした" }, { status: 500 });
