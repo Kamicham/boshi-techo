@@ -1,11 +1,12 @@
 // 世帯の書き出し（GET ?familyId= → zip を受け取る）。法33条（電磁的記録での開示）・こども家庭庁ガイドライン5.5の8番に合わせる。
-// 中身: はじめに.txt・家族の設定・本人・同意の履歴・記録（JSON と CSV）・写真と録音の原本（暗号を解いた物）。
+// 中身: はじめに.txt・家族の設定・本人・同意の履歴・記録（JSON と CSV）・写真と録音と映画の原本（暗号を解いた物）。未来の手紙は入れない（lib/letters.ts）。
 // 見せてよい本人の分だけ（読むだけの人は、見える本人の分だけを受け取れる）。
 // 紙の母子手帳の並びの PDF はまだ入れていない（手帳の「一冊」の画面から印刷して PDF にできる）。
 import { route } from "@/lib/api";
 import { withHousehold } from "@/lib/access";
 import { consentHistory, audit } from "@/lib/households";
-import { openForHousehold } from "@/lib/crypto";
+import { readVariant } from "@/lib/media";
+import type { MediaData } from "@/lib/media-shared";
 import type { DocType } from "@/lib/db";
 import { csvCell, zip, type ZipEntry } from "./zip";
 
@@ -41,25 +42,17 @@ export const GET = route(async (req: Request) => {
   const seen = new Set(ctx.subjects.map((s) => s.id));
   entries.push({ name: "同意の履歴.json", data: JSON.stringify(consentHistory(hid).filter((c) => seen.has(c.subjectId)), null, 2) });
 
-  // 写真・録音の原本（暗号を解いて入れる）
-  const media = ctx.db.media.list({ limit: 100000 });
+  // 写真・録音・映画の原本（暗号を解いて入れる）。置き場と暗号の印は、画面で見る時と同じ readVariant で読む
+  // （11/3 の最初の版から、原本は「置き場の鍵/orig」に「id:orig」の印で置いてある。ここだけ置き場の鍵そのものを読んでいて、全部「読めなかった」になっていた）
+  const media = ctx.db.media.list<MediaData>({ limit: 100000 });
   const index: Record<string, unknown>[] = [];
   for (const m of media) {
     const ext = EXT[m.mime] ?? "bin";
     const name = `写真と録音/${m.kind}/${(m.takenAt ?? m.createdAt).slice(0, 10)}_${m.id}.${ext}`;
     try {
-      const buf = await ctx.storage.get(m.storageKey);
-      if (!buf) throw new Error("ファイルがありません");
-      let plain = buf;
-      if (m.iv && m.tag) {
-        const sealed = { ciphertext: buf, iv: m.iv, tag: m.tag };
-        try {
-          plain = openForHousehold(hid, sealed, m.id);
-        } catch {
-          plain = openForHousehold(hid, sealed);
-        }
-      }
-      entries.push({ name, data: plain, date: new Date(m.takenAt ?? m.createdAt) });
+      const got = await readVariant(ctx, m, "orig");
+      if (!got) throw new Error("ファイルがありません");
+      entries.push({ name, data: got.buf, date: new Date(m.takenAt ?? m.createdAt) });
       index.push({ file: name, id: m.id, kind: m.kind, subjectId: m.subjectId, takenAt: m.takenAt, mime: m.mime, data: m.data });
     } catch {
       skipped.push(`${m.kind} ${m.id}`);
@@ -78,6 +71,7 @@ export const GET = route(async (req: Request) => {
       skipped.length ? `- 読めなかったファイル ${skipped.length}件: ${skipped.join("、")}` : null,
       "- 紙の母子手帳の並びで見たい時は、アプリの「手帳」→「一冊」から印刷して PDF にできます",
       "- 健診の録音（健診の画面で録った物）は、まだこの書き出しに入っていません",
+      "- 未来の手紙は、この書き出しに入りません（開く日まで、手帳の中で封をして守ります）",
       "",
       "この zip には家族の大事な情報が入っています。人に送る時は気をつけてください。",
     ]

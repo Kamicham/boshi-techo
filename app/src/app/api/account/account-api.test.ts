@@ -271,6 +271,63 @@ describe("アカウントの画面の API", () => {
     expect(JSON.parse(m.get("同意の履歴.json")!.toString()).length).toBe(4);
   });
 
+  it("書き出しに、写真・声・映画の原本が入る（画面と同じ置き場から読む。11/3 の版で置いた形の写真も）", async () => {
+    const A = await import("@/lib/access");
+    const M = await import("@/lib/media");
+    const F = await import("@/lib/film-render");
+    const { sealForHousehold } = await import("@/lib/crypto");
+    const { mediaKey } = await import("@/lib/storage");
+    const ctx = await A.withHousehold(rq(`/api/media?familyId=${hid}`, mom), hid, "media:write");
+    // 作ったバイト列だけ（本物の写真・声ではない）。写真は位置の情報の無い小さな JPEG の形
+    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xc0, 0, 17, 8, 0, 30, 0, 40, 3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1, 0xff, 0xda, 0, 8, 1, 1, 0, 0, 0x3f, 0, 0x12, 0x34, 0xff, 0xd9]);
+    const photo = await M.saveUpload(ctx, { orig: jpeg, view: jpeg, thumb: jpeg });
+    const wav = Buffer.alloc(44 + 4000, 128);
+    wav.write("RIFF", 0);
+    wav.writeUInt32LE(36 + 4000, 4);
+    wav.write("WAVEfmt ", 8);
+    wav.writeUInt32LE(16, 16);
+    wav.writeUInt16LE(1, 20);
+    wav.writeUInt16LE(1, 22);
+    wav.writeUInt32LE(8000, 24);
+    wav.writeUInt32LE(8000, 28);
+    wav.writeUInt16LE(1, 32);
+    wav.writeUInt16LE(8, 34);
+    wav.write("data", 36);
+    wav.writeUInt32LE(4000, 40);
+    const voice = await M.saveAudio(ctx, { audio: wav, moment: "belly", who: "はな" });
+    const mp4 = Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from("ftypmp42 made-film-bytes-for-test")]);
+    const film = await F.saveFilmVideo(ctx, mp4, { key: "export-test", title: "試しの映画", durationSec: 3, date: "2027-03-10" });
+    // 11/3 の版の形: 原本だけ（画面用・一覧用・幅と高さ・from が無い）。置き場と印は今と同じ「鍵/orig」「id:orig」
+    const oldId = "old-0000-photo";
+    const oldPlain = Buffer.concat([jpeg.subarray(0, 4), Buffer.from("old-version-bytes"), jpeg.subarray(4)]);
+    const oldKey = mediaKey({ householdId: hid, subjectId: null, kind: "photo", id: oldId, date: "2026-11-03" });
+    const s = sealForHousehold(hid, oldPlain, `${oldId}:orig`);
+    await ctx.storage.put(`${oldKey}/orig`, s.ciphertext, { contentType: "application/octet-stream" });
+    ctx.db.media.insert({
+      id: oldId, subjectId: null, kind: "photo", storageKey: oldKey, mime: "image/jpeg", bytes: oldPlain.length, iv: s.iv, tag: s.tag,
+      takenAt: "2026-11-03T09:00:00", takenAtFrom: "upload", sha256: "old-sha",
+      data: { links: {}, shareWithClaude: false, variants: { orig: { iv: s.iv, tag: s.tag, bytes: oldPlain.length, mime: "image/jpeg" } } },
+    });
+
+    const E = await import("../export/route");
+    const r = await E.GET(rq(`/api/export?familyId=${hid}`, mom));
+    expect(r.status).toBe(200);
+    const m = unzip(Buffer.from(await r.arrayBuffer()));
+    const file = (id: string) => [...m.keys()].find((k) => k.startsWith("写真と録音/") && k.includes(id));
+    const origOf = async (row: Parameters<typeof M.readVariant>[1]) => (await M.readVariant(ctx, row, "orig"))!.buf;
+    expect(m.get(file(photo.media.id)!)).toEqual(await origOf(photo.media));
+    expect(file(photo.media.id)).toMatch(/\.jpg$/);
+    expect(m.get(file(voice.media.id)!)).toEqual(wav);
+    expect(file(voice.media.id)).toMatch(/^写真と録音\/audio\/.+\.wav$/);
+    expect(m.get(file(film.id)!)).toEqual(mp4);
+    expect(m.get(file(oldId)!)).toEqual(oldPlain);
+    const readme = m.get("はじめに.txt")!.toString();
+    expect(readme).not.toContain("読めなかった");
+    expect(readme).toContain("原本（暗号を解いた物）4件");
+    expect(readme).toContain("未来の手紙は、この書き出しに入りません");
+    expect(JSON.parse(m.get("写真と録音/一覧.json")!.toString())).toHaveLength(4);
+  });
+
   it("祖父母は、自分の分でない本人を消せない。持ち主は「消す」と入れれば本人の分を消せる", async () => {
     const H = await import("./household/route");
     const S = await import("./subject/route");
