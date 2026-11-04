@@ -3,14 +3,12 @@
 // 押した印は、動く前に付ける（記録の途中で窓を閉じて開き直しても、二度目は押せない＝第30回で同じ記録が2件入った）。失敗したら外す。
 import { body, route } from "@/lib/api";
 import { getChat, markActionUsed } from "@/lib/ask/agent";
-import { capture } from "@/lib/capture";
+import { addToAgenda, capture } from "@/lib/capture";
 import { sendingAs } from "@/lib/claude";
 import { HttpError } from "@/lib/http-error";
-import { patch } from "@/lib/db";
-import type { VisitData } from "@/lib/visit";
 import { familyFor, WRITE_AND_SEND } from "../../_lib/household";
 import { markDone } from "../../done/_lib/done";
-import { getPlan, newId, ongoingVisit, savePlan } from "../../visit/_lib/server";
+import { newId } from "../../visit/_lib/server";
 
 export const maxDuration = 120;
 
@@ -35,24 +33,22 @@ export const POST = route(async (req: Request) => {
       return { ok: true, note: `✓ 記録に残しました（話す・撮るの「これまでの記録」）${techo ? "。手帳のページに入る物は、手帳のタブで OK を待っています" : ""}` };
     }
     if (a.type === "concern") {
-      const date = turn.today;
-      if (a.for === "child") {
-        const plan = getPlan(family.id);
-        savePlan(family.id, { ...plan, concerns: [...plan.concerns, { id: newId(), text: a.text, date, for: "child" }] });
-        return { ok: true, note: `✓ ${family.childName ?? "赤ちゃん"}の次の健診で聞く事に足しました（健診のタブの「${family.childName ? `${family.childName}の` : "赤ちゃんの"}健診・予防接種」に並びます）` };
-      }
-      const c = { id: newId(), text: a.text, date, for: "mother" as const };
-      const v = ongoingVisit(family.id, turn.today);
-      if (v) {
-        patch<VisitData>(v.id, {
-          agenda: [...(v.data.agenda ?? []), { id: c.id, text: c.text, from: "気がかり" }],
-          carried: { prevCarriedFrom: v.data.carried?.prevCarriedFrom, concerns: [...(v.data.carried?.concerns ?? []), c] },
-        });
-      } else {
-        const plan = getPlan(family.id);
-        savePlan(family.id, { ...plan, concerns: [...plan.concerns, c] });
-      }
-      return { ok: true, note: "✓ ママの次の健診で聞く事に足しました（健診のタブの「聞く事」に並びます）" };
+      // 話した・打った気がかりの記録と同じ決まりで足す（同じ文がもう並んでいれば足さない＝どちらの順でも1行）。
+      // 今日の健診が始まっていれば、ママの事はその健診の「今日聞く事」へ
+      const side = a.for === "child" ? "child" : "mother";
+      const [added] = addToAgenda(family.id, [{ c: { id: newId(), text: a.text, date: turn.today, for: side }, side }], turn.today);
+      const child = family.childName ?? "赤ちゃん";
+      if (side === "child")
+        return {
+          ok: true,
+          note: added
+            ? `✓ ${child}の次の健診で聞く事に足しました（健診のタブの「${child}の健診・予防接種」に並びます）`
+            : `✓ もう${child}の次の健診で聞く事に並んでいます（同じ文は2回足しません）`,
+        };
+      return {
+        ok: true,
+        note: added ? "✓ ママの次の健診で聞く事に足しました（健診のタブの「聞く事」に並びます）" : "✓ もうママの健診で聞く事に並んでいます（同じ文は2回足しません）",
+      };
     }
     markDone(family.id, a.milestoneId, turn.today);
     return { ok: true, done: true, note: `✓ 「${a.label}」を済みにしました（今日の画面の「済んだ事」から戻せます）` };
