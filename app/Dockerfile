@@ -13,6 +13,8 @@ RUN npm run build && npm prune --omit=dev
 
 FROM node:22-bookworm-slim
 WORKDIR /app
+# 映画を動画にする（lib/film-render.ts）: ffmpeg と、字幕を画像にする時の日本語の字体（丸ゴシックが無い時は Noto Sans CJK）
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg fonts-noto-cjk && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 BOSHI_PUBLIC=1 BOSHI_DATA_DIR=/data PORT=8080
 COPY --from=build /app ./
 EXPOSE 8080

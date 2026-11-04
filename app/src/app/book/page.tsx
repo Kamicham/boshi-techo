@@ -9,6 +9,7 @@ import type { Book } from "@/lib/book";
 import { useMedia } from "@/components/album/useMedia";
 import { VoiceItem } from "@/components/album/VoiceItem";
 import { FutureLetters, MinnaChapter } from "@/components/album/Minna";
+import { FilmExport } from "@/components/album/FilmExport";
 import type { ClientMedia } from "@/lib/media-shared";
 
 /** 一冊に描ける写真（ある・隠していない）。消した写真の id は飛ばして描く */
@@ -140,6 +141,7 @@ export default function BookPage() {
               <span aria-hidden>›</span>
             </Link>
           )}
+          {book.film.length > 0 && <FilmExport bookKey={book.generatedAt} />}
           <div className="flex flex-wrap items-center gap-2">
             <ShareButton title={book.title} text={bookText(book)} label="家族に渡す" />
             <CopyButton text={bookText(book)} label="全部コピー" />
