@@ -128,6 +128,11 @@ export default function BookPage() {
         <p className="text-base text-muted">本棚を見ています…</p>
       ) : book ? (
         <>
+          {book.bundled && (
+            <p className="text-sm text-muted">
+              見本の家族（作った家族）の{jpDay(book.asOf)}までの記録 {book.sourceCount} 件から、Claude が実際に書いた一冊です。あなたの手帳では、あなたの記録から書きます。
+            </p>
+          )}
           <Reader book={book} page={page} setPage={setPage} />
           {book.film.length > 0 && <FilmLink book={book} />}
           {book.outdated && (

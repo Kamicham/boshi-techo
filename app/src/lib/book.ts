@@ -4,7 +4,7 @@
 // 「写真を見ずに、記録の言葉から写真を選んで章を書く」。★・節目・手帳に結んだ写真を候補の上に置き、家族の選びを Claude より強くする。
 import "server-only";
 import { z } from "zod";
-import { structured } from "./claude";
+import { sampleMode, structured } from "./claude";
 import { conceptionDate, secondBirthday } from "./clock";
 import { list, put, type Doc } from "./db";
 import type { Family } from "./demo-family";
@@ -13,6 +13,7 @@ import { bookPhotoCandidates, bookVoiceCandidates, type BookPhoto, type BookVoic
 import { PERIODS, periodOfDate, type Period } from "./media-shared";
 import type { TechoEntry } from "./techo";
 import { listTecho } from "./techo-store";
+import { demoBook } from "./demo-book";
 
 // ── 一冊の形 ──
 
@@ -79,6 +80,8 @@ export interface Book extends BookContent {
   childName: string;
   /** 作った時の決まりの版（BOOK_RULES）。前の版の一冊には無い */
   rules?: number;
+  /** 見本の家族に同梱した、Claude が前に書いた一冊（lib/demo-books.json）。作り直すまで出す */
+  bundled?: boolean;
   /** 読む時に付ける: 前の決まりで作られ、今は入れない記録（気がかり）が入っているかもしれない */
   outdated?: boolean;
 }
@@ -438,21 +441,30 @@ export function settleVoices(content: BookContent, photoKeysUsed: readonly Photo
   return { ...content, chapters, film };
 }
 
-export async function makeBook(f: Family, today: string): Promise<Book> {
+/** Claude に一冊を書かせる（保存しない）。書いた答えは番号（P1・V1）のまま返す。見本の一冊を作る台本（scripts/make-demo-books.mts）も使う */
+export async function draftBook(f: Family, today: string): Promise<{ raw: BookContent; keys: PhotoKey[]; vkeys: VoiceKey[]; entries: Entry[] }> {
   const entries = gather(f.id, today, f);
   if (entries.length === 0) {
     throw new HttpError(422, "まだ一冊にする記録がありません。「話す・撮る」で記録をためると、ここで一冊になります");
   }
-  const childName = f.childName ?? "あなた";
   // 作り直した時も、前の一冊に入れた写真を残す方へ寄せる
   const prev = latestBook(f.id);
   const prevIds = new Set([...(prev?.chapters ?? []).flatMap((c) => (c.photos ?? []).map((p) => p.mediaId)), ...(prev?.cover ? [prev.cover] : [])]);
   const keys = photoKeys(bookPhotoCandidates(f, today), prevIds);
   const vkeys = voiceKeys(bookVoiceCandidates(f, today));
   const body = bookInput(f, today, entries, keys, vkeys);
-
   // Claude に渡すのは文字だけ（画像も声も渡さない）
   const raw = await structured(BookSchema, SYSTEM, body, { effort: "high", task: "book" });
+  return { raw, keys, vkeys, entries };
+}
+
+export async function makeBook(f: Family, today: string): Promise<Book> {
+  // 見本の家族で Claude を使えない時（鍵が無い・今日の上限）は、3枚の見本ではなく、Claude が前に書いた見本の一冊を返す（保存しない）
+  if (sampleMode()) {
+    const bundled = demoBook(f, today);
+    if (bundled) return bundled;
+  }
+  const { raw, keys, vkeys, entries } = await draftBook(f, today);
   const content = settleVoices(settlePhotos(raw, keys), keys, vkeys);
   const book: Book = {
     ...content,
@@ -463,7 +475,7 @@ export async function makeBook(f: Family, today: string): Promise<Book> {
     photoCount: keys.length,
     voiceCount: vkeys.length,
     range: { start: conceptionDate(f), end: secondBirthday(f) },
-    childName,
+    childName: f.childName ?? "あなた",
     rules: BOOK_RULES,
   };
   put(f.id, "book", book, { date: today });
@@ -474,7 +486,8 @@ export async function makeBook(f: Family, today: string): Promise<Book> {
 export function latestBook(familyId: string, today?: string): Book | null {
   const books = list<Book>(familyId, "book", { limit: 50 });
   const hit = today ? books.find((b) => (b.date ?? "") <= today) : books[0];
-  if (!hit) return null;
+  // 見本の家族でまだ作っていない時は、Claude が前に書いた見本の一冊（lib/demo-book.ts）
+  if (!hit) return today ? demoBook(familyId, today) : null;
   const book = hit.data;
   // 前の決まりで作った一冊に、今は入れない気がかりの記録が入っているか（作った時より前の気がかりがあれば、作り直しを勧める）
   if ((book.rules ?? 1) < BOOK_RULES && list<{ kind?: string }>(familyId, "record").some((d) => d.data.kind === "気がかり" && d.createdAt <= book.generatedAt)) {
