@@ -4,10 +4,10 @@
 // 残した声は世帯の鍵で守って置き、Claude には送らない（記録の振り分けにもかけない）。文字にするのは自宅の機械だけ。
 // 根拠: 紙の母子手帳の「迎える気持ち」「誕生日のメッセージ」は文字の欄だけ（府令様式・こども家庭庁 令和5年度改正）。声はここで足す。
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useFamily } from "@/components/FamilyProvider";
 import { Btn } from "@/components/ui";
-import { pickAudioType } from "@/components/capture/media";
+import { useRecorder } from "@/components/capture/useRecorder";
 import { VOICE_MOMENTS, type ClientMedia } from "@/lib/media-shared";
 import { invalidateMedia } from "./useMedia";
 
@@ -48,53 +48,13 @@ type Phase = "idle" | "recording" | "saving" | "done";
 function VoiceSheet({ moment, onClose }: { moment: Moment; onClose: () => void }) {
   const { family, today, me } = useFamily();
   const [phase, setPhase] = useState<Phase>("idle");
-  const [secs, setSecs] = useState(0);
-  const [error, setError] = useState("");
   const [saved, setSaved] = useState<ClientMedia | null>(null);
-  const rec = useRef<MediaRecorder | null>(null);
-  const startedAt = useRef(0);
+  const r = useRecorder({ onDone: ({ blob, sec }) => void save(blob, sec) });
+  const { secs, error, setError } = r;
   const child = family.childName ?? "赤ちゃん";
-
-  useEffect(() => {
-    if (phase !== "recording") return;
-    const t = setInterval(() => setSecs(Math.floor((Date.now() - startedAt.current) / 1000)), 250);
-    return () => clearInterval(t);
-  }, [phase]);
-  useEffect(() => () => rec.current?.stream.getTracks().forEach((t) => t.stop()), []);
-
-  const start = async () => {
-    setError("");
-    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") return setError("この機械では録音が使えません");
-    let stream: MediaStream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      return setError("マイクが使えませんでした。ブラウザの設定でマイクを許可してください");
-    }
-    const type = pickAudioType();
-    const r = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
-    const chunks: Blob[] = [];
-    r.ondataavailable = (e) => e.data.size && chunks.push(e.data);
-    r.onstop = () => {
-      stream.getTracks().forEach((t) => t.stop());
-      const sec = (Date.now() - startedAt.current) / 1000;
-      if (sec < 1) {
-        setPhase("idle");
-        return setError("短すぎました。もう一度どうぞ");
-      }
-      void save(new Blob(chunks, { type: r.mimeType || type || "audio/webm" }), sec);
-    };
-    rec.current = r;
-    startedAt.current = Date.now();
-    setSecs(0);
-    r.start();
-    setPhase("recording");
-  };
-
-  const stop = () => {
-    if (rec.current?.state === "recording") rec.current.stop();
-    rec.current = null;
-  };
+  const phaseNow: Phase = r.recording ? "recording" : phase;
+  const start = r.start;
+  const stop = r.stop;
 
   const save = async (blob: Blob, sec: number) => {
     setPhase("saving");
@@ -112,12 +72,12 @@ function VoiceSheet({ moment, onClose }: { moment: Moment; onClose: () => void }
     }
   };
 
-  const on = phase === "recording";
+  const on = phaseNow === "recording";
   const prompt =
     moment.id === "belly" ? `おなかの${child}に、今日の事を話してみてください` : moment.id === "bedtime" ? `${child}に、今日のおやすみを` : `${child}の名前を、呼んでみてください`;
 
   return (
-    <div role="dialog" aria-modal="true" aria-label={moment.label} className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40" onClick={phase === "recording" ? undefined : onClose}>
+    <div role="dialog" aria-modal="true" aria-label={moment.label} className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40" onClick={on ? undefined : onClose}>
       <div
         className="flex w-full max-w-lg flex-col gap-3 rounded-t-3xl bg-card px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
         onClick={(e) => e.stopPropagation()}
@@ -133,7 +93,7 @@ function VoiceSheet({ moment, onClose }: { moment: Moment; onClose: () => void }
               アルバムで聞く
             </Btn>
             <div className="flex gap-2">
-              <Btn kind="secondary" onClick={() => { setSaved(null); setPhase("idle"); setSecs(0); }}>
+              <Btn kind="secondary" onClick={() => { setSaved(null); setPhase("idle"); }}>
                 もう1つ
               </Btn>
               <Btn kind="quiet" onClick={onClose}>
@@ -158,7 +118,7 @@ function VoiceSheet({ moment, onClose }: { moment: Moment; onClose: () => void }
             <p className="text-xs text-muted">
               声は家族の鍵で守って、この手帳の中だけに残します。AI（Claude）には送りません。文字にするのは手帳の機械だけです。消したい時はアルバムから消せます。
             </p>
-            {phase !== "recording" && (
+            {!on && (
               <Link href="/album" className="text-sm text-muted underline-offset-2 hover:underline">
                 残した声を聞く ›
               </Link>

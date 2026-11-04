@@ -1,18 +1,8 @@
 // 映画の音楽: 端末の中で鳴らす自作のオルゴール（Web Audio）。外の曲・管理曲は使わない（著作権の心配が無い）。
 // 和音は C → G → Am → F を繰り返し、1拍ごとに分散和音を1音ずつ。声が流れる間は小さくする（duck）。
 
-const BPM = 64;
-// 和音（MIDI の音の高さ）。オルゴールらしく高い音域で
-const CHORDS = [
-  [72, 76, 79, 84], // C
-  [71, 74, 79, 83], // G
-  [69, 72, 76, 81], // Am
-  [65, 69, 72, 77], // F
-];
-const PATTERN = [0, 2, 1, 3, 2, 1, 0, 2];
-const BASS = [48, 43, 45, 41];
-
-const hz = (n: number) => 440 * Math.pow(2, (n - 69) / 12);
+// 音符は書き出す動画と同じ物（lib/musicbox.ts）
+import { BASS, BPM, CHORDS, DUCK_LEVEL, hz, LEVEL, PATTERN } from "@/lib/musicbox";
 
 export class MusicBox {
   private ctx: AudioContext | null = null;
@@ -28,7 +18,7 @@ export class MusicBox {
     this.ctx = ctx;
     const master = ctx.createGain();
     master.gain.value = 0;
-    master.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 2);
+    master.gain.linearRampToValueAtTime(LEVEL, ctx.currentTime + 2);
     // 小さな部屋の響き（短い遅れを2つ重ねる）
     const wet = ctx.createGain();
     wet.gain.value = 0.25;
@@ -96,7 +86,7 @@ export class MusicBox {
     if (!ctx || !this.master) return;
     this.master.gain.cancelScheduledValues(ctx.currentTime);
     this.master.gain.setValueAtTime(this.master.gain.value, ctx.currentTime);
-    this.master.gain.linearRampToValueAtTime(on ? 0.12 : 0.5, ctx.currentTime + 0.8);
+    this.master.gain.linearRampToValueAtTime(on ? DUCK_LEVEL : LEVEL, ctx.currentTime + 0.8);
   }
 
   fadeOut(sec: number) {

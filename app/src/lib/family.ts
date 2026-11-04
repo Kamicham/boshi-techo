@@ -5,7 +5,7 @@ import { get, put } from "./db";
 import { scheduleFor } from "./milestones";
 import { birthFacts, isMadeFamily } from "./techo-seed";
 import { listTecho } from "./techo-store";
-import { cleanQuiet, type Leave, type MotherWork, type Situation, type Work } from "./situation";
+import { cleanOlderKids, cleanQuiet, type Leave, type MotherWork, type Situation, type Work } from "./situation";
 import { HttpError } from "./http-error";
 import { isTrialId } from "./trial-cookie";
 
@@ -191,6 +191,10 @@ export function cleanSituation(x: unknown, hasPartner: boolean): Situation | und
     s.partnerLeave = oneOf(r.partnerLeave, LEAVES);
   }
   s.olderChildren = yesNo(r.olderChildren);
+  if (s.olderChildren === true) {
+    const kids = cleanOlderKids(r.olderKids);
+    if (kids.length) s.olderKids = kids;
+  }
   if (typeof r.babies === "number" && Number.isInteger(r.babies) && r.babies >= 1 && r.babies <= 5) s.babies = r.babies;
   s.satogaeri = yesNo(r.satogaeri);
   s.quiet = cleanQuiet(r.quiet);

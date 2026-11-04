@@ -27,6 +27,7 @@ import { addDays, addMonths, clockAt, diffDays, lmpFromDue, secondBirthday } fro
 import { BIRTH_TRIP_IDS, planBirthTrip } from "../lib/birth-trip";
 import { vaxRetime } from "../lib/vax-next";
 import { intervalDays, prenatalState } from "../lib/prenatal";
+import { olderOf } from "../lib/older";
 import type { Family, Member } from "../lib/demo-family";
 import { PREGNANCY_ONLY, scheduleFor, statusOf } from "../lib/milestones";
 import { motherEmployed, partnerEmployed } from "../lib/situation";
@@ -66,6 +67,7 @@ const RULES = {
   i: "妊娠中、予定日の8週前を過ぎたら、支援給付の2回目が今やる（か済み）に出る（第1波③）",
   j: "生まれた日から15日の間、出生届がまだなら、届けの束の1件目が出生届で、束の期限は生まれた日を含めて14日目（第1波②）",
   k: "妊娠中の妊婦健診の目安は、今日より前にならず予定日より前で、今日受けた時の次は国の標準の間隔を超えない（第1波⑧）",
+  l: "上の子の予定は上の子がいる家族だけに出て、健診・接種の日は上の子の生まれた日から数え、期限切れにならない。園の継続は保育園の上の子がいる時だけ（第2波①）",
 } as const;
 type Rule = keyof typeof RULES;
 const RULE_IDS = Object.keys(RULES) as Rule[];
@@ -341,7 +343,7 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
     // e: 時期に合わない事
     for (const t of nowTasks) {
       if (isBorn && PREG_ONLY.has(t.id)) push("e", `after:${t.id}`, `生まれた後に「${t.plain}」が${t.status}`);
-      if (!isBorn && t.anchor === "birth") push("e", `before:${t.id}`, `まだ生まれていないのに「${t.plain}」が${t.status}`);
+      if (!isBorn && t.anchor === "birth" && !t.older) push("e", `before:${t.id}`, `まだ生まれていないのに「${t.plain}」が${t.status}`);
     }
     // i: 支援給付の2回目（予定日の8週前から。済んでいなければ今やるか期限の近い事として出る）
     if (!isBorn && diffDays(f.dueDate, day) <= 56) {
@@ -371,6 +373,25 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
         if (ps.next >= f.dueDate) push("k", "due", `健診の目安 ${ps.next} が予定日以降`);
         if (ck.length && diffDays(day, lmpFromDue(f.dueDate)) >= 56 && diffDays(ps.next, day) > intervalDays(Math.floor(diffDays(day, lmpFromDue(f.dueDate)) / 7))) push("k", "gap", `今日受けたのに次の目安が ${diffDays(ps.next, day)} 日後`);
       }
+    }
+    // l: 上の子の予定
+    {
+      const kids = fv.situation?.olderChildren ? fv.situation.olderKids ?? [] : [];
+      for (const t of tasks) {
+        const o = olderOf(t.id);
+        if (!o) continue;
+        const kid = kids[o.index];
+        if (!kid) {
+          push("l", "stray", `上の子がいないのに「${t.plain}」`);
+          continue;
+        }
+        if (kid.care === "小学校") push("l", "school", `小学生の上の子に「${t.plain}」`);
+        if (t.status === "期限切れ") push("l", "overdue", `上の子の「${t.plain}」が期限切れ`);
+        if (o.baseId === "checkup-3y" && t.startDate !== addMonths(kid.birthDate, 36)) push("l", "date", `上の子の3歳児健診の始まりが ${t.startDate}`);
+      }
+      const daycare = kids.some((k) => k.care === "保育園");
+      if (!daycare && tasks.some((t) => t.id === "older-daycare-continue")) push("l", "daycare", "保育園の上の子がいないのに、園の継続の申請が出る");
+      if (daycare && !tasks.some((t) => t.id === "older-daycare-continue")) push("l", "daycare-missing", "保育園の上の子がいるのに、園の継続の申請が無い");
     }
     // f: 参謀のきっかけ
     const trig = detectTriggers({ family: fv, today: day, done: new Set(done), isDemo: false });

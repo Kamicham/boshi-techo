@@ -11,8 +11,9 @@ import { voiceUrl } from "@/components/album/VoiceItem";
 import type { Book } from "@/lib/book";
 import type { ClientMedia } from "@/lib/media-shared";
 import { MusicBox } from "./music";
+import { dayLine, filmShots, firstSentences, type Shot as FilmShot } from "@/lib/film-plan";
 
-type Shot = { kind: "title" | "end"; sec: number } | { kind: "photo"; photo: ClientMedia; caption: string; sec: number; voice: ClientMedia | null };
+type Shot = FilmShot<ClientMedia>;
 
 export default function FilmPage() {
   const { family, today } = useFamily();
@@ -27,30 +28,7 @@ export default function FilmPage() {
       .catch((e: Error) => setError(e.message));
   }, [family.id, today]);
 
-  const shots = useMemo<Shot[]>(() => {
-    if (!book) return [];
-    const byId = new Map([...photos, ...voices].filter((m) => !m.hidden).map((m) => [m.id, m]));
-    const xs: Shot[] = book.film.flatMap((x) => {
-      const photo = byId.get(x.mediaId);
-      if (!photo || photo.kind === "audio") return [];
-      const v = x.voiceId ? (byId.get(x.voiceId) ?? null) : null;
-      const voice = v && v.kind === "audio" ? v : null;
-      // 声のある写真は、声が終わるまで映す（18秒まで。祖父母の声はゆっくりで長い）
-      const sec = voice ? Math.min(18, Math.max(x.sec, (voice.durationSec ?? x.sec) + 1.2)) : x.sec;
-      return [{ kind: "photo" as const, photo, caption: x.caption, sec, voice }];
-    });
-    // みんなの章: 終わりの前に、家族みんな（祖父母など）が足した写真と声を流す。写真と声は足した人ごとに組む
-    const used = new Set(xs.flatMap((x) => (x.kind === "photo" ? [x.photo.id, x.voice?.id] : [])));
-    const fromPhotos = photos.filter((m) => m.from && !m.hidden && !used.has(m.id));
-    const fromVoices = voices.filter((m) => m.from && !m.hidden && !used.has(m.id));
-    const minna: Shot[] = fromPhotos.map((photo) => {
-      const vi = fromVoices.findIndex((v) => v.from!.name === photo.from!.name);
-      const voice = vi >= 0 ? fromVoices.splice(vi, 1)[0] : null;
-      const sec = voice ? Math.min(18, (voice.durationSec ?? 5) + 1.2) : 5;
-      return { kind: "photo" as const, photo, caption: photo.caption ?? `${photo.from!.name}から`, sec, voice };
-    });
-    return xs.length ? [{ kind: "title", sec: 4 }, ...xs, ...minna, { kind: "end", sec: 6 }] : [];
-  }, [book, photos, voices]);
+  const shots = useMemo<Shot[]>(() => (book ? filmShots(book.film, [...photos, ...voices]) : []), [book, photos, voices]);
 
   if (error) return <Frame><p className="text-paper">{error}</p></Frame>;
   if (!book || lp || lv) return <Frame><p className="text-paper/70">映画を用意しています…</p></Frame>;
@@ -247,14 +225,4 @@ function Player({ book, shots }: { book: Book; shots: Shot[] }) {
       `}</style>
     </main>
   );
-}
-
-function dayLine(d: string): string {
-  const [y, m, day] = d.split("-").map(Number);
-  return `${y}年${m}月${day}日`;
-}
-
-function firstSentences(s: string): string {
-  const xs = s.split(/(?<=[。！？])/).filter((x) => x.trim());
-  return xs.slice(0, 2).join("");
 }

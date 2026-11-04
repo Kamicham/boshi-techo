@@ -8,7 +8,7 @@ import path from "node:path";
 import type { HouseholdCtx } from "./access";
 import { addDays, addMonths, conceptionDate, lmpFromDue } from "./clock";
 import { DEMO_FAMILY } from "./demo-family";
-import { writeLetter } from "./letters";
+import { writeLetter, writeVoiceLetter, type LetterData } from "./letters";
 import type { LetterOpen } from "./letters-shared";
 import { saveAudio, saveUpload } from "./media";
 import type { MediaFrom, VoiceMoment } from "./media-shared";
@@ -70,7 +70,7 @@ export function demoMediaSeeds(): Seed[] {
 }
 
 /** 見本の家族の、封をした手紙（作った手紙）。書いた日と開く日は筋書きに合わせる */
-export function demoLetterSeeds(): { key: string; at: string; from: string; relation?: string; open: LetterOpen; body: string }[] {
+export function demoLetterSeeds(): { key: string; at: string; from: string; relation?: string; open: LetterOpen; body: string; voice?: { file: string; sec: number } }[] {
   const f = DEMO_FAMILY;
   const lmp = lmpFromDue(f.dueDate);
   const birth = f.birthDate!;
@@ -81,6 +81,8 @@ export function demoLetterSeeds(): { key: string; at: string; from: string; rela
       at: addDays(lmp, 30 * 7),
       from: "美咲",
       open: "1y",
+      // 声も添えた手紙（作った声・AivisSpeech「まお」）。文字の手紙の始まりを、声で読んでいる
+      voice: { file: "l-1y.m4a", sec: 18.1 },
       body: `1歳の${child}へ。\n\nこれを書いているのは、まだあなたがおなかの中にいる、30週の夜です。夜になるとよく動いて、パパと二人で「いま蹴った」と笑っています。\n\nあなたがどんな顔で、どんな声で泣くのか、まだ知りません。でも、この1年がきっと大変で、きっとかけがえのない1年だったことは、もう分かる気がします。\n\n1歳おめでとう。会いに来てくれて、ありがとう。`,
     },
     {
@@ -141,8 +143,15 @@ export async function seedDemoMedia(ctx: HouseholdCtx): Promise<number> {
   }
   // 封をした手紙（同じ種は二度入れない）
   for (const l of demoLetterSeeds()) {
+    const input = { body: l.body, open: l.open, from: l.from, relation: l.relation, today: l.at, made: true, seedKey: l.key };
+    const vp = l.voice ? path.join(base, l.voice.file) : null;
     try {
-      writeLetter(ctx, { body: l.body, open: l.open, from: l.from, relation: l.relation, today: l.at, made: true, seedKey: l.key });
+      if (vp && fs.existsSync(vp)) {
+        // 声を足す前に入れた同じ種（文字だけ）は、声つきに入れ直す
+        const old = ctx.db.list<LetterData>("letter", { limit: 1000 }).find((d) => d.data.seedKey === l.key && !d.data.voice);
+        if (old) ctx.db.remove(old.id);
+        await writeVoiceLetter(ctx, input, { audio: fs.readFileSync(vp), sec: l.voice!.sec });
+      } else writeLetter(ctx, input);
       added++;
     } catch (e) {
       if ((e as { status?: number }).status !== 409) throw e;

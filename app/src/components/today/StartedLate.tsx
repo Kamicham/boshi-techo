@@ -14,7 +14,8 @@ import { jpShort } from "./dates";
 
 type Item = { id: string; open: boolean };
 
-export function StartedLate({ family, today }: { family: Family; today: string }) {
+/** onCount: 聞く事とまだの事の数（「いま」の「大丈夫」の言い方を変える） */
+export function StartedLate({ family, today, onCount }: { family: Family; today: string; onCount?: (n: number) => void }) {
   const [items, setItems] = useState<Item[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const load = useCallback(() => {
@@ -25,13 +26,15 @@ export function StartedLate({ family, today }: { family: Family; today: string }
   useEffect(load, [load]);
 
   const schedule = useMemo(() => scheduleFor(family, today), [family, today]);
-  if (!items?.length) return null;
-  const byId = new Map(schedule.map((m) => [m.id, m]));
-  const startedOn = family.startedOn ?? today;
-  const recent = new Set(recentlyPassed(schedule, startedOn).map((m) => m.id));
-  const ask = items.filter((i) => !i.open && recent.has(i.id)).map((i) => byId.get(i.id)).filter((m): m is Milestone => !!m);
-  const open = items.filter((i) => i.open).map((i) => byId.get(i.id)).filter((m): m is Milestone => !!m);
-  if (!ask.length && !open.length) return null;
+  const { ask, open } = useMemo(() => {
+    const byId = new Map(schedule.map((m) => [m.id, m]));
+    const recent = new Set(recentlyPassed(schedule, family.startedOn ?? today).map((m) => m.id));
+    const pick = (f: (i: Item) => boolean) => (items ?? []).filter(f).map((i) => byId.get(i.id)).filter((m): m is Milestone => !!m);
+    return { ask: pick((i) => !i.open && recent.has(i.id)), open: pick((i) => i.open) };
+  }, [items, schedule, family.startedOn, today]);
+  const count = ask.length + open.length;
+  useEffect(() => onCount?.(count), [count, onCount]);
+  if (!count) return null;
 
   const answer = async (id: string, done: boolean) => {
     setBusy(id);

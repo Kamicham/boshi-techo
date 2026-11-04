@@ -73,6 +73,11 @@ export function mediaKey(p: {
   return p.variant ? `${base}/${seg(p.variant, "形の名前")}` : base;
 }
 
+/** 未来の手紙に添えた声: households/<hid>/letters/<id>/voice（アルバムの声とは別の置き場。media の表に載らない） */
+export function letterVoiceKey(householdId: string, letterId: string): string {
+  return `${householdPrefix(householdId)}/letters/${seg(letterId, "id")}/voice`;
+}
+
 /** 書き出しの zip の鍵: households/<hid>/export/<yyyy-mm-dd>.zip */
 export function exportKey(householdId: string, day: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) throw new Error("日付の形が違います");

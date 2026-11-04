@@ -10,6 +10,7 @@ type Params = { params: Promise<{ id: string }> };
 
 const VARIANTS: PhotoVariant[] = ["thumb", "view", "orig"];
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const extOf = (mime: string) => ({ "video/mp4": "mp4", "image/png": "png", "audio/webm": "webm", "audio/wav": "wav", "audio/ogg": "ogg", "audio/mpeg": "mp3", "audio/mp4": "m4a" })[mime] ?? "jpg";
 
 export const GET = route(async (req: Request, { params }: Params) => {
   const { id } = await params;
@@ -28,7 +29,9 @@ export const GET = route(async (req: Request, { params }: Params) => {
       "content-length": String(got.buf.length),
       "cache-control": "private, no-store",
       "x-content-type-options": "nosniff",
-      ...(q.get("download") === "1" ? { "content-disposition": `attachment; filename="photo-${row.takenAt?.slice(0, 10) ?? "day"}.jpg"` } : {}),
+      ...(q.get("download") === "1"
+        ? { "content-disposition": `attachment; filename="${row.kind === "video" ? "film" : row.kind === "audio" ? "voice" : "photo"}-${row.takenAt?.slice(0, 10) ?? "day"}.${extOf(got.mime)}"` }
+        : {}),
     },
   });
 });

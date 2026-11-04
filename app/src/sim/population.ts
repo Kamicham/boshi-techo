@@ -651,14 +651,14 @@ export function makeFamily(seed: number, index: number): PopFamily {
   };
   const persona = personaFor(r, fam, profile, voices);
   // 家族の形は、profile を作った後で写すだけ（乱数を引かないので、1000組の顔ぶれと割合は変わらない）
-  fam.situation = situationFromProfile(profile);
+  fam.situation = situationFromProfile(profile, fam.dueDate);
   return { ...fam, persona, profile };
 }
 
 // ───────── profile → 家族の形（Family.situation） ─────────
 
 /** 作った家族の profile を、アプリが読む家族の形に写す。統計で決めていない事（里帰りの期間など）は空のまま */
-export function situationFromProfile(p: PopProfile): Situation {
+export function situationFromProfile(p: PopProfile, dueDate?: string): Situation {
   const mw = p.motherWork;
   const motherWork: Situation["motherWork"] =
     mw.after === "退職" ? "出産で辞める" : { 正規: "会社員・公務員", 非正規: "パート・派遣", 自営など: "自営・フリー", 無職: "仕事なし" }[mw.atPregnancy] as Situation["motherWork"];
@@ -668,6 +668,16 @@ export function situationFromProfile(p: PopProfile): Situation {
     babies: p.twins ? 2 : 1,
     satogaeri: !!p.satogaeri,
   };
+  // 上の子の生まれた日は、上の子の月齢（予定日の時点）から戻す。通う所は乱数を引かずに近似で決める:
+  // 6歳3か月以上は小学校、母が妊娠中に働いていれば保育園（保育所等の利用は共働きが前提）、3歳以上は幼稚園、ほかは家。
+  // 3歳以上の保育所等と幼稚園の利用はおよそ半々（こども家庭庁「保育所等関連状況取りまとめ」2024・文部科学省「学校基本調査」2024 から近似）
+  if (dueDate && p.olderChildrenMonths.length) {
+    const working = mw.atPregnancy !== "無職";
+    s.olderKids = p.olderChildrenMonths.map((m) => ({
+      birthDate: addMonths(dueDate, -m),
+      care: m >= 75 ? "小学校" : working ? "保育園" : m >= 36 ? "幼稚園" : "家",
+    }));
+  }
   if (p.father) {
     // 「その他」は非正規・無職・不詳をまとめた区分。いちばん多い非正規に寄せた（近似）
     s.partnerWork = { 正規: "会社員・公務員", 自営など: "自営・フリー", その他: "パート・派遣" }[p.father.work] as Situation["partnerWork"];
