@@ -17,6 +17,7 @@ import { jpShort } from "./today/dates";
 import { TaskRow, isGuide, type ShownTask } from "./today/TaskCard";
 import { NowCard } from "./today/NowCard";
 import { BirthTripCard, TripFolded } from "./today/BirthTripCard";
+import { CautionCard } from "./today/CautionCard";
 import { planBirthTrip, tripScreen } from "@/lib/birth-trip";
 import { applyRetime, type Retime } from "@/lib/vax-next";
 import { StaleBox } from "./today/StaleBox";
@@ -379,6 +380,8 @@ export function Techo() {
   const staleFirst = stale.length > 0 && !(visitTop && nextVisit) && !focus && !tripShown && (!top || isGuide(top)) && !festive;
   const loading = !(doneReady && sentReady && advisorOpen !== null);
   const quiet = family.situation?.quiet;
+  // 気をつける事の札を出さない日: お祝いの日・届けの束を全部出す日・手帳の気づきが開いている日（大きな札を重ねない）
+  const cautionBusy = festive || tripShown || (advisorOpen ?? 0) > 0;
 
   // 手帳が先に用意する事（UX の見直し C07）: 一番上の札が用意する1件を含めて3件まで。残りは裏で用意する（本物の家族だけ。PrepAhead）
   const firstPrep = loading || (visitTop && nextVisit) ? null : top;
@@ -538,6 +541,19 @@ export function Techo() {
         <TripFolded fold={tripFold} family={family} today={today} open={tripOpen} onToggle={() => setTripOpen((v) => !v)} />
       )}
       {!loading && tripFold && tripOpen && tripCard}
+
+      {/* 気をつける事の札（寝る所・泣きやまない時・月齢の事故・やらなくていい事・出生届出済証明）: 時期と出典で1回だけ、1日に1枚。
+          「今やる1つ」より上に出さない。中身と守る線（静かにする家族・母の画面の生後0〜14日には出さない）は lib/cautions.ts */}
+      {!loading && (
+        <CautionCard
+          key={`${family.id}:caution`}
+          family={family}
+          today={today}
+          role={me?.role === "パートナー" ? "パートナー" : "母"}
+          busy={cautionBusy}
+          birthFiled={done.has("birth-registration")}
+        />
+      )}
 
       {/* 手帳が見渡して気づいた事は、一番上の1枚の次に（大きな札を2枚並べない） */}
       {!loading && !advisorFirst && advisorOpen! > 0 && <AdvisorCard key={`${family.id}:${today}`} familyId={family.id} today={today} meId={me?.id} />}

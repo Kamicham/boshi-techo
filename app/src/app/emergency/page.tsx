@@ -33,6 +33,7 @@
 //   一般財団法人日本財団電話リレーサービス https://www.nftrs.or.jp/ （24時間・110/119/118 に発信できる）
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CRY_LINES } from "@/lib/cautions";
 import { Alt8000, ChokeOrder, Line7119, MamaUrgent } from "./ChokeOrder";
 
 export const metadata: Metadata = { title: "急ぎの時 | 母子手帳" };
@@ -277,31 +278,15 @@ export default function EmergencyPage() {
 
       {/* 泣きやまない時（言えない時の橋）: こども家庭庁のガイドブック（制作 厚生労働省）の文を言い換えずに引くだけ。手当や心の相談にはしない */}
       <Card id="crying" title="赤ちゃんが泣きやまない時" sub="こども家庭庁「赤ちゃんが泣きやまない」の言葉のまま">
+        {/* 言葉は lib/cautions.ts の CRY_LINES（今日の画面の「気をつける事」の札と同じ物を読む。同じ言葉を2か所に書かない） */}
         <ul className="flex flex-col gap-2 text-base leading-relaxed">
-          <li>
-            「赤ちゃんが泣いても、誰が悪いわけでもないのです。」「泣かれてイライラしても、当然のことです。」
-            <span className="text-xs text-muted">（p.3）</span>
-          </li>
-          <li>
-            「これまでの研究で、関わり方によらず生後1-2か月に泣きのピークがあることがわかりました。」「しかし、ピークが過ぎれば、泣きはだんだん収まってきます。」
-            <span className="text-xs text-muted">（p.2）</span>
-          </li>
-          <li>
-            「まず、赤ちゃんが欲しがっていると思うものをたしかめてみましょう。」（ミルクをあげる・おむつを替える・抱っこをする）
-            <span className="text-xs text-muted">（p.7）</span>
-          </li>
-          <li>
-            「また、高熱が出ていたり、心配であれば、医療機関を受診しましょう。」
-            <span className="text-xs text-muted">（p.8）</span>
-          </li>
-          <li>
-            「いろいろ試しても泣きやまない。それでも問題ありません。」「その時は、赤ちゃんを安全な場所に寝かせて、その場を離れましょう。」「そして自分がリラックスしましょう。」「少ししたら、戻って赤ちゃんの様子を確認しましょう。」
-            <span className="text-xs text-muted">（p.9）</span>
-          </li>
-          <li className="font-semibold text-alert">
-            「無理に泣きやませようと激しく揺さぶらないでください。」「また、泣き声が周囲に聞こえないようにと赤ちゃんの口をふさがないでください。」
-            <span className="text-xs font-normal text-muted">（p.10）</span>
-          </li>
+          {CRY_LINES.map((l) => (
+            <li key={l.page} className={l.alert ? "font-semibold text-alert" : undefined}>
+              {l.says.map((s) => `「${s}」`).join("")}
+              {l.after && `（${l.after}）`}
+              <span className={`text-xs text-muted${l.alert ? " font-normal" : ""}`}>（{l.page}）</span>
+            </li>
+          ))}
         </ul>
         <div className="flex flex-col gap-2">
           <div className="flex flex-col overflow-hidden rounded-2xl border border-sky/50">
