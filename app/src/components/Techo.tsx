@@ -24,7 +24,8 @@ import { AdvisorCard } from "./today/AdvisorCard";
 import { ConsultAsk } from "./today/ConsultAsk";
 import { PhotoNudge } from "./today/PhotoNudge";
 import { LetterNews } from "./today/LetterNews";
-import { BirthdayCard, birthdayAge } from "./today/BirthdayCard";
+import { BirthdayCard } from "./today/BirthdayCard";
+import { birthdayFor } from "@/lib/media-shared";
 import { byDays, daysLeft, planToday, withAssignee, type Task } from "./today/task";
 import { VisitToday, visitIsTop } from "./today/VisitToday";
 
@@ -295,7 +296,7 @@ export function Techo() {
   const loading = !(doneReady && sentReady && advisorOpen !== null);
   const quiet = family.situation?.quiet;
 
-  const bday = birthdayAge(family, today);
+  const bday = birthdayFor(family, today);
 
   if (quiet && !showAll) return <QuietDay family={family} quiet={quiet} onShowAll={() => setShowAll(true)} />;
 

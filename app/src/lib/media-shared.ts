@@ -581,6 +581,19 @@ export function memoryNudgeFor(f: { birthDate?: string; situation?: { quiet?: st
   return milestoneToday(f.birthDate, today);
 }
 
+/**
+ * 1歳・2歳の誕生日の札（components/today/BirthdayCard.tsx）を出す歳。誕生日の当日から2週間だけ。
+ * 静かにする（つらい別れ・赤ちゃんの入院）を選んでいる間は、「いつもの今日の画面を見る」を押した後も出さない（「おめでとう」を言わない）
+ */
+export function birthdayFor(f: { birthDate?: string; situation?: { quiet?: string } }, today: string): 1 | 2 | null {
+  if (f.situation?.quiet || !f.birthDate) return null;
+  for (const age of [1, 2] as const) {
+    const d = diffDays(today, addMonths(f.birthDate, age * 12));
+    if (d >= 0 && d <= 14) return age;
+  }
+  return null;
+}
+
 /** 写真の見出しの月齢（「生後3か月」「生後12日」「妊娠7か月」「1歳2か月」） */
 export function ageLabel(f: { dueDate: string; birthDate?: string }, date: string): string {
   if (f.birthDate && diffDays(date, f.birthDate) >= 0) {

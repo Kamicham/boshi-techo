@@ -3,9 +3,9 @@
 // - 選んでいない家族には、生まれた後の節目（お七夜〜2歳の7つ）でだけ出て、生まれる前には出ない
 // を確かめる。30家族はそのまま・loss にした写し・nicu にした写しの3通りで通す（作った家族だけ。Claude は呼ばない）。
 import { describe, expect, it } from "vitest";
-import { addDays, diffDays, lmpFromDue, secondBirthday } from "../lib/clock";
+import { addDays, addMonths, diffDays, lmpFromDue, secondBirthday } from "../lib/clock";
 import { letterOpenOn, recentlyOpened, schoolEntry } from "../lib/letters-shared";
-import { groupForAlbum, memoryNudgeFor, PHOTO_MILESTONES, type ClientMedia } from "../lib/media-shared";
+import { birthdayFor, groupForAlbum, memoryNudgeFor, PHOTO_MILESTONES, type ClientMedia } from "../lib/media-shared";
 import type { Quiet } from "../lib/situation";
 import { SIM_FAMILIES } from "./families";
 
@@ -36,6 +36,28 @@ describe("思い出の一言（節目の写真）", () => {
       for (const f0 of SIM_FAMILIES) {
         const f = { ...f0, situation: { ...f0.situation, quiet } };
         for (const d of days(f)) expect(memoryNudgeFor(f, d), `${f.id} ${d}`).toBeNull();
+      }
+    });
+  }
+});
+
+describe("1歳・2歳の誕生日の札（BirthdayCard と同じ birthdayFor）", () => {
+  it("30家族: 1歳・2歳の誕生日から2週間だけ出る", () => {
+    for (const f of SIM_FAMILIES) {
+      for (const d of days(f)) {
+        const age = birthdayFor(f, d);
+        if (!age) continue;
+        const since = diffDays(d, addMonths(f.birthDate!, age * 12));
+        expect(since >= 0 && since <= 14, `${f.id} ${d}`).toBe(true);
+      }
+    }
+  });
+
+  for (const quiet of ["loss", "nicu"] as Quiet[]) {
+    it(`静かにする（${quiet}）を選んだ30家族の写し: 「いつもの今日の画面」を開いても、どの日にも出ない`, () => {
+      for (const f0 of SIM_FAMILIES) {
+        const f = { ...f0, situation: { ...f0.situation, quiet } };
+        for (const d of days(f)) expect(birthdayFor(f, d), `${f.id} ${d}`).toBeNull();
       }
     });
   }
