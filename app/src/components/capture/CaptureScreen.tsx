@@ -10,6 +10,7 @@ import { KeepSheet } from "@/components/album/KeepSheet";
 import { useMedia } from "@/components/album/useMedia";
 import type { CaptureRecord, CaptureResult, RecordSource, TechoPhotoResult } from "@/lib/capture";
 import { HoldToTalk } from "./HoldToTalk";
+import { VoiceKeeper } from "@/components/album/VoiceKeeper";
 import { shrinkPhoto } from "./media";
 import { PhotoChoice, type ReadKind } from "./PhotoChoice";
 import { TechoCandidates } from "./TechoCandidates";
@@ -333,6 +334,8 @@ export function CaptureScreen() {
         <p className="text-sm text-muted">撮った後に「読み取る」か「残す」かを選びます。読み取る時だけ、写真を手帳の中の AI（Claude）に送ります（残しません）</p>
       )}
       {keeping && <KeepSheet files={keeping} onClose={() => setKeeping(null)} />}
+
+      <VoiceKeeper unavailable={keepUnavailable} />
 
       <p className="text-sm text-muted">{CALL_LINE}</p>
 

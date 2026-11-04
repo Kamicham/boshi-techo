@@ -33,8 +33,11 @@ import {
   photoDate,
   photoScore,
   readExifDate,
+  MAX_VOICE_BYTES,
+  sniffAudio,
   sniffMime,
   stripGps,
+  voiceTitle,
   TRASH_DAYS,
   VIEW_SIDE,
   THUMB_SIDE,
@@ -42,6 +45,7 @@ import {
   type MediaData,
   type Period,
   type PhotoVariant,
+  type VoiceMoment,
 } from "./media-shared";
 
 export * from "./media-shared";
@@ -274,6 +278,100 @@ export async function saveUpload(ctx: HouseholdCtx, input: UploadInput): Promise
   return { media: row, duplicate: false, candidates };
 }
 
+// ───────── 声を残す ─────────
+
+export interface VoiceInput {
+  audio: Buffer;
+  moment?: VoiceMoment | null;
+  who?: string | null;
+  spokenTo?: string | null;
+  transcript?: string | null;
+  durationSec?: number | null;
+  caption?: string | null;
+  subjectId?: string | null;
+  /** 作った家族（デモ・シミュレーション）: 録った日にする日（画面の「今日」か、種の日） */
+  today?: string;
+  made?: boolean;
+  seedKey?: string;
+}
+
+/**
+ * 声を1本残す。写真と同じく世帯の鍵で暗号にして置く。声そのものは Claude にも外の機械にも渡さない
+ * （文字起こしは自宅の機械 lib/asr.ts。ここでは受け取った文字を残すだけ）。
+ * 同じ中身（sha256）は二度入れない。
+ */
+export async function saveAudio(ctx: HouseholdCtx, input: VoiceInput): Promise<{ media: PhotoRow; duplicate: boolean }> {
+  const hid = ctx.household.id;
+  const raw = input.audio;
+  if (!raw?.length) throw new HttpError(400, "声が空です");
+  if (raw.length > MAX_VOICE_BYTES) throw new HttpError(413, "声が長すぎます（30MB まで）");
+  const mime = sniffAudio(raw);
+  if (!mime) throw new HttpError(415, "録音の形式が読めません");
+  const sha = sha256Hex(raw);
+  const dup = ctx.db.media.findBySha<MediaData>(sha);
+  if (dup) return { media: dup, duplicate: true };
+
+  const now = Date.now();
+  const madeDay = ctx.household.kind !== "real" && input.today && /^\d{4}-\d{2}-\d{2}$/.test(input.today) ? input.today : null;
+  const takenAt = madeDay ? `${madeDay}${jstStamp(now).slice(10)}` : jstStamp(now);
+  const date = takenAt.slice(0, 10);
+  let subjectId: string | null = null;
+  if (input.subjectId) {
+    if (!ctx.subjects.some((s) => s.id === input.subjectId)) throw new HttpError(404, "見つかりません");
+    subjectId = input.subjectId;
+  } else subjectId = ctx.subjects.find((s) => s.kind === "child")?.id ?? null;
+
+  const birth = ctx.family?.birthDate;
+  const ms = milestoneFor(birth, date);
+  const id = randomUUID();
+  const storageKey = mediaKey({ householdId: hid, subjectId, kind: "audio", id, date });
+  const sealed = sealForHousehold(hid, raw, `${id}:orig`);
+  await ctx.storage.put(`${storageKey}/orig`, sealed.ciphertext, { contentType: "application/octet-stream" });
+  const clip = (v: unknown, n: number) => (typeof v === "string" && v.trim() ? v.trim().slice(0, n) : undefined);
+  const base = {
+    moment: input.moment ?? undefined,
+    who: clip(input.who, 40),
+    spokenTo: clip(input.spokenTo, 40),
+  };
+  const data: MediaData = {
+    links: { ...(ms ? { milestone: ms.id } : {}) },
+    shareWithClaude: false,
+    variants: { orig: { iv: sealed.iv, tag: sealed.tag, bytes: raw.length, mime } },
+    ...(base.moment ? { moment: base.moment } : {}),
+    ...(base.who ? { who: base.who } : {}),
+    ...(base.spokenTo ? { spokenTo: base.spokenTo } : {}),
+    ...(clip(input.transcript, 2000) ? { transcript: clip(input.transcript, 2000) } : {}),
+    ...(typeof input.durationSec === "number" && input.durationSec > 0 ? { durationSec: Math.round(input.durationSec * 10) / 10 } : {}),
+    ...(clip(input.caption, 400) ? { caption: clip(input.caption, 400), captionBy: "family" as const } : {}),
+    title: voiceTitle(base),
+    ...(birth ? { ageDays: Math.round((Date.parse(date) - Date.parse(birth)) / 86_400_000) } : {}),
+    ...(input.made ? { made: true as const } : {}),
+    ...(input.seedKey ? { seedKey: input.seedKey } : {}),
+  };
+  let row: PhotoRow;
+  try {
+    row = ctx.db.media.insert<MediaData>({
+      id,
+      subjectId,
+      kind: "audio",
+      storageKey,
+      mime,
+      bytes: raw.length,
+      iv: sealed.iv,
+      tag: sealed.tag,
+      takenAt,
+      takenAtFrom: madeDay ? "manual" : "upload",
+      sha256: sha,
+      data,
+    });
+  } catch (e) {
+    await ctx.storage.delete(storageKey).catch(() => {});
+    throw e;
+  }
+  audit(hid, ctx.account?.id ?? null, "media.add", { target: id, detail: { kind: "audio" } });
+  return { media: row, duplicate: false };
+}
+
 // ───────── 読む ─────────
 
 /** その形の中身（復号した物）。無い形は、一覧用 → 画面用 → 原本の順に代わりを出す */
@@ -317,6 +415,15 @@ export function toClient(familyId: string, row: PhotoRow, me?: string | null, li
     trashedAt: row.trashedAt,
     createdAt: row.createdAt,
     urls: { orig: q("orig"), view: q("view"), thumb: q("thumb") },
+    ...(row.kind === "audio"
+      ? {
+          ...(row.data.moment ? { moment: row.data.moment } : {}),
+          ...(row.data.spokenTo ? { spokenTo: row.data.spokenTo } : {}),
+          ...(row.data.durationSec ? { durationSec: row.data.durationSec } : {}),
+          ...(row.data.transcript ? { transcript: row.data.transcript } : {}),
+          title: row.data.title ?? voiceTitle(row.data),
+        }
+      : {}),
   };
 }
 
@@ -431,6 +538,44 @@ export function bookPhotoCandidates(f: Family, today: string): BookPhoto[] {
         techo: titles,
         star,
         score: photoScore({ star, milestone: ms?.id, techoIds: titles, caption: r.data.caption }),
+      };
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// ───────── 一冊の声の候補（文字だけ。声は渡さない） ─────────
+
+export interface BookVoice {
+  id: string;
+  date: string;
+  period: Period;
+  age: string;
+  title: string;
+  /** 文字起こしの最初の一文（60字まで） */
+  first: string;
+  star: number;
+}
+
+/** 一冊を作る時の声の候補（日付・題・最初の一文）。声のファイルは読まない。隠した・今日より後は入れない */
+export function bookVoiceCandidates(f: Family, today: string): BookVoice[] {
+  let rows: PhotoRow[];
+  try {
+    rows = forHousehold(f.id).media.list<MediaData>({ kind: "audio" });
+  } catch {
+    return [];
+  }
+  return rows
+    .filter((r) => !r.data.hidden && photoDate(r) <= today)
+    .map((r) => {
+      const date = photoDate(r);
+      return {
+        id: r.id,
+        date,
+        period: periodOfDate(f.birthDate, date),
+        age: ageLabel(f, date),
+        title: r.data.title ?? voiceTitle(r.data),
+        first: (r.data.transcript ?? r.data.caption ?? "").split(/(?<=[。！？])/)[0].slice(0, 60),
+        star: r.data.star?.length ?? 0,
       };
     })
     .sort((a, b) => a.date.localeCompare(b.date));
