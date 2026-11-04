@@ -63,7 +63,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             className="flex min-h-11 min-w-0 shrink items-center gap-1.5 rounded-full bg-sky-soft px-3 text-left text-sm text-ink disabled:opacity-50"
           >
             <span className="truncate">
-              見本の家族 ・ <b className="font-semibold">{clockAt(family, today).label.replace(/(\d+週)\d+日/, "$1")}</b>
+              見本{me ? <span className="text-muted">（{me.name}）</span> : null} ・ <b className="font-semibold">{clockAt(family, today).label.replace(/^妊娠/, "").replace(/(\d+週)\d+日/, "$1")}</b>
             </span>
             <span className="shrink-0 font-semibold whitespace-nowrap text-sky">ほかの時期 ▾</span>
           </button>

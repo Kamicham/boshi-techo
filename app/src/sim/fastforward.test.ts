@@ -1025,3 +1025,26 @@ describe("① 早送りの検査: 手帳で済んだ接種・健診", () => {
     }
   });
 });
+
+// 見本の家族（Techo.tsx の isDemo と同じ組み立て）: 期限を過ぎた手続きは始まりから数日後に出したとみなす（lib/money.ts の demoAppliedOn）。
+// 1歳・2歳の誕生日の前後1週間、一番上が「届いたか見る」にならない（2026-11-04 初見の目 L3）
+describe("見本の家族の1歳・2歳の一番上", () => {
+  it("誕生日の前後1週間、一番上は届いたかの確かめではない", async () => {
+    const { demoAppliedOn, isPaidId } = await import("../lib/money");
+    const f = DEMO_FAMILY;
+    const birth = f.birthDate!;
+    const bad: string[] = [];
+    for (const age of [12, 24])
+      for (let d = -7; d <= 7; d++) {
+        const day = addDays(addMonths(birth, age), d);
+        const base = scheduleFor(f, day);
+        const applied = new Set(base.filter((m) => m.deadlineDate && m.deadlineDate < day).map((m) => m.id));
+        const schedule = [...base, ...moneyWatch(base, applied, demoAppliedOn(base, day), birth)];
+        const done = new Set(schedule.filter((m) => m.deadlineDate && m.deadlineDate < day).map((m) => m.id));
+        const tasks = schedule.map((m) => ({ ...m, status: statusOf(m, day, done) }));
+        const top = planToday(tasks, day, f.members[0]).top;
+        if (top && isPaidId(top.id)) bad.push(`${day}: ${top.title}`);
+      }
+    expect(bad).toEqual([]);
+  });
+});

@@ -1,6 +1,7 @@
 "use client";
 
 // 合言葉の画面。家族だけが手帳を開けるように。
+import Link from "next/link";
 import { useState } from "react";
 import { plainError } from "@/components/ui";
 
@@ -25,7 +26,10 @@ export default function Unlock() {
     }
   };
   return (
-    <main className="flex flex-col gap-4 px-4 pt-10">
+    <main className="flex flex-col gap-4 px-4 pt-6">
+      <Link href="/" className="inline-flex min-h-11 items-center self-start text-sm text-muted underline-offset-2 hover:underline">
+        ‹ 戻る
+      </Link>
       <h1 className="font-display text-2xl font-bold">家族の合言葉</h1>
       <p className="text-sm text-muted">この手帳は家族だけが開けます。教えてもらった合言葉を入れてください（この端末では1年間聞きません）。</p>
       <form onSubmit={submit} className="flex flex-col gap-3">

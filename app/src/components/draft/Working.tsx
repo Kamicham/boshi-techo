@@ -23,7 +23,9 @@ export function Working({ steps, then }: { steps: { at: number; text: string }[]
   );
 }
 
-export function ErrorLine({ text, onRetry }: { text: string; onRetry: () => void }) {
+/** 失敗の一文。押し直しても変わらない失敗（settled）は赤にせず、「もう一度」も出さない */
+export function ErrorLine({ text, onRetry, settled }: { text: string; onRetry: () => void; settled?: boolean }) {
+  if (settled) return <p className="rounded-xl bg-paper px-4 py-2 text-base text-muted">{text}</p>;
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-xl bg-alert/10 px-4 py-2 text-base text-alert">
       <span className="min-w-0 flex-1">{text}</span>

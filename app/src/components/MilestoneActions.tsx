@@ -8,7 +8,7 @@ import { MONEY, paidId } from "@/lib/money";
 import type { Milestone } from "@/lib/milestones";
 import type { LocalInfo } from "@/lib/local";
 import type { DraftKind, DraftView } from "@/lib/drafts";
-import { api, useFamily } from "./FamilyProvider";
+import { api, settledError, useFamily } from "./FamilyProvider";
 import { Btn } from "./ui";
 import { DraftPanel, doneWord, type DraftBusy } from "./draft/DraftPanel";
 import { LocalPanel } from "./draft/LocalPanel";
@@ -97,10 +97,12 @@ function Actions({ milestone, today, primary, compact, onDoneChange }: Props) {
   const [local, setLocal] = useState<LocalInfo | null>(null);
   const [localBusy, setLocalBusy] = useState(false);
   const [localErr, setLocalErr] = useState("");
+  const [localSettled, setLocalSettled] = useState(false);
 
   const [view, setView] = useState<DraftView | null>(null);
   const [draftBusy, setDraftBusy] = useState<DraftBusy>("");
   const [draftErr, setDraftErr] = useState("");
+  const [draftSettled, setDraftSettled] = useState(false);
 
   // 役所の窓口を調べるのは、役所に出す手続きだけ（産院・職場に出す物を役所で調べると、違う行き先が出る＝sim-14 の直接支払制度）
   const canLocal = milestone.needsLocal && !!family.city && !(milestone.kind === "仕事" || /産院|職場/.test(`${milestone.title}${milestone.plain}`));
@@ -128,6 +130,7 @@ function Actions({ milestone, today, primary, compact, onDoneChange }: Props) {
       setLocal(r.local);
     } catch (e) {
       setLocalErr((e as Error).message);
+      setLocalSettled(settledError(e));
     } finally {
       setLocalBusy(false);
     }
@@ -143,6 +146,7 @@ function Actions({ milestone, today, primary, compact, onDoneChange }: Props) {
       if (was) onDoneChange?.(false);
     } catch (e) {
       setDraftErr((e as Error).message);
+      setDraftSettled(settledError(e));
     } finally {
       setDraftBusy("");
     }
@@ -162,6 +166,7 @@ function Actions({ milestone, today, primary, compact, onDoneChange }: Props) {
       }
     } catch (e) {
       setDraftErr((e as Error).message);
+      setDraftSettled(settledError(e));
       setDraftBusy("");
     }
   };
@@ -211,6 +216,7 @@ function Actions({ milestone, today, primary, compact, onDoneChange }: Props) {
           view={view}
           busy={draftBusy}
           err={draftErr}
+          settled={draftSettled}
           onView={(v) => {
             const was = view?.draft?.status === "ok";
             setView(v);
@@ -228,6 +234,7 @@ function Actions({ milestone, today, primary, compact, onDoneChange }: Props) {
           local={local}
           busy={localBusy}
           err={localErr}
+          settled={localSettled}
           onRetry={() => void loadLocal(!!local)}
           onRefresh={() => void loadLocal(true)}
         />

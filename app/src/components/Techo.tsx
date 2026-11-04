@@ -2,7 +2,7 @@
 
 // 「今日」の画面: 開いた瞬間に「今やる1つ」。2つ目からは1行ずつ、まだ先と済んだ事は畳む。
 import Link from "next/link";
-import { moneyWatch } from "@/lib/money";
+import { demoAppliedOn, moneyWatch } from "@/lib/money";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { clockAt, diffDays, totalDays } from "@/lib/clock";
 import type { Family } from "@/lib/demo-family";
@@ -24,6 +24,7 @@ import { AdvisorCard } from "./today/AdvisorCard";
 import { ConsultAsk } from "./today/ConsultAsk";
 import { PhotoNudge } from "./today/PhotoNudge";
 import { LetterNews } from "./today/LetterNews";
+import { BirthdayCard, birthdayAge } from "./today/BirthdayCard";
 import { byDays, daysLeft, planToday, withAssignee, type Task } from "./today/task";
 import { VisitToday, visitIsTop } from "./today/VisitToday";
 
@@ -189,9 +190,11 @@ export function Techo() {
   const schedule = useMemo(() => {
     const base = applyRetime(scheduleFor(family, today), retime);
     const applied = new Set([...marked, ...sent, ...fromTecho]);
+    // 見本の家族は、期限を過ぎた手続きを始まりから数日後に出したとみなす（lib/money.ts の demoAppliedOn）
+    const on = isDemo ? { ...demoAppliedOn(base, today), ...appliedOn } : appliedOn;
     if (isDemo) for (const m of base) if (m.deadlineDate && m.deadlineDate < today) applied.add(m.id);
     const born = family.birthDate && family.birthDate <= today ? family.birthDate : undefined;
-    return [...base, ...moneyWatch(base, applied, appliedOn, born)];
+    return [...base, ...moneyWatch(base, applied, on, born)];
   }, [family, today, retime, marked, sent, fromTecho, isDemo, appliedOn]);
 
   const setManyDone = useCallback(
@@ -292,6 +295,8 @@ export function Techo() {
   const loading = !(doneReady && sentReady && advisorOpen !== null);
   const quiet = family.situation?.quiet;
 
+  const bday = birthdayAge(family, today);
+
   if (quiet && !showAll) return <QuietDay family={family} quiet={quiet} onShowAll={() => setShowAll(true)} />;
 
   return (
@@ -323,6 +328,8 @@ export function Techo() {
         </div>
       )}
 
+      {/* 1歳・2歳の誕生日から2週間は、一番上に誕生日の1枚（開いた手紙・一冊・映画） */}
+      {!loading && bday && <BirthdayCard key={`${family.id}:bday${bday}`} family={family} today={today} by={me?.name} age={bday} />}
       {loading ? (
         <div className="h-40 rounded-2xl bg-rose-soft/60" aria-hidden />
       ) : visitTop && nextVisit ? (
@@ -406,7 +413,7 @@ export function Techo() {
 
 
       {/* 写真の節目の日だけ、1回の一言（月に1回まで。写真を残せる手帳だけ） */}
-      {!loading && <LetterNews key={`${family.id}:letters`} family={family} today={today} by={me?.name} />}
+      {!loading && !bday && <LetterNews key={`${family.id}:letters`} family={family} today={today} by={me?.name} />}
       {!loading && <PhotoNudge key={`${family.id}:photo`} family={family} today={today} />}
 
       {/* 手帳の毎回の問い「相談できる人はいますか」（時期ごとに1回。答えた時期は出さない） */}

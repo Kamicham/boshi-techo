@@ -301,6 +301,21 @@ export function useFamily(): Ctx {
   return c;
 }
 
+/** API の失敗。status は HTTP の番号（通信できない時は 0） */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
+/** 押し直しても変わらない失敗か（503＝見本や上限で調べない・401/403＝入れない）。「もう一度」を出さない */
+export function settledError(e: unknown): boolean {
+  return e instanceof ApiError && [401, 403, 503].includes(e.status);
+}
+
 /** API を JSON で呼ぶ小さな道具（エラーは日本語の文で投げる） */
 export async function api<T>(url: string, init?: { method?: string; body?: unknown }): Promise<T> {
   let r: Response;
@@ -312,9 +327,9 @@ export async function api<T>(url: string, init?: { method?: string; body?: unkno
     });
   } catch {
     // Safari は「Load failed」、Chrome は「Failed to fetch」と英語で出るので言い換える
-    throw new Error("通信できませんでした。電波を確かめて、もう一度押してください");
+    throw new ApiError("通信できませんでした。電波を確かめて、もう一度押してください", 0);
   }
   const j = (await r.json().catch(() => ({}))) as T & { error?: string };
-  if (!r.ok) throw new Error(j.error ?? `うまくいきませんでした（${r.status}）`);
+  if (!r.ok) throw new ApiError(j.error ?? `うまくいきませんでした（${r.status}）`, r.status);
   return j;
 }
