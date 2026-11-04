@@ -26,6 +26,8 @@ export const GET = route(async (req: Request) => {
     done: [...new Set([...own, ...fromTecho])],
     /** 手帳の記録から済みになった事（画面が「手帳で済み」と出す。DELETE では外れない） */
     fromTecho,
+    /** 済んだにした日（押した時の「今日」。お金の手続きの届く見込みを数える。lib/money.ts） */
+    doneOn: Object.fromEntries(docs.map((d) => [d.data.milestoneId, d.data.today ?? d.data.at.slice(0, 10)])),
     /** 下書きの印から済みになった事（自分で押した物と見分けたい画面のため） */
     fromDraft: docs.filter((d) => d.data.auto === "draft").map((d) => d.data.milestoneId),
     /** 始める前に期限が過ぎて済みにした事（open: まだと答えた） */

@@ -4,6 +4,7 @@
 // ② その町の窓口を調べる → 一番上に「どこへ・何を持って」、地図で開く
 // ③ 下書きを作る → 宛先・件名・本文をワンタップでコピー、メール・LINE・共有で開く（送るのは家族）
 import { useEffect, useState } from "react";
+import { MONEY, paidId } from "@/lib/money";
 import type { Milestone } from "@/lib/milestones";
 import type { LocalInfo } from "@/lib/local";
 import type { DraftKind, DraftView } from "@/lib/drafts";
@@ -40,6 +41,8 @@ export const DRAFTABLE: Record<string, DraftKind> = {
   "leave-money-request": "メール",
   "partner-leave-14": "メール",
   "childcare-benefit-first": "メール",
+  // 届いたか確かめる件（lib/money.ts）: 届く時期を過ぎた時の問い合わせ
+  ...Object.fromEntries(Object.keys(MONEY).map((k) => [paidId(k), "メール" as DraftKind])),
 };
 
 /** 下書きの呼び名（種類ごと） */
@@ -54,6 +57,7 @@ export const NOUN: Record<DraftKind, string> = {
 export function nounFor(kind: DraftKind, m: { kind: string; id?: string }): string {
   if (kind === "メール" && m.id === "older-daycare-continue") return "園か町への問い合わせ";
   if (kind === "メール" && m.id === "satogaeri-return") return "保健センターへの連絡";
+  if (kind === "メール" && m.id?.startsWith("paid-")) return "届かない時の問い合わせ";
   if (kind === "メール" && m.kind !== "仕事") return "町への問い合わせ";
   return NOUN[kind] ?? "下書き";
 }

@@ -5,6 +5,7 @@
 // 前は最初に調べた家族の id で置いていた（その家族を消すと、ほかの家族の分の調べ結果も消えた）。前の行も id で引けるので、そのまま読める。
 // 「いつもの」の役所（rememberOffice）は家族の物なので、今までどおり家族の id に置く。
 import "server-only";
+import { isPaidId, paidDef } from "./money";
 import { z } from "zod";
 import { LIGHT_MODEL, RESEARCH_MODEL, research, structured } from "./claude";
 import { get, put } from "./db";
@@ -64,7 +65,8 @@ export function localId(city: string, milestoneId: string): string {
 }
 
 export function findMilestone(id: unknown): MilestoneDef {
-  const m = typeof id === "string" ? MILESTONES.find((x) => x.id === id) : undefined;
+  // 届いたか確かめる件（paid-〈申請の id〉・lib/money.ts）は、予定の表に無いので骨組みから引く
+  const m = typeof id === "string" ? (MILESTONES.find((x) => x.id === id) ?? (isPaidId(id) ? paidDef(id.slice(5)) ?? undefined : undefined)) : undefined;
   if (!m) throw new HttpError(404, "その事が見つかりません");
   return m;
 }

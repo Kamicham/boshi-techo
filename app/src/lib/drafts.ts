@@ -2,6 +2,7 @@
 // 送るのは家族。手帳は「メールで開く」「LINE で送る」まで用意して、勝手には送らない。
 // 「いつもの」（会社名・上司の名前など）を覚えていれば、【 】の空欄は最初から埋める。
 import "server-only";
+import { isPaidId, MONEY } from "./money";
 import { z } from "zod";
 import { clearDoneFromDraft, markDoneFromDraft } from "@/app/api/done/_lib/done";
 import { fillFamilyBlanks, findBlanks, isRoleWord, type Blank } from "./blanks";
@@ -229,6 +230,9 @@ export async function makeDraft(family: Family, m: MilestoneDef, today: string, 
         ]
       : []),
     ...olderDraftLines(m.id, family),
+    ...(isPaidId(m.id)
+      ? ["", `下書きの向き: ${MONEY[m.id.slice(5)].ask}への問い合わせのメール。${MONEY[m.id.slice(5)].name}を申請したが、届く時期を過ぎてもまだ振り込まれていない事を伝え、手続きが今どこまで進んでいるか・足りない書類が無いか・振り込まれる予定の日を聞く。申請した日は【申請した日】の空欄。額は書かない。遅れの理由を決めつけない・責めない`]
+      : []),
     ...(m.id === "daycare-extend" || m.id === "daycare-extend-2"
       ? [
           "",
