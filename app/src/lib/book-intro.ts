@@ -5,8 +5,18 @@
 /** これより少ない記録（妊娠中）は、まず記録を足す方を主にする */
 export const FEW_RECORDS = 10;
 
+/**
+ * 一冊が0件の本物の家族へ「見本の家族の一冊を読む ›」（見直し C38 ④・2026-11-05）。
+ * 押すと見本の家族へ切り替え、Claude が前に書いた見本の一冊のうち、いちばん長い2歳の一冊の日へ合わせる（lib/demo-books.json の一番後ろの asOf）。
+ * 戻るのは上の帯の切り替え（わが家）から
+ */
+export const SAMPLE_BOOK_DAY = "2029-04-26";
+export const SAMPLE_BOOK_LABEL = "見本の家族の一冊を読む ›";
+/** 押した印（見本の家族へ切り替えた後に、一冊の画面がその日へ合わせて消す。この端末のこのタブだけ） */
+export const SAMPLE_BOOK_KEY = "boshi.readSampleBook";
+
 export type BookIntro =
-  | { kind: "gather"; eyebrow?: undefined; title: string; sub: string; cta: string; tryMake: boolean }
+  | { kind: "gather"; eyebrow?: undefined; title: string; sub: string; cta: string; tryMake: boolean; sample: boolean }
   | { kind: "seed"; eyebrow: string; title: string; sub: string; cta: string }
   | { kind: "make"; eyebrow: string; title: string; sub: string; cta: string };
 
@@ -21,6 +31,8 @@ export function bookIntro(o: { childName?: string | null; count: number; born: b
       sub: `話した事・撮った写真・家族の声がたまると、ここで本の形にまとめられます。いまは${n}件`,
       cta: n === 0 ? "最初の1つを残す" : "話す・撮るで足す",
       tryMake: n > 0,
+      // 0件の日は、たまった後の姿を先に見られるように（見本の家族の一冊）
+      sample: n === 0,
     };
   }
   if (n === 0) {

@@ -6,7 +6,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn, CopyButton, Fold, NextStep, Pill, ShareButton, Why } from "@/components/ui";
 import type { Book } from "@/lib/book";
-import { bookIntro, cameFromTecho } from "@/lib/book-intro";
+import { bookIntro, cameFromTecho, SAMPLE_BOOK_DAY, SAMPLE_BOOK_KEY, SAMPLE_BOOK_LABEL } from "@/lib/book-intro";
+import { DEMO_FAMILY } from "@/lib/demo-family";
 import { useMedia } from "@/components/album/useMedia";
 import { VoiceItem } from "@/components/album/VoiceItem";
 import { FutureLetters, MinnaChapter } from "@/components/album/Minna";
@@ -51,7 +52,23 @@ const WAIT_STEPS = [
 ];
 
 export default function BookPage() {
-  const { family, today, isDemo } = useFamily();
+  const { family, today, isDemo, setFamilyId, setToday } = useFamily();
+  // 「見本の家族の一冊を読む ›」を押した後: 見本の家族へ切り替わったら、見本の一冊の日へ合わせる（1回だけ。見直し C38 ④）
+  useEffect(() => {
+    if (!isDemo) return;
+    let want = false;
+    try {
+      want = sessionStorage.getItem(SAMPLE_BOOK_KEY) === "1";
+      sessionStorage.removeItem(SAMPLE_BOOK_KEY);
+    } catch {}
+    if (want) setToday(SAMPLE_BOOK_DAY);
+  }, [isDemo, setToday]);
+  const readSample = () => {
+    try {
+      sessionStorage.setItem(SAMPLE_BOOK_KEY, "1");
+    } catch {}
+    setFamilyId(DEMO_FAMILY.id);
+  };
   const [book, setBook] = useState<Book | null>(null);
   const [count, setCount] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -183,6 +200,11 @@ export default function BookPage() {
             <Btn kind="quiet" onClick={() => void make()}>
               いまの記録でまとめてみる
             </Btn>
+          )}
+          {intro.sample && (
+            <button type="button" onClick={readSample} className="inline-flex min-h-11 items-center px-1 text-sm text-muted underline underline-offset-2">
+              {SAMPLE_BOOK_LABEL}
+            </button>
           )}
           <BookWhy />
         </NextStep>
