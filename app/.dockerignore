@@ -9,3 +9,8 @@ node_modules
 sim/out
 coverage
 *.log
+# 試しの記録・証明書・Mac の印・型の組み立ての残り（2026-11-05 体験版を開ける前に）
+try-data
+*.pem
+**/.DS_Store
+*.tsbuildinfo

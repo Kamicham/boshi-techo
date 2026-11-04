@@ -1,6 +1,7 @@
 # 公開版（だれでも体験できる手帳・BOSHI_PUBLIC=1）の像。Fly.io の東京で1台動かし、記録は /data の容量に置く。
 # 中身は作った家族の写しだけ（lib/trial.ts）。本物の家族の記録・鍵は .dockerignore で入れない。
-# 秘密（ANTHROPIC_API_KEY・BETTER_AUTH_SECRET・BOSHI_KEK）は fly secrets で入れる（像にもリポジトリにも書かない）。
+# ハッカソンの間は ANTHROPIC_API_KEY を入れない（体験版は Claude を呼ばない＝lib/claude.ts）。秘密は BETTER_AUTH_SECRET と BOSHI_KEK の2つで、
+# fly secrets で入れる（像にもリポジトリにも書かない・命令の引数にも載せない）。
 FROM node:22-bookworm-slim AS build
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
