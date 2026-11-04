@@ -2,6 +2,11 @@
 // 体や心の判断はしない。言葉が含まれていたら案内を出すだけ（出しすぎても害は小さく、出し損ねる方が重い）。
 // 出典:
 //   - 119・#8000: 厚生労働省「子ども医療電話相談事業（#8000）」（都道府県が行う）https://www.mhlw.go.jp/topics/2006/10/tp1010-3.html
+//     言い方は「命が危ないと思ったら、迷わず119」「（子どもの事で）救急車を呼ぶか迷う時は #8000」。「迷ったら119」と書くと、
+//     迷う時の相談先（#8000・#7119）より先に119へ向かわせる。119 の例は消防庁の言葉（「呼吸をしていない。息がない。」「呼びかけても、反応がない。」
+//     ＝緊急度判定プロトコル Ver.3 救急受診ガイド、「けいれんが止まらない」＝「救急車を上手に使いましょう」令和7年12月）。
+//   - DV相談＋ 0120-279-889（電話は24時間・通話料はかからない）と「今すぐ警察官に駆けつけてもらいたいような緊急の場合は、110番に通報してください」:
+//     内閣府 男女共同参画局 https://www.gender.go.jp/policy/sokushin/ouen/safe/dv/ ・DV相談＋ https://soudanplus.jp/ （2026-11-05 確認）
 //   - 日本語以外の言葉（URGENT_INTL・CRISIS_INTL）: 在留外国人の多い国籍（出入国在留管理庁「在留外国人統計」2025年6月末:
 //     中国・ベトナム・韓国・フィリピン・ネパール・ブラジルの順）の言葉に、英語を足した7つ。日本語の言葉と同じ意味の言葉だけを置く。
 //     近似（母語の人にはまだ確かめていない）。出しすぎても害は小さいので、迷う言葉は入れる側に倒す。
@@ -21,8 +26,41 @@ const URGENT =
 /** 便色カードの1〜3番に近い色と言った（手帳の注意書きが「1日も早く受診」と言う所） */
 const STOOL = /(便|うんち|ウンチ).{0,15}([1-3１-３]\s*番|白っぽ|白い|灰色|灰白|クリーム色|象牙色|薄い黄|淡い黄|黄緑)/;
 
-/** 心の危機に見える言葉（死にたい・手をあげてしまいそう 等） */
-const CRISIS = /死にたい|消えたい|自殺|いなくなりたい|生きているのがつらい|生きてるのがつらい|もう限界|手をあげてしまい|叩いてしまい|たたいてしまい|虐待/;
+/**
+ * 赤ちゃんを揺さぶってしまいそう・揺さぶってしまった（こども家庭庁「赤ちゃんが泣きやまない」: 無理に泣きやませようと激しく揺さぶらないでください）。
+ * 「揺さぶられ症候群が心配」「揺さぶったらどうなる？」のような問いには当てない。
+ */
+const SHAKE = /(揺|ゆ)さぶ(って(しま|ちゃ)|っちゃ|りそう|りたく|った(?!ら))/;
+
+/**
+ * 心の危機に見える言葉（死にたい・手をあげてしまいそう 等）。
+ * 「死にたくなる」は拾い、「（お産で）死にたくない」は拾わない。「消えてしまいたい」「もう無理」も拾う（出しすぎても害は小さい）。
+ */
+const CRISIS = new RegExp(
+  [
+    "死にたい|死にたく(?!ない)|消えたい|消えてしまいたい|自殺|いなくなりたい|生きているのがつらい|生きてるのがつらい|もう限界|もう無理",
+    "手をあげてしまい|叩いてしまい|たたいてしまい|虐待",
+    SHAKE.source,
+  ].join("|"),
+);
+
+/**
+ * 暴力を受けている言葉（DV の相談先も出す）。「お腹を蹴られる（胎動）」「2歳の子に叩かれる」には当てないよう、
+ * 蹴る・叩くは大人の相手（夫・パートナーなど）がいる時だけ拾う。
+ */
+const PARTNER = "(夫|妻|彼|彼氏|彼女|パートナー|旦那|主人|相手)";
+const VIOLENCE = new RegExp(
+  [
+    "殴られ|なぐられ|首を(絞|締|し)め|突き飛ばされ|暴力を(受け|振るわれ|ふるわれ)|ＤＶ|\\bDV\\b",
+    `${PARTNER}(に|から)(蹴られ|けられ|叩かれ|たたかれ)|${PARTNER}(からの|から|の)暴力`,
+    String.raw`\bdomestic violence\b|\b(husband|wife|partner|boyfriend|girlfriend) (hits|hit|beats|beat|kicks|kicked|chokes|choked|strangled) me\b`,
+  ].join("|"),
+  "i",
+);
+
+/** 子に手をあげてしまいそうな言葉（児童相談所 相談専用ダイヤルも出す） */
+const CHILD_HARM =
+  /手をあげ|叩いて|たたいて|虐待|\b(hurt|harm|hit|shake|shook|shaking|slap|bater)\b|\babuse\b|打孩子|伤害孩子|傷害孩子|때릴|학대|saktan|[dđ][aá]nh con|कुट/i;
 
 /**
  * 日本語以外で書かれた急ぎの言葉（URGENT と同じ意味の物だけ）。英語・ポルトガル語などの単語は語の頭（\b）で区切る
@@ -105,20 +143,25 @@ export interface Bridge {
 
 export function bridgeFor(text: string, phase: "pregnant" | "child" | "other"): Bridge {
   const urgent = URGENT.test(text) || URGENT_INTL.test(text);
-  const crisis = CRISIS.test(text) || CRISIS_INTL.test(text);
+  const violence = VIOLENCE.test(text);
+  const crisis = CRISIS.test(text) || CRISIS_INTL.test(text) || violence;
   const stool = phase !== "pregnant" && STOOL.test(text);
   const actions: AskAction[] = [];
   const notes: string[] = [];
   const leads: string[] = [];
   if (urgent) {
-    leads.push(phase === "pregnant" ? "今すぐ、かかりつけの産院へ電話してください（夜間も）。迷ったら119。" : "今すぐ電話してください。子どもの事はかかりつけか #8000、ママの体はかかりつけの産院（夜間も）。迷ったら119。");
+    leads.push(
+      phase === "pregnant"
+        ? "今すぐ、かかりつけの産院へ電話してください（夜間も）。命が危ないと思ったら、迷わず119。"
+        : "今すぐ電話してください。命が危ないと思ったら、迷わず119。救急車を呼ぶか迷う時は、子どもの事はかかりつけか #8000、ママの体はかかりつけの産院へ（夜間も）。",
+    );
     actions.push({ type: "open", href: phase === "pregnant" ? "/emergency#mama" : "/emergency", label: "急ぎの時を開く" });
-    actions.push({ type: "call", label: "迷ったら119", tel: "119" });
-    if (phase !== "pregnant") actions.push({ type: "call", label: "子どもの急な病気の相談 #8000", tel: "#8000" });
+    actions.push({ type: "call", label: "命が危ない時は119", tel: "119" });
+    if (phase !== "pregnant") actions.push({ type: "call", label: "子どもの事で迷う時 #8000", tel: "#8000" });
     notes.push(
       phase === "pregnant"
-        ? "急ぎに見える言葉がある。返事の最初の1文で、かかりつけの産院へ今すぐ電話（夜間も）・迷ったら119 を案内する。体の判断はしない"
-        : "急ぎに見える言葉がある。返事の最初の1文で、妊娠中・産後の体ならかかりつけの産院（夜間も）、子どもならかかりつけか #8000、迷ったら119 を案内する。体の判断はしない",
+        ? "急ぎに見える言葉がある。返事の最初の1文で、かかりつけの産院へ今すぐ電話（夜間も）・命が危ないと思ったら迷わず119 を案内する。「迷ったら119」とは書かない。体の判断はしない"
+        : "急ぎに見える言葉がある。返事の最初の1文で、命が危ないと思ったら迷わず119、救急車を呼ぶか迷う時は、子どもならかかりつけか #8000、妊娠中・産後の体ならかかりつけの産院（夜間も）を案内する。「迷ったら119」とは書かない。体の判断はしない",
     );
   }
   if (stool && !urgent) {
@@ -128,11 +171,23 @@ export function bridgeFor(text: string, phase: "pregnant" | "child" | "other"): 
     notes.push("便色カードの1〜3番に近い色と言っている。手帳の注意書き（1日も早く受診）は機械が返事の頭に置く。次の健診まで待つ書き方（健診で聞く）をしない。色の良し悪しは言わない。かかりつけの小児科（生後1か月ごろまでは生まれた産院でもよい）へ電話する事と、番号を選んで記録できる事だけ");
   }
   if (crisis) {
-    leads.push("話してくれてありがとう。ひとりで抱えなくていいです。今すぐ、電話の相談先にかけてください。命が危ないと思ったら119。");
-    actions.push({ type: "call", label: "こころの健康相談統一ダイヤル", tel: "0570-064-556" });
+    leads.push(
+      violence
+        ? "話してくれてありがとう。ひとりで抱えなくていいです。今すぐ危ない時は110番。DV相談＋は24時間、電話で話せます（通話料はかかりません）。"
+        : "話してくれてありがとう。ひとりで抱えなくていいです。今すぐ、電話の相談先にかけてください。命が危ないと思ったら119。",
+    );
+    if (violence) {
+      actions.push({ type: "call", label: "DV相談＋（24時間）", tel: "0120-279-889" });
+      actions.push({ type: "call", label: "今すぐ危ない時は110", tel: "110" });
+    }
+    if (!violence || CRISIS.test(text) || CRISIS_INTL.test(text)) actions.push({ type: "call", label: "こころの健康相談統一ダイヤル", tel: "0570-064-556" });
     actions.push({ type: "call", label: "よりそいホットライン（24時間）", tel: "0120-279-338" });
-    if (/手をあげ|叩いて|たたいて|虐待|\b(hurt|harm|hit|shake|shook|shaking|slap|bater)\b|\babuse\b|打孩子|伤害孩子|傷害孩子|때릴|학대|saktan|[dđ][aá]nh con|कुट/i.test(text)) actions.push({ type: "call", label: "児童相談所 相談専用ダイヤル", tel: "0120-189-783" });
-    notes.push("心の危機に見える言葉がある。責めず、相談の判断や助言はせず、返事の最初で話してくれた事を受け止め、電話の相談先と町のこども家庭センターを案内する。命の危険がある時は119");
+    if (CHILD_HARM.test(text) || SHAKE.test(text)) actions.push({ type: "call", label: "児童相談所 相談専用ダイヤル", tel: "0120-189-783" });
+    notes.push(
+      violence
+        ? "暴力を受けているように見える言葉がある。責めず、相談の判断や助言はせず、返事の最初で話してくれた事を受け止め、今すぐ危ない時は110番・DV相談＋（24時間）を案内する。相手に知らせる・話し合う事を勧めない"
+        : "心の危機に見える言葉がある。責めず、相談の判断や助言はせず、返事の最初で話してくれた事を受け止め、電話の相談先と町のこども家庭センターを案内する。命の危険がある時は119",
+    );
   }
   return { urgent, crisis, stool, lead: leads.length ? leads.join("\n") : null, actions, note: notes.length ? notes.join("\n") : null };
 }
