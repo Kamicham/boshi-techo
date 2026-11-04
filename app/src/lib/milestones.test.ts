@@ -237,6 +237,12 @@ describe("妊婦のための支援給付の2回目（第1波③）", () => {
 
 // 期限の言い方は、損で脅さず「いつまでに出すと、何が受け取れるか」で言う（総点検 0-6・2026-11-04。夜中にひとりで読む親を脅さない）
 describe("損で脅さない", () => {
+  it("まとめて役所へ行く札（lib/birth-trip.ts）の順番の理由も、損で脅さない", async () => {
+    const { BIRTH_TRIP } = await import("./birth-trip");
+    for (const x of BIRTH_TRIP) expect(x.reason, x.id).not.toMatch(/もらえません|もらえない|損|遅れると|戻らない|さかのぼらない/);
+    expect(BIRTH_TRIP.find((x) => x.id === "child-allowance")?.reason).toBe("生まれた日の翌日から15日以内に出すと、翌月分から受け取れる");
+  });
+
   it("児童手当の一言は、いつまでに出すと何が受け取れるか。30家族のどの予定の言葉も「もらえません」「損」「遅れると」を使わない", async () => {
     const { SIM_FAMILIES } = await import("../sim/families");
     let allowance = 0;

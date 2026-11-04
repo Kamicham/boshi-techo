@@ -7,13 +7,15 @@ import type { Situation } from "./situation";
 
 export type TripWhere = "役所" | "勤め先" | "保険が届いたら";
 
-/** 束に入れる届けと、その順番の理由（並びがそのまま行く順） */
+/** 束に入れる届けと、その順番の理由（並びがそのまま行く順）。期限は損で脅さず「いつまでに出すと、何が受け取れるか」で言う（総点検 0-6） */
 export const BIRTH_TRIP: { id: string; reason: string }[] = [
   { id: "birth-registration", reason: "戸籍と住民票ができてから、ほかの届けを受け付ける町が多いので最初に" },
   { id: "health-insurance", reason: "国保の家族は、出生届の後に同じ役所で。会社の保険は勤め先に扶養の届けを頼む" },
-  { id: "child-allowance", reason: "生まれた日の翌日から15日を過ぎると、遅れた月の分が戻らない" },
-  { id: "child-allowance-change", reason: "上の子の手当に足す届け。15日を過ぎると、遅れた月の分が戻らない" },
-  { id: "single-child-support", reason: "申し込んだ次の月の分から。さかのぼらないので早めに" },
+  // 児童手当法第8条・第9条（生まれた日の翌日から15日以内に出すと、生まれた月の翌月分から）
+  { id: "child-allowance", reason: "生まれた日の翌日から15日以内に出すと、翌月分から受け取れる" },
+  { id: "child-allowance-change", reason: "上の子の手当に足す届け。15日以内に出すと、翌月分から増える" },
+  // 児童扶養手当法第7条（請求した月の翌月分から）
+  { id: "single-child-support", reason: "申し込んだ次の月の分から受け取れるので、早めに" },
   { id: "medical-subsidy", reason: "赤ちゃんの保険の資格が分かる物が要るので、保険の後に" },
   { id: "single-medical", reason: "保険の資格が分かる物が要るので、保険の後に" },
   { id: "birth-notice", reason: "保健師さんの訪問の申し込み。出生届と同じ日に出せる町が多い" },
