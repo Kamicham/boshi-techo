@@ -141,6 +141,8 @@ function fromRole(f: Family, role: Member["role"]): { from?: Trigger["from"] } {
 
 /** 今のきっかけを、出す順に並べて返す（何も無ければ空） */
 export function detectTriggers(input: AdvisorInput): Trigger[] {
+  // 静かにする（つらい別れ・入院）間は、手帳から気づきを出さない（お知らせを止めている）
+  if (input.family.situation?.quiet) return [];
   const schedule = scheduleFor(input.family);
   const done = doneWithPast(schedule, input);
   return [birthShift(input, schedule, done), moved(input)]

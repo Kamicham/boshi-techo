@@ -38,6 +38,8 @@ function writeOnce(id: string, familyId: string, today: string, make: () => Prom
 
 /** 見渡す時期の気づき（見つかって、閉じていない物だけ）。まだ見渡していなければ裏で始めて null */
 function lookTrigger(input: AdvisorInput, h: Awaited<ReturnType<typeof familyFor>>): Trigger | null {
+  // 静かにする間は見渡さない（Claude も呼ばない。生まれる前提・育つ前提の気づきを書かせない）
+  if (input.family.situation?.quiet) return null;
   const bucket = lookBucket(input.family, input.today);
   if (!bucket) return null;
   const key = `look:${bucket}`;

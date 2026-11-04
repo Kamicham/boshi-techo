@@ -26,6 +26,7 @@ import { PhotoNudge } from "./today/PhotoNudge";
 import { LetterNews } from "./today/LetterNews";
 import { BirthdayCard } from "./today/BirthdayCard";
 import { birthdayFor } from "@/lib/media-shared";
+import { hideCounts } from "@/lib/situation";
 import { byDays, daysLeft, planToday, withAssignee, type Task } from "./today/task";
 import { VisitToday, visitIsTop } from "./today/VisitToday";
 
@@ -483,6 +484,8 @@ export function Techo() {
 
 /** 週数の帯（1行）。1000日の何日目かは小さく右に */
 function WeekBand({ family, today }: { family: Family; today: string }) {
+  // つらい別れの間は、「いつもの今日の画面」を開いても週数・予定日まで・1000日の線を出さない（lib/situation.ts の hideCounts）
+  if (hideCounts(family)) return null;
   const c = clockAt(family, today);
   const toDue = diffDays(family.dueDate, today);
   let main: string;

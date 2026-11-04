@@ -1048,3 +1048,23 @@ describe("見本の家族の1歳・2歳の一番上", () => {
     expect(bad).toEqual([]);
   });
 });
+
+// 静かにする（つらい別れ・入院）を選んだ家族には、手帳から気づきを出さない（Claude も呼ばない）。
+// つらい別れの間は、週数・日数を上の帯にも出さない（lib/situation.ts の hideCounts）
+describe("静かにする間の気づきと数", () => {
+  it("30家族の loss・nicu の写し: 1000日のどの節目でも、気づきのきっかけが出ない", async () => {
+    const { hideCounts } = await import("../lib/situation");
+    for (const quiet of ["loss", "nicu"] as const) {
+      for (const f0 of SIM_FAMILIES) {
+        const f = { ...f0, situation: { ...f0.situation, quiet } };
+        expect(hideCounts(f), f.id).toBe(quiet === "loss");
+        const start = lmpFromDue(f.dueDate);
+        for (let i = 0; i <= 1000; i += 7) {
+          const day = addDays(start, i);
+          expect(detectTriggers({ family: f, today: day, done: new Set(), isDemo: false }), `${f.id} ${quiet} ${day}`).toEqual([]);
+        }
+      }
+      expect(hideCounts(SIM_FAMILIES[0])).toBe(false);
+    }
+  });
+});

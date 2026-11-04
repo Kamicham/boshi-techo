@@ -91,6 +91,13 @@ export function cleanOlderKids(v: unknown): OlderKid[] {
 }
 
 export type Quiet = "loss" | "nicu";
+
+/**
+ * つらい別れ（loss）の間は、週数・日数・予定日までの数・1000日の線を、どの画面にも出さない（上の帯も）。
+ * 子が生まれた前提の知らせで傷つけない（厚労省 2021-05-31「流産や死産を経験した女性等への心理社会的支援等について」が、その例を挙げている）。
+ * 入院（nicu）の間は、生後の日数は本当の事なので出す
+ */
+export const hideCounts = (f: { situation?: { quiet?: Quiet } }): boolean => f.situation?.quiet === "loss";
 export const QUIETS: Quiet[] = ["loss", "nicu"];
 
 /** 保存された値から「静かにする」を読む（決まりに無い値は捨てる） */

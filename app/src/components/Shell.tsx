@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
 import { clockAt } from "@/lib/clock";
+import { hideCounts } from "@/lib/situation";
 import { recordingBusy, recordingBusyServer, subscribeRecording } from "@/lib/recording-state";
 import { TABS } from "@/lib/app-guide";
 import { AskButton } from "./ask/AskSheet";
@@ -74,7 +75,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
             {/* 何を見ているかを、見本の家族の帯とそろえる（だれの手帳か・いつか）。押すと設定（家族・町・あなたは） */}
             <span className="truncate">
               {/* 狭い電話でも「（パートナー）」まで切れずに出るよう、点の前後の空きを詰める（UX 2026-11-04） */}
-              あなたの手帳・<b className="font-semibold">{clockAt(family, today).label.replace(/(\d+週)\d+日/, "$1")}</b>
+              あなたの手帳
+              {/* つらい別れの間は、週数・日数を出さない（lib/situation.ts の hideCounts） */}
+              {hideCounts(family) ? null : (
+                <>
+                  ・<b className="font-semibold">{clockAt(family, today).label.replace(/(\d+週)\d+日/, "$1")}</b>
+                </>
+              )}
               {me ? <span className="text-muted">（{me.name}）</span> : null}
             </span>
             <span className="text-muted" aria-hidden>▾</span>
