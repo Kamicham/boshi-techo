@@ -25,7 +25,7 @@ export function VoiceKeeper({ unavailable }: { unavailable?: boolean }) {
     <section aria-label="声を残す" className="flex flex-col gap-2 rounded-2xl border border-line bg-card p-3">
       <h2 className="font-display text-lg font-bold">声を残す</h2>
       <p className="text-sm text-muted">
-        {loss ? "残したい時だけ、声のまま残せます。消さずにしまうこともできます。" : "文字にせず、声のまま取っておきます。大きくなった子どもが、一冊の本の中で聞けます"}
+        {loss ? "残したい時だけ、声のまま残せます。消さずにしまうこともできます。" : "声のまま残します。聞き返す手がかりに、手帳の機械で文字も添えます。大きくなった子どもが、一冊の本の中で聞けます"}
       </p>
       <div className={`grid gap-2 ${moments.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
         {moments.map((m) => (
@@ -118,7 +118,7 @@ function VoiceSheet({ moment, onClose }: { moment: Moment; onClose: () => void }
             </button>
             {error && <p className="text-sm text-alert">{error}</p>}
             <p className="text-xs text-muted">
-              声は家族の鍵で守って、この手帳の中だけに残します。AI（Claude）には送りません。文字にするのは手帳の機械だけです。消したい時はアルバムから消せます。
+              声は家族の鍵で守って、この手帳の中だけに残します。声そのものは AI（Claude）に送りません。文字にするのは手帳の機械で、一冊を作る時だけ、題と最初の一文の文字を Claude に渡します。消したい時はアルバムから消せます。
             </p>
             {!on && (
               <Link href="/album" className="text-sm text-muted underline-offset-2 hover:underline">

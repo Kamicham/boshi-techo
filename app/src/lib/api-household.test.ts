@@ -279,6 +279,8 @@ describe("アカウントの仕組みが動いている時（BOSHI_DATA_DIR を�
     process.env.BOSHI_HOUSEHOLD_DAILY_USD = "0.000001";
     recordSpend("structured", "claude-opus-5-5", { input_tokens: 1000, output_tokens: 1000 }, { household: hidA });
     expect(() => checkHouseholdBudget(hidA)).toThrow(/上限/);
+    // 家族に見せる文に額（ドル）は書かない（UX 2026-11-05）
+    expect(() => checkHouseholdBudget(hidA)).toThrow(/^[^$]+$/);
     expect(() => checkHouseholdBudget(hidB)).not.toThrow();
     delete process.env.BOSHI_HOUSEHOLD_DAILY_USD;
   });

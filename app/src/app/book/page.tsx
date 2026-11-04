@@ -14,6 +14,7 @@ import { FutureLetters, MinnaChapter } from "@/components/album/Minna";
 import { ThanksChapter } from "@/components/album/ThanksChapter";
 import { FilmExport } from "@/components/album/FilmExport";
 import { FilmLink } from "@/components/album/FilmLink";
+import { readWelcomed, WELCOMED_KEY } from "@/components/Welcome";
 import type { ClientMedia } from "@/lib/media-shared";
 
 /** 一冊に描ける写真（ある・隠していない）。消した写真の id は飛ばして描く */
@@ -68,6 +69,14 @@ export default function BookPage() {
       sessionStorage.setItem(SAMPLE_BOOK_KEY, "1");
     } catch {}
     setFamilyId(DEMO_FAMILY.id);
+    // 見本を初めて開くこの端末では、入口の1枚（初めての人向け）が一冊の上にかぶさって、一冊が見えなかった（UX 2026-11-05）。
+    // Shell は入口の1枚を出すかを開いた時に1回だけ読むので、見た印を付けてから開き直す
+    if (!readWelcomed()) {
+      try {
+        localStorage.setItem(WELCOMED_KEY, "1");
+      } catch {}
+      window.location.assign("/book");
+    }
   };
   const [book, setBook] = useState<Book | null>(null);
   const [count, setCount] = useState<number | null>(null);

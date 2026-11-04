@@ -444,7 +444,7 @@ export function CaptureScreen() {
           onCancel={() => setShot(null)}
         />
       ) : typing ? null : (
-        <p className="text-sm text-muted">撮った後に選べます: 「読み取る」＝文字を手帳に書き写す／「残す」＝写真のまま取っておく。読み取る時だけ、写真を手帳の中の AI（Claude）に送ります（その写真は手帳に残しません）</p>
+        <p className="text-sm text-muted">撮った後に選べます: 「読み取る」＝文字を手帳に書き写す／「残す」＝写真のまま取っておく。読み取る時だけ、写真を米国の AI（Claude）に送ります（その写真は手帳に残しません）</p>
       )}
       {keeping && <KeepSheet files={keeping} onClose={() => setKeeping(null)} />}
 

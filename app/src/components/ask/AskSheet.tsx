@@ -319,7 +319,7 @@ function AskSheet({ onClose }: { onClose: () => void }) {
                 need
                 back={path}
                 waitMother={consent === "mother"}
-                lead={<>この問いに答えるには、<b>米国の Claude に送る同意</b>が要ります（送るのは問いの文字だけです）。同意の後に、続けて答えます。</>}
+                lead={<>この問いに答えるには、<b>米国の Claude に送る同意</b>が要ります（問いと一緒に、最近の記録と会話も送ります）。同意の後に、続けて答えます。</>}
                 onGo={() => {
                   try {
                     sessionStorage.setItem(askConsentWaitKey(family.id), lastAsk.text);

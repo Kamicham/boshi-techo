@@ -45,7 +45,7 @@ export function ClaudeConsentLink({
       <p className="text-base">
         {lead ?? (
           <>
-            手帳の欄に分けるには、<b>米国の Claude に送る同意</b>が要ります。送るのは文字だけで、名前・住所は送りません。
+            手帳の欄に分けるには、<b>米国の Claude に送る同意</b>が要ります。何を送るかは、次の画面に書いてあります。
           </>
         )}
       </p>
