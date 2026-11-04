@@ -34,18 +34,19 @@ export function Shell({ children }: { children: React.ReactNode }) {
   };
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col">
-      <div className="flex items-center justify-between gap-2 px-4 pt-3 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 px-4 pt-3 text-xs">
         {/* 手帳の切り替えは、切り替える先がある時だけ（自分の世帯が2つ以上・デモを見ている時）。
-            1つしか無いのに一番大きな部品で「作った家族 sim-…」と出すと、本人には意味が無い（UI/UX 見直し 2026-11-03） */}
+            1つしか無いのに一番大きな部品で「作った家族 sim-…」と出すと、本人には意味が無い（UI/UX 見直し 2026-11-03）。
+            切り替えは1行を使う: 帯と同じ行に並べると、わが家と見本の両方がある端末で帯が「見‥」に切れていた（統括の足し 6・2026-11-05） */}
         {households.length > 1 || (isDemo && families.length > 1) ? (
-          <label className="flex min-w-0 shrink items-center gap-1 text-muted">
+          <label className="flex min-w-0 basis-full items-center gap-1 text-muted">
             <span className="sr-only">見ている手帳</span>
             <select
               id="family-select"
               value={family.id}
               onChange={(e) => setFamilyId(e.target.value)}
               disabled={recording}
-              className="min-h-11 w-full min-w-0 truncate rounded-full border border-line bg-card px-3 py-1 text-base text-ink disabled:opacity-50"
+              className="min-h-11 max-w-full min-w-0 truncate rounded-full border border-line bg-card px-3 py-1 text-base text-ink disabled:opacity-50"
             >
               {families.map((f) => (
                 <option key={f.id} value={f.id}>
