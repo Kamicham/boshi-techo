@@ -97,12 +97,13 @@ export function NowCard(p: {
 
   // 用意がすべてつまずいた時も、黙って「次にやる事」に戻さず、手帳が作れる事を1つのボタンで出す（最初の1分 2026-11-04）
   const failed = preps && !busy && lines.length === 0 && draftState !== "ok" && (localState === "fail" || draftState === "fail");
-  const eyebrow = !preps ? undefined : busy ? "手帳が用意しています" : lines.some((l) => l.state === "ok") || draftState === "ok" ? "いま、いちばん先の事" : failed ? "手帳が用意できます" : undefined;
-  const failNoun = canDraft ? nounFor(DRAFTABLE[t.id], t) : `${family.city}の窓口と持ち物`;
+  const eyebrow = !preps ? undefined : busy ? "手帳が用意しています" : lines.some((l) => l.state === "ok") || draftState === "ok" ? "いま、いちばん先の事" : failed ? "いま、いちばん先の事" : undefined;
+  const failNoun = `${family.city}の窓口と持ち物`;
 
   return (
     <TopTask {...p} key={ver} eyebrowOverride={eyebrow}>
-      {failed && (
+      {/* 書く事のメモは、下の「◯を作る」が同じ事をするので、ここで重ねて出さない（UX 2026-11-04: 同じ札にメモを作るが2つ並んでいた） */}
+      {failed && !canDraft && (
         <div className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl bg-card/70 px-3 py-2">
           <span className="text-base">{failNoun}を、手帳が作れます</span>
           <button
