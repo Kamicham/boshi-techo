@@ -20,6 +20,11 @@ export interface Situation {
    * 生まれた日から、上の子の健診・予防接種を赤ちゃんの予定と同じ表に出す（lib/older.ts）。
    */
   olderKids?: OlderKid[];
+  /**
+   * ママが仕事に戻りたい時期（第2波④。保育園の4月入園の逆算に使う）。
+   * 1歳まで = 1歳の誕生日までの4月の一斉で入る。1歳を過ぎて = 1歳を過ぎた最初の4月（入れなければ育休の延長）。undefined = 決めていない（生後6か月を過ぎた最初の4月の近似）
+   */
+  returnAt?: ReturnAt;
   /** 生まれる子の数（双子なら2）。undefined = 1 */
   babies?: number;
   /** 里帰り出産。true = する、false = しない、undefined = わからない */
@@ -34,6 +39,9 @@ export interface Situation {
   /** 赤ちゃんが入る健康保険。勤め先 = 会社などの保険（扶養）、国保 = 国民健康保険。undefined = 働き方から近似（birth-trip.ts の babyInsuranceOf） */
   babyInsurance?: "勤め先" | "国保";
 }
+
+export type ReturnAt = "1歳まで" | "1歳を過ぎて";
+export const RETURN_ATS: ReturnAt[] = ["1歳まで", "1歳を過ぎて"];
 
 /** 上の子が日中いる所 */
 export type OlderCare = "保育園" | "幼稚園" | "家" | "小学校";

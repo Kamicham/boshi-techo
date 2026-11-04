@@ -90,7 +90,7 @@ export function Timeline({ records, family, today, isDemo }: { records: CaptureR
           </ul>
         </Fold>
       ) : (
-        <p className="text-sm text-muted">話すか撮ると、ここに日付つきで並びます</p>
+        <p className="text-sm text-muted">{upcoming.length === 0 ? "まだありません。話すか撮ると、ここに日付つきで並びます" : "話すか撮ると、ここに日付つきで並びます"}</p>
       )}
     </>
   );

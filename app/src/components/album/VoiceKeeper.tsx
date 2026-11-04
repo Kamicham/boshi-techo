@@ -8,25 +8,27 @@ import { useState } from "react";
 import { useFamily } from "@/components/FamilyProvider";
 import { Btn } from "@/components/ui";
 import { useRecorder } from "@/components/capture/useRecorder";
-import { VOICE_MOMENTS, type ClientMedia } from "@/lib/media-shared";
+import { VOICE_MOMENTS, voiceMomentsFor, type ClientMedia } from "@/lib/media-shared";
 import { invalidateMedia } from "./useMedia";
 
 type Moment = (typeof VOICE_MOMENTS)[number];
 
 export function VoiceKeeper({ unavailable }: { unavailable?: boolean }) {
   const [moment, setMoment] = useState<Moment | null>(null);
-  const { family } = useFamily();
+  const { family, today } = useFamily();
   if (unavailable) return null;
+  // おなかに話しかけるのは妊娠中だけ。生まれた後は今の声を先頭に
+  const moments = voiceMomentsFor(family.birthDate, today);
   // つらい別れの後（静かにする）は、促す言葉を使わない。残したい時だけ残せる
   const loss = family.situation?.quiet === "loss";
   return (
     <section aria-label="声を残す" className="flex flex-col gap-2 rounded-2xl border border-line bg-card p-3">
       <h2 className="font-display text-lg font-bold">声を残す</h2>
       <p className="text-sm text-muted">
-        {loss ? "残したい時だけ、声のまま残せます。消さずにしまうこともできます。" : "手帳には書かず、声のまま残します。一冊と映画で、いつか子どもが聞けます。"}
+        {loss ? "残したい時だけ、声のまま残せます。消さずにしまうこともできます。" : "文字にせず、声のまま取っておきます。大きくなった子どもが、一冊の本の中で聞けます"}
       </p>
-      <div className="grid grid-cols-3 gap-2">
-        {VOICE_MOMENTS.map((m) => (
+      <div className={`grid gap-2 ${moments.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
+        {moments.map((m) => (
           <button
             key={m.id}
             type="button"

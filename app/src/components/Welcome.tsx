@@ -116,10 +116,10 @@ export function Welcome({ onClose }: { onClose: () => void }) {
 export function StageSheet({ onClose }: { onClose: () => void }) {
   const { family, today, setToday } = useFamily();
   return (
-    <div role="dialog" aria-modal="true" aria-label="見本の家族の時期を変える" className="fixed inset-0 z-40 flex items-end bg-ink/30" onClick={onClose}>
+    <div role="dialog" aria-modal="true" aria-label="見本の家族のほかの時期を見る" className="fixed inset-0 z-40 flex items-end bg-ink/30" onClick={onClose}>
       <div className="mx-auto flex max-h-[85dvh] w-full max-w-md flex-col gap-3 overflow-y-auto rounded-t-3xl bg-paper px-4 pt-4 pb-[max(env(safe-area-inset-bottom),1.5rem)]" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h2 className="font-display text-lg font-bold">時期を変える</h2>
+          <h2 className="font-display text-lg font-bold">ほかの時期を見る</h2>
           <button type="button" onClick={onClose} className="min-h-11 px-2 text-base text-muted underline underline-offset-2">
             閉じる
           </button>

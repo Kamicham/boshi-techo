@@ -107,7 +107,7 @@ export function TaskRow(p: Common & { muted?: boolean }) {
           )}
         </span>
         <span className="flex shrink-0 items-center gap-2">
-          {when && ("days" in when ? <RowDays days={when.days} upcoming={t.status === "まだ先"} /> : "guide" in when ? <RowGuide guide={when.guide} /> : <span className="tabular text-sm whitespace-nowrap text-muted">{when.far}</span>)}
+          {when && ("days" in when ? <RowDays days={when.days} upcoming={t.status === "まだ先"} start={jpShort(t.startDate, today)} /> : "guide" in when ? <RowGuide guide={when.guide} /> : <span className="tabular text-sm whitespace-nowrap text-muted">{when.far}</span>)}
           <span className="text-muted transition-transform group-open:rotate-90" aria-hidden>
             ›
           </span>
@@ -141,15 +141,18 @@ function GuideLine({ guide, past }: { guide: string; past: boolean }) {
 /** 下書きの印で済みが変わった事を、今日の画面へ知らせる（Techo が済んだ事を読み直す） */
 const notifyDone = () => window.dispatchEvent(new Event("boshi:done"));
 
-/** 1行の日数。赤は法の期限の残り1日以下だけ。過ぎた事は責めずに「今からでも」（安心のデザイン #1） */
-function RowDays({ days, upcoming }: { days: number; upcoming: boolean }) {
+/**
+ * 1行の日数。赤は法の期限の残り1日以下だけ。過ぎた事は責めずに「今からでも」（安心のデザイン #1）
+ * まだ先の事は「15日後から」と数えず、上の大きな箱と同じ「11/19（木）ごろから」の形で（UX 2026-11-04: 同じ事が2つの形で出ていた）
+ */
+function RowDays({ days, upcoming, start }: { days: number; upcoming: boolean; start: string }) {
   const color = upcoming ? "text-muted" : days < 0 ? "text-ink" : days <= 1 ? "text-alert" : days <= 3 ? "text-warn" : "text-ink";
   const text = upcoming
     ? days <= 0
       ? "今日から"
       : days === 1
         ? "あしたから"
-        : `${days}日後から`
+        : `${start}ごろから`
     : days < 0
       ? "今からでも"
       : days === 0

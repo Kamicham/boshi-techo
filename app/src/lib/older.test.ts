@@ -82,6 +82,12 @@ describe("上の子の予定", () => {
     const s = olderSchedule({ ...base, situation: { olderChildren: true, olderKids: [{ ...kid, birthDate: "2023-09-01", monthOnly: true }] } }, olderDefs(MILESTONES), "2027-01-15");
     expect(s[0].hint).toContain("目安");
   });
+
+  it("予定日より前に始まる上の子の事は、済んでいたら押すよう一言で言う", () => {
+    const s = olderSchedule(fam, olderDefs(MILESTONES), "2027-01-15");
+    expect(s.find((m) => m.id === "older1-checkup-3y")?.hint).toBe("もう受けていたら「済んだ」を押してください");
+    expect(s.find((m) => m.id === "older1-je-vaccine-1-booster")?.hint).not.toContain("済んだ");
+  });
 });
 
 describe("上の子の園と送り迎え", () => {

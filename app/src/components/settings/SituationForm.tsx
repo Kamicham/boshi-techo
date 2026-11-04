@@ -1,9 +1,10 @@
 "use client";
 
 // 家族の形を聞く欄（母とパートナーの働き方・パートナーの育休・上の子・生まれる子の数・里帰り）。
-// どの問いも「わからない・答えない」を選べる。答えない欄は、今までどおりの予定が出る。
+// どの問いも「わからない・答えない」を選べる（小さな文字で列の最後）。答えない欄は、今までどおりの予定が出る。
 // 押す所は 44px 以上。iPhone の 390px で横にはみ出さないよう、選びは折り返す。
-import { MAX_OLDER_KIDS, OLDER_CARES, type Leave, type MotherWork, type OlderKid, type Situation, type Work } from "@/lib/situation";
+import { useState } from "react";
+import { MAX_OLDER_KIDS, OLDER_CARES, RETURN_ATS, type Leave, type MotherWork, type OlderKid, type Situation, type Work } from "@/lib/situation";
 
 const MOTHER_WORKS: MotherWork[] = ["会社員・公務員", "パート・派遣", "自営・フリー", "仕事なし", "出産で辞める"];
 const WORKS: Work[] = ["会社員・公務員", "パート・派遣", "自営・フリー", "仕事なし"];
@@ -34,6 +35,9 @@ export function SituationForm({ value, onChange, hasPartner, disabled, born }: {
       <Choice options={MOTHER_WORKS} value={value.motherWork} onPick={(v) => set({ motherWork: v })} name="mother-work" />
     </Ask>
   );
+  // 保育園の4月入園を逆算する（第2波④）。ママが働き続ける時だけ聞く（辞める・仕事なしは聞かない）
+  const mw = value.motherWork;
+  const askReturn = mw === undefined || mw === "会社員・公務員" || mw === "パート・派遣" || mw === "自営・フリー";
   const beforeBirth = (
     <>
       <Ask label="生まれる子は何人？">
@@ -54,6 +58,13 @@ export function SituationForm({ value, onChange, hasPartner, disabled, born }: {
   return (
     <fieldset disabled={disabled} className="flex min-w-0 flex-col gap-5 disabled:opacity-80">
       {!born && motherWork}
+
+      {askReturn && (
+        <Ask label="ママが仕事に戻りたい時期（保育園の申し込みの時期が決まります）">
+          <Choice options={RETURN_ATS.map((r) => (r === "1歳まで" ? "1歳になるまでに" : "1歳を過ぎてから")) as ("1歳になるまでに" | "1歳を過ぎてから")[]} value={value.returnAt === "1歳まで" ? "1歳になるまでに" : value.returnAt === "1歳を過ぎて" ? "1歳を過ぎてから" : undefined} onPick={(v) => set({ returnAt: v === "1歳になるまでに" ? "1歳まで" : v === "1歳を過ぎてから" ? "1歳を過ぎて" : undefined })} name="return-at" />
+          <p className="text-sm text-muted">育休は原則1歳まで。1歳を過ぎてからは、保育園に入れなかった時に延ばせます（育児・介護休業法）</p>
+        </Ask>
+      )}
 
       {hasPartner ? (
         <>
@@ -190,18 +201,40 @@ function Ask({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-/** 選び（最後に「わからない」がいつも付く。わからない = undefined） */
+/**
+ * 選び（最後に「わからない・答えない」がいつも付く。保存する値は、わからない = 未回答 = undefined のまま）。
+ * 未回答と「わからない」は値で見分けられないので、この画面で押したかどうかで見分ける。
+ * まだ答えていない問いは、どれも同じ薄い色（答え済みに見せない）。押した物だけ濃くする。
+ */
 function Choice<T extends string>({ options, value, onPick, name }: { options: readonly T[]; value: T | undefined; onPick: (v: T | undefined) => void; name: string }) {
+  const [saidUnknown, setSaidUnknown] = useState(false);
   return (
-    <div className="flex flex-wrap gap-2" role="group">
+    <div className="flex flex-wrap items-center gap-2" role="group">
       {options.map((o) => (
-        <Chip key={o} on={value === o} onClick={() => onPick(o)} id={`${name}-${o}`}>
+        <Chip
+          key={o}
+          on={value === o}
+          onClick={() => {
+            setSaidUnknown(false);
+            onPick(o);
+          }}
+          id={`${name}-${o}`}
+        >
           {o}
         </Chip>
       ))}
-      <Chip on={value === undefined} onClick={() => onPick(undefined)} id={`${name}-unknown`} quiet>
+      <button
+        type="button"
+        id={`${name}-unknown`}
+        aria-pressed={value === undefined && saidUnknown}
+        onClick={() => {
+          setSaidUnknown(true);
+          onPick(undefined);
+        }}
+        className={`min-h-11 rounded-full px-3 text-sm ${value === undefined && saidUnknown ? "bg-rose font-semibold text-white" : "text-muted underline underline-offset-2"}`}
+      >
         わからない・答えない
-      </Chip>
+      </button>
     </div>
   );
 }

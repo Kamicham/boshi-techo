@@ -9,7 +9,7 @@
 // 家族の形の保存（/api/family）は「わが家」だけなので、作った家族では見るだけ。いつもの場所（/api/keep）はどの家族でも覚える。
 // アカウントの仕組みが動くサーバでは、「わが家」の代わりにログインした人の世帯（持ち主・共同の管理）へ保存する（/api/account/profile）。
 // 読むだけの役の世帯は見るだけ。ログイン・同意・招待・書き出し・消すはアカウントの画面（/account）。
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { jpDate } from "@/components/Techo";
 import { Btn, Fold, NextStep, Pill, Why, plainError } from "@/components/ui";
@@ -45,7 +45,8 @@ export default function Settings() {
   const [form, setForm] = useState({ prefecture: "", city: "", dueDate: "", birthDate: "", childName: "" });
   const [members, setMembers] = useState<Member[]>(ROLES.map((role, i) => ({ id: `m${i}`, name: "", role })));
   const [situation, setSituation] = useState<Situation>({});
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [msg, setMsg] = useFlash();
+  const [saving, setSaving] = useState(false);
   const hasPartner = members.some((m) => m.role === "パートナー" && m.name.trim());
   // 生まれた後か（保存した生まれた日で決める。入れている途中で問いの並びが動かないように）
   const born = !!shown?.birthDate && shown.birthDate <= today;
@@ -62,6 +63,7 @@ export default function Settings() {
   }, [shown]);
 
   const save = async () => {
+    setSaving(true);
     setMsg(null);
     try {
       const payload = { ...form, members, situation: tidySituation(situation, hasPartner) };
@@ -72,6 +74,8 @@ export default function Settings() {
       setMsg({ ok: true, text: "保存しました" });
     } catch (e) {
       setMsg({ ok: false, text: `まだ保存できていません。入れた事は画面に残っています（${plainError(e)}）` });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -115,7 +119,7 @@ export default function Settings() {
               );
             })}
           </div>
-          {isDemo && <p className="text-sm text-muted">いま見ているデモの家族の中から選びます</p>}
+          {isDemo && <p className="text-sm text-muted">いま見ている見本の家族の中から選びます</p>}
         </Question>
       )}
 
@@ -123,15 +127,16 @@ export default function Settings() {
         (process.env.NEXT_PUBLIC_BOSHI_PUBLIC === "1" ? (
           <p className="text-sm text-muted">体験版では、自分の家族の手帳はまだ作れません（作った家族の写しを触れます）。</p>
         ) : accountsEnabled && !account ? (
-          <NextStep eyebrow="いま見ているのはデモの家族" title="アカウントを作ると、自分の世帯ができます" sub="メールに届く6桁のコードで入ります">
-            <Btn href="/login?next=/settings">ログイン・アカウントを作る</Btn>
+          <NextStep title="いま見ているのは見本の家族です。">
+            <Btn href="/start">自分の手帳を作る</Btn>
+            <p className="w-full text-sm text-muted">メールに届く6桁の数字で入ります</p>
           </NextStep>
         ) : accountsEnabled && !startId ? (
-          <NextStep eyebrow="いま見ているのはデモの家族" title="自分の世帯を作る" sub="作ると、わが家の手帳が始まります">
-            <Btn href="/account/new">世帯を作る</Btn>
+          <NextStep eyebrow="いま見ているのは見本の家族" title="うちの手帳を作る" sub="作ると、わが家の手帳が始まります">
+            <Btn href="/account/new">うちの手帳を作る</Btn>
           </NextStep>
         ) : (
-          <NextStep eyebrow="いま見ているのはデモの家族" title="わが家の予定日・町・家族を入れる" sub={mine ? "わが家に切り替えると、わが家の分が出ます" : "入れると、わが家の手帳が始まります"}>
+          <NextStep eyebrow="いま見ているのは見本の家族" title="わが家の予定日・町・家族を入れる" sub={mine ? "わが家に切り替えると、わが家の分が出ます" : "入れると、わが家の手帳が始まります"}>
             <Btn onClick={() => (mine ? setFamilyId(mine.id) : setStarting(true))}>わが家に切り替えて入れる</Btn>
           </NextStep>
         ))}
@@ -198,18 +203,18 @@ export default function Settings() {
 
           <Question q="家族の形は？" n={4}>
             <p className="text-base text-muted">答えると、うちに関係ない予定を出さなくなります。わからない所は、そのままで大丈夫です</p>
-            <SituationForm value={situation} onChange={setSituation} hasPartner={hasPartner} disabled={madeUp} born={born} />
+            <SituationForm key={shown?.id ?? "new"} value={situation} onChange={setSituation} hasPartner={hasPartner} disabled={madeUp} born={born} />
           </Question>
 
           {madeUp ? (
             <p role="note" className="rounded-xl bg-rose-soft px-4 py-3 text-base">
               {viewOnlyRole
-                ? "読むだけの役なので、家族の形は見るだけです。直すのは世帯の持ち主・共同の管理の人です"
+                ? "読むだけの役なので、家族の形は見るだけです。直すのはうちの手帳の持ち主・共同の管理の人です"
                 : "作った家族（シミュレーション）の家族の形は、ここでは見るだけです。保存は「わが家」だけできます"}
             </p>
           ) : (
-            <Btn onClick={() => void save()} full>
-              保存する
+            <Btn onClick={() => void save()} disabled={saving} full>
+              {saving ? "保存しています…" : born ? "生まれた日・町・家族の形を保存する" : "予定日・町・家族の形を保存する"}
             </Btn>
           )}
           {msg && (
@@ -222,10 +227,11 @@ export default function Settings() {
         </>
       )}
 
-      {accountsEnabled && (
+      {/* 見本の家族を見ているログイン前の人には出さない（上の「自分の手帳を作る」の箱1つにまとめる） */}
+      {accountsEnabled && (account || !isDemo) && (
         <Question q="アカウントと同意">
           <p className="text-base text-muted">
-            {account ? "同意の確かめと撤回・家族を招く・書き出す・消すは、ここから" : "ログインすると、自分の世帯・同意・家族の招待が使えます"}
+            {account ? "同意の確かめと撤回・家族を招く・書き出す・消すは、ここから" : "ログインすると、うちの手帳・同意・家族の招待が使えます"}
           </p>
           <Btn href={account ? `/account${households.some((h) => h.id === family.id) ? `?familyId=${encodeURIComponent(family.id)}` : ""}` : "/login?next=/account"} kind="secondary">
             {account ? "アカウントの画面へ" : "ログイン・アカウントを作る"}
@@ -234,10 +240,25 @@ export default function Settings() {
       )}
 
       <Why label="入れた事はどこに？">
-        <p>{accountsEnabled ? "この世帯の中だけに置きます。" : "この機械の中だけに置きます。"}氏名・住所の番地は入れなくて大丈夫です。</p>
+        <p>{accountsEnabled ? "うちの手帳の中だけに置きます。" : "この機械の中だけに置きます。"}氏名・住所の番地は入れなくて大丈夫です。</p>
       </Why>
     </main>
   );
+}
+
+type Flash = { ok: boolean; text: string } | null;
+
+/** 保存の知らせ。「保存しました」は数秒で消す（うまくいかなかった時の知らせは残す） */
+function useFlash(): [Flash, (m: Flash) => void] {
+  const [msg, setMsg] = useState<Flash>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  const set = useCallback((m: Flash) => {
+    clearTimeout(timer.current);
+    setMsg(m);
+    if (m?.ok) timer.current = setTimeout(() => setMsg(null), 3000);
+  }, []);
+  return [msg, set];
 }
 
 /** 問い1つ分の大きな箱 */
@@ -259,7 +280,7 @@ function KeepForm({ familyId }: { familyId: string }) {
   const [hospital, setHospital] = useState({ name: "", phone: "" });
   const [work, setWork] = useState({ company: "", boss: "", email: "" });
   const [office, setOffice] = useState({ name: "", address: "" });
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [msg, setMsg] = useFlash();
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -276,7 +297,7 @@ function KeepForm({ familyId }: { familyId: string }) {
     return () => {
       alive = false;
     };
-  }, [familyId]);
+  }, [familyId, setMsg]);
 
   const save = async () => {
     setSaving(true);
@@ -284,7 +305,7 @@ function KeepForm({ familyId }: { familyId: string }) {
     try {
       const r = await api<{ keep: Keep }>("/api/keep", { body: { familyId, keep: { hospital, work, office } } });
       setKeep(r.keep);
-      setMsg({ ok: true, text: "保存しました。次から下書きやカレンダーで使います" });
+      setMsg({ ok: true, text: "保存しました" });
     } catch (e) {
       setMsg({ ok: false, text: plainError(e) });
     } finally {
@@ -319,15 +340,23 @@ function KeepForm({ familyId }: { familyId: string }) {
 
       <h3 className="pt-2 text-base font-bold">職場</h3>
       <input aria-label="会社名" className={field} value={work.company} onChange={(e) => setWork({ ...work, company: e.target.value })} placeholder="会社名" />
-      <input aria-label="上司の名前" className={field} value={work.boss} onChange={(e) => setWork({ ...work, boss: e.target.value })} placeholder="上司の名前" />
-      <input aria-label="上司のメール" type="email" inputMode="email" className={field} value={work.email} onChange={(e) => setWork({ ...work, email: e.target.value })} placeholder="上司のメール" />
+      <details className="group" open={work.boss || work.email ? true : undefined}>
+        <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-base text-muted">
+          <span className="underline underline-offset-2">職場に伝える時に使う欄（あとででよい）</span>
+          <span className="transition-transform group-open:rotate-90" aria-hidden>›</span>
+        </summary>
+        <div className="flex flex-col gap-3 pt-2">
+          <input aria-label="上司の名前" className={field} value={work.boss} onChange={(e) => setWork({ ...work, boss: e.target.value })} placeholder="上司の名前" />
+          <input aria-label="上司のメール" type="email" inputMode="email" className={field} value={work.email} onChange={(e) => setWork({ ...work, email: e.target.value })} placeholder="上司のメール" />
+        </div>
+      </details>
 
       <h3 className="pt-2 text-base font-bold">役所の窓口</h3>
       <input aria-label="窓口の名前" className={field} value={office.name} onChange={(e) => setOffice({ ...office, name: e.target.value })} placeholder="例: 町役場 こども課" />
       <input aria-label="窓口の場所" className={field} value={office.address} onChange={(e) => setOffice({ ...office, address: e.target.value })} placeholder="場所（カレンダーに入れるため）" />
 
       <Btn onClick={() => void save()} disabled={saving || !keep} full>
-        {saving ? "保存しています…" : "保存する"}
+        {saving ? "保存しています…" : "場所と人を保存する"}
       </Btn>
       {msg && (
         <p role={msg.ok ? "status" : "alert"} className={`rounded-xl px-4 py-3 text-base ${msg.ok ? "bg-ok/10 text-ok" : "border-l-[3px] border-muted bg-paper font-semibold text-ink"}`}>
@@ -337,7 +366,7 @@ function KeepForm({ familyId }: { familyId: string }) {
       <Why>
         <p>職場あての下書きの【会社名】【上司の名前】が、最初から埋まります。</p>
         <p>役所の窓口と病院は、予定をカレンダーに入れる時の場所に入ります。</p>
-        <p>欄を空にして「保存する」を押すと、その事は消えます。</p>
+        <p>欄を空にして「場所と人を保存する」を押すと、その事は消えます。</p>
       </Why>
     </Question>
   );

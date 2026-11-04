@@ -5,7 +5,7 @@ import { get, put } from "./db";
 import { scheduleFor } from "./milestones";
 import { birthFacts, isMadeFamily } from "./techo-seed";
 import { listTecho } from "./techo-store";
-import { cleanOlderKids, cleanQuiet, type Leave, type MotherWork, type Situation, type Work } from "./situation";
+import { RETURN_ATS, cleanOlderKids, cleanQuiet, type Leave, type MotherWork, type Situation, type Work } from "./situation";
 import { HttpError } from "./http-error";
 import { isTrialId } from "./trial-cookie";
 
@@ -197,6 +197,7 @@ export function cleanSituation(x: unknown, hasPartner: boolean): Situation | und
   }
   if (typeof r.babies === "number" && Number.isInteger(r.babies) && r.babies >= 1 && r.babies <= 5) s.babies = r.babies;
   s.satogaeri = yesNo(r.satogaeri);
+  s.returnAt = oneOf(r.returnAt, RETURN_ATS);
   s.quiet = cleanQuiet(r.quiet);
   s.publicServant = yesNo(r.publicServant);
   s.babyInsurance = r.babyInsurance === "勤め先" || r.babyInsurance === "国保" ? r.babyInsurance : undefined;
