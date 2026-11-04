@@ -9,6 +9,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { DEMO_FAMILY, type Family, type Member } from "@/lib/demo-family";
 import { addDays, conceptionDate } from "@/lib/clock";
+import { Btn } from "./ui";
 
 export type AccountInfo = { id: string; email: string; name: string };
 export type HouseholdInfo = {
@@ -103,12 +104,39 @@ const withDemo = (list: Family[]) => [...list.filter((f) => f.id !== DEMO_FAMILY
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** わが家の手帳が読めなかった時の画面: 空のまま、読み直す事と急ぎの時だけ（合言葉・ログインが切れた時は、ページを読み直して入り口へ） */
+function LostNotebook({ retry }: { retry: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const again = async () => {
+    setBusy(true);
+    try {
+      await retry();
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-5 px-4 pb-16">
+      <div role="alert" className="flex flex-col gap-2">
+        <h1 className="font-display text-2xl leading-snug font-bold">手帳を読めませんでした</h1>
+        <p className="text-base">記録は消えていません。電波のある所で、もう一度読んでください。</p>
+      </div>
+      <Btn onClick={() => void again()} disabled={busy} full>
+        {busy ? "読んでいます…" : "もう一度読む"}
+      </Btn>
+      <a href="/emergency" className="inline-flex min-h-11 items-center self-start text-base font-semibold text-alert underline-offset-2 hover:underline">
+        急ぎの時 ›
+      </a>
+    </main>
+  );
+}
+
 export function FamilyProvider({ children }: { children: React.ReactNode }) {
   const [families, setFamilies] = useState<Family[]>([DEMO_FAMILY]);
   const [familyId, setFamilyIdState] = useState<string>(DEMO_FAMILY.id);
   const [ready, setReady] = useState(false);
-  // 何度か読み直しても家族の一覧が届かなかった（覚えた一覧も無い）
-  const [lost, setLost] = useState(false);
+  // 何度か読み直しても家族の一覧が届かなかった（覚えた一覧も無い）。auth = 合言葉・ログインが切れていた（401）
+  const [lost, setLost] = useState<false | "net" | "auth">(false);
   const [meIds, setMeIds] = useState<Record<string, string>>({});
   const [demoToday, setDemoToday] = useState<string>(addDays(conceptionDate(DEMO_FAMILY), 41));
   const [accountsEnabled, setAccountsEnabled] = useState(false);
@@ -147,12 +175,16 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
 
   const reload = useCallback(async () => {
     const saved = read("boshi.family") ?? "";
+    let denied = false;
     // サーバが一瞬つまずいても（開発中の作り直し・電波の切れ目）、すぐデモに落とさず3回まで読み直す
     for (let i = 0; i < 3; i++) {
       try {
         const ra = await fetch(`/api/account?id=${encodeURIComponent(saved)}`);
         // 合言葉の前（401）は読み直しても同じ
-        if (ra.status === 401) break;
+        if (ra.status === 401) {
+          denied = true;
+          break;
+        }
         // /api/account が無い古いサーバ（404）は、アカウントの仕組みが動かない置き場と同じに扱う
         const ja = ra.ok ? ((await ra.json()) as AccountList) : ra.status === 404 ? { enabled: false } : null;
         if (ja?.enabled) {
@@ -173,7 +205,10 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
           setKinds({});
           switchAccount("");
           const r = await fetch(`/api/family?id=${encodeURIComponent(saved)}`);
-          if (r.status === 401) break;
+          if (r.status === 401) {
+            denied = true;
+            break;
+          }
           if (r.ok) {
             accept(((await r.json()) as { families: Family[] }).families, "", []);
             return;
@@ -184,9 +219,9 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
       }
       await sleep(600 * (i + 1));
     }
-    // 届かなかった: 覚えた一覧にその家族があれば、それで開く。無ければデモのまま知らせる
+    // 届かなかった: 覚えた一覧にその家族があれば、それで開く。無ければデモの家族に切り替えず、読めなかった事だけを出す
     const cached = readCache(read(ACCOUNT_KEY) ?? "");
-    if (!cached.some((f) => f.id === saved) && saved && saved !== DEMO_FAMILY.id) setLost(true);
+    if (!cached.some((f) => f.id === saved) && saved && saved !== DEMO_FAMILY.id) setLost(denied ? "auth" : "net");
     setReady(true);
   }, [accept, switchAccount]);
 
@@ -278,17 +313,12 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
     <FamilyCtx.Provider value={value}>
       {/* 端末の記憶と家族の一覧を読むまでは、枠も描かない（上の切り替えに、デモの家族の名前が一瞬出ないように） */}
       {ready ? (
-        <>
-          {lost && (
-            <p role="alert" className="mx-auto flex max-w-md flex-wrap items-center justify-between gap-2 bg-alert/10 px-4 py-2 text-base text-alert">
-              <span>手帳を読めませんでした。いまはデモの家族を出しています</span>
-              <button type="button" onClick={() => void reload()} className="min-h-11 font-semibold underline underline-offset-2">
-                もう一度読む
-              </button>
-            </p>
-          )}
-          {children}
-        </>
+        lost ? (
+          // わが家の手帳が読めない時に、デモの家族を出さない（わが家の記録が消えたように見え、デモの家族に書き込んでしまう）
+          <LostNotebook retry={lost === "auth" ? async () => location.reload() : reload} />
+        ) : (
+          children
+        )
       ) : (
         <div className="mx-auto min-h-dvh max-w-md px-4 pt-16" aria-hidden>
           <div className="h-40 rounded-2xl bg-rose-soft/60" />

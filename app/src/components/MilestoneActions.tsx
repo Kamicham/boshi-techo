@@ -4,7 +4,7 @@
 // ② その町の窓口を調べる → 一番上に「どこへ・何を持って」、地図で開く
 // ③ 下書きを作る → 宛先・件名・本文をワンタップでコピー、メール・LINE・共有で開く（送るのは家族）
 import { useEffect, useState } from "react";
-import { MONEY, paidId } from "@/lib/money";
+import { DRAFTABLE } from "@/lib/draft-kinds";
 import type { Milestone } from "@/lib/milestones";
 import type { LocalInfo } from "@/lib/local";
 import type { DraftKind, DraftView } from "@/lib/drafts";
@@ -13,37 +13,8 @@ import { Btn } from "./ui";
 import { DraftPanel, doneWord, type DraftBusy } from "./draft/DraftPanel";
 import { LocalPanel } from "./draft/LocalPanel";
 
-/** 下書きが意味を持つ事と、作る前に見込む種類（ボタンの言葉を種類で言い分ける） */
-export const DRAFTABLE: Record<string, DraftKind> = {
-  "pregnancy-report": "記入メモ",
-  "tell-work": "メール",
-  "partner-leave": "メール",
-  "direct-payment": "記入メモ",
-  "pregnancy-support-2": "メール",
-  "birth-registration": "記入メモ",
-  "child-allowance": "記入メモ",
-  "health-insurance": "記入メモ",
-  "medical-subsidy": "記入メモ",
-  "birth-notice": "記入メモ",
-  "tell-work-birth": "メール",
-  "partner-tell-work-birth": "メール",
-  "daycare-research": "質問リスト",
-  "vaccines-start": "質問リスト",
-  "checkup-3-4m": "質問リスト",
-  "checkup-18m": "質問リスト",
-  "older-child-care": "頼み文",
-  "older-pickup": "頼み文",
-  "older-daycare-continue": "メール",
-  "daycare-extend": "メール",
-  "satogaeri-return": "メール",
-  "daycare-extend-2": "メール",
-  "daycare-prep": "頼み文",
-  "leave-money-request": "メール",
-  "partner-leave-14": "メール",
-  "childcare-benefit-first": "メール",
-  // 届いたか確かめる件（lib/money.ts）: 届く時期を過ぎた時の問い合わせ
-  ...Object.fromEntries(Object.keys(MONEY).map((k) => [paidId(k), "メール" as DraftKind])),
-};
+// 下書きが意味を持つ事の表は lib/draft-kinds.ts（鍵の無い見本の下書きも同じ表で種類を決める）
+export { DRAFTABLE };
 
 /** 下書きの呼び名（種類ごと） */
 export const NOUN: Record<DraftKind, string> = {
@@ -179,8 +150,8 @@ function Actions({ milestone, today, primary, compact, onDoneChange }: Props) {
   };
 
   const draft = view?.draft ?? null;
-  // 前の版で作った下書き（今は無い種類）は「下書き」と呼ぶ
-  const noun = nounFor(draft?.kind ?? DRAFTABLE[milestone.id] ?? "記入メモ", milestone);
+  // ボタンの言葉は、押す前と同じ種類で呼ぶ（表に無い事だけ、作った下書きの種類で呼ぶ）
+  const noun = nounFor(DRAFTABLE[milestone.id] ?? draft?.kind ?? "記入メモ", milestone);
   const draftLabel =
     open === "draft" ? `${noun}を閉じる` : draft ? (draft.status === "ok" ? `${noun}を見る（✓ ${doneWord(draft.kind)}）` : `${noun}を見る`) : `${noun}を作る`;
   const localLabel = open === "local" ? "行き先を閉じる" : "どこへ行くか見る";

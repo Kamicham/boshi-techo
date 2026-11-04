@@ -5,6 +5,11 @@
 // - 町の窓口の調べ物は見本を作らない（町×手続きの答えはほかの家族と使い回すので、見本が混ざらないように）
 // - 決まりで動く所（予定表・期限・急ぎの時の連絡先＝ask/bridge.ts）は、もともと鍵なしで動く
 import "server-only";
+import { ruleAdvice } from "./advisor";
+import { DRAFTABLE } from "./draft-kinds";
+import type { DraftKind } from "./drafts";
+import { MILESTONES } from "./milestones";
+import { MONEY, paidDef } from "./money";
 
 /** 答えの頭に付ける札 */
 export const SAMPLE_MARK = "（見本の答え）";
@@ -47,35 +52,81 @@ function capture(content: Content) {
   };
 }
 
-/** 紙の手帳の写真を写す: 見本では読まない */
+/** 紙の手帳の写真を写す: 見本では読まない（写真そのものは、鍵があっても残さない＝lib/capture.ts の captureTechoPage） */
 function capturePage() {
+  const key = !!process.env.ANTHROPIC_API_KEY;
   return {
     page: "unknown",
     entries: [],
     unreadable: false,
-    reply: `${SAMPLE_MARK}写真は残しました。${noKey()}（紙の母子手帳のページを読んで、行ごとに写します）`,
+    reply: `${SAMPLE_MARK}${key ? "今日の体験で Claude を使える上限に達したので" : "見本なので"}、写真は読まず、残してもいません。${key ? "明日は" : "Claude の鍵を入れると、"}紙の母子手帳のページを読んで、行ごとに写します。`,
   };
 }
 
-/** 下書き: 空欄つきの記入メモ */
+/** 下書きの種類ごとの見本（何を書くか・出す前に確かめる事） */
+const DRAFT_SAMPLE: Record<DraftKind, { to: string; how: string; check: string[] }> = {
+  メール: {
+    to: "【出す先】",
+    how: "この家族の予定・町・「いつもの」（勤め先や連絡先）から、そのまま送れるメールを書き、分からない所だけ空欄にして残します。",
+    check: ["宛先と宛名を確かめる", "日付を手帳の予定と見比べる", "送る前に家族で読み合わせる"],
+  },
+  記入メモ: {
+    to: "【出す先】",
+    how: "届けや申請書の欄ごとに、何を書くか・どこを見れば分かるかを、この家族の予定と町から書きます。",
+    check: ["出す先と締切を、町の窓口のページで確かめる", "持って行く物をそろえる", "書いた文を家族で読み合わせる"],
+  },
+  質問リスト: {
+    to: "【聞く先】",
+    how: "窓口や病院で聞く事を、この家族の予定と町から、1行に1つずつ書きます。",
+    check: ["聞く先と、聞ける日・時間を確かめる", "聞いた答えを手帳に残す"],
+  },
+  頼み文: {
+    to: "【頼む人の呼び方】",
+    how: "家族にそのまま送れる、短い頼み文を書きます（いつ・何を頼むか）。",
+    check: ["頼む日と時間を決める", "送る前に家族で読み合わせる"],
+  },
+};
+
+/** 下書き: 押したボタンと同じ種類の、空欄つきの見本（「事: 題（種類）」の題から予定表の id を引き、lib/draft-kinds.ts の種類にする） */
 function draft(content: Content) {
   const all = textOf(content);
-  const title = all.match(/(?:事|手続き|やる事)[:：]\s*(.+)/)?.[1]?.trim().slice(0, 30) ?? "手続きの下書き";
+  const head = all.match(/^(?:事|手続き|やる事)[:：]\s*(.+)$/m)?.[1]?.trim() ?? "";
+  const title = head.replace(/（[^（）]*）$/, "").trim();
+  const def = MILESTONES.find((m) => m.title === title) ?? Object.keys(MONEY).map((k) => paidDef(k)).find((m) => m?.title === title);
+  const kind: DraftKind = (def && DRAFTABLE[def.id]) || "記入メモ";
+  const s = DRAFT_SAMPLE[kind];
   return {
-    kind: "記入メモ" as const,
-    title: `${SAMPLE_MARK}${title}`,
-    to: "【出す先】",
-    body: `${noKey()}\nこの家族の予定・町・「いつもの」（勤め先や連絡先）から、そのまま出せる文を書き、分からない所だけ空欄にして残します。\n\n見本では、出す前に確かめる事だけを並べています。`,
-    checklist: ["出す先と締切を、町の窓口のページで確かめる", "持って行く物をそろえる", "書いた文を家族で読み合わせる"],
+    kind,
+    title: `${SAMPLE_MARK}${(title || "手続きの下書き").slice(0, 30)}`,
+    to: kind === "メール" && def?.kind === "仕事" ? "【会社名】 【上司の名前】様" : s.to,
+    body: `${noKey()}\n${s.how}\n\n見本では、出す前に確かめる事だけを並べています。`,
+    checklist: s.check,
   };
 }
 
-/** 気づき（決まりのきっかけ）: 機械で確かめた事は画面に出るので、文だけ見本にする */
-function advice() {
+/** 気づき（決まりのきっかけ）: 機械で確かめた事から、予定表の決まりで書く（lib/advisor.ts の ruleAdvice）。読めない時だけ見本の札つき */
+function advice(content: Content) {
+  const lines = textOf(content).split("\n").map((l) => l.trim());
+  // app/api/advisor/_lib/write.ts の「機械で確かめた事:」の段（次の見出しの前まで）
+  const at = lines.indexOf("機械で確かめた事:");
+  const rest = at < 0 ? [] : lines.slice(at + 1);
+  const end = rest.findIndex((l) => /^(文面の相手|文面を送る人|職場（覚えている事）|最近の記録|調べた文章)/.test(l));
+  const facts = end < 0 ? rest : rest.slice(0, end);
+  const today = lines.find((l) => l.startsWith("今日: "))?.match(/\d{4}-\d{2}-\d{2}/)?.[0];
+  // パートナーの育休の事は、仕事の無い人には言わない
+  const partner = lines.map((l) => l.match(/^- (.+)（パートナー）$/)?.[1]).find(Boolean);
+  const works = !!partner && !lines.includes(`- ${partner}の働き方: 仕事なし`);
+  const rule = ruleAdvice(facts, { today, partner: works ? partner : undefined });
+  if (rule) {
+    const note = process.env.ANTHROPIC_API_KEY
+      ? "今日の体験で Claude を使える上限に達したので、予定表の決まりだけで書きました。明日はここを Claude が書きます。"
+      : "Claude の鍵を入れると、家族の形（働き方・上の子）も見て、ここを Claude が書きます。";
+    return { ...rule, why: `${rule.why}${note}` };
+  }
   return {
-    title: `${SAMPLE_MARK}予定表に無い事に気づきました`,
-    why: `予定表で分かった事（下に出ています）から見つけました。${noKey()}`,
-    plan: ["下に出ている、予定表で分かった事を家族で見る", "必要なら町の窓口か職場に確かめる"],
+    title: `${SAMPLE_MARK}予定表で分かった事を下に並べました`,
+    why: `予定表で分かった事は、下の「機械で確かめた事」に出ています。${noKey()}`,
+    plan: ["下の「機械で確かめた事」を家族で見る", "必要なら町の窓口か職場に確かめる"],
   };
 }
 

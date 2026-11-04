@@ -217,3 +217,106 @@ export function trimAdvice(a: AdviceFields): AdviceFields {
   const cut = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
   return { ...a, title: cut(a.title.trim(), 30), plan: a.plan.slice(0, 3).map((p) => cut(p.trim(), 40)) };
 }
+
+// ── 鍵の無い時の気づき（見本の家族・公開版で上限の日）: 機械で確かめた事から、決まりで文を作る（Claude は呼ばない） ──
+
+/** 決まりで作った気づきの1文目（カードの表に出る）。Claude が書いたふりをしない */
+export const RULE_MARK = "予定表から数えました（Claude は使っていません）。";
+
+const MD = "(\\d{1,2}月\\d{1,2}日)";
+type Find = (re: RegExp) => RegExpMatchArray | null;
+/** 「神奈川県横浜市」→「横浜市」（題を短くする。県の付かない町はそのまま） */
+const cityOnly = (s: string) => s.replace(/^.{2,3}?[都道府県](?=.)/, "");
+
+/**
+ * 機械で確かめた事（birthShift・moved が書いた文）から、気づきを決まりで作る。形が読めない時は null。
+ * today: 今日（YYYY-MM-DD・転入の届けの締切を数える）。partner: 文に入れてよいパートナーの名前（仕事の無い人は渡さない）
+ */
+export function ruleAdvice(facts: string[], ctx: { today?: string; partner?: string } = {}): AdviceFields | null {
+  const lines = facts.map((x) => x.trim()).filter(Boolean);
+  const find: Find = (re) => lines.map((l) => l.match(re)).find((m): m is RegExpMatchArray => m != null) ?? null;
+  const leave = find(new RegExp(`^母の育休が始まる日は ${MD}（予定日で数えると ${MD}。(\\d+)日(早まる|遅くなる)）`));
+  if (leave) return birthRule(lines, find, leave, ctx.partner);
+  const mv = find(new RegExp(`^${MD}に (.+?) から (.+?) へ引っ越した（その時: (.+?)）`));
+  if (mv) return movedRule(find, mv, ctx.today);
+  return null;
+}
+
+/** 予定日と違う日に生まれた: 育休の始まりの数え直しと、職場の上司あての文 */
+function birthRule(lines: string[], find: Find, leave: RegExpMatchArray, partner?: string): AdviceFields {
+  const [, start, startByDue, n, dir] = leave;
+  const early = dir === "早まる";
+  const born = find(new RegExp(`^予定日 ${MD}、生まれた日 ${MD}`));
+  const post = find(new RegExp(`^産後休業.*?は ${MD} まで（予定日で数えると ${MD} だった）`));
+  const plan = [`職場に、育休の始まりを${start}に直すと伝える`];
+  if (early && partner && lines.some((l) => l.startsWith("産後パパ育休・育休の始まりを予定日で申し出ていた時")))
+    plan.push(`${partner}の育休を予定日で申し出ていたら、1回だけ早められる（職場に確かめる）`);
+  // 数え直した期限のうち、一番近い物を1つ（職場の事は1つ目と重なるので外す）
+  const recount = lines
+    .map((l) => l.match(new RegExp(`^- (.+?)（担当の目安: .+?）: ${MD}まで（あと(\\d+)日）$`)))
+    .filter((m): m is RegExpMatchArray => m != null);
+  const next = recount.filter((m) => !m[1].includes("職場")).sort((a, b) => Number(a[3]) - Number(b[3]))[0];
+  if (next) plan.push(`${next[1].replace(/（.*?）/g, "")}: ${next[2]}まで${recount.length > 1 ? `（ほか${recount.length - 1}件も数え直し）` : ""}`);
+  return {
+    title: `育休の始まりを${start}に数え直しました`,
+    why: `${RULE_MARK}産後休業は、生まれた日の翌日から8週間（労働基準法第65条）${post ? `で、${post[1]}まで` : ""}。その翌日の${start}から育休が始まります（予定日で数えると${startByDue}。${n}日${early ? "早まります" : "遅くなります"}）。`,
+    plan,
+    message: {
+      to: "職場の上司",
+      via: "mail",
+      subject: "育児休業の始まりの日の変更について",
+      body: [
+        "【上司の名前】様",
+        "",
+        "お疲れさまです。【名前】です。",
+        born ? `${born[2]}に子どもが生まれました。出産予定日（${born[1]}）と日がずれたので、休みの日付が変わります。` : "子どもが生まれました。出産予定日と日がずれたので、休みの日付が変わります。",
+        "",
+        ...(post ? [`・産後休業: ${post[1]}まで（予定日で数えると${post[2]}まで）`] : []),
+        `・育児休業の始まり: ${start}から（予定日で数えると${startByDue}から）`,
+        "",
+        "お手数ですが、書類の日付の直しをお願いします。ほかに要る手続きがあれば教えてください。",
+        "",
+        "【名前】",
+      ].join("\n"),
+    },
+  };
+}
+
+/** 町が変わった: 転入の届けの締切と、町ごとに出している物（妊娠中は健診の券・生まれた後は医療証と予防接種） */
+function movedRule(find: Find, mv: RegExpMatchArray, today?: string): AdviceFields {
+  const [, movedOn, fromFull, toFull, phase] = mv;
+  const from = cityOnly(fromFull);
+  const to = cityOnly(toFull);
+  const pregnant = phase.startsWith("妊娠");
+  const born = /^生|歳/.test(phase);
+  const what = pregnant ? "転入の届けと健診の券の取り替え" : born ? "転入の届けと医療証・予防接種" : "転入の届け";
+  const title = [`${from}から${to}へ: ${what}`, `${to}へ: ${what}`].find((t) => t.length <= 30) ?? what;
+  // 転入の届けは、引っ越した日の翌日から数えて14日以内（住民基本台帳法第22条・初日は数えない）
+  const since = Number(find(/^今日は引っ越して(\d+)日目/)?.[1]);
+  const by = today && Number.isFinite(since) && since <= 14 ? jp(addDays(today, 14 - since)) : null;
+  const plan = [
+    by ? `転入の届け: ${by}まで（引っ越した日から14日以内）` : "転入の届けが済んだか確かめる（引っ越した日から14日以内）",
+    ...(pregnant ? [`${to}の窓口で、健診の券（受診票）の取り替えを確かめる`, "次の健診の日までに取り替えが済むよう、窓口へ行く日を決める"] : []),
+    ...(born ? [`${to}の窓口で、子どもの医療証と予防接種の予診票を確かめる`, "転入の届けの時に、子どもの手続きも一緒にできるか聞く"] : []),
+  ];
+  const ask = pregnant
+    ? `${from}でもらった妊婦健診の受診票の残りがあります。${to}の受診票への取り替えのやり方と、持って行く物を教えてください。`
+    : born
+      ? `子どもの医療証と、予防接種の予診票の受け取り方と、持って行く物を教えてください。`
+      : null;
+  return {
+    title,
+    why: `${RULE_MARK}転入の届けは、引っ越した日から14日以内（住民基本台帳法第22条）。${pregnant ? "妊婦健診の券（受診票）は町ごとに出しているので、扱いを新しい町で確かめます。" : born ? "子どもの医療証と予防接種の予診票は町ごとに出しているので、新しい町で確かめます。" : ""}`,
+    plan,
+    ...(ask
+      ? {
+          message: {
+            to: `${to}の子育ての窓口`,
+            via: "mail" as const,
+            subject: pregnant ? "転入した妊婦の健診の受診票について" : "転入した子どもの医療証と予防接種について",
+            body: [`${to} 子育ての窓口のご担当の方`, "", `${movedOn}に${from}から転入しました（引っ越した時、${phase}）。`, ask, "", "【名前】"].join("\n"),
+          },
+        }
+      : {}),
+  };
+}
