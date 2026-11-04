@@ -1,6 +1,6 @@
 // 橋の床: 急ぎ・心の危機の言葉に、必ず連絡先が付くか。ふつうの問いには付かないか。
 import { describe, expect, it } from "vitest";
-import { bridgeFor, telHref } from "./bridge";
+import { bridgeFor, N8000_ALT_NOTE, telHref } from "./bridge";
 
 const tels = (text: string, phase: "pregnant" | "child" | "other" = "child") =>
   bridgeFor(text, phase).actions.filter((a) => a.type === "call").map((a) => (a.type === "call" ? a.tel : ""));
@@ -117,6 +117,19 @@ describe("返事の頭の1文", () => {
   it("ふつうの問い・便の話でも色の番号が無ければ付かない", () => {
     expect(bridgeFor("児童手当はいつ？", "child").lead).toBeNull();
     expect(bridgeFor("便色カードはどこ？", "child").lead).toBeNull();
+  });
+  it("#8000 を出す所には、つながらない時の県の番号は急ぎの時の画面にあると添える（床は県を知らないので番号は書かない）", () => {
+    const u = bridgeFor("高熱でぐったりしている", "child");
+    expect(u.lead).toContain(N8000_ALT_NOTE);
+    expect(u.lead).not.toMatch(/\d{2,4}-\d{2,4}-\d{4}/);
+    expect(u.actions.some((a) => a.type === "open" && a.href === "/emergency")).toBe(true);
+    const s = bridgeFor("便の色が3番っぽい", "child");
+    expect(s.lead).toContain(N8000_ALT_NOTE);
+    const i = s.actions.findIndex((a) => a.type === "call" && a.tel === "#8000");
+    expect(i).toBeGreaterThanOrEqual(0);
+    expect(s.actions[i + 1]).toEqual({ type: "open", href: "/emergency", label: "#8000 につながらない時の番号" });
+    // 妊娠中の急ぎは #8000 を出さないので、添えない
+    expect(bridgeFor("出血がある", "pregnant").lead).not.toContain("#8000");
   });
 });
 
