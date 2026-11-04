@@ -15,9 +15,14 @@
 //     厚生労働省「まもろうよ こころ」https://www.mhlw.go.jp/mamorouyokokoro/soudan/tel/ （2026-11 確認）
 //   - 児童相談所 相談専用ダイヤル 0120-189-783: こども家庭庁（ConsultAsk.tsx と同じ出典）
 //   - 便色カード: 母子健康手帳の便色カードの注意書き（lib/techo.ts の STOOL_NOTE）
+//   - #8000 につながらない時: 「#」の入った番号は、電話によっては画面のリンクからかからない事がある。床は家族の県を知らないので番号は書かず、
+//     県のふつうの番号が出る急ぎの時の画面（/emergency。表は lib/emergency-lines.ts の N8000）を指す一言だけを添える（2026-11-05 統括の決め）
 // 画面からもサーバからも読む（server-only にしない）。
 import { STOOL_NOTE } from "../techo";
 import type { AskAction } from "./types";
+
+/** #8000 の後に添える一言（番号は書かない。県の番号は急ぎの時の画面にある） */
+export const N8000_ALT_NOTE = "#8000 につながらない時の県の番号は、急ぎの時の画面にあります。";
 
 /** その日のうちに医療機関へ連絡した方がよさそうに見える言葉（capture.ts の urgent と同じ考え方） */
 const URGENT =
@@ -153,7 +158,7 @@ export function bridgeFor(text: string, phase: "pregnant" | "child" | "other"): 
     leads.push(
       phase === "pregnant"
         ? "今すぐ、かかりつけの産院へ電話してください（夜間も）。命が危ないと思ったら、迷わず119。"
-        : "今すぐ電話してください。命が危ないと思ったら、迷わず119。救急車を呼ぶか迷う時は、子どもの事はかかりつけか #8000、ママの体はかかりつけの産院へ（夜間も）。",
+        : `今すぐ電話してください。命が危ないと思ったら、迷わず119。救急車を呼ぶか迷う時は、子どもの事はかかりつけか #8000、ママの体はかかりつけの産院へ（夜間も）。${N8000_ALT_NOTE}`,
     );
     actions.push({ type: "open", href: phase === "pregnant" ? "/emergency#mama" : "/emergency", label: "急ぎの時を開く" });
     actions.push({ type: "call", label: "命が危ない時は119", tel: "119" });
@@ -165,8 +170,9 @@ export function bridgeFor(text: string, phase: "pregnant" | "child" | "other"): 
     );
   }
   if (stool && !urgent) {
-    leads.push(`母子手帳の便色カードには「${STOOL_NOTE}」と書いてあります。`);
+    leads.push(`母子手帳の便色カードには「${STOOL_NOTE}」と書いてあります。${N8000_ALT_NOTE}`);
     actions.push({ type: "call", label: "子どもの急な病気の相談 #8000", tel: "#8000" });
+    actions.push({ type: "open", href: "/emergency", label: "#8000 につながらない時の番号" });
     actions.push({ type: "open", href: "/techo#page-stool", label: "便色カードを開く" });
     notes.push("便色カードの1〜3番に近い色と言っている。手帳の注意書き（1日も早く受診）は機械が返事の頭に置く。次の健診まで待つ書き方（健診で聞く）をしない。色の良し悪しは言わない。かかりつけの小児科（生後1か月ごろまでは生まれた産院でもよい）へ電話する事と、番号を選んで記録できる事だけ");
   }

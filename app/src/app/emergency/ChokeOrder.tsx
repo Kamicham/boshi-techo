@@ -33,7 +33,10 @@ function currentFamily(): { family: Family; today: string | null; chosen: boolea
     if (Array.isArray(v)) cached = v.filter((f) => f && typeof f.id === "string");
   } catch {}
   const saved = read("boshi.family");
-  const id = saved ?? (cached.some((f) => f.id === "mine") ? "mine" : DEMO_FAMILY.id);
+  // 自分で選んでいない端末（別の端末でログインし直した時など）: FamilyProvider は自分の世帯から開くが、通信なしでは自分の世帯が分からない。
+  // 控えにわが家があればわが家、控えの家族が1つだけならその家族。2つ以上で決められない時は見本の家族に落とし、町で出し分ける物は出さない
+  const own = cached.filter((f) => f.id !== DEMO_FAMILY.id);
+  const id = saved ?? (own.some((f) => f.id === "mine") ? "mine" : own.length === 1 ? own[0].id : DEMO_FAMILY.id);
   const family = id === DEMO_FAMILY.id ? DEMO_FAMILY : cached.find((f) => f.id === id);
   if (!family) return null;
   const timeTravel = family.id === DEMO_FAMILY.id || family.id.startsWith("sim-") || family.id.startsWith("pop-");
@@ -110,11 +113,12 @@ function use7119(): Info7119 | null {
  * 「#」の番号につながらない時の、ふつうの番号。すぐ上の「#」のボタンと1つの枠に入れる（枠は呼ぶ側）。
  * 見える文は「つながらない時は 番号（県）」の1行（iPhone の幅 390px で折り返さない長さ）。読み上げには、どの番号の代わりかも入れる。
  *
- * IPHONE_NOTE（なぜ添えるか）: Apple の開発者向けの古い文書「Apple URL Scheme Reference」の Phone Links に、
+ * IPHONE_NOTE（なぜ添えるか）: Apple の開発者向けの文書「Apple URL Scheme Reference」の Phone Links（Updated: 2017-09-19）に、
  * 「if a URL contains the * or # characters, the Phone app does not attempt to dial the corresponding phone number.」とある
  * （https://developer.apple.com/library/archive/featuredarticles/iPhoneURLScheme_Reference/PhoneLinks/PhoneLinks.html ）。
- * 今の iOS でも同じかは、実機で確かめていない（本物の #8000 にかけて試すと、相談の窓口につながってしまうので試さない）。
- * どの電話でも届くよう、ふつうの番号を添える（2026-11-05 統括の決め）。
+ * Apple の DTS は 2026年8月にも、これが「still the most up-to-date thing」で、実際の動きは「has bounced around a bit over the years」と
+ * 書いている（https://developer.apple.com/forums/thread/841386 ）。今の iOS で #8000 のリンクがかかるかは、実機で確かめていない
+ * （本物の #8000 にかけて試すと、相談の窓口につながってしまうので試さない）。どの電話でも届くよう、ふつうの番号を添える（2026-11-05 統括の決め）。
  */
 function AltCall({ tel, instead, where }: { tel: string; instead: string; where: string }) {
   return (
