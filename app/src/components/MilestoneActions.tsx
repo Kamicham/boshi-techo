@@ -34,6 +34,7 @@ export const DRAFTABLE: Record<string, DraftKind> = {
   "older-pickup": "頼み文",
   "older-daycare-continue": "メール",
   "daycare-extend": "メール",
+  "satogaeri-return": "メール",
   "daycare-extend-2": "メール",
   "daycare-prep": "頼み文",
   "leave-money-request": "メール",
@@ -52,6 +53,7 @@ export const NOUN: Record<DraftKind, string> = {
 /** 下書きの呼び名（町の窓口あてのメールは「町への問い合わせ」） */
 export function nounFor(kind: DraftKind, m: { kind: string; id?: string }): string {
   if (kind === "メール" && m.id === "older-daycare-continue") return "園か町への問い合わせ";
+  if (kind === "メール" && m.id === "satogaeri-return") return "保健センターへの連絡";
   if (kind === "メール" && m.kind !== "仕事") return "町への問い合わせ";
   return NOUN[kind] ?? "下書き";
 }

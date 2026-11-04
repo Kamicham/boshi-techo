@@ -250,6 +250,9 @@ export async function makeDraft(family: Family, m: MilestoneDef, today: string, 
     ...(m.id === "childcare-benefit-first"
       ? ["", "下書きの向き: 勤め先の人事へのメール。育児休業給付の初回の申請を頼み、出してもらえた日と、次の2か月ごとの申請の予定を教えてほしいと聞く。振込の口座は【振込の口座】の空欄。額は書かない"]
       : []),
+    ...(m.id === "satogaeri-return"
+      ? ["", `下書きの向き: 住む町（${family.city || "住む町"}）の保健センターへのメール。里帰り出産から住む町に戻る事を知らせる。戻る日は【戻る日】の空欄。赤ちゃん訪問（新生児訪問・こんにちは赤ちゃん）を戻った後に受けたい事と、乳幼児健診・予防接種の案内の受け取り方を聞く。${family.situation?.satogaeriPlace ? `里帰り先は${family.situation.satogaeriPlace.prefecture}${family.situation.satogaeriPlace.city}。` : ""}体の様子の相談は書かない`]
+      : []),
     ...(m.id === "daycare-prep"
       ? ["", "下書きの向き: パートナーか祖父母への頼み文。慣らし保育（1〜2週間ほど・時間が短い）の間の送り迎えと、子が熱を出した時のお迎えを頼む。曜日と時間は【送りの時間】【迎えの時間】の空欄。病児保育に登録しておく事も一言"]
       : []),

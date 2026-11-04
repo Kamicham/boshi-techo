@@ -74,8 +74,18 @@ export function findMilestone(id: unknown): MilestoneDef {
 const LOCAL_FORMAT = 2;
 const YEARLY = new Set(["daycare-apply", "daycare-research"]);
 
+/**
+ * どの町で調べるか。「里帰り先の町で確かめる」（第2波⑦）だけは里帰り先の町、ほかは住む町。
+ * 調べた結果は町×事で1回だけ持ち、ほかの家族と使い回す（鍵は今までどおり localId）
+ */
+export function placeFor(family: Family, milestoneId: string): { prefecture: string; city: string; away: boolean } {
+  const p = family.situation?.satogaeri ? family.situation.satogaeriPlace : undefined;
+  if (milestoneId === "satogaeri-local" && p?.city) return { prefecture: p.prefecture, city: p.city, away: true };
+  return { prefecture: family.prefecture, city: family.city, away: false };
+}
+
 export function getLocal(family: Family, milestoneId: string): LocalInfo | null {
-  const d = get<LocalInfo & { format?: number }>(localId(family.city, milestoneId))?.data;
+  const d = get<LocalInfo & { format?: number }>(localId(placeFor(family, milestoneId).city, milestoneId))?.data;
   if (d && YEARLY.has(milestoneId) && (d.format ?? 1) < LOCAL_FORMAT) return null;
   // 前の形で調べた物には office・address が無い
   return d ? { ...d, office: d.office ?? "", address: d.address ?? "", sources: officialFirst(d.sources) } : null;
@@ -111,7 +121,7 @@ const inflight = new Map<string, Promise<{ local: LocalInfo; cached: boolean }>>
 
 export async function fetchLocal(family: Family, m: MilestoneDef, force = false): Promise<{ local: LocalInfo; cached: boolean }> {
   if (!family.city) throw new HttpError(400, "わが家の設定で、住んでいる市区町村を入れてください");
-  const key = localId(family.city, m.id);
+  const key = localId(placeFor(family, m.id).city, m.id);
   const running = inflight.get(key);
   if (running) return running;
   const p = fetchLocalOnce(family, m, force).finally(() => inflight.delete(key));
@@ -119,11 +129,14 @@ export async function fetchLocal(family: Family, m: MilestoneDef, force = false)
   return p;
 }
 
-async function fetchLocalOnce(family: Family, m: MilestoneDef, force: boolean): Promise<{ local: LocalInfo; cached: boolean }> {
+async function fetchLocalOnce(home: Family, m: MilestoneDef, force: boolean): Promise<{ local: LocalInfo; cached: boolean }> {
+  // 里帰り先の町で調べる事は、町だけを里帰り先に差し替える（窓口を「いつもの役所」として覚えない）
+  const at = placeFor(home, m.id);
+  const family = { ...home, prefecture: at.prefecture, city: at.city };
   if (!force) {
     const hit = getLocal(family, m.id);
     if (hit) {
-      if (!getKeep(family.id).office?.name) rememberOffice(family.id, hit);
+      if (!at.away && !getKeep(family.id).office?.name) rememberOffice(family.id, hit);
       return { local: hit, cached: true };
     }
   }
@@ -142,7 +155,7 @@ async function fetchLocalOnce(family: Family, m: MilestoneDef, force: boolean): 
 2. 必要な物・書類
 3. オンライン申請ができるか（マイナポータル・電子申請など）とそのやり方
 4. 期限（参考: 全国共通の根拠は「${m.basis}」）
-5. ${family.city}独自の助成・上乗せ・配布物があれば${m.id === "pregnancy-support-2" ? "\n6. 2回目の面談の予約の仕方（電話・オンライン・予約なし）と、受け取り方（振込など）・申請の期限" : m.id === "daycare-prep" ? "\n6. 病児保育・病後児保育の施設と、使う前の登録の仕方（登録の書類・予約の仕方）" : m.id === "older-daycare-continue" ? "\n6. 育休中に、上の子が保育園を続けて使えるか（続けられる期間・短い時間になるか・申請の書類と期限）" : ""}
+5. ${family.city}独自の助成・上乗せ・配布物があれば${m.id === "pregnancy-support-2" ? "\n6. 2回目の面談の予約の仕方（電話・オンライン・予約なし）と、受け取り方（振込など）・申請の期限" : m.id === "daycare-prep" ? "\n6. 病児保育・病後児保育の施設と、使う前の登録の仕方（登録の書類・予約の仕方）" : m.id === "older-daycare-continue" ? "\n6. 育休中に、上の子が保育園を続けて使えるか（続けられる期間・短い時間になるか・申請の書類と期限）" : m.id === "satogaeri-local" ? `\n6. ほかの町（${home.prefecture}${home.city}）に住む人が、${family.city}に里帰りして産む時: 赤ちゃん訪問を${family.city}で受けられるか（頼み方は住む町から）・${home.city}の妊婦健診の受診券が${family.city}の病院で使えるか・出生届を${family.city}の役所に出す時の窓口と持ち物` : ""}
 出典のページを示してください。`;
   // 町×手続きで1回だけ調べて、ほかの家族と使い回す（PUBLIC_ID に置く）。1回の重さも抑える: Sonnet・検索は4回まで
   const found = await research(RESEARCH_SYSTEM, question, { model: RESEARCH_MODEL, maxUses: 4 });
@@ -175,6 +188,6 @@ async function fetchLocalOnce(family: Family, m: MilestoneDef, force: boolean): 
     researchedAt: jstToday(),
   };
   put(PUBLIC_ID, "local", local, { id: localId(family.city, m.id), date: local.researchedAt });
-  rememberOffice(family.id, local);
+  if (!at.away) rememberOffice(family.id, local);
   return { local, cached: false };
 }
