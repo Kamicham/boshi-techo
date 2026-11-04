@@ -351,6 +351,8 @@ export function statusOf(m: Milestone, today: string, done: Set<string>): Status
   if (m.awaitingBirth) return "まだ先";
   // 生まれた後は、妊娠中だけの事は「過ぎた」（済んでいない物は、画面が「済みましたか？」で1回だけ聞く）
   if (m.endsOn && today >= m.endsOn) return "過ぎた";
+  // 上の子の健診・接種は、期限を過ぎても急かさない（上の子の母子手帳が正。lib/older.ts）
+  if (m.older && m.deadlineDate && today > m.deadlineDate) return "過ぎた";
   if (today < m.startDate) return "まだ先";
   if (!m.deadlineDate && today > endOf(m)) return "過ぎた";
   if (m.deadlineDate) {

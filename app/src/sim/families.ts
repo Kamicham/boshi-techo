@@ -46,7 +46,7 @@ export const SIM_FAMILIES: SimFamily[] = [
       { id: "ryo", name: "亮", role: "パートナー" }, // 36歳。美容室の店主。お金と段取りの担当。短く数字で知りたい
     ],
     // 家族の形: 上の子は今3歳
-    situation: { motherWork: "自営・フリー", partnerWork: "自営・フリー", partnerLeave: "取らない", olderChildren: true, babies: 1 },
+    situation: { motherWork: "自営・フリー", partnerWork: "自営・フリー", partnerLeave: "取らない", olderChildren: true, olderKids: [{ birthDate: "2023-11-12", care: "保育園" }], babies: 1 },
     persona: {
       label: "授かる前・2人目を考えている・自営業で育休が無い・政令市（区）",
       meId: "ryo",
@@ -224,7 +224,7 @@ export const SIM_FAMILIES: SimFamily[] = [
       { id: "eri", name: "絵里", role: "母" }, // 32歳。2人目。上の子は2歳で保育園。会社員
       { id: "kenta", name: "健太", role: "パートナー" }, // 34歳。会社員。上の子の送り迎え担当
     ],
-    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", olderChildren: true, babies: 1, satogaeri: false },
+    situation: { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", olderChildren: true, olderKids: [{ birthDate: "2024-12-05", care: "保育園" }], babies: 1, satogaeri: false },
     persona: {
       label: "妊娠中期・2人目（上の子2歳）・祖父母はいない・共働き",
       meId: "eri",
@@ -533,7 +533,7 @@ export const SIM_FAMILIES: SimFamily[] = [
       { id: "hiroshi", name: "浩", role: "パートナー" }, // 33歳。会社員。上の子の世話もしている
     ],
     // 家族の形: 上の子は生まれた時に4歳
-    situation: { motherWork: "パート・派遣", partnerWork: "会社員・公務員", olderChildren: true, babies: 1 },
+    situation: { motherWork: "パート・派遣", partnerWork: "会社員・公務員", olderChildren: true, olderKids: [{ birthDate: "2022-06-14", care: "幼稚園" }], babies: 1 },
     persona: {
       label: "生後すぐ・2人目・予定日より遅く生まれた・生後5日から使い始めた・政令市",
       meId: "hiroshi",
@@ -769,8 +769,8 @@ export const SIM_FAMILIES: SimFamily[] = [
       { id: "takashi", name: "隆", role: "パートナー" }, // 40歳。島の病院の夜勤の警備員。昼は寝ている
       // 祖父母の千代（家族の人には入れない）: 香織の母。松江に住む。フェリーで来る（来る日 2026-11-10〜2026-11-24）
     ],
-    // 家族の形: 上の子が2人いる。香織と隆の雇われ方は書いていないので空
-    situation: { olderChildren: true, babies: 1, satogaeri: false },
+    // 家族の形: 上の子が2人いる。香織と隆の雇われ方は書いていないので空。上の子の生まれた日と通う所は説明に無いので作った（近似）
+    situation: { olderChildren: true, olderKids: [{ birthDate: "2019-05-08", care: "小学校" }, { birthDate: "2022-02-20", care: "保育園" }], babies: 1, satogaeri: false },
     persona: {
       label: "1歳過ぎ・3人目・離島（隠岐の島町）・パートナーが夜勤・祖父母が来る",
       meId: "kaori",

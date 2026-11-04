@@ -29,18 +29,24 @@ describe("上の子の予定", () => {
   it("年の言い方", () => {
     expect(ageWord("2023-09-10", "2027-01-15")).toBe("3歳");
     expect(ageWord("2026-05-20", "2027-01-15")).toBe("7か月");
-    expect(olderLabel({ birthDate: "2023-09-10" }, 0, 1, "2027-01-15")).toBe("上の子（3歳）");
-    expect(olderLabel({ birthDate: "2023-09-10" }, 1, 2, "2027-01-15")).toBe("上の子2（3歳）");
-    expect(olderLabel({ birthDate: "2023-09-10", name: "はる" }, 0, 1, "2027-01-15")).toBe("はる（3歳）");
+    expect(olderLabel({ birthDate: "2023-09-10" }, 0, 1)).toBe("上の子");
+    expect(olderLabel({ birthDate: "2023-09-10" }, 1, 2)).toBe("上の子2");
+    expect(olderLabel({ birthDate: "2023-09-10", name: "はるちゃんです" }, 0, 1)).toBe("はるちゃんで");
   });
 
-  it("3歳児健診は上の子の生まれた日から数え、期限を過ぎた1歳半健診は出さない", () => {
+  it("期限を過ぎた上の子の健診は、期限切れでなく過ぎたにする", () => {
+    const c3 = olderSchedule(fam, olderDefs(MILESTONES), "2027-01-15").find((m) => m.id === "older1-checkup-3y")!;
+    expect(statusOf(c3, "2027-09-10", new Set())).toBe("過ぎた");
+  });
+
+  it("3歳児健診は上の子の生まれた日から数え、赤ちゃんの最終月経より前に終わった1歳半健診は出さない", () => {
     const s = olderSchedule(fam, olderDefs(MILESTONES), "2027-01-15");
     const c3 = s.find((m) => m.id === "older1-checkup-3y");
     expect(c3?.startDate).toBe("2026-09-10");
     expect(c3?.deadlineDate).toBe("2027-09-09");
-    expect(c3?.plain).toBe("上の子（3歳）の3歳児健診");
-    expect(c3?.older).toEqual({ index: 0, label: "上の子（3歳）" });
+    expect(c3?.plain).toBe("上の子の3歳児健診");
+    expect(c3?.title).toContain("上の子（2023年9月生まれ）の");
+    expect(c3?.older).toEqual({ index: 0, label: "上の子" });
     expect(statusOf(c3!, "2027-01-15", new Set())).toBe("今やる");
     expect(s.some((m) => m.id === "older1-checkup-18m")).toBe(false);
     // 日本脳炎の追加（4歳）は赤ちゃんの2歳までに来るので出る。MR の2期（年長＝2029-04-01〜）も2029-06-01 までに始まるので出る
