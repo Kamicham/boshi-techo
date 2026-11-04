@@ -18,6 +18,8 @@ import { CONSENT_REQUIRED_TEXT } from "./claude-consent-flow";
 import { activeConsent, audit } from "./households";
 import { sampleAnswer } from "./samples";
 import { budgetReached, checkBudget, checkHouseholdBudget, checkSimHouseholdBudget, recordSpend } from "./spend";
+import { publicOn } from "./trial-cookie";
+import { TRIAL_NO_CLAUDE } from "./trial-words";
 
 /** 深い仕事（一冊・見渡す・健診）。断られた時の呼び直し（fallbacks）はこのモデルの時だけ付ける */
 export const MODEL = "claude-opus-5-5";
@@ -39,6 +41,8 @@ const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 
 let client: Anthropic | null = null;
 export function claude(): Anthropic {
+  // 体験版（公開版）は、鍵がうっかり入っていても Claude を呼ばない（2026-11-05 作り手の決め「ハッカソンの間は API を使わない」）
+  if (publicOn()) throw new HttpError(503, TRIAL_NO_CLAUDE);
   // 鍵が無い時: 画面には使う人の言葉で、何ができて何ができないかを返す（UX 2026-11-04: 家族に「app/.env.local に…」と作り手向けの文が出ていた）。
   // 作り手（配布した人）向けの直し方は、サーバの記録に出す
   if (!process.env.ANTHROPIC_API_KEY) {
@@ -50,11 +54,14 @@ export function claude(): Anthropic {
 }
 
 /**
- * 見本の家族（demo。公開版の体験の写しも）で、鍵が無い時か、今日の上限（全体・世帯）に達した時は、
+ * 体験版（公開版）では、いつも見本の答え（Claude を呼ばない）。
+ * 見本の家族（demo）で、鍵が無い時か、今日の上限（全体・世帯）に達した時は、
  * Claude を呼ばずに lib/samples.ts の「見本の答え」を返す（手帳は止めない）。
  * 本物の世帯・シミュレーションの家族は、今までどおり「鍵がありません」・上限の 429
  */
 export function sampleMode(who: SendWho | null = currentSender()): boolean {
+  // 体験版（公開版）は、だれの頼みでも見本の答え（Claude を呼ばない。鍵が入っていても）
+  if (publicOn()) return true;
   if (who?.kind !== "demo") return false;
   return !process.env.ANTHROPIC_API_KEY || budgetReached(who.householdId);
 }

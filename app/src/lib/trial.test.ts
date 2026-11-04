@@ -68,14 +68,34 @@ describe("公開版の体験用の家族", () => {
     expect(isMadeFamily(A)).toBe(true);
     expect(getFamily(A)).toMatchObject({ id: A, dueDate: getFamily("demo-sato")!.dueDate });
     expect(publicHouseholdKind(A)).toBeNull();
-    const { sampleMode } = await import("./claude");
+    // 体験版は、鍵がうっかり入っていても Claude を呼ばない（2026-11-05 作り手の決め「ハッカソンの間は API を使わない」）。
+    // この試験は鍵（偽物）を入れたまま動かす: 見本の判定はいつも見本、Claude を呼ぶ1か所は 503
+    const { claude, sampleMode } = await import("./claude");
     const who = { householdId: A, kind: "demo" as const, accountId: null, subjectIds: [] };
+    expect(process.env.ANTHROPIC_API_KEY).toBeTruthy();
+    expect(sampleMode(who)).toBe(true);
+    expect(sampleMode({ ...who, kind: "real" })).toBe(true);
+    expect(sampleMode(null)).toBe(true);
+    let err: unknown = null;
+    try {
+      claude();
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toMatchObject({ status: 503 });
+    expect((err as Error).message).toContain("この体験版では AI（Claude）を呼びません");
+    // 体験版でない置き場では、今までどおり（鍵がある見本の家族は Claude を呼ぶ）
+    process.env.BOSHI_PUBLIC = "0";
     expect(sampleMode(who)).toBe(false);
-    process.env.BOSHI_HOUSEHOLD_DAILY_USD = "0.000001";
-    const { recordSpend } = await import("./spend");
-    recordSpend("structured", "claude-sonnet-5-5", { input_tokens: 1000 }, { household: A });
-    expect(sampleMode(who)).toBe(true); // 上限の日は止めずに見本の答え
-    delete process.env.BOSHI_HOUSEHOLD_DAILY_USD;
+    process.env.BOSHI_PUBLIC = "1";
+  });
+
+  it("体験版の頼みは、Claude につながず見本の答えで返る（下書き）", async () => {
+    const draft = await import("@/app/api/draft/route");
+    const r = await draft.POST(req("/api/draft", { trial: A, body: { familyId: "demo-sato", milestoneId: "birth-registration", today: "2027-04-27" } }));
+    expect(r.status).toBe(200);
+    const j = (await r.json()) as { draft?: { title?: string; body?: string } };
+    expect(j.draft?.title).toContain("（見本の答え）");
   });
 
   it("1つの住所から作れる写しは1日10まで。7日たった写しは消える", async () => {
