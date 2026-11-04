@@ -4,6 +4,7 @@
 // 前に作った物があればそれを使い、作り直さない。できた物は「✓」の行で残す（UX の見直し C07: 済むと跡が消えていた）。
 // 鍵が無い時の見本の答えは、用意したと数えない（「下書きしました」と言わない＝現実に即す）。
 import { useEffect, useState } from "react";
+import { draftConsentWaitKey, isClaudeConsentError, waitingDraftFor } from "@/lib/claude-consent-flow";
 import type { LocalInfo } from "@/lib/local";
 import type { DraftView } from "@/lib/drafts";
 import type { Family, Member } from "@/lib/demo-family";
@@ -25,11 +26,24 @@ export function usePrep(t: Task, today: string, family: Family, me: Member | nul
   const [localState, setLocalState] = useState<PrepState>("idle");
   const [view, setView] = useState<DraftView | null>(null);
   const [draftState, setDraftState] = useState<PrepState>("idle");
+  // 下書きが「米国の Claude に送る同意」の前で断られた（行を黙って消さず、同意への1行を出す。見直し C38 の「いま」の分）
+  const [draftConsent, setDraftConsent] = useState(false);
   // 用意が終わったら、中のボタン（MilestoneActions）を読み直させる
   const [ver, setVer] = useState(0);
+  // 下の「◯を作る」（MilestoneActions）から同意の画面へ行って戻った時は、そちらが窓を開いて作るので、ここでは作らず、中も組み直さない
+  // （組み直すと、そちらの開いた窓と作りかけが消え、ここでも作って2回になる）。控えはそちらが開いた時に消すので、最初の描画で読んでおく
+  const [below] = useState(() => {
+    try {
+      return waitingDraftFor(sessionStorage.getItem(draftConsentWaitKey(family.id)), t.id, Date.now()) ? t.id : null;
+    } catch {
+      return null;
+    }
+  });
 
   useEffect(() => {
     let alive = true;
+    const wait = below === t.id && tries === 0;
+    const bump = () => !wait && setVer((v) => v + 1);
     const q = new URLSearchParams({ familyId: family.id, milestoneId: t.id, ...(me ? { meId: me.id } : {}) });
     if (canLocal) {
       setLocalState("busy");
@@ -39,21 +53,27 @@ export function usePrep(t: Task, today: string, family: Family, me: Member | nul
           if (!alive) return;
           setLocal(l);
           setLocalState("ok");
-          setVer((v) => v + 1);
+          bump();
         })
         .catch(() => alive && setLocalState("fail"));
     }
     if (canDraft) {
       setDraftState("busy");
+      setDraftConsent(false);
+      // 同意して戻ると、開き直したこの画面でそのまま作る（作るのは今までどおり POST /api/draft だけ。サーバが同意を確かめる）
       api<DraftView>(`/api/draft?${q}`)
-        .then((v) => (v.draft ? v : api<DraftView>("/api/draft", { body: { familyId: family.id, milestoneId: t.id, today, meId: me?.id } }).then((x) => (notifyPrep(), x))))
+        .then((v) => (v.draft || wait ? v : api<DraftView>("/api/draft", { body: { familyId: family.id, milestoneId: t.id, today, meId: me?.id } }).then((x) => (notifyPrep(), x))))
         .then((v) => {
           if (!alive) return;
           setView(v);
-          setDraftState(v.draft ? "ok" : "fail");
-          setVer((x) => x + 1);
+          setDraftState(v.draft ? "ok" : wait ? "idle" : "fail");
+          bump();
         })
-        .catch(() => alive && setDraftState("fail"));
+        .catch((e) => {
+          if (!alive) return;
+          setDraftState("fail");
+          setDraftConsent(isClaudeConsentError(e instanceof Error ? e.message : null));
+        });
     }
     return () => {
       alive = false;
@@ -91,6 +111,8 @@ export function usePrep(t: Task, today: string, family: Family, me: Member | nul
   const settled = preps && !busy && (localState === "ok" || localState === "fail" || draftState === "ok" || draftState === "fail");
   // 用意がすべてつまずいた時（見本の下書きは除く）: 黙って「次にやる事」に戻さず、手帳が作れる事を1つのボタンで出す（最初の1分 2026-11-04）
   const failed = preps && !busy && lines.length === 0 && draftState !== "ok" && (localState === "fail" || draftState === "fail");
+  /** 同意がまだで下書きを作れなかった時の、作る物の呼び名（それ以外は null）。PrepBox が同意への1行を出す */
+  const consent = canDraft && draftState === "fail" && draftConsent ? nounFor(draftKindFor(t.id), t) : null;
 
-  return { canLocal, canDraft, preps, busy, made, settled, failed, lines, ver };
+  return { canLocal, canDraft, preps, busy, made, settled, failed, consent, lines, ver };
 }

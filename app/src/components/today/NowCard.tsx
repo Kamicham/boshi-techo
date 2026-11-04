@@ -10,6 +10,7 @@ import { useFamily } from "../FamilyProvider";
 import { TopTask, type ShownTask } from "./TaskCard";
 import type { Family, Member } from "@/lib/demo-family";
 import type { Keep } from "@/lib/keep";
+import { PrepConsent } from "./PrepConsent";
 import { isMine, whoLabel } from "./task";
 import { usePrep, type PrepLine } from "./usePrep";
 
@@ -56,6 +57,8 @@ export function PrepBox({ prep, family, onRetry }: { prep: ReturnType<typeof use
         </div>
       )}
       <PrepLines lines={prep.lines} />
+      {/* 下書きが同意の前で断られた時: 行を黙って消さず、同意への1行（見直し C38 の「いま」の分。戻ると今の画面で手帳がそのまま作る） */}
+      {prep.consent && <PrepConsent familyId={family.id} noun={prep.consent} />}
     </>
   );
 }
