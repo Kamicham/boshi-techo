@@ -15,8 +15,12 @@ export interface DoneData {
   /** 押した時の「今日」（デモの時計を含む） */
   today?: string;
   at: string;
-  /** 自分で押した済みには無い。下書きの印から付けた時は "draft" */
-  auto?: "draft";
+  /**
+   * 自分で押した済みには無い。下書きの印から付けた時は "draft"。
+   * 途中から使い始めた家族で、始める前に期限が過ぎた事は "started-late"（済んでいるかを「いま」で聞く）、
+   * そこで「まだ」と答えた事は "started-late-open"（予定の並びには戻さず、「始める前の事」の1枚に出し続ける）
+   */
+  auto?: "draft" | "started-late" | "started-late-open";
 }
 
 export const doneId = (familyId: string, milestoneId: string) => `done:${familyId}:${milestoneId}`;
@@ -36,6 +40,13 @@ export function markDoneFromDraft(familyId: string, milestoneId: string, today?:
 export function clearDoneFromDraft(familyId: string, milestoneId: string): void {
   const d = get<DoneData>(doneId(familyId, milestoneId));
   if (d?.data.auto === "draft") remove(d.id);
+}
+
+/** 始める前の事に「まだ」と答えた */
+export function markStartedLateOpen(familyId: string, milestoneId: string, today?: string): void {
+  const d = get<DoneData>(doneId(familyId, milestoneId));
+  if (d?.data.auto !== "started-late") return;
+  put<DoneData>(familyId, "done", { ...d.data, auto: "started-late-open", today: today ?? d.data.today }, { id: d.id, date: today ?? null });
 }
 
 export function removeDone(familyId: string, milestoneId: string): void {

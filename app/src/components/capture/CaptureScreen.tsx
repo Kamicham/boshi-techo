@@ -76,6 +76,23 @@ export function CaptureScreen() {
   const [error, setError] = useState<Fail | null>(null);
   const [text, setText] = useState("");
   const [writing, setWriting] = useState(false);
+  // 書きかけの文は、この端末のこのタブにだけ控える（同意の画面へ移って戻った時に消えないように）
+  const DRAFT_KEY = `boshi.captureDraft:${family.id}`;
+  useEffect(() => {
+    try {
+      const d = sessionStorage.getItem(DRAFT_KEY);
+      if (d) {
+        setText(d);
+        setWriting(true);
+      }
+    } catch {}
+  }, [DRAFT_KEY]);
+  useEffect(() => {
+    try {
+      if (text) sessionStorage.setItem(DRAFT_KEY, text);
+      else sessionStorage.removeItem(DRAFT_KEY);
+    } catch {}
+  }, [DRAFT_KEY, text]);
   const [answer, setAnswer] = useState("");
   const [last, setLast] = useState<Last | null>(null);
   const [ask, setAsk] = useState<Ask | null>(null);
