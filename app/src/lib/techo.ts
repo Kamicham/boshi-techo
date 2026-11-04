@@ -17,7 +17,7 @@ export const TECHO_PAGES = [
   { id: "growth", title: "成長（身長・体重・頭囲）", note: "発育曲線に点を打つ", part: "成長" },
   { id: "development", title: "できた日", note: "首すわり・寝返り・ひとりすわり・はいはい・つかまり立ち・ひとり歩き・指さし・ことば", part: "成長" },
   { id: "child-checkup", title: "乳幼児健診", note: "1か月〜の健診の結果（医師が紙に書いた物を撮る）", part: "成長" },
-  { id: "vaccine", title: "予防接種の記録", note: "接種日・ワクチン・ロット・医療機関。証明の控え", part: "接種" },
+  { id: "vaccine", title: "予防接種の記録", note: "接種日・ワクチン・ロット・医療機関。妊娠中の RS ウイルスも。証明の控え", part: "接種" },
   { id: "consult", title: "相談した記録", note: "相談できる人・相談した日と相手", part: "つなぐ" },
 ] as const;
 
@@ -83,6 +83,7 @@ export interface TechoValueKeys {
   growth: { weightKg?: number; heightCm?: number; headCm?: number };
   development: { item: string };
   "child-checkup": { checkup: string; result?: string; weightKg?: number; heightCm?: number; memo?: string };
+  /** dose は回（「1回目」など）。妊娠中の RS ウイルスのワクチンは、手帳の欄と同じく妊娠週数（「妊娠30週2日」。府令様式 2026年4月施行版 p.52） */
   vaccine: { vaccine: string; dose?: string; lot?: string; facility?: string; doctor?: string };
   consult: { has?: boolean; whom?: string; text?: string };
 }

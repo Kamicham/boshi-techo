@@ -30,7 +30,7 @@ export type Only =
   | "older-daycare" // 上の子が保育園に通っている（上の子の欄でわかった時だけ）
   | "older-commute" // 上の子が保育園か幼稚園に通っている（わかった時だけ）
   | "mother-leave" // 母が雇われて働き続ける（会社員・公務員・パート・派遣。わからない時も。出産で辞める・自営・仕事なしは除く）
-  | "leave-short" // パートナーの育休が14日に届かない（14日未満と答えた時だけ。長さがわからない時は、パパの育休の一言に足す）
+  | "leave-short" // パートナーの育休が14日に届かない（14日未満と答えた時だけ。長さがわからない時は、パートナーの育休の一言に足す）
   | "return-late" // ママが1歳を過ぎてから仕事に戻りたい（わかった時だけ）
   | "satogaeri" // 里帰り出産をする（わかった時だけ）
   | "satogaeri-away" // 里帰りの実家が住む市の外（同じ市と答えた時は出さない。町がわからない時は出す）
@@ -161,7 +161,7 @@ export const MILESTONES: MilestoneDef[] = [
   { id: "satogaeri-hospital", title: "里帰り先の産院に、お産の予約をする", plain: "里帰り先の産院を予約する", hint: "早めに。多くの産院は妊娠中期までに予約が要ります", kind: "準備", who: "母", anchor: "lmp", start: w(8), deadline: w(20), deadlineKind: "目安", basis: "目安（予約の締め切りと、何週までに帰るかは産院ごとに違う。里帰り先の産院に確かめる）", needsLocal: false, pregnancyOnly: true, only: ["satogaeri"] },
   { id: "tell-work", title: "職場に妊娠を伝え、産休・育休の段取りを相談する", plain: "職場に妊娠を伝える", hint: "産休・育休の段取りを一緒に決めます", kind: "仕事", who: "母", anchor: "lmp", start: w(14), deadline: w(20), deadlineKind: "目安", basis: "目安（安定期のころ）", needsLocal: false, pregnancyOnly: true, only: ["mother-employed"] },
   { id: "mother-quit-date", title: "退職の日を職場と決める（産休を取ってからか・出産手当金を受け取れるかも確かめる）", plain: "退職の日を職場と決める", hint: "産休の前か後かで、受け取れるお金が変わります", kind: "仕事", who: "母", anchor: "lmp", start: w(14), deadline: w(28), deadlineKind: "目安", basis: "労働基準法第65条（産前産後休業）・健康保険法第104条（辞めた後も出産手当金を受け取れる条件がある）。条件は入っている健康保険で確かめる", needsLocal: false, pregnancyOnly: true, only: ["mother-quits"] },
-  { id: "partner-leave", title: "パートナーの育休（産後パパ育休）を職場に相談する", plain: "パパの育休を職場に伝える", hint: "産後すぐ休むなら、予定日の2週間前までに", kind: "仕事", who: "パートナー", anchor: "lmp", start: w(20), deadline: { days: 280 - 14 }, basis: "育児・介護休業法（産後パパ育休の申し出は原則2週間前まで。予定日から休むなら予定日の2週間前）", needsLocal: false, only: ["partner-leave"] },
+  { id: "partner-leave", title: "パートナーの育休（産後パパ育休）を職場に相談する", plain: "パートナーの育休を職場に伝える", hint: "産後すぐ休むなら、予定日の2週間前までに", kind: "仕事", who: "パートナー", anchor: "lmp", start: w(20), deadline: { days: 280 - 14 }, basis: "育児・介護休業法（産後パパ育休の申し出は原則2週間前まで。予定日から休むなら予定日の2週間前）", needsLocal: false, only: ["partner-leave"] },
   { id: "nenkin-maternity-exempt", title: "国民年金の産前産後期間の保険料免除を届け出る", plain: "国民年金の産前産後の免除を届ける", hint: "予定日の6か月前から届けられます", kind: "手続き", who: "母", anchor: "due", start: { months: -6 }, deadline: { days: 0 }, deadlineKind: "目安", basis: "国民年金法第88条の2（2019年4月から。予定月の前月から4か月分、双子などは3か月前から6か月分の保険料が免除。予定日の6か月前から届けられ、生まれた後でも届けられる。窓口は役所の国民年金の係。日本年金機構のページで確かめる）", needsLocal: true, only: ["mother-kokuho"] },
   { id: "kokuho-maternity-exempt", title: "国民健康保険の産前産後期間の保険料の減額（免除）を届け出る", plain: "国保の産前産後の減額を届ける", hint: "国保に入っている人。予定日の6か月前から", kind: "手続き", who: "母", anchor: "due", start: { months: -6 }, deadline: { days: 0 }, deadlineKind: "目安", basis: "国民健康保険法施行令の改正（2024年1月から。予定月の前月から4か月分、双子などは3か月前から6か月分の所得割・均等割が減る（0円になるとは限らない）。予定日の6か月前から届けられ、生まれた後でも届けられる。窓口は役所の国保の係）", needsLocal: true, only: ["mother-kokuho"] },
   { id: "older-child-care", title: "出産の入院中、上の子を見てもらう先を決める（一時保育・ファミリー・サポート・祖父母）", plain: "入院中の上の子の預け先を決める", hint: "夜中の陣痛の時に見る人も。一時保育は登録が要ります", kind: "準備", who: "家族", anchor: "lmp", start: w(24), deadline: w(34), deadlineKind: "目安", basis: "一時預かり事業（児童福祉法第6条の3第7項）・ファミリー・サポート・センター（子ども・子育て支援法第59条の子育て援助活動支援事業）・ショートステイ（子育て短期支援事業）。使える物と登録の仕方は町ごとに違う", needsLocal: true, pregnancyOnly: true, only: ["older-children"] },
@@ -170,18 +170,22 @@ export const MILESTONES: MilestoneDef[] = [
   { id: "satogaeri-visit", title: "赤ちゃん訪問を里帰り先で受けたい事を、住む町に伝える", plain: "里帰り先での訪問を頼む", hint: "住む町から、里帰り先の町へ頼んでもらえます", kind: "手続き", who: "母", anchor: "lmp", start: w(28), deadline: w(34), deadlineKind: "目安", basis: "新生児訪問（母子保健法第11条）・乳児家庭全戸訪問（児童福祉法第6条の3第4項）。里帰り先での訪問は、住む町が里帰り先の町に頼む形が多い。できるかと頼み方は住む町に確かめる", needsLocal: true, only: ["satogaeri-away"] },
   { id: "satogaeri-local", title: "里帰り先の町で、赤ちゃん訪問の受け方・妊婦健診の受診券の扱い・出生届を出せる所を確かめる", plain: "里帰り先の町で確かめる", hint: "訪問の受け方・受診券・出生届の窓口", kind: "準備", who: "母", anchor: "lmp", start: w(20), deadline: w(32), deadlineKind: "目安", basis: "新生児訪問は町の間で頼める（母子保健法第11条・第19条）。妊婦健診の受診券が里帰り先で使えるかは町ごと（同法第13条・各町の公費負担の決まり）。出生届は住む町・本籍地・生まれた所の役所に出せる（戸籍法第25条・第51条）。調べは里帰り先の町の公式ページで行う", needsLocal: true, pregnancyOnly: true, only: ["satogaeri-place"] },
   { id: "pregnancy-support-2", title: "妊婦のための支援給付の2回目を申請する（町の面談を受けて、おなかの子の数を届ける）", plain: "支援給付の2回目を申請する", hint: "予定日の8週前から。1人5万円の目安（町で確かめる）", kind: "手続き", who: "母", anchor: "due", start: { days: -56 }, deadline: { months: 24, days: -57 }, deadlineKind: "期限", basis: "子ども・子育て支援法の改正（妊婦のための支援給付・2025年4月から）。2回目は出産予定日の8週前の日から申請でき、おなかの子1人につき5万円の目安。町の面談（妊婦等包括相談支援）を受けてから申請する町が多い。申請の期限は8週前の日から2年（秋田市・広島市などの案内で確かめた・2026年）。面談の予約・受け取り方は町で確かめる。流産・死産でも対象", needsLocal: true },
+  // 母子免疫ワクチン（2026年度から妊婦の定期接種）。受けるかは産院で相談する形だけ（体の判断はしない）
+  { id: "rsv-maternal", title: "RSウイルスの母子免疫ワクチン（妊婦の定期接種）を受けるか、健診で相談する", plain: "RSウイルスのワクチンを相談する", hint: "28〜36週に1回。受けるかは健診で", kind: "健診", who: "母", anchor: "lmp", start: w(28), deadline: { days: 36 * 7 + 6 }, deadlineKind: "目安", basis: "予防接種法の定期接種（2026年度から。接種の時に妊娠28週0日〜36週6日の妊婦に1回。厚生労働省「RSウイルスワクチン」）。母子健康手帳の予防接種の記録にも、妊娠週数を書くRSウイルスの欄がある（府令様式 2026年4月施行版 p.52）。費用・予診票・受けられる医療機関は町ごと。受けるかどうかは産院で相談する", needsLocal: true, pregnancyOnly: true },
+  // 産後ケア（母子保健法第17条の2）。申し込みを産前から受ける町もあるので、妊娠後期に町の申し込み方を確かめる
+  { id: "postpartum-care", title: "産後ケアの申し込み方を町で確かめる（泊まり・通い・家に来てもらう）", plain: "産後ケアの申し込み方を確かめる", hint: "出産後1年まで。泊まり・通い・訪問", kind: "準備", who: "母", anchor: "lmp", start: w(28), deadline: w(36), deadlineKind: "目安", basis: "母子保健法第17条の2（産後ケア事業。出産後1年を経過しない母と子に、市区町村が行うよう努める。泊まり・通い・家に来てもらう形がある）。使える人・料金・申し込みの時期は町ごと（こども家庭庁「産後ケア事業ガイドライン」2026年3月）。祖父母に頼れない時・ひとりで育てる時は、町の家事・育児の手伝い（子育て世帯訪問支援事業など。児童福祉法の改正で2024年4月から）も同じ窓口で聞ける", needsLocal: true, pregnancyOnly: true },
   { id: "direct-payment", title: "出産育児一時金の直接支払制度の書類を産院で出す", plain: "出産のお金の書類を産院に出す", hint: "退院の時に大きなお金を払わずにすみます", kind: "手続き", who: "母", anchor: "lmp", start: w(30), deadline: w(36), deadlineKind: "目安", basis: "健康保険法（出産育児一時金。金額と手続きは制度が変わる事があるので、そのつど公式の情報で確かめる）", needsLocal: true, pregnancyOnly: true },
   { id: "leave-money-request", title: "産休・育休のお金の手続きを、勤め先にまとめて頼む（出産手当金・保険料の免除・育児休業給付・振込の口座）", plain: "産休・育休のお金の手続きを職場に頼む", hint: "出産手当金・保険料の免除・育休の給付。産休の前に", kind: "仕事", who: "母", anchor: "lmp", start: w(28), deadline: { days: 280 - 42 }, deadlineKind: "目安", basis: "健康保険法第102条（出産手当金: 産前42日・産後56日の間で休んだ日に、賃金のおよそ3分の2）・健康保険法第159条・厚生年金保険法第81条の2の2（産休中の保険料の免除）・同法第81条の2（育休中の免除。どちらも勤め先が届ける）・雇用保険法第61条の7（育児休業給付: 180日まで賃金の67%・その後50%）。パートでも勤め先の健康保険・雇用保険に入っていれば対象。入っているか・手続きの順は勤め先に確かめる", needsLocal: false, pregnancyOnly: true, only: ["mother-leave"] },
-  { id: "partner-leave-14", title: "パパの育休を、生まれて8週の間に通算14日以上にするか決める（出生後休業支援給付の上乗せ）", plain: "パパの育休を14日以上にするか決める", hint: "14日以上で、賃金の13%の上乗せ（最大28日分）", kind: "仕事", who: "パートナー", anchor: "lmp", start: w(20), deadline: { days: 280 - 14 }, deadlineKind: "目安", basis: "雇用保険法第61条の10（出生後休業支援給付・2025年4月から。父は子が生まれて8週の間に通算14日以上の育休を取り、母も14日以上の育休を取る時に、28日分まで賃金の13%を上乗せ。母が産後休業中・働いていない時などは、母の条件は要らない）。足りるかは勤め先とハローワークで確かめる", needsLocal: false, only: ["partner-leave", "leave-short"] },
+  { id: "partner-leave-14", title: "パートナーの育休を、生まれて8週の間に通算14日以上にするか決める（出生後休業支援給付の上乗せ）", plain: "パートナーの育休の日数を決める", hint: "14日以上で、賃金の13%の上乗せ（最大28日分）", kind: "仕事", who: "パートナー", anchor: "lmp", start: w(20), deadline: { days: 280 - 14 }, deadlineKind: "目安", basis: "雇用保険法第61条の10（出生後休業支援給付・2025年4月から。父は子が生まれて8週の間に通算14日以上の育休を取り、母も14日以上の育休を取る時に、28日分まで賃金の13%を上乗せ。母が産後休業中・働いていない時などは、母の条件は要らない）。足りるかは勤め先とハローワークで確かめる", needsLocal: false, only: ["partner-leave", "leave-short"] },
   { id: "maternity-leave", title: "産前休業が始められる（予定日の6週前）", plain: "産休に入れる", hint: "予定日の6週前から休めます", kind: "仕事", who: "母", anchor: "lmp", start: { days: 280 - 42 }, basis: "労働基準法第65条", needsLocal: false, pregnancyOnly: true, only: ["mother-employed"] },
   { id: "mother-insurance-switch", title: "退職したら、母の健康保険を切り替える（家族の扶養・国民健康保険・任意継続のどれか）", plain: "母の健康保険を切り替える", hint: "辞めた次の日から。国保なら14日以内に届けます", kind: "手続き", who: "母", anchor: "lmp", start: w(34), deadline: { days: 280 + 70 }, deadlineKind: "目安", basis: "国民健康保険法第9条・同法施行規則第3条（国保は入った日から14日以内に届ける）・健康保険法施行規則第38条（家族の扶養は家族の勤め先へ）・健康保険法第37条（任意継続は辞めた次の日から20日以内）。辞める日で期限が変わるので、日は目安", needsLocal: true, only: ["mother-quits"] },
 
   // ── 生まれてから ──
-  { id: "birth-registration", title: "出生届を出す", plain: "出生届を出す", hint: "生まれた日から14日以内", kind: "手続き", who: "パートナー", anchor: "birth", start: { days: 0 }, deadline: { days: 13 }, basis: "戸籍法第49条（生まれた日を含めて14日以内）", needsLocal: true },
-  { id: "child-allowance", title: "児童手当を申請する", plain: "児童手当を申し込む", hint: "遅れると、その月の分がもらえません", kind: "手続き", who: "パートナー", anchor: "birth", start: { days: 1 }, deadline: { days: 15 }, basis: "児童手当法第8条（生まれた日の翌日から15日以内に申請すると、翌月分から受け取れる）・第4条（受け取るのは父母のうち家計を主に支える人。ふつうは所得の高い方）", needsLocal: true, only: ["first-child"] },
-  { id: "child-allowance-change", title: "児童手当の額を変える届けを出す（額改定の請求）", plain: "児童手当の額を変える届けを出す", hint: "上の子の手当に足します。15日以内に", kind: "手続き", who: "パートナー", anchor: "birth", start: { days: 1 }, deadline: { days: 15 }, basis: "児童手当法第9条（額の改定。生まれた日の翌日から15日以内に請求すると、生まれた月の翌月分から増える。過ぎると、請求した月の翌月分から）", needsLocal: true, only: ["older-children"] },
-  { id: "health-insurance", title: "赤ちゃんを健康保険に入れる", plain: "赤ちゃんの保険証を作る", hint: "1か月健診までに", kind: "手続き", who: "パートナー", anchor: "birth", start: { days: 1 }, deadline: { months: 1 }, deadlineKind: "目安", basis: "1か月健診までが目安", needsLocal: false },
-  { id: "medical-subsidy", title: "子ども医療費助成の受給者証を申請する", plain: "子どもの医療費助成を申し込む", hint: "病院代の助成が受けられます", kind: "手続き", who: "パートナー", anchor: "birth", start: { days: 1 }, deadline: { months: 1 }, deadlineKind: "目安", basis: "町の制度（保険証が届いたら）", needsLocal: true },
+  { id: "birth-registration", title: "出生届を出す", plain: "出生届を出す", hint: "生まれた日から14日以内", kind: "手続き", who: "家族", anchor: "birth", start: { days: 0 }, deadline: { days: 13 }, basis: "戸籍法第49条（生まれた日を含めて14日以内）・第52条（届け出る人は父か母。父母が結婚していない時は母）。署名した届書を窓口へ持っていくのは、ほかの家族でもよい（使者）。誰が行くかは家族で決める", needsLocal: true },
+  { id: "child-allowance", title: "児童手当を申請する", plain: "児童手当を申し込む", hint: "遅れると、その月の分がもらえません", kind: "手続き", who: "家族", anchor: "birth", start: { days: 1 }, deadline: { days: 15 }, basis: "児童手当法第8条（生まれた日の翌日から15日以内に申請すると、翌月分から受け取れる）・第4条（受け取るのは父母のうち家計を主に支える人。ふつうは所得の高い方）", needsLocal: true, only: ["first-child"] },
+  { id: "child-allowance-change", title: "児童手当の額を変える届けを出す（額改定の請求）", plain: "児童手当の額を変える届けを出す", hint: "上の子の手当に足します。15日以内に", kind: "手続き", who: "家族", anchor: "birth", start: { days: 1 }, deadline: { days: 15 }, basis: "児童手当法第9条（額の改定。生まれた日の翌日から15日以内に請求すると、生まれた月の翌月分から増える。過ぎると、請求した月の翌月分から）", needsLocal: true, only: ["older-children"] },
+  { id: "health-insurance", title: "赤ちゃんを健康保険に入れる", plain: "赤ちゃんの保険証を作る", hint: "1か月健診までに", kind: "手続き", who: "家族", anchor: "birth", start: { days: 1 }, deadline: { months: 1 }, deadlineKind: "目安", basis: "1か月健診までが目安", needsLocal: false },
+  { id: "medical-subsidy", title: "子ども医療費助成の受給者証を申請する", plain: "子どもの医療費助成を申し込む", hint: "病院代の助成が受けられます", kind: "手続き", who: "家族", anchor: "birth", start: { days: 1 }, deadline: { months: 1 }, deadlineKind: "目安", basis: "町の制度（保険証が届いたら）", needsLocal: true },
   { id: "single-child-support", title: "児童扶養手当を申請する（ひとり親の家庭）", plain: "児童扶養手当を申し込む", hint: "申し込んだ次の月の分から。早めに", kind: "手続き", who: "母", anchor: "birth", start: { days: 1 }, deadline: { days: 15 }, deadlineKind: "目安", basis: "児童扶養手当法第6条（認定の請求）・第7条（請求した月の翌月分から。さかのぼらない）。所得の制限がある。窓口は役所", needsLocal: true, only: ["single"] },
   { id: "single-medical", title: "ひとり親家庭等医療費助成を申請する", plain: "ひとり親の医療費助成を申し込む", hint: "親と子の病院代の助成。町ごとに中身が違います", kind: "手続き", who: "母", anchor: "birth", start: { days: 1 }, deadline: { months: 1 }, deadlineKind: "目安", basis: "都道府県・町の制度（名前・所得の制限・助成の中身は町ごとに違う。窓口は役所。確かめる）", needsLocal: true, only: ["single"] },
   { id: "birth-notice", title: "出生連絡票（新生児訪問の申し込み）を出す", plain: "出生連絡票を出す", hint: "保健師さんが家に来てくれます", kind: "手続き", who: "母", anchor: "birth", start: { days: 1 }, deadline: { days: 14 }, deadlineKind: "目安", basis: "母子保健法第11条（新生児訪問）", needsLocal: true },
@@ -191,7 +195,9 @@ export const MILESTONES: MilestoneDef[] = [
   // 職場の事は、働いている人がそれぞれの職場へ（母の職場・パートナーの職場）
   { id: "tell-work-birth", title: "職場に出産の報告と育休の開始を伝える", plain: "職場に生まれた事を伝える", hint: "育休の始まりも一緒に", kind: "仕事", who: "母", anchor: "birth", start: { days: 1 }, deadline: { days: 7 }, deadlineKind: "目安", basis: "目安（育休は、始める日の1か月前までに申し出るのが原則＝育児・介護休業法。産後休業の8週のあとに育休を続けるなら、生まれたら早めに伝える）", needsLocal: false, only: ["mother-employed"] },
   { id: "partner-tell-work-birth", title: "パートナーの職場に出産の報告をする（扶養・育休の届けの入口）", plain: "パートナーの職場に生まれた事を伝える", hint: "赤ちゃんを扶養に入れる・育休の届けの入口です", kind: "仕事", who: "パートナー", anchor: "birth", start: { days: 1 }, deadline: { days: 7 }, deadlineKind: "目安", basis: "目安（赤ちゃんを健康保険の扶養に入れる届けは、勤め先が5日以内に出す＝健康保険法施行規則第38条。どちらの扶養に入れるかは収入で決まる。勤め先に確かめる）", needsLocal: false, only: ["partner-employed"] },
-  { id: "one-month-checkup", title: "1か月健診", plain: "1か月健診", hint: "ママと赤ちゃん、両方みてもらいます", kind: "健診", who: "家族", anchor: "birth", start: { months: 1 }, basis: "国の目安", needsLocal: false },
+  // 産婦健診（国の産婦健康診査事業。産後2週間・1か月ごろの2回を町が助成する事が多い）。1か月は「1か月健診」の一言に入れる（同じ日に2行並ばないように）
+  { id: "postpartum-checkup-2w", title: "産婦健診（産後2週間ごろ）を受ける", plain: "産婦健診（産後2週間）を受ける", hint: "健診の券は町ごと。赤ちゃんの便の色も見る", kind: "健診", who: "母", anchor: "birth", start: { days: 10 }, deadline: { days: 21 }, deadlineKind: "目安", basis: "母子保健法第13条（市区町村の健康診査）による国の産婦健康診査事業（産後2週間・1か月ごろなど。2017年度から）。行うか・健診の券（受診票）・助成の中身は町ごと。生後4か月ごろまでは、赤ちゃんの便の色を母子健康手帳の便色カードと見比べる（府令様式）", needsLocal: true },
+  { id: "one-month-checkup", title: "1か月健診", plain: "1か月健診", hint: "ママの産婦健診も一緒に。便色カードも", kind: "健診", who: "家族", anchor: "birth", start: { months: 1 }, basis: "国の目安。ママの1か月の健診は、国の産婦健康診査事業（母子保健法第13条。助成の中身は町ごと）。生後4か月ごろまでは、赤ちゃんの便の色を母子健康手帳の便色カードと見比べる（府令様式）", needsLocal: false },
   { id: "home-visit", title: "乳児家庭全戸訪問（こんにちは赤ちゃん訪問）", plain: "赤ちゃん訪問を受ける", hint: "町の人が家に来てくれます", kind: "健診", who: "家族", anchor: "birth", start: { months: 1 }, deadline: { months: 4 }, deadlineKind: "目安", basis: "児童福祉法（生後4か月まで）", needsLocal: true },
   { id: "satogaeri-checkup-refund", title: "里帰り先で補助券が使えなかった妊婦健診の分を、住む町に申請する（償還払い）", plain: "里帰り先の健診代を申請する", hint: "補助券が使えない所の分は、後から町に申請します。期限は町ごと（1年以内が多い）", kind: "手続き", who: "母", anchor: "birth", start: { months: 1 }, deadline: { months: 12, days: -1 }, deadlineKind: "目安", basis: "妊婦健康診査の公費負担（母子保健法第13条）。町の外で受けた健診は、後から払い戻す町が多い。申請の期限は町ごとに違い、出産から1年以内（杉並区など）・最後の健診から1年以内（栃木市など）・受けた日から2年以内（船橋市など）がある（2026年に各町のページで確かめた）。期限と書類（領収書・健診の記録）は住む町で確かめる", needsLocal: true, only: ["satogaeri-away"] },
   { id: "satogaeri-return", title: "住む町に戻る日の段取りを組む（保健センターへの連絡・小児科・チャイルドシート）", plain: "戻る日の段取りを組む", hint: "保健センターへ連絡・チャイルドシート", kind: "準備", who: "家族", anchor: "birth", start: { days: 21 }, deadline: { days: 35 }, deadlineKind: "目安", basis: "目安（戻る日は、答えてもらった戻る時期から置いた近似。決めていなければ1か月健診のあと＝生後35日ごろ）。戻ったら住む町の保健センターに連絡し、赤ちゃん訪問と乳幼児健診の案内を受ける（母子保健法第11条・第12条・児童福祉法第6条の3第4項）。車で戻るならチャイルドシートが要る（道路交通法第71条の3第3項）。かかりつけの小児科は住む町で探しておく", needsLocal: false, only: ["satogaeri-away"] },
@@ -203,12 +209,12 @@ export const MILESTONES: MilestoneDef[] = [
   // 保育園に預けて働く家族: 4月入園の一斉の申し込みに合わせる（日は daycarePlan の近似。町で確かめる）
   { id: "daycare-apply", title: "保育園の利用を申し込む（4月入園の一斉の申し込み・保育の必要性の認定）", plain: "保育園を申し込む", hint: "4月入園は前の年の秋〜冬に申し込みます。締切は町ごと", kind: "手続き", who: "家族", anchor: "birth", start: { months: 6 }, deadline: { months: 8 }, deadlineKind: "目安", dates: (b) => daycarePlan(b).apply, basis: `${DAYCARE_BASIS}。入る4月は、生後6か月を過ぎて最初の4月で置いた（近似）`, needsLocal: true, only: ["daycare"] },
   { id: "daycare-cert-mother", title: "保育園の申し込みに要る就労証明書を、職場に頼む", plain: "ママの就労証明書を職場に頼む", hint: "保育園の申し込みに要ります。職場が書くので早めに", kind: "仕事", who: "母", anchor: "birth", start: { months: 5 }, deadline: { months: 7 }, deadlineKind: "目安", dates: (b) => daycarePlan(b).cert, basis: `子ども・子育て支援法施行規則第1条の5（就労を保育の必要性の理由にする時は、働いている事を示す書類が要る。国の標準の様式がある＝こども家庭庁）。${DAYCARE_BASIS}`, needsLocal: true, only: ["daycare", "mother-employed"] },
-  { id: "daycare-cert-partner", title: "保育園の申し込みに要る就労証明書を、パートナーの職場に頼む", plain: "パパの就労証明書を職場に頼む", hint: "パパの分も要ります。職場が書くので早めに", kind: "仕事", who: "パートナー", anchor: "birth", start: { months: 5 }, deadline: { months: 7 }, deadlineKind: "目安", dates: (b) => daycarePlan(b).cert, basis: `子ども・子育て支援法施行規則第1条の5（父母それぞれの、働いている事を示す書類が要る）。${DAYCARE_BASIS}`, needsLocal: true, only: ["daycare", "partner-employed"] },
+  { id: "daycare-cert-partner", title: "保育園の申し込みに要る就労証明書を、パートナーの職場に頼む", plain: "パートナーの就労証明書を頼む", hint: "パートナーの分も要ります。職場が書くので早めに", kind: "仕事", who: "パートナー", anchor: "birth", start: { months: 5 }, deadline: { months: 7 }, deadlineKind: "目安", dates: (b) => daycarePlan(b).cert, basis: `子ども・子育て支援法施行規則第1条の5（父母それぞれの、働いている事を示す書類が要る）。${DAYCARE_BASIS}`, needsLocal: true, only: ["daycare", "partner-employed"] },
   { id: "return-to-work", title: "保育園の結果が届いたら、復職の日を職場と決める", plain: "復職の日を職場と決める", hint: "入園の日と慣らし保育に合わせて決めます", kind: "仕事", who: "母", anchor: "birth", start: { months: 10 }, deadline: { months: 11 }, deadlineKind: "目安", dates: (b) => daycarePlan(b).back, basis: "育児・介護休業法第5条（育休は原則1歳まで。保育所に入れない時は1歳6か月・2歳まで延ばせる）。結果の届く時期と慣らし保育の長さは町と園ごとに違う。町と職場で確かめる", needsLocal: false, only: ["daycare", "mother-employed"] },
   { id: "maternity-allowance-cert", title: "出産手当金の申請書の、医師の証明の欄を産院で書いてもらう", plain: "出産手当金の書類に医師の証明をもらう", hint: "入院中か1か月健診で。用紙は勤め先から", kind: "手続き", who: "母", anchor: "birth", start: { days: 0 }, deadline: { months: 1 }, deadlineKind: "目安", basis: "健康保険法第102条・同法施行規則第84条（出産手当金の申請書には、出産の日などを医師か助産師が証明する欄がある）。出産で辞めた人も、1年以上入っていて辞める日に休んでいれば受け取れる事がある（同法第104条）。勤め先と健康保険に確かめる", needsLocal: false, only: ["mother-employed"] },
   { id: "maternity-allowance-apply", title: "出産手当金を申請する（勤め先を通して健康保険へ）", plain: "出産手当金を申請する", hint: "産後56日を過ぎたら。振込は申請から1〜2か月ほど", kind: "手続き", who: "母", anchor: "birth", start: { days: 57 }, deadline: { months: 3 }, deadlineKind: "目安", basis: "健康保険法第102条（産前42日・産後56日の間で休んだ日に、賃金のおよそ3分の2）・第193条（休んだ日ごとに、その次の日から2年で時効）。振込までの日数は健康保険ごとに違う（1〜2か月ほど＝近似）", needsLocal: false, only: ["mother-employed"] },
   { id: "childcare-benefit-first", title: "育児休業給付の初回の申請を、勤め先に頼む（その後は2か月ごと）", plain: "育休の給付の初回の申請を頼む", hint: "勤め先がハローワークへ。期限は育休の4か月目の月末", kind: "仕事", who: "母", anchor: "birth", start: { days: 57 }, deadline: { months: 5 }, deadlineKind: "期限", dates: (b) => benefitFirst(b), basis: "雇用保険法第61条の7（育児休業給付: 180日まで賃金の67%・その後50%）・同法施行規則第101条の30（初回の申請は、育休を始めた日から4か月を経過する日の属する月の末日まで。その後は2か月ごと）。育休は産後休業の次の日から始まる形で置いた（近似）", needsLocal: false, only: ["mother-leave"] },
-  { id: "partner-childcare-benefit", title: "パパの産後パパ育休の給付（出生時育児休業給付）を、勤め先に申請してもらう", plain: "パパの育休の給付を申請してもらう", hint: "生まれて8週を過ぎてから。勤め先がハローワークへ", kind: "仕事", who: "パートナー", anchor: "birth", start: { days: 56 }, deadline: { months: 3 }, deadlineKind: "期限", dates: (b) => papaBenefit(b), basis: "雇用保険法第61条の8（出生時育児休業給付: 産後パパ育休の日に、賃金の67%）・同法施行規則第101条の33（生まれた日から8週を経過する日の翌日から、2か月を経過する日の属する月の末日まで）。ふつうの育休だけを取った時は、育児休業給付の申請になる", needsLocal: false, only: ["partner-leave"] },
+  { id: "partner-childcare-benefit", title: "パートナーの育休の給付（産後パパ育休の出生時育児休業給付）を、勤め先に申請してもらう", plain: "パートナーの育休の給付を申請してもらう", hint: "生まれて8週を過ぎてから。勤め先がハローワークへ", kind: "仕事", who: "パートナー", anchor: "birth", start: { days: 56 }, deadline: { months: 3 }, deadlineKind: "期限", dates: (b) => papaBenefit(b), basis: "雇用保険法第61条の8（出生時育児休業給付: 産後パパ育休の日に、賃金の67%）・同法施行規則第101条の33（生まれた日から8週を経過する日の翌日から、2か月を経過する日の属する月の末日まで）。ふつうの育休だけを取った時は、育児休業給付の申請になる", needsLocal: false, only: ["partner-leave"] },
   { id: "benefit-drop", title: "育休の181日目から、育児休業給付が賃金の67%から50%に下がる。その前の月に家計を見ておく", plain: "育休の給付が下がる前に家計を見る", hint: "育休が半年を超える時。181日目から67%が50%に", kind: "準備", who: "家族", anchor: "birth", start: { days: 207 }, deadline: { days: 237 }, deadlineKind: "目安", dates: (b) => benefitDrop(b), basis: "雇用保険法第61条の7（育児休業給付は、育休を始めて180日までは賃金の67%、181日目から50%）。育休は産後休業の次の日から始まる形で数えた（近似）。手取りの額は勤め先の明細で確かめる", needsLocal: false, only: ["mother-leave"] },
   { id: "shorttime-benefit", title: "時短で仕事に戻るなら、育児時短就業給付（時短の間の賃金の10%）を勤め先に頼む", plain: "時短で戻るなら時短の給付を頼む", hint: "子が2歳になるまで。勤め先がハローワークへ", kind: "仕事", who: "母", anchor: "birth", start: { months: 10 }, deadline: { months: 11 }, deadlineKind: "目安", dates: (b) => daycarePlan(b).back, basis: "雇用保険法第61条の12（育児時短就業給付・2025年4月から。2歳になるまでの子を育てて時短で働く時、時短の間に払われた賃金の10%まで）。時短で戻るか・受け取れるかは勤め先に確かめる", needsLocal: false, only: ["daycare", "mother-leave"] },
   { id: "lump-sum-diff", title: "出産育児一時金の差額を、健康保険に申請する（直接支払で、出産の費用が一時金より少なかった時）", plain: "一時金の差額を申請する", hint: "費用が一時金より少なかった時だけ。明細書で見る", kind: "手続き", who: "母", anchor: "birth", start: { days: 7 }, deadline: { months: 3 }, deadlineKind: "目安", basis: "出産育児一時金（健康保険法第101条）。直接支払で産院に払われた額が一時金より少なければ、差額を健康保険に申請する（健康保険から案内が届く所もある）。時効は2年（同法第193条）なので、ここは早めの目安。差額があるかは退院の時の明細書（直接支払の合意文書）で見る", needsLocal: false },
@@ -265,7 +271,7 @@ export interface ScheduleInput extends FamilyDates {
   /** 住む町（里帰り先と同じ市かを見る。第2波⑦） */
   city?: string;
   prefecture?: string;
-  members?: { role: string }[];
+  members?: { role: string; name?: string }[];
   /** 生まれた時の体重 g（手帳の出産の記録から。双子などは一番小さい子）。わからなければ無し */
   birthWeightG?: number;
   /** 生まれた時の在胎週数（手帳の出産の記録から） */
@@ -334,6 +340,15 @@ export function applies(only: Only, f: ScheduleInput): boolean {
   }
 }
 
+/**
+ * 法律上の親（父母）が出す届け。担当は「家族」にして、誰が窓口へ行くかを家族で選ぶ（今日の画面の「誰がやる？」）。
+ * パートナーに決め打ちすると、同性の家族・結婚していない父母（出生届は母）に合わない（2026-11-04 見直し L2-2）
+ */
+export const PARENT_FILINGS = new Set(["birth-registration", "child-allowance", "child-allowance-change", "health-insurance", "medical-subsidy"]);
+
+/** 短い題に入れる呼び名の長さの上限（これより長い呼び名は「パートナー」のまま） */
+const PARTNER_NAME_MAX = 6;
+
 /** 双子などで「（2人分）」を付ける事 */
 const PER_BABY = new Set(["birth-registration", "child-allowance", "child-allowance-change", "health-insurance", "medical-subsidy", "birth-notice"]);
 
@@ -343,6 +358,13 @@ function adjust(m: MilestoneDef, f: ScheduleInput): MilestoneDef {
   let out = m;
   // パートナーがいない家族: パートナーの担当は母へ
   if (!hasPartner(f) && out.who === "パートナー") out = { ...out, who: "母" };
+  // 短い題の「パートナーの…」は、家族が付けた呼び名で（「奈央の育休を職場に伝える」。長い名前は「パートナー」のまま＝画面で折れないように）
+  const partnerName = f.members?.find((x) => x.role === "パートナー")?.name?.trim();
+  if (partnerName && partnerName.length <= PARTNER_NAME_MAX && out.plain.startsWith("パートナーの")) out = { ...out, plain: `${partnerName}${out.plain.slice("パートナー".length)}` };
+  // パートナーがいない家族: 法律上の親が出す届け（担当は「家族」＝誰が行くかを家族で選ぶ）は、母の事にする
+  if (!hasPartner(f) && PARENT_FILINGS.has(out.id)) out = { ...out, who: "母" };
+  // パートナーがいない家族: 産後ケアの確かめに、町の家事・育児の手伝いを一言足す
+  if (!hasPartner(f) && out.id === "postpartum-care") out = { ...out, hint: "出産後1年まで。町の家事の手伝いも" };
   const n = babyCount(s);
   if (n >= 2 && PER_BABY.has(out.id)) out = { ...out, title: `${out.title}（${n}人分）`, plain: `${out.plain}（${n}人分）` };
   // 双子など: 産前休業は予定日の14週前から（労働基準法第65条）
@@ -359,7 +381,7 @@ function adjust(m: MilestoneDef, f: ScheduleInput): MilestoneDef {
     out = { ...out, dates: (b) => plan(daycarePlan(b, s.returnAt)) };
     if (out.id === "daycare-apply") out = { ...out, basis: `${DAYCARE_BASIS}。入る4月は、仕事に戻りたい時期（${s.returnAt === "1歳まで" ? "1歳になるまでに" : "1歳を過ぎてから"}）から置いた（近似）` };
   }
-  // パパの育休の長さがわからない時: 14日以上で上乗せになる事を、育休の相談の一言に足す（第2波⑤。別の1件にすると同じ期限で2行並ぶ）
+  // パートナーの育休の長さがわからない時: 14日以上で上乗せになる事を、育休の相談の一言に足す（第2波⑤。別の1件にすると同じ期限で2行並ぶ）
   if (out.id === "partner-leave" && s?.partnerLeave !== "取らない" && s?.partnerLeaveLen === undefined) {
     out = { ...out, hint: "予定日の2週前までに。14日以上で給付の上乗せ", basis: `${out.basis}。生まれて8週の間に通算14日以上取ると、2025年4月からの出生後休業支援給付で賃金の13%が上乗せされる（雇用保険法第61条の10・最大28日分。母の条件もある）` };
   }

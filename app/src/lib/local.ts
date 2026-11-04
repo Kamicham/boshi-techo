@@ -117,6 +117,32 @@ function rememberOffice(familyId: string, local: LocalInfo) {
   remember(familyId, { office: { name, address: local.address.trim() || undefined } });
 }
 
+/**
+ * その事だけに聞く6番目の問い（無ければ空）。町×事で1回だけ調べてほかの家族と使い回すので、家族の事（名前・日付）は入れない。
+ * city は調べる町（里帰り先の町で調べる事は里帰り先）、home は住む町。
+ */
+export function extraQuestion(id: string, city: string, home: { prefecture: string; city: string }): string {
+  switch (id) {
+    case "pregnancy-support-2":
+      return "2回目の面談の予約の仕方（電話・オンライン・予約なし）と、受け取り方（振込など）・申請の期限";
+    case "daycare-prep":
+      return "病児保育・病後児保育の施設と、使う前の登録の仕方（登録の書類・予約の仕方）";
+    case "older-daycare-continue":
+      return "育休中に、上の子が保育園を続けて使えるか（続けられる期間・短い時間になるか・申請の書類と期限）";
+    case "satogaeri-local":
+      return `ほかの町（${home.prefecture}${home.city}）に住む人が、${city}に里帰りして産む時: 赤ちゃん訪問を${city}で受けられるか（頼み方は住む町から）・${home.city}の妊婦健診の受診券が${city}の病院で使えるか・出生届を${city}の役所に出す時の窓口と持ち物`;
+    // 今夜足した3つ（2026-11-04 D の一部）。どれも「受けるか・使うか」は家族と産院が決める事なので、町の仕組みだけを聞く
+    case "rsv-maternal":
+      return `RSウイルスの母子免疫ワクチン（妊婦の定期接種・2026年度から）について、${city}で受けられる医療機関（一覧のページがあればその場所）・予診票の受け取り方（妊娠届の時に渡されるか、医療機関にあるか、申請が要るか）・費用（無料か、自己負担があるか）。${city}の外の医療機関（里帰り先など）で受けた時の扱いも`;
+    case "postpartum-care":
+      return `${city}の産後ケア事業の種類（宿泊・日帰り・訪問）と使える施設・申し込みの時期（妊娠中から申し込めるか、生まれてからか）と申し込み方・費用（1回の自己負担と、減免があるか）`;
+    case "postpartum-checkup-2w":
+      return `産婦健康診査の受診票（助成）の受け取り方（妊娠届の時に渡されるか、後から申請するか）・使える回数（産後2週間・1か月など）・使える医療機関（${city}の外の医療機関で受けた時の払い戻しも）`;
+    default:
+      return "";
+  }
+}
+
 /** 町の制度を取りに行く。DB にあればそれを返す（force で調べ直す） */
 /** 調べている途中の物（同じ町・同じ手続きを同時に2回調べない。開き直して押し直しても、前の調べを待つ） */
 const inflight = new Map<string, Promise<{ local: LocalInfo; cached: boolean }>>();
@@ -151,13 +177,14 @@ async function fetchLocalOnce(home: Family, m: MilestoneDef, force: boolean): Pr
       ? `\n${base}は政令指定都市です。窓口は${ward}役所なので、${ward}役所の課・階・住所で答えてください（市役所本庁ではなく）。`
       : `\n${base}は政令指定都市です。窓口は住んでいる区の区役所なので、区役所の課の名前で答えてください（市役所本庁ではなく。区ごとの住所や電話の一覧は要りません）。`
     : "";
+  const extra = extraQuestion(m.id, family.city, home);
   const question = `${place}で「${m.title}」をする時について、${family.city}の公式サイトを優先して調べてください。${wardNote}
 知りたい事:
 1. 窓口（どの役所の・何階の・どの課か。役所の住所。区役所ごとに違うならその事も）
 2. 必要な物・書類
 3. オンライン申請ができるか（マイナポータル・電子申請など）とそのやり方
 4. 期限（参考: 全国共通の根拠は「${m.basis}」）
-5. ${family.city}独自の助成・上乗せ・配布物があれば${m.id === "pregnancy-support-2" ? "\n6. 2回目の面談の予約の仕方（電話・オンライン・予約なし）と、受け取り方（振込など）・申請の期限" : m.id === "daycare-prep" ? "\n6. 病児保育・病後児保育の施設と、使う前の登録の仕方（登録の書類・予約の仕方）" : m.id === "older-daycare-continue" ? "\n6. 育休中に、上の子が保育園を続けて使えるか（続けられる期間・短い時間になるか・申請の書類と期限）" : m.id === "satogaeri-local" ? `\n6. ほかの町（${home.prefecture}${home.city}）に住む人が、${family.city}に里帰りして産む時: 赤ちゃん訪問を${family.city}で受けられるか（頼み方は住む町から）・${home.city}の妊婦健診の受診券が${family.city}の病院で使えるか・出生届を${family.city}の役所に出す時の窓口と持ち物` : ""}
+5. ${family.city}独自の助成・上乗せ・配布物があれば${extra ? `\n6. ${extra}` : ""}
 出典のページを示してください。`;
   // 町×手続きで1回だけ調べて、ほかの家族と使い回す（PUBLIC_ID に置く）。1回の重さも抑える: Sonnet・検索は4回まで
   const found = await research(RESEARCH_SYSTEM, question, { model: RESEARCH_MODEL, maxUses: 4 });

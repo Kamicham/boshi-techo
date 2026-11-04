@@ -15,7 +15,7 @@ function tasksAt(today: string, done: string[] = []): Task[] {
 
 describe("planToday", () => {
   const today = "2026-11-02";
-  const tasks = tasksAt(today, ["pregnancy-report", "tell-work", "direct-payment", "pregnancy-support-2", "leave-money-request"]);
+  const tasks = tasksAt(today, ["pregnancy-report", "tell-work", "direct-payment", "pregnancy-support-2", "leave-money-request", "rsv-maternal", "postpartum-care"]);
 
   it("ママの時、パパの番は一番上に来ず、自分の近い事を「もうすぐ」で出す", () => {
     const p = planToday(tasks, today, mama);

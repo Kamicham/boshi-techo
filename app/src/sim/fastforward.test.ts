@@ -32,7 +32,7 @@ import { intervalDays, prenatalState } from "../lib/prenatal";
 import { olderOf } from "../lib/older";
 import { benefitFirst } from "../lib/leave-money";
 import type { Family, Member } from "../lib/demo-family";
-import { PREGNANCY_ONLY, scheduleFor, statusOf } from "../lib/milestones";
+import { PARENT_FILINGS, PREGNANCY_ONLY, scheduleFor, statusOf } from "../lib/milestones";
 import { motherEmployed, partnerEmployed } from "../lib/situation";
 import { detectTriggers, BIRTH_SHIFT_DAYS, BIRTH_WINDOW_DAYS, MOVED_WINDOW_DAYS, type TriggerKind } from "../lib/advisor";
 import { briefingDay } from "../lib/visit";
@@ -74,7 +74,8 @@ const RULES = {
   m: "保育園の入る4月が仕事に戻りたい時期に合い（1歳まで＝1歳の誕生日まで・1歳を過ぎて＝その後）、見学は生後1か月より前に来ず、延長の申し出の期限は1歳の誕生日の2週間前（第2波④）",
   o: "里帰り: 同じ市なら遠方向け（訪問を頼む・健診代の申請・戻る日の段取り・里帰り先の町の調べ）が出ず、健診代の申請と戻る日の段取りは戻る日から、里帰り先の町の調べは里帰り先の町を答えた家族だけ（第2波⑦）",
   p: "お金の1000日: 児童手当の最初の振込は偶数月で申請の後・届いたか確かめる件は申請が済んだ物だけで額を出さない・自営や仕事なしの母に出産手当金が出ない（辞める母には出す＝健康保険法第104条）",
-  n: "産休・育休のお金: 育休の給付の初回の期限は育休の4か月目の月末で、自営・仕事なし・辞める母には育休の給付が出ず、パパの14日の1件は14日以上の家族に出ない（第2波⑤）",
+  n: "産休・育休のお金: 育休の給付の初回の期限は育休の4か月目の月末で、自営・仕事なし・辞める母には育休の給付が出ず、パートナーの14日の1件は14日以上の家族に出ない（第2波⑤）",
+  q: "呼び名と担当: 短い題・一言に「パパ」が出ず、正式な題は法の呼び名「産後パパ育休」の中だけ。法律上の親が出す届け（出生届・児童手当・保険証・医療費助成）の担当がパートナーに決め打ちにならない（2026-11-04 見直し L2-2・同性の家族 sim-03・未婚の父 sim-05）",
 } as const;
 type Rule = keyof typeof RULES;
 const RULE_IDS = Object.keys(RULES) as Rule[];
@@ -429,7 +430,7 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
         if (first.deadlineDate && first.deadlineDate.slice(8) < "28") push("n", "eom", `初回の期限 ${first.deadlineDate} が月末でない`);
       }
       const len = fv.situation?.partnerLeaveLen;
-      if (tasks.some((t) => t.id === "partner-leave-14") && (len === "2週間〜1か月" || len === "1か月以上")) push("n", "14", `パパの育休が${len}なのに、14日の1件が出る`);
+      if (tasks.some((t) => t.id === "partner-leave-14") && (len === "2週間〜1か月" || len === "1か月以上")) push("n", "14", `パートナーの育休が${len}なのに、14日の1件が出る`);
     }
     // p: お金の1000日（申請の期限の日に済んだとして見る）
     {
@@ -445,6 +446,15 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
       if (moneyWatch(tasks, new Set(), {}, f.birthDate).length) push("p", "unapplied", "申請していないのに届いたか確かめる件が出る");
       const mw = fv.situation?.motherWork;
       if (tasks.some((t) => t.id === "maternity-allowance-apply") && (mw === "自営・フリー" || mw === "仕事なし")) push("p", "who", `${mw}の母に出産手当金の申請が出る`);
+    }
+    // q: 呼び名と担当（予定表と、届いたか確かめる件のすべて）
+    {
+      const all = [...tasks, ...moneyWatch(tasks, new Set(tasks.filter((t) => t.id in MONEY).map((t) => t.id)), {}, isBorn ? f.birthDate : undefined)];
+      for (const t of all) {
+        if (/パパ/.test(`${t.plain}${t.hint}`)) push("q", `word:${t.id}`, `${t.id} の短い題か一言に「パパ」`);
+        if (/パパ/.test(t.title.replace(/産後パパ育休/g, ""))) push("q", `title:${t.id}`, `${t.id} の題に「パパ」（産後パパ育休の外）`);
+        if (PARENT_FILINGS.has(t.id) && t.who === "パートナー") push("q", `who:${t.id}`, `${t.id} の担当がパートナーに決め打ち`);
+      }
     }
     // o: 里帰りの2つの町
     if (fv.situation?.satogaeri) {

@@ -4,6 +4,8 @@
 // 名前は「今日」の画面の予定（lib/milestones.ts の vaccines-*）と同じ呼び方に合わせる。
 // 出典: 予防接種法・同施行令の定期接種（五種混合は2024年4月から）。厚生労働省「予防接種情報」https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/kenkou/kekkaku-kansenshou/yobou-sesshu/index.html
 // 正本は紙の手帳の「予防接種の記録」欄（医療機関が書く・シールを貼る）。ここは家族の控え。
+// 妊娠中の RS ウイルスの母子免疫ワクチン（2026年度から妊婦の定期接種）は、手帳の予防接種の記録の頭に「妊娠週数-日」の欄がある
+// （こども家庭庁 府令様式 2026年4月施行版 p.52・厚生労働省「RSウイルスワクチン」）。ここでは回の代わりに妊娠週数を dose に残す（「妊娠30週2日」）。
 import { useState } from "react";
 import { Btn, Why } from "@/components/ui";
 import { jpDay, vaccineLabel } from "./labels";
@@ -12,15 +14,23 @@ import type { TechoItem } from "./useTecho";
 /** 2歳までの定期接種（今日の画面の予定と同じ名前） */
 export const VACCINE_NAMES = ["B型肝炎", "ロタ", "小児用肺炎球菌", "五種混合", "BCG", "麻しん風しん", "水痘"] as const;
 
+/** 妊娠中に母が受ける RS ウイルスのワクチン（記録の見出しは一番上） */
+export const RSV_NAME = "RSウイルス（妊娠中）";
+
+/** 見出しの呼び方（RS ウイルスは撮った紙の書き方がまちまちなので、ここで1つにまとめる） */
+function groupLabel(name: string): string {
+  return /^(RS|アブリスボ)/i.test(name.normalize("NFKC").trim()) ? RSV_NAME : vaccineLabel(name);
+}
+
 export function VaccineList({ items, today, onAdd }: { items: TechoItem[]; today: string; onAdd: (v: { vaccine: string; dose?: string; lot?: string; facility?: string }, date: string) => Promise<void> }) {
   const done = items.filter((i) => !i.pending);
   // ワクチンごとに束ねる（回の順＝日付の順）。見出しは呼び方の表でそろえる（「水痘」と「水ぼうそう」を1つに）
   const groups = new Map<string, TechoItem[]>();
   for (const it of done) {
-    const name = vaccineLabel(String(it.values.vaccine ?? it.title ?? ""));
+    const name = groupLabel(String(it.values.vaccine ?? it.title ?? ""));
     groups.set(name, [...(groups.get(name) ?? []), it]);
   }
-  const known = VACCINE_NAMES.map(vaccineLabel);
+  const known = [RSV_NAME, ...VACCINE_NAMES.map(vaccineLabel)];
   const order = [...known.filter((n) => groups.has(n)), ...[...groups.keys()].filter((n) => !known.includes(n))];
 
   return (
@@ -60,6 +70,9 @@ function AddVaccine({ today, onAdd }: { today: string; onAdd: (v: { vaccine: str
   const [vaccine, setVaccine] = useState<string>(VACCINE_NAMES[0]);
   const [other, setOther] = useState("");
   const [dose, setDose] = useState("1回目");
+  const [week, setWeek] = useState("");
+  const [weekDay, setWeekDay] = useState("");
+  const rsv = vaccine === RSV_NAME;
   const [lot, setLot] = useState("");
   const [facility, setFacility] = useState("");
   const [busy, setBusy] = useState(false);
@@ -86,7 +99,10 @@ function AddVaccine({ today, onAdd }: { today: string; onAdd: (v: { vaccine: str
     setBusy(true);
     setError("");
     try {
-      await onAdd({ vaccine: name, dose: dose || undefined, lot: lot.trim() || undefined, facility: facility.trim() || undefined }, date);
+      // RS ウイルス（妊娠中）は、回の代わりに妊娠週数（手帳の欄と同じ「週-日」）を残す
+      const w = week.trim();
+      const pregWeek = w ? `妊娠${w}週${weekDay ? `${weekDay}日` : ""}` : undefined;
+      await onAdd({ vaccine: name, dose: rsv ? pregWeek : dose || undefined, lot: lot.trim() || undefined, facility: facility.trim() || undefined }, date);
       setLot("");
       setOpen(false);
     } catch (e) {
@@ -104,24 +120,36 @@ function AddVaccine({ today, onAdd }: { today: string; onAdd: (v: { vaccine: str
       <label className="flex flex-col gap-1 text-sm text-muted">
         ワクチン
         <select value={vaccine} onChange={(e) => setVaccine(e.target.value)} className={field}>
-          {[...VACCINE_NAMES, "その他"].map((n) => (
+          {[...VACCINE_NAMES, RSV_NAME, "その他"].map((n) => (
             <option key={n} value={n}>
-              {n === "その他" ? n : vaccineLabel(n)}
+              {n === "その他" || n === RSV_NAME ? n : vaccineLabel(n)}
             </option>
           ))}
         </select>
       </label>
       {vaccine === "その他" && <input value={other} onChange={(e) => setOther(e.target.value)} className={field} placeholder="ワクチンの名前" aria-label="ワクチンの名前" />}
-      <label className="flex flex-col gap-1 text-sm text-muted">
-        回
-        <select value={dose} onChange={(e) => setDose(e.target.value)} className={field}>
-          {["1回目", "2回目", "3回目", "4回目（追加）", ""].map((d) => (
-            <option key={d} value={d}>
-              {d || "分からない"}
-            </option>
-          ))}
-        </select>
-      </label>
+      {rsv ? (
+        <fieldset className="flex flex-col gap-1 text-sm text-muted">
+          <legend>受けた時の妊娠週数（手帳の欄と同じ）</legend>
+          <div className="flex items-center gap-2">
+            <input inputMode="numeric" value={week} onChange={(e) => setWeek(e.target.value.replace(/[^0-9]/g, "").slice(0, 2))} className={`${field.replace("w-full", "")} w-20`} aria-label="妊娠週数（週）" />
+            <span className="text-base text-ink">週</span>
+            <input inputMode="numeric" value={weekDay} onChange={(e) => setWeekDay(e.target.value.replace(/[^0-6]/g, "").slice(0, 1))} className={`${field.replace("w-full", "")} w-16`} aria-label="妊娠週数（日）" />
+            <span className="text-base text-ink">日</span>
+          </div>
+        </fieldset>
+      ) : (
+        <label className="flex flex-col gap-1 text-sm text-muted">
+          回
+          <select value={dose} onChange={(e) => setDose(e.target.value)} className={field}>
+            {["1回目", "2回目", "3回目", "4回目（追加）", ""].map((d) => (
+              <option key={d} value={d}>
+                {d || "分からない"}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <label className="flex flex-col gap-1 text-sm text-muted">
         ロット（シールの番号）
         <input value={lot} onChange={(e) => setLot(e.target.value)} className={field} />

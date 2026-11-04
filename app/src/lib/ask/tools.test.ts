@@ -70,8 +70,9 @@ describe("第29回の直し", () => {
     const s = planSnapshot(DEMO_FAMILY, "2027-04-27");
     // 年をまたぐ日（秋に見ると、まだ先の事に翌年の日が入る）
     expect(JSON.stringify(planSnapshot(DEMO_FAMILY, "2027-11-15"))).toMatch(/2028年/);
-    const birth = s.今やる事.find((r) => r.id === "birth-registration");
-    expect(birth?.担当).toBe("パートナー（翔太）");
+    // 出生届は誰が行くかを家族で選ぶ（担当は「家族」）。パートナーの事は呼び名つき
+    expect(s.今やる事.find((r) => r.id === "birth-registration")?.担当).toBe("家族");
+    expect(s.今やる事.find((r) => r.id === "partner-tell-work-birth")?.担当).toBe("パートナー（翔太）");
     expect(s.まだ先の事.some((r) => /あと\d+日/.test(r.始まり))).toBe(true);
   });
 
