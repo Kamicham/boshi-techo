@@ -35,7 +35,7 @@ function writeSeen(fid: string, s: CautionSeen) {
   } catch {}
 }
 
-export function CautionCard({ family, today, role, busy, birthFiled }: { family: Family; today: string; role: CautionCtx["role"]; busy: boolean; birthFiled: boolean }) {
+export function CautionCard({ family, today, role, busy }: { family: Family; today: string; role: CautionCtx["role"]; busy: boolean }) {
   const [seen, setSeen] = useState<CautionSeen | null>(null);
   const [dev, setDev] = useState<CautionCtx["dev"] | null>(null);
   const { apple } = useDevice();
@@ -54,7 +54,7 @@ export function CautionCard({ family, today, role, busy, birthFiled }: { family:
   }, [family.id, today, wantDev]);
   // できた日を読む頃は、読み終わるまで出さない（出た後に札が入れ替わらないように）
   if (!seen || (wantDev && dev === null)) return null;
-  const c = cautionFor(family, today, seen, { role, busy, birthFiled, dev: dev ?? undefined });
+  const c = cautionFor(family, today, seen, { role, busy, dev: dev ?? undefined });
   if (!c) return null;
   const read = () => {
     const next = { ids: [...seen.ids, c.id], day: today };

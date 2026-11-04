@@ -137,6 +137,7 @@ export function BirthTripCard({
                       </div>
                     </div>
                     <p className="text-sm text-muted">{i.reason}</p>
+                    {i.also && <p className="text-sm font-semibold">{i.also}</p>}
                     {first ? (
                       <FirstRow task={i.task} today={today} family={family} me={me} keep={keep} onAssign={onAssign} onDone={() => onDone([i.task.id])} />
                     ) : (

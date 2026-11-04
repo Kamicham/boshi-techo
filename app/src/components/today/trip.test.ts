@@ -3,7 +3,7 @@
 // 画面（components/Techo.tsx）と同じ組み立て: scheduleFor → statusOf → withAssignee → planToday → planBirthTrip → tripScreen。Claude は呼ばない。
 import { describe, expect, it } from "vitest";
 import { addDays } from "@/lib/clock";
-import { BIRTH_TRIP_IDS, NUDGE_DAYS, planBirthTrip, tripScreen } from "@/lib/birth-trip";
+import { BIRTH_TRIP, BIRTH_TRIP_IDS, NUDGE_DAYS, planBirthTrip, tripScreen } from "@/lib/birth-trip";
 import { scheduleFor, statusOf } from "@/lib/milestones";
 import { SIM_FAMILIES } from "@/sim/families";
 import { isMine, planToday, withAssignee } from "./task";
@@ -24,6 +24,25 @@ describe("生まれた届けの言い方", () => {
     expect(t).toContain("生まれた届けを、まとめて");
     expect(t).not.toMatch(/損|急いで|早く|もらえなく|パパ/);
     expect(nudgeText(1, { task: { id: "birth-registration", plain: "出生届を出す" }, date: "2027-05-14", left: 0 }, "2027-05-14")).toContain("出生届は今日まで");
+  });
+});
+
+describe("届けの束の出生届の行", () => {
+  it("出生届の行に、母子手帳を持って行く1行（府令様式 p.1 の出生届出済証明）。ほかの届けの行には出さない。30家族の束でも出生届の行に乗る", () => {
+    const LINE = "母子手帳も持って行く（1ページ目に出生届出済の証明を受ける・府令様式 p.1）";
+    expect(BIRTH_TRIP.find((x) => x.id === "birth-registration")?.also).toBe(LINE);
+    expect(BIRTH_TRIP.filter((x) => x.also).map((x) => x.id)).toEqual(["birth-registration"]);
+    let seen = 0;
+    for (const f of SIM_FAMILIES) {
+      if (!f.birthDate) continue;
+      const day = addDays(f.birthDate, 2);
+      const tasks = scheduleFor(f, day).map((m) => ({ ...m, status: statusOf(m, day, new Set<string>()) }));
+      const trip = planBirthTrip(tasks, day, f.birthDate, f.situation);
+      if (!trip) continue;
+      for (const i of trip.items) expect(i.also, `${f.id} ${i.task.id}`).toBe(i.task.id === "birth-registration" ? LINE : undefined);
+      if (trip.items.some((i) => i.task.id === "birth-registration")) seen++;
+    }
+    expect(seen).toBeGreaterThan(20);
   });
 });
 

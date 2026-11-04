@@ -6,8 +6,8 @@ import { addDays, addMonths, lmpFromDue } from "./clock";
 import { CAUTION_IDS, CRY_LINES, cautionFor, cautionShareText, devDatesOf, type Caution, type CautionCtx, type CautionFamily, type CautionSeen } from "./cautions";
 import { DEMO_FAMILY } from "./demo-family";
 
-const MOM: CautionCtx = { role: "母", busy: false, birthFiled: false };
-const PARTNER: CautionCtx = { role: "パートナー", busy: false, birthFiled: false };
+const MOM: CautionCtx = { role: "母", busy: false };
+const PARTNER: CautionCtx = { role: "パートナー", busy: false };
 const NONE: CautionSeen = { ids: [] };
 const B = DEMO_FAMILY.birthDate!;
 const PREG: CautionFamily = { ...DEMO_FAMILY, birthDate: undefined };
@@ -56,11 +56,10 @@ describe("いつ・誰に出すか", () => {
     expect(cautionFor(DEMO_FAMILY, addDays(B, 15), NONE, MOM)).not.toBeNull();
   });
 
-  it("パートナーには、生まれてから14日の間、出生届がまだなら出生届出済証明をもう一度（ほかの札より先に）。済んだら出さない", () => {
-    expect(cautionFor(DEMO_FAMILY, addDays(B, 6), NONE, PARTNER)?.id).toBe("birth-proof-again");
-    expect(cautionFor(DEMO_FAMILY, addDays(B, 13), { ids: ["birth-proof"] }, PARTNER)?.id).toBe("birth-proof-again");
-    expect(cautionFor(DEMO_FAMILY, addDays(B, 14), NONE, PARTNER)?.id).not.toBe("birth-proof-again");
-    expect(cautionFor(DEMO_FAMILY, addDays(B, 6), NONE, { ...PARTNER, birthFiled: true })?.id).not.toBe("birth-proof-again");
+  it("パートナーには、生まれた翌日から出す。出生届出済証明は36週の札と、届けの束の出生届の行で伝える（生後1〜13日はお祝いか届けの束の日で、札を出さない日に重なるため）", () => {
+    expect(cautionFor(DEMO_FAMILY, addDays(B, 1), NONE, PARTNER)?.id).toBe("sleep");
+    expect(cautionFor(DEMO_FAMILY, addDays(B, 1), { ids: ["sleep"] }, PARTNER)?.id).toBe("skip-after");
+    for (let i = 1; i <= 13; i++) expect(cautionFor(DEMO_FAMILY, addDays(B, i), { ids: ["sleep", "skip-after"] }, PARTNER)?.id ?? null, `生後${i}日`).not.toBe("birth-proof");
   });
 
   it("生後15日から3か月: 泣きやまない時（揺さぶらないの1行は赤）と、#8000・0120-189-783", () => {
@@ -134,10 +133,10 @@ describe("中身", () => {
   for (const f of [PREG, DEMO_FAMILY, { ...DEMO_FAMILY, situation: { ...DEMO_FAMILY.situation, satogaeri: true, satogaeriPlace: { prefecture: "福岡県", city: "福岡市" } } }])
     for (const ctx of [MOM, PARTNER]) for (const x of walk(f, lmp, addMonths(B, 24), ctx)) all.set(x.c.id, x.c);
 
-  it("出る札がそろう（15種）", () => {
+  it("出る札がそろう（14種）", () => {
     const kinds = new Set([...all.keys()].map((id) => id.replace(/-\d{4}$/, "")));
     expect([...kinds].sort()).toEqual([...CAUTION_IDS].sort());
-    expect(CAUTION_IDS).toHaveLength(15);
+    expect(CAUTION_IDS).toHaveLength(14);
   });
 
   it("どの札も、引用に出典があり、出典のページの URL がある。なぜ今？の1行目は出す時期", () => {

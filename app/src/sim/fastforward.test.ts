@@ -80,7 +80,7 @@ const RULES = {
   q: "呼び名と担当: 短い題・一言に「パパ」が出ず、正式な題は法の呼び名「産後パパ育休」の中だけ。法律上の親が出す届け（出生届・児童手当・保険証・医療費助成）の担当がパートナーに決め打ちにならない（2026-11-04 見直し L2-2・同性の家族 sim-03・未婚の父 sim-05）",
   r: "引っ越しの行: 町を変えた家族だけに、引っ越した日から出る。転入届の期限は引っ越した日の14日後（住民基本台帳法第22条）・児童手当は15日後（児童手当法第8条第3項）で、児童手当と医療証は引っ越した時に子がいた家族だけ、受診券は妊娠中に引っ越した家族だけ（見直し C10①）",
   s: "早く生まれた時: 予定日より7日以上早く生まれ、育休を取るかもしれないパートナーがいる家族だけに「育休の始まりを早める」が、生まれた日から予定日の前日まで出る（遅く生まれた時・6日以内は出さない。見直し C10②）",
-  t: "気をつける事の札（lib/cautions.ts）: 1日に1枚まで。静かにする家族・生まれた日・母の画面の生後14日まで・お祝いや届けの束や手帳の気づきの日には出ず、読んだ札は同じ端末に二度出ない。引用ごとに出典があり、出生届出済証明の念押しはパートナーの画面で出生届がまだの時だけ、労基法の引用は働く母の家族だけ（2026-11-05 総点検の札）",
+  t: "気をつける事の札（lib/cautions.ts）: 1日に1枚まで。静かにする家族・生まれた日・母の画面の生後14日まで・お祝いや届けの束や手帳の気づきの日には出ず、読んだ札は同じ端末に二度出ない。引用ごとに出典があり、労基法の引用は働く母の家族だけ。出生届出済証明は36週の札と、届けの束の出生届の行で伝える（2026-11-05 総点検の札）",
 } as const;
 type Rule = keyof typeof RULES;
 const RULE_IDS = Object.keys(RULES) as Rule[];
@@ -596,15 +596,14 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
       }
       // g
       if (!s.visitTop && !s.top && !s.calmNext && day <= lastDay && !scheduleEnded) push("g", "nothing-next", `${me.name}の画面に、今やる事も次に来る事も無い`, me.id);
-      // t: 気をつける事の札（画面と同じ入力: 役・出さない日・出生届が済んだか・手帳のできた日）
+      // t: 気をつける事の札（画面と同じ入力: 役・出さない日・手帳のできた日）
       {
         const role = me.role === "パートナー" ? "パートナー" : "母";
         const seen = cautionSeen.get(me.id) ?? { ids: [] };
         const b = fv.birthDate && fv.birthDate <= day ? fv.birthDate : null;
         const dev = b && day >= addMonths(b, 3) && day < addMonths(b, 14) ? Object.fromEntries(Object.entries(devAll).filter(([, d]) => !!d && d <= day)) : undefined;
         const busy = festive || (!!s.trip?.full && !s.visitTop) || kinds.size > 0;
-        const filed = done.has("birth-registration");
-        const c = cautionFor(fv, day, seen, { role, busy, birthFiled: filed, dev });
+        const c = cautionFor(fv, day, seen, { role, busy, dev });
         if (c) {
           const since = b ? diffDays(day, b) : null;
           const was = `${me.name}の画面に「${c.title}」`;
@@ -615,7 +614,6 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
           if (seen.ids.includes(c.id)) push("t", `again:${c.id}`, `読んだ札がまた出た: ${was}`, me.id);
           if (!c.quotes.length || c.quotes.some((q) => !q.from) || !c.sources.length || c.sources.some((x) => !x.href.startsWith("https://")))
             push("t", `source:${c.id}`, `引用か出典が欠けている: ${was}`, me.id);
-          if (c.id === "birth-proof-again" && (role !== "パートナー" || filed)) push("t", `proof:${me.id}`, `出生届出済証明の念押しが、${role !== "パートナー" ? "パートナーでない人" : "出生届の済んだ後"}に出た`, me.id);
           if (c.quotes.some((q) => q.from.includes("労働基準法")) && !motherEmployed(fv.situation)) push("t", `labor:${c.id}`, `働いていない母の家族に、労基法の引用: ${was}`, me.id);
           cautionSeen.set(me.id, { ids: [...seen.ids, c.id], day });
           cautions.push({ id: c.id, title: c.title, kind: c.kind, meId: me.id, date: day, at });
@@ -1251,7 +1249,7 @@ describe("静かにする間の気づきと数", () => {
         for (let i = 0; i <= 1000; i++) {
           const day = addDays(start, i);
           const fv = viewAt(f, day);
-          for (const role of ["母", "パートナー"] as const) expect(cautionFor(fv, day, { ids: [] }, { role, busy: false, birthFiled: false }), `${f.id} ${quiet} ${role} ${day}`).toBeNull();
+          for (const role of ["母", "パートナー"] as const) expect(cautionFor(fv, day, { ids: [] }, { role, busy: false }), `${f.id} ${quiet} ${role} ${day}`).toBeNull();
         }
       }
     }

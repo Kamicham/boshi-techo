@@ -70,10 +70,8 @@ export interface Caution {
 
 export const CAUTION_LABEL: Record<CautionKind, string> = { safety: "気をつける事", know: "知っておく事", skip: "しなくていい事" };
 /** 札の種類（年の付く札は、年を外した形。試験と早送りの検査が「そろって出るか」を見る） */
-export const CAUTION_IDS = ["skip-before", "sleep", "birth-proof", "birth-proof-again", "cry", "skip-after", "acc-1m", "acc-5m", "acc-roll", "acc-crawl", "acc-stand", "acc-walk", "sleep-nov", "sleep-home", "skip-june"] as const;
+export const CAUTION_IDS = ["skip-before", "sleep", "birth-proof", "cry", "skip-after", "acc-1m", "acc-5m", "acc-roll", "acc-crawl", "acc-stand", "acc-walk", "sleep-nov", "sleep-home", "skip-june"] as const;
 const RANK: Record<CautionKind, number> = { safety: 0, know: 1, skip: 2 };
-/** 期限が近い札は種類より先に（出生届は生まれた日を含めて14日以内） */
-const FIRST = new Set(["birth-proof-again"]);
 
 /** 中毒110番（ハンドブック p.16。24時間対応） */
 export const POISON_LINES = [
@@ -370,8 +368,6 @@ export interface CautionCtx {
   role: "母" | "パートナー";
   /** お祝いの札・手帳の気づき・届けの束を全部出す日 */
   busy: boolean;
-  /** 出生届が済んだか（済んだ印・束の済み） */
-  birthFiled: boolean;
   /** 手帳の「できた日」（寝返り・はいはい・つかまり立ち・ひとり歩き） */
   dev?: Partial<Record<CautionDevItem, string>>;
 }
@@ -426,7 +422,6 @@ export function cautionFor(f: CautionFamily, today: string, seen: CautionSeen, c
   }
   if (b && d !== null) {
     if (today < addMonths(b, 12)) add("sleep", wk(34), "妊娠34週から1歳まで", BODIES.sleep);
-    if (!mom && d < 14 && !ctx.birthFiled) add("birth-proof-again", b, "生まれた日から14日の間、出生届がまだの時（パートナーの画面だけ）", BODIES["birth-proof"]);
     if (d >= 15 && today < addMonths(b, 3)) add("cry", addDays(b, 15), "生後15日から3か月まで", BODIES.cry);
     if (d >= (mom ? 15 : 1) && d < 90) add("skip-after", addDays(b, mom ? 15 : 1), mom ? "生後15日から3か月まで" : "生まれた翌日から3か月まで", BODIES["skip-after"]);
     for (const a of ACCIDENTS) {
@@ -445,8 +440,7 @@ export function cautionFor(f: CautionFamily, today: string, seen: CautionSeen, c
   }
   // 6月の現況届: 子のいる家（生まれた後か、上の子がいる家は妊娠中も）
   if (ym.endsWith("-06") && (b || f.situation?.olderChildren === true)) add(`skip-june-${ym.slice(0, 4)}`, `${ym}-01`, "子のいる家の6月（児童手当の現況届の月）", BODIES["skip-june"]);
-  const rank = (c: Caution) => (FIRST.has(c.id) ? -1 : RANK[c.kind]);
-  due.sort((x, y) => rank(x.c) - rank(y.c) || (x.from < y.from ? -1 : x.from > y.from ? 1 : 0));
+  due.sort((x, y) => RANK[x.c.kind] - RANK[y.c.kind] || (x.from < y.from ? -1 : x.from > y.from ? 1 : 0));
   return due[0]?.c ?? null;
 }
 

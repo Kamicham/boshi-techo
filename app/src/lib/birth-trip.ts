@@ -7,9 +7,12 @@ import type { Situation } from "./situation";
 
 export type TripWhere = "役所" | "勤め先" | "保険が届いたら";
 
-/** 束に入れる届けと、その順番の理由（並びがそのまま行く順）。期限は損で脅さず「いつまでに出すと、何が受け取れるか」で言う（総点検 0-6） */
-export const BIRTH_TRIP: { id: string; reason: string }[] = [
-  { id: "birth-registration", reason: "戸籍と住民票ができてから、ほかの届けを受け付ける町が多いので最初に" },
+/** 束に入れる届けと、その順番の理由（並びがそのまま行く順）。期限は損で脅さず「いつまでに出すと、何が受け取れるか」で言う（総点検 0-6）。
+ *  also は、その届けを出す時に一緒にする事（行の中に1行で出す） */
+export const BIRTH_TRIP: { id: string; reason: string; also?: string }[] = [
+  // 府令様式 p.1「赤ちゃんが生まれたら14日以内に出生届をして、同時に上欄に出生届出済の証明を受けてください。」
+  // 生まれてから14日は、お祝いと届けの束の日で気をつける事の札を出さないので、念押しはこの行で（2026-11-05 早送りの検査 t）
+  { id: "birth-registration", reason: "戸籍と住民票ができてから、ほかの届けを受け付ける町が多いので最初に", also: "母子手帳も持って行く（1ページ目に出生届出済の証明を受ける・府令様式 p.1）" },
   { id: "health-insurance", reason: "国保の家族は、出生届の後に同じ役所で。会社の保険は勤め先に扶養の届けを頼む" },
   // 児童手当法第8条・第9条（生まれた日の翌日から15日以内に出すと、生まれた月の翌月分から）
   { id: "child-allowance", reason: "生まれた日の翌日から15日以内に出すと、翌月分から受け取れる" },
@@ -53,6 +56,8 @@ export interface TripItem<T> {
   /** 1から */
   step: number;
   reason: string;
+  /** その届けを出す時に一緒にする事（BIRTH_TRIP の also） */
+  also?: string;
   where: TripWhere;
 }
 
@@ -79,7 +84,10 @@ export function planBirthTrip<T extends { id: string; status: string }>(tasks: T
   const sorted = [...open].sort((a, b) => rank[where(a)] - rank[where(b)] || ORDER.get(a.id)! - ORDER.get(b.id)!);
   return {
     deadline: addDays(birthDate, 13),
-    items: sorted.map((t, i) => ({ task: t, step: i + 1, reason: BIRTH_TRIP.find((x) => x.id === t.id)!.reason, where: where(t) })),
+    items: sorted.map((t, i) => {
+      const x = BIRTH_TRIP.find((b) => b.id === t.id)!;
+      return { task: t, step: i + 1, reason: x.reason, ...(x.also ? { also: x.also } : {}), where: where(t) };
+    }),
   };
 }
 

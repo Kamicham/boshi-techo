@@ -551,7 +551,6 @@ export function Techo() {
           today={today}
           role={me?.role === "パートナー" ? "パートナー" : "母"}
           busy={cautionBusy}
-          birthFiled={done.has("birth-registration")}
         />
       )}
 
