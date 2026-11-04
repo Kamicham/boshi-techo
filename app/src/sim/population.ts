@@ -686,6 +686,8 @@ export function situationFromProfile(p: PopProfile, dueDate?: string): Situation
     // 「その他」は非正規・無職・不詳をまとめた区分。いちばん多い非正規に寄せた（近似）
     s.partnerWork = { 正規: "会社員・公務員", 自営など: "自営・フリー", その他: "パート・派遣" }[p.father.work] as Situation["partnerWork"];
     s.partnerLeave = p.father.leave ? "取る" : "取らない";
+    // 育休の長さ（第2波⑤）: 配ってある日数から。14日以上で出生後休業支援給付の条件に届く
+    if (p.father.leave) s.partnerLeaveLen = p.father.leave.days < 14 ? "14日未満" : p.father.leave.days < 30 ? "2週間〜1か月" : "1か月以上";
   }
   return s;
 }
