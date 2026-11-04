@@ -7,6 +7,7 @@ import { addDays, addMonths, lmpFromDue, type FamilyDates } from "./clock";
 import { babyInsuranceOf } from "./birth-trip";
 import { benefitDrop, benefitFirst, papaBenefit } from "./leave-money";
 import { olderDefs, olderSchedule } from "./older";
+import { backDays, satogaeriReach } from "./satogaeri";
 import { type ReturnAt, babyCount, hasOlderChildren, isFirstNenkinMother, motherEmployed, partnerEmployed, partnerTakesLeave, type Situation } from "./situation";
 
 export type Kind = "手続き" | "健診" | "仕事" | "準備";
@@ -32,6 +33,8 @@ export type Only =
   | "leave-short" // パートナーの育休が14日に届かない（14日未満と答えた時だけ。長さがわからない時は、パパの育休の一言に足す）
   | "return-late" // ママが1歳を過ぎてから仕事に戻りたい（わかった時だけ）
   | "satogaeri" // 里帰り出産をする（わかった時だけ）
+  | "satogaeri-away" // 里帰りの実家が住む市の外（同じ市と答えた時は出さない。町がわからない時は出す）
+  | "satogaeri-place" // 里帰りの実家が住む市の外で、里帰り先の町を答えた時だけ
   | "daycare" // 保育園に預けて働く家族: 母が働き続け（雇われて・自営。辞める・仕事なしは除く）、パートナーがいれば働いている（わからない欄は当てはまる側）
   | "low-birth-weight" // 出生体重が 2500g 未満（手帳の出産の記録でわかった時だけ）
   | "preterm-care"; // 出生体重が 2000g 以下（未熟児養育医療の対象の目安。わかった時だけ）
@@ -164,7 +167,8 @@ export const MILESTONES: MilestoneDef[] = [
   { id: "older-child-care", title: "出産の入院中、上の子を見てもらう先を決める（一時保育・ファミリー・サポート・祖父母）", plain: "入院中の上の子の預け先を決める", hint: "夜中の陣痛の時に見る人も。一時保育は登録が要ります", kind: "準備", who: "家族", anchor: "lmp", start: w(24), deadline: w(34), deadlineKind: "目安", basis: "一時預かり事業（児童福祉法第6条の3第7項）・ファミリー・サポート・センター（子ども・子育て支援法第59条の子育て援助活動支援事業）・ショートステイ（子育て短期支援事業）。使える物と登録の仕方は町ごとに違う", needsLocal: true, pregnancyOnly: true, only: ["older-children"] },
   { id: "older-daycare-continue", title: "育休中も上の子が保育園に通い続けられるか、町の決まりを確かめて申請する", plain: "上の子の保育園を育休中も続ける申請", hint: "続けられる期間と申請の期限は町ごとに違います。生まれる前に確かめると安心", kind: "手続き", who: "家族", anchor: "due", start: { days: -84 }, deadline: { days: 30 }, deadlineKind: "目安", basis: "子ども・子育て支援法施行規則第1条の5（保育が必要な理由の1つに「育児休業をする時、すでに保育を使っている子が続けて使う必要がある時」がある）。続けられるか・期間（育休の終わりまで・赤ちゃんが1歳になる年度の終わりまで・上の子の年で分けるなど）・申請の書類と期限は町ごとに違う。町の利用案内で確かめる", needsLocal: true, only: ["older-children", "older-daycare"] },
   { id: "older-pickup", title: "入院中と産後1か月の、上の子の送り迎えの担当を決める", plain: "上の子の送り迎えの担当を決める", hint: "入院中と、産後しばらくの分。決めておくと当日あわてません", kind: "準備", who: "家族", anchor: "lmp", start: w(28), deadline: w(36), deadlineKind: "目安", basis: "法の決まりは無い。母は産後8週まで休業の期間（労働基準法第65条）。入院は出産で数日〜1週間ほどが多い（近似）。送り迎えの担当は家族で決める", needsLocal: false, only: ["older-children", "older-commute"] },
-  { id: "satogaeri-visit", title: "赤ちゃん訪問を里帰り先で受けたい事を、住む町に伝える", plain: "里帰り先での訪問を頼む", hint: "住む町から、里帰り先の町へ頼んでもらえます", kind: "手続き", who: "母", anchor: "lmp", start: w(28), deadline: w(34), deadlineKind: "目安", basis: "新生児訪問（母子保健法第11条）・乳児家庭全戸訪問（児童福祉法第6条の3第4項）。里帰り先での訪問は、住む町が里帰り先の町に頼む形が多い。できるかと頼み方は住む町に確かめる", needsLocal: true, only: ["satogaeri"] },
+  { id: "satogaeri-visit", title: "赤ちゃん訪問を里帰り先で受けたい事を、住む町に伝える", plain: "里帰り先での訪問を頼む", hint: "住む町から、里帰り先の町へ頼んでもらえます", kind: "手続き", who: "母", anchor: "lmp", start: w(28), deadline: w(34), deadlineKind: "目安", basis: "新生児訪問（母子保健法第11条）・乳児家庭全戸訪問（児童福祉法第6条の3第4項）。里帰り先での訪問は、住む町が里帰り先の町に頼む形が多い。できるかと頼み方は住む町に確かめる", needsLocal: true, only: ["satogaeri-away"] },
+  { id: "satogaeri-local", title: "里帰り先の町で、赤ちゃん訪問の受け方・妊婦健診の受診券の扱い・出生届を出せる所を確かめる", plain: "里帰り先の町で確かめる", hint: "訪問の受け方・受診券・出生届の窓口", kind: "準備", who: "母", anchor: "lmp", start: w(20), deadline: w(32), deadlineKind: "目安", basis: "新生児訪問は町の間で頼める（母子保健法第11条・第19条）。妊婦健診の受診券が里帰り先で使えるかは町ごと（同法第13条・各町の公費負担の決まり）。出生届は住む町・本籍地・生まれた所の役所に出せる（戸籍法第25条・第51条）。調べは里帰り先の町の公式ページで行う", needsLocal: true, pregnancyOnly: true, only: ["satogaeri-place"] },
   { id: "pregnancy-support-2", title: "妊婦のための支援給付の2回目を申請する（町の面談を受けて、おなかの子の数を届ける）", plain: "支援給付の2回目を申請する", hint: "予定日の8週前から。1人5万円の目安（町で確かめる）", kind: "手続き", who: "母", anchor: "due", start: { days: -56 }, deadline: { months: 24, days: -57 }, deadlineKind: "期限", basis: "子ども・子育て支援法の改正（妊婦のための支援給付・2025年4月から）。2回目は出産予定日の8週前の日から申請でき、おなかの子1人につき5万円の目安。町の面談（妊婦等包括相談支援）を受けてから申請する町が多い。申請の期限は8週前の日から2年（秋田市・広島市などの案内で確かめた・2026年）。面談の予約・受け取り方は町で確かめる。流産・死産でも対象", needsLocal: true },
   { id: "direct-payment", title: "出産育児一時金の直接支払制度の書類を産院で出す", plain: "出産のお金の書類を産院に出す", hint: "退院の時に大きなお金を払わずにすみます", kind: "手続き", who: "母", anchor: "lmp", start: w(30), deadline: w(36), deadlineKind: "目安", basis: "健康保険法（出産育児一時金。金額と手続きは制度が変わる事があるので、そのつど公式の情報で確かめる）", needsLocal: true, pregnancyOnly: true },
   { id: "leave-money-request", title: "産休・育休のお金の手続きを、勤め先にまとめて頼む（出産手当金・保険料の免除・育児休業給付・振込の口座）", plain: "産休・育休のお金の手続きを職場に頼む", hint: "出産手当金・保険料の免除・育休の給付。産休の前に", kind: "仕事", who: "母", anchor: "lmp", start: w(28), deadline: { days: 280 - 42 }, deadlineKind: "目安", basis: "健康保険法第102条（出産手当金: 産前42日・産後56日の間で休んだ日に、賃金のおよそ3分の2）・健康保険法第159条・厚生年金保険法第81条の2の2（産休中の保険料の免除）・同法第81条の2（育休中の免除。どちらも勤め先が届ける）・雇用保険法第61条の7（育児休業給付: 180日まで賃金の67%・その後50%）。パートでも勤め先の健康保険・雇用保険に入っていれば対象。入っているか・手続きの順は勤め先に確かめる", needsLocal: false, pregnancyOnly: true, only: ["mother-leave"] },
@@ -189,7 +193,8 @@ export const MILESTONES: MilestoneDef[] = [
   { id: "partner-tell-work-birth", title: "パートナーの職場に出産の報告をする（扶養・育休の届けの入口）", plain: "パートナーの職場に生まれた事を伝える", hint: "赤ちゃんを扶養に入れる・育休の届けの入口です", kind: "仕事", who: "パートナー", anchor: "birth", start: { days: 1 }, deadline: { days: 7 }, deadlineKind: "目安", basis: "目安（赤ちゃんを健康保険の扶養に入れる届けは、勤め先が5日以内に出す＝健康保険法施行規則第38条。どちらの扶養に入れるかは収入で決まる。勤め先に確かめる）", needsLocal: false, only: ["partner-employed"] },
   { id: "one-month-checkup", title: "1か月健診", plain: "1か月健診", hint: "ママと赤ちゃん、両方みてもらいます", kind: "健診", who: "家族", anchor: "birth", start: { months: 1 }, basis: "国の目安", needsLocal: false },
   { id: "home-visit", title: "乳児家庭全戸訪問（こんにちは赤ちゃん訪問）", plain: "赤ちゃん訪問を受ける", hint: "町の人が家に来てくれます", kind: "健診", who: "家族", anchor: "birth", start: { months: 1 }, deadline: { months: 4 }, deadlineKind: "目安", basis: "児童福祉法（生後4か月まで）", needsLocal: true },
-  { id: "satogaeri-checkup-refund", title: "里帰り先で補助券が使えなかった妊婦健診の分を、住む町に申請する（償還払い）", plain: "里帰り先の健診代を申請する", hint: "補助券が使えない所の分は、後から町に申請します。期限は町ごと（1年以内が多い）", kind: "手続き", who: "母", anchor: "birth", start: { months: 1 }, deadline: { months: 12, days: -1 }, deadlineKind: "目安", basis: "妊婦健康診査の公費負担（母子保健法第13条）。町の外で受けた健診は、後から払い戻す町が多い。申請の期限は町ごとに違い、出産から1年以内（杉並区など）・最後の健診から1年以内（栃木市など）・受けた日から2年以内（船橋市など）がある（2026年に各町のページで確かめた）。期限と書類（領収書・健診の記録）は住む町で確かめる", needsLocal: true, only: ["satogaeri"] },
+  { id: "satogaeri-checkup-refund", title: "里帰り先で補助券が使えなかった妊婦健診の分を、住む町に申請する（償還払い）", plain: "里帰り先の健診代を申請する", hint: "補助券が使えない所の分は、後から町に申請します。期限は町ごと（1年以内が多い）", kind: "手続き", who: "母", anchor: "birth", start: { months: 1 }, deadline: { months: 12, days: -1 }, deadlineKind: "目安", basis: "妊婦健康診査の公費負担（母子保健法第13条）。町の外で受けた健診は、後から払い戻す町が多い。申請の期限は町ごとに違い、出産から1年以内（杉並区など）・最後の健診から1年以内（栃木市など）・受けた日から2年以内（船橋市など）がある（2026年に各町のページで確かめた）。期限と書類（領収書・健診の記録）は住む町で確かめる", needsLocal: true, only: ["satogaeri-away"] },
+  { id: "satogaeri-return", title: "住む町に戻る日の段取りを組む（保健センターへの連絡・小児科・チャイルドシート）", plain: "戻る日の段取りを組む", hint: "保健センターへ連絡。車ならチャイルドシート", kind: "準備", who: "家族", anchor: "birth", start: { days: 21 }, deadline: { days: 35 }, deadlineKind: "目安", basis: "目安（戻る日は、答えてもらった戻る時期から置いた近似。決めていなければ1か月健診のあと＝生後35日ごろ）。戻ったら住む町の保健センターに連絡し、赤ちゃん訪問と乳幼児健診の案内を受ける（母子保健法第11条・第12条・児童福祉法第6条の3第4項）。車で戻るならチャイルドシートが要る（道路交通法第71条の3第3項）。かかりつけの小児科は住む町で探しておく", needsLocal: false, only: ["satogaeri-away"] },
   { id: "vaccines-start", title: "生後2か月の予防接種（B型肝炎・ロタウイルス・小児用肺炎球菌・五種混合の1回目）", plain: "予防接種を始める", hint: "生後2か月から。小児科などに予約します", kind: "健診", who: "家族", anchor: "birth", start: { months: 2 }, deadline: { days: 14 * 7 + 6 }, deadlineKind: "目安", basis: `予防接種法（定期接種。五種混合は2024年4月から）。標準は生後2か月から同じ日にまとめて受ける。ロタの1回目は生後14週6日までに受けるのが望ましい。${VAX_WHERE}`, needsLocal: true },
   { id: "vaccines-3m", title: "生後3か月の予防接種（B型肝炎・ロタウイルス・小児用肺炎球菌・五種混合の2回目）", plain: "予防接種の2回目", hint: "1回目から4週ほどあけて。小児科などで", kind: "健診", who: "家族", anchor: "birth", start: { months: 3 }, deadline: { months: 4 }, deadlineKind: "目安", basis: `予防接種法（定期接種）。肺炎球菌・ロタは27日以上、五種混合は20日以上あける。${VAX_WHERE}`, needsLocal: true },
   { id: "checkup-3-4m", title: "3〜4か月健診", plain: "3〜4か月健診", hint: "町から案内が届きます", kind: "健診", who: "家族", anchor: "birth", start: { months: 3 }, deadline: { months: 5 }, deadlineKind: "目安", basis: "町の乳幼児健診（母子保健法第13条。ほとんどの町で行う。日と場所は町ごとに違う）", needsLocal: true },
@@ -255,6 +260,9 @@ export interface Milestone extends MilestoneDef {
 /** scheduleFor に渡す家族（FamilyDates に、家族の形と人の役を足した物。どちらも無ければ今までどおり） */
 export interface ScheduleInput extends FamilyDates {
   situation?: Situation;
+  /** 住む町（里帰り先と同じ市かを見る。第2波⑦） */
+  city?: string;
+  prefecture?: string;
   members?: { role: string }[];
   /** 生まれた時の体重 g（手帳の出産の記録から。双子などは一番小さい子）。わからなければ無し */
   birthWeightG?: number;
@@ -305,6 +313,12 @@ export function applies(only: Only, f: ScheduleInput): boolean {
       return hasOlderChildren(s) && !!s?.olderKids?.some((k) => k.care === "保育園" || k.care === "幼稚園");
     case "satogaeri":
       return !!s?.satogaeri;
+    case "satogaeri-away":
+      return !!s?.satogaeri && satogaeriReach(f, s) !== "同じ市";
+    case "satogaeri-place": {
+      const r = satogaeriReach(f, s);
+      return r === "同じ県" || r === "ほかの県";
+    }
     case "daycare": {
       const mw = s?.motherWork;
       const motherWorks = mw === undefined || mw === "会社員・公務員" || mw === "パート・派遣" || mw === "自営・フリー";
@@ -363,9 +377,33 @@ function adjust(m: MilestoneDef, f: ScheduleInput): MilestoneDef {
   if (s?.publicServant && (out.id === "child-allowance" || out.id === "child-allowance-change")) {
     out = { ...out, hint: "公務員は勤め先に申請。15日以内に", basis: `${out.basis}・第17条（公務員は勤め先が払う。独立行政法人の職員などは町へ。勤め先で確かめる）`, needsLocal: false };
   }
-  // 里帰り出産: 出生届は生まれた所の役所でも出せる
+  // 里帰り出産: 出生届は生まれた所の役所でも出せる。里帰り先の町がわかれば、出せる町の名前を並べる（どちらに出すかは家族が決める）
   if (s?.satogaeri && out.id === "birth-registration") {
-    out = { ...out, hint: "14日以内。里帰り先の役所でも出せます", basis: `${out.basis}・戸籍法第51条（生まれた所の役所でも出せる）` };
+    const reach = satogaeriReach(f, s);
+    const there = s.satogaeriPlace?.city;
+    out =
+      there && f.city && (reach === "同じ県" || reach === "ほかの県")
+        ? { ...out, hint: `14日以内。${f.city}・${there}・本籍地で出せる`, basis: `${out.basis}・第25条・第51条（住所地・本籍地・生まれた所の役所に出せる。どちらに出すかは家族が決める）` }
+        : { ...out, hint: "14日以内。里帰り先の役所でも出せます", basis: `${out.basis}・戸籍法第51条（生まれた所の役所でも出せる）` };
+  }
+  // 里帰り（第2波⑦）: 里帰り先の町の名前を題に、戻る日を段取りと健診代の申請に
+  if (s?.satogaeri) {
+    const reach = satogaeriReach(f, s);
+    const back = backDays(s.satogaeriBack);
+    const backWord = s.satogaeriBack ? `答えてもらった戻る時期（${s.satogaeriBack}）から` : "戻る時期を決めていないので、1か月健診のあと＝";
+    if (out.id === "satogaeri-local" && s.satogaeriPlace) {
+      out = { ...out, title: `里帰り先の町（${s.satogaeriPlace.city}）で、赤ちゃん訪問の受け方・妊婦健診の受診券の扱い・出生届を出せる所を確かめる` };
+    }
+    if (out.id === "satogaeri-return") {
+      out = { ...out, start: { days: back - 14 }, deadline: { days: back }, basis: out.basis.replace(/^目安（[^）]*）/, `目安（${backWord}生後${back}日ごろに置いた近似）`) };
+    }
+    if (out.id === "satogaeri-checkup-refund") {
+      out = { ...out, start: { days: back } };
+      if (reach === "同じ県") out = { ...out, hint: "県の中は受診券が使える事が多い。使えなかった分だけ", basis: `${out.basis}。同じ都道府県の中は、町の間の取り決めで受診券が使える事が多い（近似。町ごとに違う）` };
+    }
+    if (out.id === "one-month-checkup" && reach !== "同じ市") {
+      out = { ...out, hint: "里帰り先の産院で受けてから戻る家族が多い" };
+    }
   }
   return out;
 }
