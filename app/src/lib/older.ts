@@ -73,7 +73,8 @@ export function olderSchedule(
         id: `older${i + 1}-${d.id}`,
         title: `${age}の${d.title}`,
         plain: olderPlain(label, d.plain),
-        hint: kid.monthOnly ? `${d.hint}（生まれた日は月の1日として数えた目安）` : d.hint,
+        // 赤ちゃんの予定日より前に始まる事は、使い始める前に済んでいる事が多い（2歳の上の子の水ぼうそうの2回目など）
+        hint: `${startDate < f.dueDate ? "もう受けていたら「済んだ」を押してください" : d.hint}${kid.monthOnly ? "（月の1日で数えた目安）" : ""}`,
         // 上の子の町の案内は、上の子の手帳と町の通知で届く。調べ物は赤ちゃんの分だけにする（費用）
         needsLocal: false,
         startDate,
