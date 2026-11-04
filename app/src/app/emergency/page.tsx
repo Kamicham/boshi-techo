@@ -1,6 +1,18 @@
 // 急ぎの時: のどに物が詰まった（窒息）・反応が無い（心肺蘇生）。紙の母子手帳の終わりの方にある「救急の手当」のページの考え方を、短く自分の言葉で。
 // 通信が無くても開けるよう、public/sw.js がこのページと部品を取っておく。家族の読み込みを待たずに出す（emergency/Frame.tsx）。
-// 体の判断はしない。手当の手順と、119・#8000・かかっている産院（妊娠中の体の急ぎ）への橋だけ。迷ったら 119（通報すると、電話の向こうで手当を教えてもらえる）。
+// 体の判断はしない。手当の手順と、119・#8000・#7119・かかっている産院（ママの体の急ぎ）への橋だけ。
+// 言い分け: 命が危ないと思ったら、迷わず 119（通報すると、電話の向こうで手当を教えてもらえる）。救急車を呼ぶか迷う時は、子どもの事は #8000、
+// 大人の体（ママ）の事は #7119（家族の町で実施している時だけ。lib/emergency-lines.ts）。「迷ったら119」とは書かない（迷う時の相談先より先に119へ向かわせる）。
+// 1画面目（iPhone 390×844）に、ママの体の札（妊娠中・産後8週まで）・119・#8000（・#7119）が収まるよう、119 の赤を画面いっぱいに伸ばさない。
+//
+// 119 の例（息をしていない・反応が無い・けいれんが止まらない）は消防庁の言葉に合わせた:
+// - 消防庁「緊急度判定プロトコル Ver.3 救急受診ガイド」（「呼吸をしていない。息がない。」「呼びかけても、反応がない。」）
+//   https://www.fdma.go.jp/mission/enrichment/appropriate/items/kyuukyuuzyushinngaido.pdf
+// - 消防庁「救急車を上手に使いましょう」令和7年12月 p.4（「けいれんが止まらない」）https://www.fdma.go.jp/publication/portal/items/portal002_japanese121.pdf
+// #7119: 消防庁「救急安心センター事業（♯7119）ってナニ？」https://www.fdma.go.jp/mission/enrichment/appropriate/appropriate007.html （2026-11-04 に確かめた）
+// 泣きやまない時: こども家庭庁「赤ちゃんが泣きやまない」とガイドブック（制作 厚生労働省。p.2・3・7〜10）の文を、言い換えずに引く（2026-11-05 にページで確かめた）
+//   https://www.cfa.go.jp/policies/jidougyakutai/nakiyamanai
+//   0120-189-783: こども家庭庁「出産や子育てに悩んだ時は、こちらにお電話ください。」https://kodomoshien.cfa.go.jp/no-gyakutai/ （受付時間は確かめられなかったので書かない）
 //
 // 出典（原文は写さず、要点を自分の言葉でまとめた）:
 // - 消防庁 消防救第385号「『救急蘇生法の指針2025（市民用）』への対応について」2026-10-23（別紙＝主に市民が行う一次救命処置）
@@ -16,7 +28,7 @@
 //   一般財団法人日本財団電話リレーサービス https://www.nftrs.or.jp/ （24時間・110/119/118 に発信できる）
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ChokeOrder, PregnancyUrgent } from "./ChokeOrder";
+import { ChokeOrder, Line7119, MamaUrgent } from "./ChokeOrder";
 
 export const metadata: Metadata = { title: "急ぎの時 | 母子手帳" };
 // 通信が無くても開けるよう、作る時に1回だけ組み立てる（家族の情報は何も入らない）
@@ -27,6 +39,10 @@ const SOURCES = [
   { label: "JRC蘇生ガイドライン2025", href: "https://www.jrc-cpr.org/jrc-guideline-2025/" },
   { label: "こども家庭庁 母子健康手帳について", href: "https://www.cfa.go.jp/policies/boshihoken/techou" },
   { label: "厚生労働省 #8000", href: "https://www.mhlw.go.jp/topics/2006/10/tp1010-3.html" },
+  { label: "消防庁 #7119", href: "https://www.fdma.go.jp/mission/enrichment/appropriate/appropriate007.html" },
+  { label: "消防庁 救急受診ガイド", href: "https://www.fdma.go.jp/mission/enrichment/appropriate/items/kyuukyuuzyushinngaido.pdf" },
+  { label: "消防庁 救急車を上手に使いましょう", href: "https://www.fdma.go.jp/publication/portal/items/portal002_japanese121.pdf" },
+  { label: "こども家庭庁 赤ちゃんが泣きやまない", href: "https://www.cfa.go.jp/policies/jidougyakutai/nakiyamanai" },
   { label: "消防庁 NET119", href: "https://www.fdma.go.jp/mission/enrichment/kyukyumusen_kinkyutuhou/net119.html" },
   { label: "電話リレーサービス", href: "https://www.nftrs.or.jp/" },
 ];
@@ -86,35 +102,36 @@ export default function EmergencyPage() {
         <span className="text-xs text-muted">電波が無くても開けます</span>
       </div>
 
-      {/* 妊娠中の家族では、産院への電話を一番上に（ほかの家族ではページの下） */}
-      <PregnancyUrgent slot="top" />
+      {/* 妊娠中と産後8週までの家族では、ママの体の札（産院への電話）を一番上に（ほかの家族ではページの下） */}
+      <MamaUrgent slot="top" />
 
-      {/* 開いたら電話の画面（作り手の声「急ぎの時は読むより、まず電話」）。最初の1画面は電話の2つだけ。
+      {/* 開いたら電話の画面（作り手の声「急ぎの時は読むより、まず電話」）。1画面目に、命が危ない時の119と、迷う時の #8000（・#7119）。
+          119 の赤は画面いっぱいに伸ばさない（伸ばすと、産後の家族で #8000 が1画面目の外に落ちた）。
           開いただけで自動でかける事はしない（Web からはできず、手が当たって開いた時に誤った通報になる）。押せば発信の確かめへ進む */}
-      <section
-        aria-label="電話する"
-        className="flex min-h-[calc(100svh-7rem)] flex-col gap-3"
-      >
+      <section aria-label="電話する" className="flex flex-col gap-3">
         <a
           href="tel:119"
-          className="flex min-h-48 flex-1 flex-col items-center justify-center gap-2 rounded-2xl bg-alert px-4 py-6 text-center text-white"
+          className="flex min-h-36 flex-col items-center justify-center gap-1 rounded-2xl bg-alert px-4 py-4 text-center text-white"
         >
           <span className="font-display text-4xl font-bold">119 にかける</span>
-          <span className="text-base">
-            迷ったらこちら。手当のしかたも、電話の向こうで教えてもらえます
+          <span className="text-base font-semibold">命が危ないと思ったら、迷わずこちら</span>
+          <span className="text-sm">
+            息をしていない・反応が無い・けいれんが止まらない。手当のしかたも電話で教えてもらえます
           </span>
         </a>
         <a
           href="tel:%238000"
-          className="flex min-h-24 flex-col items-center justify-center gap-1 rounded-2xl border-2 border-sky bg-card px-4 py-4 text-center"
+          className="flex min-h-20 flex-col items-center justify-center gap-1 rounded-2xl border-2 border-sky bg-card px-4 py-3 text-center"
         >
           <span className="font-display text-2xl font-bold text-sky">
             #8000 に聞く
           </span>
           <span className="text-sm text-muted">
-            子どもの急な病気で、急ぐか迷う時。夜や休みの日も、小児科の先生や看護師さんに聞けます
+            子どもの事で、救急車を呼ぶか迷う時はまずこちら。夜や休みの日に、小児科の先生や看護師さんに聞けます
           </span>
         </a>
+        {/* 大人の体（ママ）の事で迷う時。家族の町で実施している時だけ（消防庁の一覧） */}
+        <Line7119 />
         {/* 耳が聞こえにくい・声で話せない時の道（消防庁 NET119・電話リレーサービス） */}
         <p className="rounded-lg bg-paper px-3 py-2 text-sm leading-relaxed">
           <b>声で話せない時</b>: 文字で119に通報できる「NET119」（前もって住む町の消防本部に登録が要ります）と、手話や文字で110・119にもつながる「電話リレーサービス」（24時間）があります。
@@ -124,32 +141,8 @@ export default function EmergencyPage() {
         </p>
       </section>
 
-      {/* 妊娠中・産後のママの体（第29回: 妊娠中の家族が開いても、赤ちゃんの手当しか無かった）。判断はせず、電話の先だけ */}
-      <section
-        id="mama"
-        aria-labelledby="mama-h"
-        className="flex scroll-mt-4 flex-col gap-2 rounded-2xl border border-line bg-card p-4"
-      >
-        <h2 id="mama-h" className="font-display text-xl font-bold">
-          妊娠中・産後のママの体
-        </h2>
-        <p className="text-base leading-relaxed">
-          出血・破水（水っぽいものが出た）・強いお腹の痛みや張り・胎動が少ない・ひどい頭痛や目のちかちか・産後の大量の出血や高い熱の時は、
-          <b>かかっている産院へ電話</b>します（夜間も休みの日も）。
-        </p>
-        <p className="text-sm text-muted">
-          産院の番号は、診察券や母子手帳の表紙に書いてあることが多いです。わが家の設定で病院を入れておくと、「聞く」の答えに電話のボタンが出ます。迷ったら
-          119。
-        </p>
-      </section>
-
+      {/* ママの体の札は1つ（MamaUrgent・id="mama"）。妊娠中と産後8週までは一番上、ほかはページの下（第29回: 妊娠中の家族が開いても、赤ちゃんの手当しか無かった） */}
       <nav aria-label="このページの中" className="flex flex-wrap gap-2">
-        <a
-          href="#mama"
-          className="inline-flex min-h-11 items-center rounded-full border border-ink/20 bg-card px-4 text-base font-semibold"
-        >
-          妊娠中・産後のママ
-        </a>
         <a
           href="#choke"
           className="inline-flex min-h-11 items-center rounded-full border border-ink/20 bg-card px-4 text-base font-semibold"
@@ -163,10 +156,16 @@ export default function EmergencyPage() {
           反応が無い・息をしていない
         </a>
         <a
-          href="#pregnancy"
+          href="#crying"
           className="inline-flex min-h-11 items-center rounded-full border border-ink/20 bg-card px-4 text-base font-semibold"
         >
-          妊娠中・産後の体の急ぎ
+          泣きやまない
+        </a>
+        <a
+          href="#mama"
+          className="inline-flex min-h-11 items-center rounded-full border border-ink/20 bg-card px-4 text-base font-semibold"
+        >
+          妊娠中・産後のママの体
         </a>
       </nav>
 
@@ -266,7 +265,62 @@ export default function EmergencyPage() {
         </ol>
       </Card>
 
-      <PregnancyUrgent slot="bottom" />
+      {/* 泣きやまない時（言えない時の橋）: こども家庭庁のガイドブック（制作 厚生労働省）の文を言い換えずに引くだけ。手当や心の相談にはしない */}
+      <Card id="crying" title="赤ちゃんが泣きやまない時" sub="こども家庭庁「赤ちゃんが泣きやまない」の言葉のまま">
+        <ul className="flex flex-col gap-2 text-base leading-relaxed">
+          <li>
+            「赤ちゃんが泣いても、誰が悪いわけでもないのです。」「泣かれてイライラしても、当然のことです。」
+            <span className="text-xs text-muted">（p.3）</span>
+          </li>
+          <li>
+            「これまでの研究で、関わり方によらず生後1-2か月に泣きのピークがあることがわかりました。」「しかし、ピークが過ぎれば、泣きはだんだん収まってきます。」
+            <span className="text-xs text-muted">（p.2）</span>
+          </li>
+          <li>
+            「まず、赤ちゃんが欲しがっていると思うものをたしかめてみましょう。」（ミルクをあげる・おむつを替える・抱っこをする）
+            <span className="text-xs text-muted">（p.7）</span>
+          </li>
+          <li>
+            「また、高熱が出ていたり、心配であれば、医療機関を受診しましょう。」
+            <span className="text-xs text-muted">（p.8）</span>
+          </li>
+          <li>
+            「いろいろ試しても泣きやまない。それでも問題ありません。」「その時は、赤ちゃんを安全な場所に寝かせて、その場を離れましょう。」「そして自分がリラックスしましょう。」「少ししたら、戻って赤ちゃんの様子を確認しましょう。」
+            <span className="text-xs text-muted">（p.9）</span>
+          </li>
+          <li className="font-semibold text-alert">
+            「無理に泣きやませようと激しく揺さぶらないでください。」「また、泣き声が周囲に聞こえないようにと赤ちゃんの口をふさがないでください。」
+            <span className="text-xs font-normal text-muted">（p.10）</span>
+          </li>
+        </ul>
+        <div className="flex flex-col gap-2">
+          <a
+            href="tel:%238000"
+            className="flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-sky/50 px-4 py-2"
+          >
+            <span className="min-w-0">
+              <span className="block text-base font-semibold text-sky">#8000</span>
+              <span className="block text-sm text-muted">子どもの事で、受診するか迷う時（夜や休みの日）</span>
+            </span>
+            <span className="shrink-0 text-sm font-semibold">電話する</span>
+          </a>
+          <a
+            href="tel:0120189783"
+            className="flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-ink/20 px-4 py-2"
+          >
+            <span className="min-w-0">
+              <span className="tabular block text-base font-semibold">0120-189-783</span>
+              <span className="block text-sm text-muted">「出産や子育てに悩んだ時は、こちらにお電話ください。」（こども家庭庁・無料）</span>
+            </span>
+            <span className="shrink-0 text-sm font-semibold">電話する</span>
+          </a>
+        </div>
+        <p className="text-xs text-muted">
+          ページの数字は、こども家庭庁のページにあるガイドブック「赤ちゃんが泣きやまない」（制作 厚生労働省）のページです。
+        </p>
+      </Card>
+
+      <MamaUrgent slot="bottom" />
 
       <section className="flex flex-col gap-2 text-sm text-muted">
         <p>
@@ -307,6 +361,12 @@ export default function EmergencyPage() {
             <p>
               #8000
               は、厚生労働省の「子ども医療電話相談事業」で、都道府県が行っています（つながる時間は都道府県ごとに違います）。
+            </p>
+            <p>
+              #7119 は、消防庁の「救急安心センター事業」で、救急車を呼ぶか・今すぐ病院へ行くかを迷う時に相談できます。2026年10月の一覧では42の地域が行っていて、三重・島根・佐賀・宮崎・鹿児島はまだ無く、北海道・愛知・和歌山は一部の町だけです。このページは、わが家の住む町にある時だけ出します（町は、わが家の情報の都道府県と市区町村から）。
+            </p>
+            <p>
+              119 の例（息をしていない・反応が無い・けいれんが止まらない）は、消防庁の「救急受診ガイド」と「救急車を上手に使いましょう」の言葉です。ほかにも命が危ないと思ったら、迷わず119です。ママの体の札の引用は、母子健康手帳の国の様式（こども家庭庁）の言葉です。泣きやまない時の札は、こども家庭庁のページ「赤ちゃんが泣きやまない」の言葉をそのまま引いています。
             </p>
             <p>
               NET119 は、声での119番が難しい人が、スマホの画面から文字で通報できる仕組みです（消防庁。2026年4月で全国719の消防本部のうち677本部。使う前に住む町の消防本部への登録が要ります）。電話リレーサービスは、法律にもとづく公共の仕組みで、通訳の人が手話や文字と声をつないでくれます（24時間。110・119・118にもかけられます）。
