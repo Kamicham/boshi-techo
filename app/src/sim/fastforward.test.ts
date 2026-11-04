@@ -20,6 +20,7 @@
 //
 // 判定: ○ = 守れた／△ = 今の作りでは避けられない既知の穴（KNOWN_GAPS に理由つきで登録）／× = それ以外の破れ（テストが落ちる）
 import { afterAll, describe, expect, it } from "vitest";
+import { MONEY, moneyWatch } from "../lib/money";
 import { backDays, satogaeriReach } from "../lib/satogaeri";
 import fs from "node:fs";
 import path from "node:path";
@@ -72,6 +73,7 @@ const RULES = {
   l: "上の子の予定は上の子がいる家族だけに出て、健診・接種の日は上の子の生まれた日から数え、期限切れにならない。園の継続は保育園の上の子がいる時だけ（第2波①）",
   m: "保育園の入る4月が仕事に戻りたい時期に合い（1歳まで＝1歳の誕生日まで・1歳を過ぎて＝その後）、見学は生後1か月より前に来ず、延長の申し出の期限は1歳の誕生日の2週間前（第2波④）",
   o: "里帰り: 同じ市なら遠方向け（訪問を頼む・健診代の申請・戻る日の段取り・里帰り先の町の調べ）が出ず、健診代の申請と戻る日の段取りは戻る日から、里帰り先の町の調べは里帰り先の町を答えた家族だけ（第2波⑦）",
+  p: "お金の1000日: 児童手当の最初の振込は偶数月で申請の後・届いたか確かめる件は申請が済んだ物だけで額を出さない・自営や仕事なしの母に出産手当金が出ない（辞める母には出す＝健康保険法第104条）",
   n: "産休・育休のお金: 育休の給付の初回の期限は育休の4か月目の月末で、自営・仕事なし・辞める母には育休の給付が出ず、パパの14日の1件は14日以上の家族に出ない（第2波⑤）",
 } as const;
 type Rule = keyof typeof RULES;
@@ -428,6 +430,21 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
       }
       const len = fv.situation?.partnerLeaveLen;
       if (tasks.some((t) => t.id === "partner-leave-14") && (len === "2週間〜1か月" || len === "1か月以上")) push("n", "14", `パパの育休が${len}なのに、14日の1件が出る`);
+    }
+    // p: お金の1000日（申請の期限の日に済んだとして見る）
+    {
+      const doneMoney = new Set(tasks.filter((t) => t.id in MONEY).map((t) => t.id));
+      const watch = moneyWatch(tasks, doneMoney, {}, isBorn ? f.birthDate : undefined);
+      const ca = watch.find((w) => w.id === "paid-child-allowance");
+      const src = tasks.find((t) => t.id === "child-allowance");
+      if (ca && src) {
+        if (Number(ca.startDate.slice(5, 7)) % 2 !== 0) push("p", "even", `児童手当の振込が奇数月（${ca.startDate}）`);
+        if (ca.startDate <= (src.deadlineDate ?? src.startDate)) push("p", "after", `児童手当の振込 ${ca.startDate} が申請 ${src.deadlineDate} より前`);
+      }
+      for (const w of watch) if (/円/.test(`${w.title}${w.plain}${w.hint}`)) push("p", "yen", `${w.id} に額が出る`);
+      if (moneyWatch(tasks, new Set(), {}, f.birthDate).length) push("p", "unapplied", "申請していないのに届いたか確かめる件が出る");
+      const mw = fv.situation?.motherWork;
+      if (tasks.some((t) => t.id === "maternity-allowance-apply") && (mw === "自営・フリー" || mw === "仕事なし")) push("p", "who", `${mw}の母に出産手当金の申請が出る`);
     }
     // o: 里帰りの2つの町
     if (fv.situation?.satogaeri) {
