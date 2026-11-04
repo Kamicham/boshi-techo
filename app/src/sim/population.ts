@@ -678,6 +678,10 @@ export function situationFromProfile(p: PopProfile, dueDate?: string): Situation
       care: m >= 75 ? "小学校" : working ? "保育園" : m >= 36 ? "幼稚園" : "家",
     }));
   }
+  // 仕事に戻りたい時期（第2波④）: 育休の日数（雇用均等基本調査から配った物）が1年以上なら「1歳を過ぎて」、それより短い・育休なしで続けるなら「1歳まで」。
+  // 辞める・仕事なし・戻らない母は持たない（保育園の予定が出ない）
+  if (mw.after === "育休" && mw.returns !== false) s.returnAt = (mw.leaveDays ?? 0) >= 365 ? "1歳を過ぎて" : "1歳まで";
+  else if (mw.after === "育休なしで継続") s.returnAt = "1歳まで";
   if (p.father) {
     // 「その他」は非正規・無職・不詳をまとめた区分。いちばん多い非正規に寄せた（近似）
     s.partnerWork = { 正規: "会社員・公務員", 自営など: "自営・フリー", その他: "パート・派遣" }[p.father.work] as Situation["partnerWork"];
