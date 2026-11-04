@@ -20,7 +20,7 @@
 
 ## 複数の会話で進める（2026-11-04 本人「複数のターミナルで同じプロジェクトを進める上で大事なことをやっといて」）
 統括の会話（全体・次の一手・本番の運用）と、作業の会話（手帳に聞く・使い心地・思い出など）が同時に動く。ぶつからないための決まり。
-- **main へ上げる（仕掛けで自動）**: `.git/hooks/post-commit`（元は `scripts/git-hooks/post-commit`。入れ直しは `scripts/install-git-hooks.sh`）が、コミットのたびに作業のブランチと main へ上げる。main が先に進んでいて上げられない時は「main が先に進んでいます」と出るので、その会話のうちに `git merge origin/main`（ぶつかったら直す）→ `git push origin HEAD:main`。main の巻き戻し・強制の上げはしない。
+- **main へ上げる（仕掛けで自動）**: `.git/hooks/post-commit` と `post-merge`（元は `scripts/git-hooks/`。入れ直しは `scripts/install-git-hooks.sh`）が、コミットと取り込みのたびに作業のブランチと main へ上げる。main が先に進んでいて上げられない時は「main が先に進んでいます」と出るので、その会話のうちに `git merge origin/main`（取り込めば仕掛けが上げる。ぶつかったら直して `git commit`）。`git push origin HEAD:main` は全体の設定の禁止に当たるので打たず、命令の形を変えて禁止をすり抜けない。上げ直す時は `sh scripts/git-hooks/post-commit`（2026-11-04 作り手の OK）。main の巻き戻し・強制の上げはしない。
 - **公開の見張り（仕掛けで自動・2026-11-04）**: `.git/hooks/pre-commit` と `commit-msg`（元は `scripts/git-hooks/`）が、本物の記録と鍵の置き場・鍵の文字・家の道・家のネットの住所・決めた置き場（`app/demo-media/`・`docs/images/`・`app/public/`）の外の写真や声・5MB を超えるファイル・作り手の呼び名を、コミットの前に止める。止まったら直す。見張りが間違っている時だけ `--no-verify` を使い、理由をコミットの文に書く。
 - **main を小まめに取り込む**: 会話を始めた時・再開した時に、`.claude/settings.json` の SessionStart が main とのずれを1行で出す（`scripts/git-sync-status.sh`）。遅れていたら作業の前に取り込む。1つ仕上げるごとにコミットする（溜めない。大きな書きかけは、ほかの会話の取り込みとぶつかる）。
 - **1つの会話に1つの作業場**: 作業の会話は自分の worktree（`~/boshi-<名前>`。例 boshi-first・boshi-film・boshi-polish）で作る。`~/boshi-techo` は本番の置き場と統括の場所で、ここで作業を始めない（すでにここで書きかけがある会話は、仕上げてコミットしてから移る）。

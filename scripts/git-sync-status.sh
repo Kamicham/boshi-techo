@@ -23,6 +23,6 @@ ahead=$(git rev-list --count origin/main..HEAD 2>/dev/null || echo "?")
 dirty=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')
 msg="[母子手帳・git] $(basename "$PWD")（${b}）: main より遅れ ${behind}件・main に無い ${ahead}件・書きかけ ${dirty}件。"
 [ "$behind" != "0" ] && msg="$msg 作業の前に git merge origin/main を。"
-[ "$ahead" != "0" ] && msg="$msg 上げていないコミットは git push origin HEAD:main で。"
+[ "$ahead" != "0" ] && msg="$msg 上げていないコミットは sh scripts/git-hooks/post-commit で上げる（git push origin HEAD:main は全体の設定で止まる）。"
 msg="$msg 複数の会話の決まりは CLAUDE.md「複数の会話で進める」。"
 echo "$msg"

@@ -1,0 +1,5 @@
+#!/bin/sh
+# 母子手帳: 取り込み（git merge・git pull）の後も、コミットの後と同じく、作業のブランチと main まで上げる（2026-11-04 作り手）。
+# 取り込みでできたコミットには post-commit が走らないため。中身は post-commit と同じ（入れ方: scripts/install-git-hooks.sh）。
+[ "$1" = "1" ] && exit 0   # まとめての取り込み（--squash）はコミットを作らないので、何もしない
+exec sh "$(dirname "$0")/post-commit"
