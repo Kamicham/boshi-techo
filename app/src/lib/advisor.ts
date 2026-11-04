@@ -220,7 +220,11 @@ export function trimAdvice(a: AdviceFields): AdviceFields {
 
 // ── 鍵の無い時の気づき（見本の家族・公開版で上限の日）: 機械で確かめた事から、決まりで文を作る（Claude は呼ばない） ──
 
-/** 決まりで作った気づきの頭の札。Claude が書いたふりをしない（カードの表には1文目だけが1行で出るので、短い1文目と分ける） */
+/**
+ * 決まりで作った気づきの札。Claude が書いたふりをしない。
+ * 理由の後ろに置く: カードの表には理由の1文目だけが1行で出るので、1文目は「何が起きたか」の短い文にする
+ * （2026-11-05 UX: 札を頭に置いていた時は、表が「予定表から数えました。」だけで、なぜ数え直したのかが無かった）
+ */
 export const RULE_MARK = "予定表から数えました。Claude は使っていません。";
 
 const MD = "(\\d{1,2}月\\d{1,2}日)";
@@ -230,25 +234,26 @@ const cityOnly = (s: string) => s.replace(/^.{2,3}?[都道府県](?=.)/, "");
 
 /**
  * 機械で確かめた事（birthShift・moved が書いた文）から、気づきを決まりで作る。形が読めない時は null。
- * today: 今日（YYYY-MM-DD・転入の届けの締切を数える）。partner: 文に入れてよいパートナーの名前（仕事の無い人は渡さない）
+ * today: 今日（YYYY-MM-DD・転入の届けの締切を数える）。partner: 文に入れてよいパートナーの名前（仕事の無い人は渡さない）。
+ * mother: 母の名前（育休の題と次にする事に入れる。パートナーが見ても、だれの育休かが分かるように＝UX 2026-11-05）
  */
-export function ruleAdvice(facts: string[], ctx: { today?: string; partner?: string } = {}): AdviceFields | null {
+export function ruleAdvice(facts: string[], ctx: { today?: string; partner?: string; mother?: string } = {}): AdviceFields | null {
   const lines = facts.map((x) => x.trim()).filter(Boolean);
   const find: Find = (re) => lines.map((l) => l.match(re)).find((m): m is RegExpMatchArray => m != null) ?? null;
   const leave = find(new RegExp(`^母の育休が始まる日は ${MD}（予定日で数えると ${MD}。(\\d+)日(早まる|遅くなる)）`));
-  if (leave) return birthRule(lines, find, leave, ctx.partner);
+  if (leave) return birthRule(lines, find, leave, ctx.partner, ctx.mother);
   const mv = find(new RegExp(`^${MD}に (.+?) から (.+?) へ引っ越した（その時: (.+?)）`));
   if (mv) return movedRule(find, mv, ctx.today);
   return null;
 }
 
 /** 予定日と違う日に生まれた: 育休の始まりの数え直しと、職場の上司あての文 */
-function birthRule(lines: string[], find: Find, leave: RegExpMatchArray, partner?: string): AdviceFields {
+function birthRule(lines: string[], find: Find, leave: RegExpMatchArray, partner?: string, mother?: string): AdviceFields {
   const [, start, startByDue, n, dir] = leave;
   const early = dir === "早まる";
   const born = find(new RegExp(`^予定日 ${MD}、生まれた日 ${MD}`));
   const post = find(new RegExp(`^産後休業.*?は ${MD} まで（予定日で数えると ${MD} だった）`));
-  const plan = [`職場に、育休の始まりを${start}に直すと伝える`];
+  const plan = [`${mother ? `${mother}の` : ""}職場に、育休の始まりを${start}に直すと伝える`];
   if (early && partner && lines.some((l) => l.startsWith("産後パパ育休・育休の始まりを予定日で申し出ていた時")))
     plan.push(`${partner}の育休を予定日で申し出ていたら、1回だけ早められる（職場に確かめる）`);
   // 数え直した期限のうち、一番近い物を1つ（職場の事は1つ目と重なるので外す）
@@ -258,8 +263,9 @@ function birthRule(lines: string[], find: Find, leave: RegExpMatchArray, partner
   const next = recount.filter((m) => !m[1].includes("職場")).sort((a, b) => Number(a[3]) - Number(b[3]))[0];
   if (next) plan.push(`${next[1].replace(/（.*?）/g, "")}: ${next[2]}まで${recount.length > 1 ? `（ほか${recount.length - 1}件も数え直し）` : ""}`);
   return {
-    title: `育休の始まりを${start}に数え直しました`,
-    why: `${RULE_MARK}産後休業は、生まれた日の翌日から8週間（労働基準法第65条）${post ? `で、${post[1]}まで` : ""}。その翌日の${start}から育休が始まります（予定日で数えると${startByDue}で、${n}日${early ? "早まります" : "遅くなります"}）。`,
+    // 題はカードの2行（24字ほど）に収める。名前が長い時は名前を省く
+    title: [`${mother}の育休の始まりを${start}に数え直しました`, `育休の始まりを${start}に数え直しました`].find((t) => !!mother && t.length <= 24) ?? `育休の始まりを${start}に数え直しました`,
+    why: `予定日より${n}日${early ? "早く" : "遅く"}生まれました。産後休業は、生まれた日の翌日から8週間（労働基準法第65条）${post ? `で、${post[1]}まで` : ""}。その翌日の${start}から育休が始まります（予定日で数えると${startByDue}で、${n}日${early ? "早まります" : "遅くなります"}）。${RULE_MARK}`,
     plan,
     message: {
       to: "職場の上司",
@@ -307,7 +313,7 @@ function movedRule(find: Find, mv: RegExpMatchArray, today?: string): AdviceFiel
       : null;
   return {
     title,
-    why: `${RULE_MARK}転入の届けは、引っ越した日から14日以内（住民基本台帳法第22条）。${pregnant ? "妊婦健診の券（受診票）は町ごとに出しているので、扱いを新しい町で確かめます。" : born ? "子どもの医療証と予防接種の予診票は町ごとに出しているので、新しい町で確かめます。" : ""}`,
+    why: `${movedOn}に${from}から引っ越しました。転入の届けは、引っ越した日から14日以内（住民基本台帳法第22条）。${pregnant ? "妊婦健診の券（受診票）は町ごとに出しているので、扱いを新しい町で確かめます。" : born ? "子どもの医療証と予防接種の予診票は町ごとに出しているので、新しい町で確かめます。" : ""}${RULE_MARK}`,
     plan,
     ...(ask
       ? {
