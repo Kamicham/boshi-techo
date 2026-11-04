@@ -206,6 +206,12 @@ export async function makeDraft(family: Family, m: MilestoneDef, today: string, 
           : ""
       : "",
     ...(known.length ? ["", "覚えている事:", ...known.map((k) => `- ${k}`)] : []),
+    ...(m.id === "pregnancy-support-2"
+      ? [
+          "",
+          `下書きの向き: 住む町（${family.city}）のこども家庭センター（母子保健の窓口）への問い合わせのメール。聞く事: 2回目の面談の予約の仕方・申請書の出し方（郵送・電子申請）・受け取り方・申請の期限${family.situation?.satogaeri ? "。里帰り中なので、面談を里帰り先かオンラインで受けられるかと、戻る前に済ませるべきかも聞く" : ""}。おなかの子の数: ${family.situation?.babies && family.situation.babies > 1 ? family.situation.babies : 1}人。額は書かない`,
+        ]
+      : []),
   ];
   if (local) {
     lines.push(

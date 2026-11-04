@@ -18,6 +18,7 @@ export const DRAFTABLE: Record<string, DraftKind> = {
   "tell-work": "メール",
   "partner-leave": "メール",
   "direct-payment": "記入メモ",
+  "pregnancy-support-2": "メール",
   "birth-registration": "記入メモ",
   "child-allowance": "記入メモ",
   "health-insurance": "記入メモ",
@@ -37,6 +38,12 @@ export const NOUN: Record<DraftKind, string> = {
   記入メモ: "書く事のメモ",
   質問リスト: "聞く事の一覧",
 };
+
+/** 下書きの呼び名（町の窓口あてのメールは「町への問い合わせ」） */
+export function nounFor(kind: DraftKind, m: { kind: string }): string {
+  if (kind === "メール" && m.kind !== "仕事") return "町への問い合わせ";
+  return NOUN[kind] ?? "下書き";
+}
 
 type Open = "local" | "draft" | null;
 
@@ -151,7 +158,7 @@ function Actions({ milestone, today, primary, compact, onDoneChange }: Props) {
 
   const draft = view?.draft ?? null;
   // 前の版で作った下書き（今は無い種類）は「下書き」と呼ぶ
-  const noun = NOUN[draft?.kind ?? DRAFTABLE[milestone.id] ?? "記入メモ"] ?? "下書き";
+  const noun = nounFor(draft?.kind ?? DRAFTABLE[milestone.id] ?? "記入メモ", milestone);
   const draftLabel =
     open === "draft" ? `${noun}を閉じる` : draft ? (draft.status === "ok" ? `${noun}を見る（✓ ${doneWord(draft.kind)}）` : `${noun}を見る`) : `${noun}を作る`;
   const localLabel = open === "local" ? "行き先を閉じる" : "どこへ行くか見る";

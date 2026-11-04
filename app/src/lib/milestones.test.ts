@@ -210,3 +210,27 @@ describe("授かる前", () => {
     expect(scheduleFor({ dueDate: due }).some((m) => m.awaitingPregnancy)).toBe(false);
   });
 });
+
+describe("妊婦のための支援給付の2回目（第1波③）", () => {
+  const find = (s: ReturnType<typeof scheduleFor>) => s.find((m) => m.id === "pregnancy-support-2")!;
+  it("予定日の8週前から、2年の期限で出る", () => {
+    const m = find(scheduleFor({ dueDate: "2027-06-10", members: both }));
+    expect(m.startDate).toBe("2027-04-15");
+    expect(m.deadlineDate! > "2029-04-01" && m.deadlineDate! < "2029-04-20").toBe(true);
+    expect(deadlineKindOf(m)).toBe("期限");
+  });
+  it("双子はおなかの子の数が付き、1人の家族には付かない", () => {
+    expect(find(scheduleFor({ dueDate: "2027-06-10", situation: { babies: 2 }, members: both })).plain).toContain("2人分");
+    expect(find(scheduleFor({ dueDate: "2027-06-10", members: both })).plain).not.toContain("人分");
+  });
+  it("8週前より早く生まれたら、生まれた日から今やる", () => {
+    const s = scheduleFor({ dueDate: "2027-06-10", birthDate: "2027-03-20", members: both }, "2027-03-25");
+    const m = find(s);
+    expect(m.startDate).toBe("2027-03-20");
+    expect(statusOf(m, "2027-03-25", new Set())).toBe("今やる");
+  });
+  it("生まれた後も「過ぎた」にならない（妊娠中だけの事ではない）", () => {
+    const s = scheduleFor({ dueDate: "2027-06-10", birthDate: "2027-06-08", members: both }, "2027-07-01");
+    expect(statusOf(find(s), "2027-07-01", new Set())).toBe("今やる");
+  });
+});

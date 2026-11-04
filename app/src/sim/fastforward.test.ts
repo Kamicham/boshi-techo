@@ -60,6 +60,7 @@ const RULES = {
   f: "参謀のきっかけが起きるべき日に起き、起きるべきでない日に起きない",
   g: "今やる事が0の日も「次に来る事」が見つかる（予定表の最後の事を過ぎた後を除く。1歳半健診の後は2歳まで何も無い）",
   h: "家族に合わない項目が出ない（仕事のない母・パートナーに職場の事・パートナーのいない家族にパートナーの事・育休を取らないパートナーに育休の事）",
+  i: "妊娠中、予定日の8週前を過ぎたら、支援給付の2回目が今やる（か済み）に出る（第1波③）",
 } as const;
 type Rule = keyof typeof RULES;
 const RULE_IDS = Object.keys(RULES) as Rule[];
@@ -336,6 +337,12 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
     for (const t of nowTasks) {
       if (isBorn && PREG_ONLY.has(t.id)) push("e", `after:${t.id}`, `生まれた後に「${t.plain}」が${t.status}`);
       if (!isBorn && t.anchor === "birth") push("e", `before:${t.id}`, `まだ生まれていないのに「${t.plain}」が${t.status}`);
+    }
+    // i: 支援給付の2回目（予定日の8週前から。済んでいなければ今やるか期限の近い事として出る）
+    if (!isBorn && diffDays(f.dueDate, day) <= 56) {
+      const t2 = tasks.find((t) => t.id === "pregnancy-support-2");
+      if (!t2) push("i", "missing", "予定日の8週前を過ぎたのに、支援給付の2回目が予定に無い");
+      else if (t2.status === "まだ先" && !t2.awaitingPregnancy) push("i", "late", `予定日の8週前を過ぎたのに、支援給付の2回目が「まだ先」`);
     }
     // f: 参謀のきっかけ
     const trig = detectTriggers({ family: fv, today: day, done: new Set(done), isDemo: false });

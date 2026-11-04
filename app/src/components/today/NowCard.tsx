@@ -8,7 +8,7 @@ import { useEffect, useState } from "react";
 import type { LocalInfo } from "@/lib/local";
 import type { DraftView } from "@/lib/drafts";
 import { api, useFamily } from "../FamilyProvider";
-import { DRAFTABLE, NOUN } from "../MilestoneActions";
+import { DRAFTABLE, nounFor } from "../MilestoneActions";
 import { TopTask, type ShownTask } from "./TaskCard";
 import type { Family, Member } from "@/lib/demo-family";
 import type { Keep } from "@/lib/keep";
@@ -86,7 +86,7 @@ export function NowCard(p: {
     if (localState === "ok" && local?.bring?.length) lines.push({ key: "bring", state: "ok", text: `持ち物 ${local.bring.length}つ: ${local.bring.slice(0, 3).join("・")}${local.bring.length > 3 ? " ほか" : ""}` });
   }
   if (canDraft && draftState !== "fail") {
-    const noun = NOUN[draft?.kind ?? DRAFTABLE[t.id]];
+    const noun = nounFor(draft?.kind ?? DRAFTABLE[t.id], t);
     lines.push({
       key: "draft",
       state: draftState,
@@ -97,7 +97,7 @@ export function NowCard(p: {
   // 用意がすべてつまずいた時も、黙って「次にやる事」に戻さず、手帳が作れる事を1つのボタンで出す（最初の1分 2026-11-04）
   const failed = preps && !busy && lines.length === 0 && (localState === "fail" || draftState === "fail");
   const eyebrow = !preps ? undefined : busy ? "手帳が用意しています" : lines.some((l) => l.state === "ok") ? "手帳が用意しておいた事" : failed ? "手帳が用意できます" : undefined;
-  const failNoun = canDraft ? NOUN[DRAFTABLE[t.id]] : `${family.city}の窓口と持ち物`;
+  const failNoun = canDraft ? nounFor(DRAFTABLE[t.id], t) : `${family.city}の窓口と持ち物`;
 
   return (
     <TopTask {...p} key={ver} eyebrowOverride={eyebrow}>

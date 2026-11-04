@@ -108,7 +108,7 @@ const DAYCARE_BASIS = "子ども・子育て支援法第19条・第20条（保�
 
 export const MILESTONES: MilestoneDef[] = [
   // ── 妊娠中 ──
-  { id: "pregnancy-report", title: "妊娠の届出と母子健康手帳の受け取り", plain: "役所に妊娠を届ける", hint: "母子手帳と、健診の補助券がもらえます", kind: "手続き", who: "母", anchor: "lmp", start: w(6), deadline: w(11), deadlineKind: "目安", basis: "母子保健法第15条（期限の定めはなく、11週までが目安）", needsLocal: true, pregnancyOnly: true },
+  { id: "pregnancy-report", title: "妊娠の届出と母子健康手帳の受け取り", plain: "役所に妊娠を届ける", hint: "母子手帳と健診の補助券。面談で支援給付の1回目も", kind: "手続き", who: "母", anchor: "lmp", start: w(6), deadline: w(11), deadlineKind: "目安", basis: "母子保健法第15条（期限の定めはなく、11週までが目安）。届けの時の面談で、妊婦のための支援給付の1回目（妊婦1人に5万円の目安）を申請できる（子ども・子育て支援法の改正・2025年4月から。心拍が確かめられた後。申請の期限は町ごと＝2年が多い。受け取り方は町で確かめる）", needsLocal: true, pregnancyOnly: true },
   { id: "satogaeri-hospital", title: "里帰り先の産院に、お産の予約をする", plain: "里帰り先の産院を予約する", hint: "早めに。多くの産院は妊娠中期までに予約が要ります", kind: "準備", who: "母", anchor: "lmp", start: w(8), deadline: w(20), deadlineKind: "目安", basis: "目安（予約の締め切りと、何週までに帰るかは産院ごとに違う。里帰り先の産院に確かめる）", needsLocal: false, pregnancyOnly: true, only: ["satogaeri"] },
   { id: "tell-work", title: "職場に妊娠を伝え、産休・育休の段取りを相談する", plain: "職場に妊娠を伝える", hint: "産休・育休の段取りを一緒に決めます", kind: "仕事", who: "母", anchor: "lmp", start: w(14), deadline: w(20), deadlineKind: "目安", basis: "目安（安定期のころ）", needsLocal: false, pregnancyOnly: true, only: ["mother-employed"] },
   { id: "mother-quit-date", title: "退職の日を職場と決める（産休を取ってからか・出産手当金を受け取れるかも確かめる）", plain: "退職の日を職場と決める", hint: "産休の前か後かで、受け取れるお金が変わります", kind: "仕事", who: "母", anchor: "lmp", start: w(14), deadline: w(28), deadlineKind: "目安", basis: "労働基準法第65条（産前産後休業）・健康保険法第104条（辞めた後も出産手当金を受け取れる条件がある）。条件は入っている健康保険で確かめる", needsLocal: false, pregnancyOnly: true, only: ["mother-quits"] },
@@ -117,6 +117,7 @@ export const MILESTONES: MilestoneDef[] = [
   { id: "kokuho-maternity-exempt", title: "国民健康保険の産前産後期間の保険料の減額（免除）を届け出る", plain: "国保の産前産後の減額を届ける", hint: "国保に入っている人。予定日の6か月前から", kind: "手続き", who: "母", anchor: "due", start: { months: -6 }, deadline: { days: 0 }, deadlineKind: "目安", basis: "国民健康保険法施行令の改正（2024年1月から。予定月の前月から4か月分、双子などは3か月前から6か月分の所得割・均等割が減る（0円になるとは限らない）。予定日の6か月前から届けられ、生まれた後でも届けられる。窓口は役所の国保の係）", needsLocal: true, only: ["mother-kokuho"] },
   { id: "older-child-care", title: "出産の入院中、上の子を見てもらう先を決める（一時保育・ファミリー・サポート・祖父母）", plain: "入院中の上の子の預け先を決める", hint: "一時保育やファミサポは、前もって登録が要ります", kind: "準備", who: "家族", anchor: "lmp", start: w(24), deadline: w(34), deadlineKind: "目安", basis: "一時預かり事業（児童福祉法第6条の3第7項）・ファミリー・サポート・センター（子ども・子育て支援法第59条の子育て援助活動支援事業）・ショートステイ（子育て短期支援事業）。使える物と登録の仕方は町ごとに違う", needsLocal: true, pregnancyOnly: true, only: ["older-children"] },
   { id: "satogaeri-visit", title: "赤ちゃん訪問を里帰り先で受けたい事を、住む町に伝える", plain: "里帰り先での訪問を頼む", hint: "住む町から、里帰り先の町へ頼んでもらえます", kind: "手続き", who: "母", anchor: "lmp", start: w(28), deadline: w(34), deadlineKind: "目安", basis: "新生児訪問（母子保健法第11条）・乳児家庭全戸訪問（児童福祉法第6条の3第4項）。里帰り先での訪問は、住む町が里帰り先の町に頼む形が多い。できるかと頼み方は住む町に確かめる", needsLocal: true, only: ["satogaeri"] },
+  { id: "pregnancy-support-2", title: "妊婦のための支援給付の2回目を申請する（町の面談を受けて、おなかの子の数を届ける）", plain: "支援給付の2回目を申請する", hint: "予定日の8週前から。1人5万円の目安（町で確かめる）", kind: "手続き", who: "母", anchor: "due", start: { days: -56 }, deadline: { months: 24, days: -57 }, deadlineKind: "期限", basis: "子ども・子育て支援法の改正（妊婦のための支援給付・2025年4月から）。2回目は出産予定日の8週前の日から申請でき、おなかの子1人につき5万円の目安。町の面談（妊婦等包括相談支援）を受けてから申請する町が多い。申請の期限は8週前の日から2年（秋田市・広島市などの案内で確かめた・2026年）。面談の予約・受け取り方は町で確かめる。流産・死産でも対象", needsLocal: true },
   { id: "direct-payment", title: "出産育児一時金の直接支払制度の書類を産院で出す", plain: "出産のお金の書類を産院に出す", hint: "退院の時に大きなお金を払わずにすみます", kind: "手続き", who: "母", anchor: "lmp", start: w(30), deadline: w(36), deadlineKind: "目安", basis: "健康保険法（出産育児一時金。金額と手続きは制度が変わる事があるので、そのつど公式の情報で確かめる）", needsLocal: true, pregnancyOnly: true },
   { id: "maternity-leave", title: "産前休業が始められる（予定日の6週前）", plain: "産休に入れる", hint: "予定日の6週前から休めます", kind: "仕事", who: "母", anchor: "lmp", start: { days: 280 - 42 }, basis: "労働基準法第65条", needsLocal: false, pregnancyOnly: true, only: ["mother-employed"] },
   { id: "mother-insurance-switch", title: "退職したら、母の健康保険を切り替える（家族の扶養・国民健康保険・任意継続のどれか）", plain: "母の健康保険を切り替える", hint: "辞めた次の日から。国保なら14日以内に届けます", kind: "手続き", who: "母", anchor: "lmp", start: w(34), deadline: { days: 280 + 70 }, deadlineKind: "目安", basis: "国民健康保険法第9条・同法施行規則第3条（国保は入った日から14日以内に届ける）・健康保険法施行規則第38条（家族の扶養は家族の勤め先へ）・健康保険法第37条（任意継続は辞めた次の日から20日以内）。辞める日で期限が変わるので、日は目安", needsLocal: true, only: ["mother-quits"] },
@@ -259,6 +260,14 @@ function adjust(m: MilestoneDef, f: ScheduleInput): MilestoneDef {
   if (out.id === "daycare-research" && applies("daycare", f)) {
     out = { ...out, hint: "申し込みの前に。時期と締切は町ごとに違います", dates: (b) => daycarePlan(b).research, basis: DAYCARE_BASIS };
   }
+  // 双子など: 支援給付の2回目は、おなかの子の数だけ（1人5万円の目安）
+  if (n >= 2 && out.id === "pregnancy-support-2") {
+    out = { ...out, title: `${out.title}（おなかの子${n}人分）`, plain: `${out.plain}（${n}人分）`, hint: `予定日の8週前から。${n}人分（1人5万円の目安）` };
+  }
+  // 里帰り出産: 2回目の面談を里帰り先やオンラインで受けられるかは、住む町に聞く
+  if (s?.satogaeri && out.id === "pregnancy-support-2") {
+    out = { ...out, hint: "予定日の8週前から。里帰り中の受け方は町に聞く" };
+  }
   // 里帰り出産: 出生届は生まれた所の役所でも出せる
   if (s?.satogaeri && out.id === "birth-registration") {
     out = { ...out, hint: "14日以内。里帰り先の役所でも出せます", basis: `${out.basis}・戸籍法第51条（生まれた所の役所でも出せる）` };
@@ -285,9 +294,11 @@ export function scheduleFor(input: ScheduleInput, today?: string): Milestone[] {
       const m = adjust(def, f);
       const base = m.anchor === "lmp" ? lmp : m.anchor === "due" ? f.dueDate : birth;
       const fixed = m.dates?.(base);
+      const start = fixed ? fixed.start : resolve(base, m.start);
       return {
         ...m,
-        startDate: fixed ? fixed.start : resolve(base, m.start),
+        // 予定日から数える事は、それより早く生まれたら生まれた日から（28週で生まれた家族で、支援給付の2回目がずっと「まだ先」にならないように）
+        startDate: m.anchor === "due" && f.birthDate && f.birthDate < start ? f.birthDate : start,
         deadlineDate: fixed ? fixed.deadline : m.deadline ? resolve(base, m.deadline) : undefined,
         ...(trying ? { awaitingPregnancy: true } : {}),
         ...(m.anchor === "birth" && !f.birthDate ? { awaitingBirth: true } : {}),
