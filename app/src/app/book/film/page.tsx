@@ -2,6 +2,7 @@
 
 // 映画: 一冊を作る時に Claude が書いた台本（book.film）を、写真と家族の声で流す。
 // 写真はゆっくり寄り・字幕・重ねて切り替え。声のある写真では、その声を流し、音楽を小さくする。
+// 終わりの前に、開く日を過ぎた声の手紙を流す（封の間の手紙は出さない。手紙の文字は映画に出さない）。
 // 音楽は端末の中で鳴らす自作のオルゴール（Web Audio。外の曲・管理曲は使わない）。写真も声も外に送らない。
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -11,7 +12,7 @@ import { voiceUrl } from "@/components/album/VoiceItem";
 import type { Book } from "@/lib/book";
 import type { ClientMedia } from "@/lib/media-shared";
 import { MusicBox } from "./music";
-import { dayLine, filmShots, firstSentences, type Shot as FilmShot } from "@/lib/film-plan";
+import { dayLine, filmShots, firstSentences, letterLine, type FilmLetter, type Shot as FilmShot } from "@/lib/film-plan";
 
 type Shot = FilmShot<ClientMedia>;
 
@@ -21,17 +22,22 @@ export default function FilmPage() {
   const [error, setError] = useState("");
   const { media: photos, loading: lp } = useMedia();
   const { media: voices, loading: lv } = useMedia({ kind: "audio" });
+  const [letters, setLetters] = useState<FilmLetter[] | null>(null);
 
   useEffect(() => {
     api<{ book: Book | null }>(`/api/book?familyId=${encodeURIComponent(family.id)}&today=${today}`)
       .then((r) => setBook(r.book))
       .catch((e: Error) => setError(e.message));
+    // 開いた声の手紙（読めなくても映画は流す）
+    api<{ letters: FilmLetter[] }>(`/api/letters?familyId=${encodeURIComponent(family.id)}&today=${today}`)
+      .then((r) => setLetters(r.letters.filter((l) => l.opened && l.voiceSec !== undefined)))
+      .catch(() => setLetters([]));
   }, [family.id, today]);
 
-  const shots = useMemo<Shot[]>(() => (book ? filmShots(book.film, [...photos, ...voices]) : []), [book, photos, voices]);
+  const shots = useMemo<Shot[]>(() => (book ? filmShots(book.film, [...photos, ...voices], letters ?? []) : []), [book, photos, voices, letters]);
 
   if (error) return <Frame><p className="text-paper">{error}</p></Frame>;
-  if (!book || lp || lv) return <Frame><p className="text-paper/70">映画を用意しています…</p></Frame>;
+  if (!book || lp || lv || !letters) return <Frame><p className="text-paper/70">映画を用意しています…</p></Frame>;
   if (!shots.length)
     return (
       <Frame>
@@ -46,7 +52,13 @@ function Frame({ children }: { children: React.ReactNode }) {
   return <main className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-ink px-6 text-center">{children}</main>;
 }
 
+/** 声の取り出し口（アルバムの声と、開いた手紙の声） */
+function voiceKey(s: Shot): string | null {
+  return s.kind === "photo" && s.voice ? s.voice.id : s.kind === "letter" ? `letter:${s.letter.id}` : null;
+}
+
 function Player({ book, shots }: { book: Book; shots: Shot[] }) {
+  const { family, today } = useFamily();
   const [i, setI] = useState(-1); // -1 = 始める前
   const [paused, setPaused] = useState(false);
   const music = useRef<MusicBox | null>(null);
@@ -55,19 +67,32 @@ function Player({ book, shots }: { book: Book; shots: Shot[] }) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const total = useMemo(() => shots.reduce((n, s) => n + s.sec, 0), [shots]);
 
+  const load = useCallback(
+    async (s: Shot): Promise<string | null> => {
+      if (s.kind === "photo" && s.voice) return voiceUrl(s.voice);
+      if (s.kind === "letter") {
+        const r = await fetch(`/api/letters/${encodeURIComponent(s.letter.id)}/voice?familyId=${encodeURIComponent(family.id)}&today=${today}`);
+        return r.ok ? URL.createObjectURL(await r.blob()) : null;
+      }
+      return null;
+    },
+    [family.id, today],
+  );
   // 声は先に読んでおく（切り替えの時に待たない）
   useEffect(() => {
     const map = urls.current;
-    for (const s of shots)
-      if (s.kind === "photo" && s.voice && !map.has(s.voice.id))
-        voiceUrl(s.voice)
-          .then((u) => map.set(s.voice!.id, u))
+    for (const s of shots) {
+      const k = voiceKey(s);
+      if (k && !map.has(k))
+        load(s)
+          .then((u) => u && map.set(k, u))
           .catch(() => {});
+    }
     return () => {
       for (const u of map.values()) URL.revokeObjectURL(u);
       map.clear();
     };
-  }, [shots]);
+  }, [shots, load]);
   useEffect(
     () => () => {
       music.current?.stop();
@@ -80,13 +105,15 @@ function Player({ book, shots }: { book: Book; shots: Shot[] }) {
   const playVoice = useCallback(async (s: Shot) => {
     audio.current?.pause();
     audio.current = null;
-    if (s.kind !== "photo" || !s.voice) {
+    const k = voiceKey(s);
+    if (!k) {
       music.current?.duck(false);
       return;
     }
     try {
-      const u = urls.current.get(s.voice.id) ?? (await voiceUrl(s.voice));
-      urls.current.set(s.voice.id, u);
+      const u = urls.current.get(k) ?? (await load(s));
+      if (!u) return music.current?.duck(false);
+      urls.current.set(k, u);
       const a = new Audio(u);
       a.onended = () => music.current?.duck(false);
       audio.current = a;
@@ -96,7 +123,7 @@ function Player({ book, shots }: { book: Book; shots: Shot[] }) {
     } catch {
       music.current?.duck(false);
     }
-  }, []);
+  }, [load]);
 
   useEffect(() => {
     if (i < 0 || paused) return;
@@ -164,6 +191,18 @@ function Player({ book, shots }: { book: Book; shots: Shot[] }) {
           <p className="font-display text-2xl font-bold leading-snug drop-shadow-[0_1px_8px_rgba(0,0,0,0.6)]">{cur.caption}</p>
           <p className="tabular text-sm opacity-80">{dayLine(cur.photo.date)}</p>
           {cur.voice && <p className="mt-1 rounded-full bg-black/40 px-3 py-1 text-xs">♪ {cur.voice.title}</p>}
+        </div>
+      )}
+
+      {cur?.kind === "letter" && (
+        <div key={`letter${i}`} className="film-cap absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#1f1812] px-8 text-center">
+          <span aria-hidden className="text-5xl opacity-80">✉</span>
+          <p className="text-xs tracking-[0.5em] opacity-70">未 来 の 手 紙</p>
+          <p className="font-display text-3xl font-bold">
+            {cur.letter.from}から {cur.letter.to}へ
+          </p>
+          <p className="tabular text-sm opacity-85 [text-wrap:balance]">{letterLine(cur.letter)}</p>
+          <p className="mt-2 rounded-full bg-black/40 px-3 py-1 text-xs">♪ 声の手紙</p>
         </div>
       )}
 

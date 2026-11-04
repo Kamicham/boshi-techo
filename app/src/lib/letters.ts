@@ -214,6 +214,11 @@ export async function removeLetter(ctx: HouseholdCtx, id: string, by?: string | 
   audit(ctx.household.id, ctx.account?.id ?? null, "letter.remove", { target: id });
 }
 
+/** 映画に入れる手紙: 開く日を過ぎて、声のある物だけ（中身の文字は渡さない） */
+export function openedVoiceLetters(ctx: HouseholdCtx, asked?: string | null): ClientLetter[] {
+  return listLetters(ctx, asked).filter((l) => l.opened && l.voiceSec !== undefined);
+}
+
 /** 一冊に載せる事（中身は渡さない）: 通数と、いちばん早く開く日 */
 export function letterSummary(ctx: HouseholdCtx, asked?: string | null): { sealed: number; opened: number; next: string | null } {
   const xs = listLetters(ctx, asked);
