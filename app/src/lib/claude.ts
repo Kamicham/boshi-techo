@@ -38,8 +38,12 @@ const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 
 let client: Anthropic | null = null;
 export function claude(): Anthropic {
-  // 鍵が無い時は、英語の SDK の誤りでなく、何をすればよいかを日本語で返す（配布した人が最初に当たる所）
-  if (!process.env.ANTHROPIC_API_KEY) throw new HttpError(503, "Claude の鍵がありません。app/.env.local に ANTHROPIC_API_KEY を入れて、サーバを起動し直してください（鍵は Claude Console で作れます）");
+  // 鍵が無い時: 画面には使う人の言葉で、何ができて何ができないかを返す（UX 2026-11-04: 家族に「app/.env.local に…」と作り手向けの文が出ていた）。
+  // 作り手（配布した人）向けの直し方は、サーバの記録に出す
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error("[claude] 鍵がありません。app/.env.local に ANTHROPIC_API_KEY を入れて、サーバを起動し直してください（鍵は Claude Console で作れます）");
+    throw new HttpError(503, "いまは手帳の中の AI（Claude）につながらないため、文字にまとめる・答えを作る事ができません。手で入れる・見る・書き出す・予定表は、そのまま使えます。");
+  }
   client ??= new Anthropic();
   return client;
 }

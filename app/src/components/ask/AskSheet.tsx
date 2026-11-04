@@ -13,6 +13,7 @@ import { api, useFamily } from "../FamilyProvider";
 import { MilestoneActions } from "../MilestoneActions";
 import { pickAudioType } from "../capture/media";
 import { Btn, CopyField, HandoffRow, Why } from "../ui";
+import { askConsentWaitKey, isClaudeConsentError, readConsentState, type ClaudeConsentState } from "@/lib/claude-consent-flow";
 
 /** 窓を開いた時の、最初の問いの例（今いる画面と、子の時期に合わせる。1歳の子に「出生届」を出さない） */
 function starters(path: string, pregnant: boolean, ageDays: number): string[] {
@@ -31,6 +32,15 @@ const POLL_MS = 4000;
 
 export function AskButton({ hidden }: { hidden?: boolean }) {
   const [open, setOpen] = useState(false);
+  const { family } = useFamily();
+  const here = usePathname();
+  // 同意の画面から戻った時は、窓を開き直して、答えの付かなかった問いを続ける（AskSheet が控えを読んで送る）。同意の画面の上では開かない
+  useEffect(() => {
+    if (here.startsWith("/account")) return;
+    try {
+      if (sessionStorage.getItem(askConsentWaitKey(family.id))) setOpen(true);
+    } catch {}
+  }, [family.id, here]);
   // 一覧の行の右端（日付・医療機関の文字）に重ならないよう、スクロールしている間は消し、止まって少ししたら出す。
   // 下へ読み進めている間は丸いアイコンだけに縮める（なりきりで「聞く」が行の日付に重なると繰り返し指摘された）
   const [scrolling, setScrolling] = useState(false);
@@ -83,6 +93,19 @@ function AskSheet({ onClose }: { onClose: () => void }) {
 
   // 作っている途中の問い（窓を閉じた後・二度押しの後）。答えができるまで GET で待つ
   const [waiting, setWaiting] = useState<ChatTurn | null>(null);
+  // 米国の Claude に送る同意（まだの時は、予定表で答えられる問いだけ答え、ほかは先に同意を案内する。UX 2026-11-04）
+  const [consent, setConsent] = useState<ClaudeConsentState>(null);
+  const [consentRead, setConsentRead] = useState(false);
+  useEffect(() => {
+    let off = false;
+    api<unknown>(`/api/account/consent?familyId=${encodeURIComponent(family.id)}`)
+      .then((j) => !off && setConsent(readConsentState(j)))
+      .catch(() => !off && setConsent(null))
+      .finally(() => !off && setConsentRead(true));
+    return () => {
+      off = true;
+    };
+  }, [family.id]);
   useEffect(() => {
     let alive = true;
     setTurns(null);
@@ -197,6 +220,20 @@ function AskSheet({ onClose }: { onClose: () => void }) {
     [family.id, today, path, me, sending, waiting],
   );
 
+  // 同意の画面から戻った時: 同意が済んでいれば、答えの付かなかった最後の問いを1回だけ聞き直す
+  const resumed = useRef(false);
+  useEffect(() => {
+    if (resumed.current || !consentRead || turns === null) return;
+    resumed.current = true;
+    let q: string | null = null;
+    try {
+      q = sessionStorage.getItem(askConsentWaitKey(family.id));
+      sessionStorage.removeItem(askConsentWaitKey(family.id));
+    } catch {}
+    const last = turns[turns.length - 1];
+    if (q && consent === "ok" && last?.role === "user" && last.text === q) void send(q, true);
+  }, [consentRead, turns, consent, family.id, send]);
+
   const restart = async () => {
     if (sending) return;
     try {
@@ -221,6 +258,8 @@ function AskSheet({ onClose }: { onClose: () => void }) {
   const recentFrom = (turns ?? []).findIndex((t) => !t.today || Date.parse(today) - Date.parse(t.today) <= 30 * 86_400_000);
   const oldTurns = turns && recentFrom > 0 ? turns.slice(0, recentFrom) : turns && recentFrom < 0 ? turns : [];
   const newTurns = turns ? turns.slice(oldTurns.length) : [];
+  const lastAsk = newTurns.length > 0 && newTurns[newTurns.length - 1].role === "user" ? newTurns[newTurns.length - 1] : null;
+  const consentBlocked = isClaudeConsentError(error) || (!error && consent === "needed");
   const renderTurn = (t: ChatTurn, i: number) =>
     t.role === "user" ? <UserBubble key={t.at + i} turn={t} /> : <Answer key={t.at + i} turn={t} onNavigate={onClose} onUsed={markUsed} />;
   return (
@@ -230,7 +269,7 @@ function AskSheet({ onClose }: { onClose: () => void }) {
         <header className="flex items-center justify-between gap-2 border-b border-line px-4 py-2">
           <div className="min-w-0">
             <h2 className="font-display text-lg font-bold">手帳に聞く</h2>
-            <p className="truncate text-xs text-muted">{isDemo ? "デモ（作った家族）の手帳" : "わが家の手帳"}・手続き・予定・使い方に答えて動きます</p>
+            <p className="truncate text-xs text-muted">{isDemo ? "見本の家族の手帳" : "あなたの手帳"}・手続き・予定・使い方に答えて動きます</p>
           </div>
           <div className="flex shrink-0 items-center">
             {turns && turns.length > 0 && (
@@ -249,6 +288,9 @@ function AskSheet({ onClose }: { onClose: () => void }) {
           {turns && turns.length === 0 && !waiting && (
             <div className="flex flex-col gap-3">
               <p className="text-base">この家族の予定と手帳を見て答えます。窓口調べ・下書き・画面の案内まで、そのままできます。</p>
+              {consent === "needed" && (
+                <p className="text-sm text-muted">次にやる事・健診と予防接種の日など、予定表で分かる事はすぐ答えます。ほかの問いは、米国の Claude に送る同意の後に答えます。</p>
+              )}
               <p className="rounded-xl bg-sky-soft px-3 py-2 text-sm">体や心のこと、授乳や離乳食の量は、判断しません。日付つきで記録し、健診で聞く事と連絡先につなぎます。急ぐ時は赤い「急ぎの時」・119・#8000。</p>
               <ul className="flex flex-wrap gap-2">
                 {starters(path, pregnant, ageDays).map((s) => (
@@ -270,7 +312,24 @@ function AskSheet({ onClose }: { onClose: () => void }) {
           {newTurns.map(renderTurn)}
           {/* 答えの付かなかった問い（前に失敗した・止まった）。聞き直せるようにする */}
           {/* 失敗の文は1つにまとめ、体の事で困った時の先（急ぎの時・#8000）をいつも添える（第31回: 答えが出ないまま、頼れる先が1つも無かった） */}
-          {!sending && !waiting && !status && newTurns.length > 0 && newTurns[newTurns.length - 1].role === "user" && (
+          {/* 同意がまだで答えられなかった問い: 赤い失敗や「急ぎの時」は出さず、同意の案内だけ。戻ったら続けて答える */}
+          {!sending && !waiting && !status && lastAsk && consentBlocked && (
+            <div className="self-stretch">
+              <ClaudeConsentLink
+                need
+                back={path}
+                lead={<>この問いに答えるには、<b>米国の Claude に送る同意</b>が要ります（送るのは問いの文字だけです）。同意の後に、続けて答えます。</>}
+                onGo={() => {
+                  try {
+                    sessionStorage.setItem(askConsentWaitKey(family.id), lastAsk.text);
+                  } catch {}
+                  // 同意の画面の上に窓を残さない（戻ったら AskButton が開き直す）
+                  onClose();
+                }}
+              />
+            </div>
+          )}
+          {!sending && !waiting && !status && lastAsk && !consentBlocked && (
             <div className="flex flex-col items-start gap-2 self-start">
               <p className="text-sm text-muted">{error || "この問いには、答えを作れませんでした。"}</p>
               <Btn kind="secondary" onClick={() => void send(newTurns[newTurns.length - 1].text, true)}>
@@ -300,7 +359,7 @@ function AskSheet({ onClose }: { onClose: () => void }) {
             </p>
           )}
           {error && !(newTurns.length > 0 && newTurns[newTurns.length - 1].role === "user") && <p className="rounded-xl bg-alert/10 px-3 py-2 text-base text-alert">{error}</p>}
-          <ClaudeConsentLink error={error} back="/" />
+          {!lastAsk && <ClaudeConsentLink error={error} back={path} />}
         </div>
 
         <form

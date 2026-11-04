@@ -35,3 +35,6 @@ export function afterConsentReturn(p: { draft: string | null; waiting: boolean; 
 
 /** 同意を待っている印の置き場（sessionStorage。この端末のこのタブだけ） */
 export const consentWaitKey = (familyId: string) => `boshi.captureConsentWait:${familyId}`;
+
+/** 手帳に聞く: 同意の画面へ移る前に、答えの付かなかった問いを控える置き場（戻ったら窓を開き直して聞き直す） */
+export const askConsentWaitKey = (familyId: string) => `boshi.askConsentWait:${familyId}`;
