@@ -532,22 +532,32 @@ export function periodOfDate(birthDate: string | undefined, date: string): Perio
 export interface PhotoMilestone {
   id: string;
   label: string;
-  /** 今日の画面の一言（「今日は生後100日です」） */
-  say: string;
+  /** その日に言う一言（「今日はお七夜です」）。「今日は」と言うのはその日だけ */
+  today: string;
+  /** 前後の日に言う一言（「お七夜のころです」） */
+  around: string;
+  /** 数え方の添え書き（上の帯の「生後6日」などと食い違って見えないように） */
+  note?: string;
   at: (birth: string) => string;
   /** 写真を結ぶ幅（at からの日数） */
   win: [number, number];
 }
 
+// お七夜・お食い初めは、生まれた日を1日目として数える（7日目・100日目）。上の帯は生まれた日を0日目とする「生後◯日」なので、添え書きで数え方を言う
 export const PHOTO_MILESTONES: readonly PhotoMilestone[] = [
-  { id: "oshichiya", label: "お七夜", say: "今日は生後7日です", at: (b) => addDays(b, 6), win: [0, 3] },
-  { id: "omiyamairi", label: "お宮参り", say: "生後1か月のころです", at: (b) => addDays(b, 30), win: [-3, 14] },
-  { id: "okuizome", label: "お食い初め", say: "今日は生後100日です", at: (b) => addDays(b, 99), win: [-5, 14] },
-  { id: "half", label: "ハーフバースデー", say: "今日で生後6か月です", at: (b) => addMonths(b, 6), win: [-3, 14] },
-  { id: "first-birthday", label: "1歳の誕生日", say: "今日は1歳の誕生日です", at: (b) => addMonths(b, 12), win: [-3, 14] },
-  { id: "18m", label: "1歳6か月", say: "今日で1歳6か月です", at: (b) => addMonths(b, 18), win: [-3, 14] },
-  { id: "second-birthday", label: "2歳の誕生日", say: "今日は2歳の誕生日です", at: (b) => addMonths(b, 24), win: [-3, 14] },
+  { id: "oshichiya", label: "お七夜", today: "今日はお七夜です", around: "お七夜のころです", note: "生まれた日から数えて7日目", at: (b) => addDays(b, 6), win: [0, 3] },
+  { id: "omiyamairi", label: "お宮参り", today: "お宮参りのころです", around: "お宮参りのころです", note: "生後1か月ごろ。日取りは家族や地域で決めます", at: (b) => addDays(b, 30), win: [-3, 14] },
+  { id: "okuizome", label: "お食い初め", today: "今日はお食い初めの日です", around: "お食い初めのころです", note: "生まれた日から数えて100日目", at: (b) => addDays(b, 99), win: [-5, 14] },
+  { id: "half", label: "ハーフバースデー", today: "今日でハーフバースデーです", around: "ハーフバースデーのころです", note: "生後6か月", at: (b) => addMonths(b, 6), win: [-3, 14] },
+  { id: "first-birthday", label: "1歳の誕生日", today: "今日は1歳の誕生日です", around: "1歳の誕生日のころです", at: (b) => addMonths(b, 12), win: [-3, 14] },
+  { id: "18m", label: "1歳6か月", today: "今日で1歳6か月です", around: "1歳6か月のころです", at: (b) => addMonths(b, 18), win: [-3, 14] },
+  { id: "second-birthday", label: "2歳の誕生日", today: "今日は2歳の誕生日です", around: "2歳の誕生日のころです", at: (b) => addMonths(b, 24), win: [-3, 14] },
 ];
+
+/** 節目の一言（その日だけ「今日は」。前後の日は「…のころです」） */
+export function milestoneSay(m: PhotoMilestone, birthDate: string, today: string): string {
+  return diffDays(today, m.at(birthDate)) === 0 ? m.today : m.around;
+}
 
 export function milestoneById(id: string | undefined): PhotoMilestone | null {
   return PHOTO_MILESTONES.find((m) => m.id === id) ?? null;
@@ -579,6 +589,15 @@ export function milestoneToday(birthDate: string | undefined, today: string): Ph
 export function memoryNudgeFor(f: { birthDate?: string; situation?: { quiet?: string } }, today: string): PhotoMilestone | null {
   if (f.situation?.quiet) return null;
   return milestoneToday(f.birthDate, today);
+}
+
+/**
+ * 今日の画面の一番上に出す節目の1枚（components/today/MilestoneDay.tsx）。お七夜・お宮参り・お食い初め・ハーフバースデー・1歳6か月の、
+ * その日から2日の間。1歳・2歳は誕生日の札（birthdayFor）。静かにする間は出さない
+ */
+export function celebrationFor(f: { birthDate?: string; situation?: { quiet?: string } }, today: string): PhotoMilestone | null {
+  const m = memoryNudgeFor(f, today);
+  return m && m.id !== "first-birthday" && m.id !== "second-birthday" ? m : null;
 }
 
 /**

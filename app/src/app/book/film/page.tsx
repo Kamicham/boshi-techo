@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { useMedia } from "@/components/album/useMedia";
 import { voiceUrl } from "@/components/album/VoiceItem";
+import { useThanksLog } from "@/components/album/ThanksChapter";
 import type { Book } from "@/lib/book";
 import type { ClientMedia } from "@/lib/media-shared";
 import { MusicBox } from "./music";
@@ -59,6 +60,7 @@ function voiceKey(s: Shot): string | null {
 
 function Player({ book, shots }: { book: Book; shots: Shot[] }) {
   const { family, today } = useFamily();
+  const thanks = useThanksLog();
   const [i, setI] = useState(-1); // -1 = 始める前
   const [paused, setPaused] = useState(false);
   const music = useRef<MusicBox | null>(null);
@@ -228,6 +230,17 @@ function Player({ book, shots }: { book: Book; shots: Shot[] }) {
         <div className="film-cap absolute inset-0 flex flex-col items-center justify-center gap-5 bg-[#0d0c10]/80 px-8 text-center">
           <p className="max-w-md font-display text-xl leading-loose">{firstSentences(book.closing)}</p>
           <p className="tabular text-sm opacity-70">{dayLine(book.asOf)}</p>
+          {/* 手帳の中で家族が交わしたありがとう（数と、新しい2つ） */}
+          {thanks.length > 0 && (
+            <div className="flex flex-col items-center gap-1 text-sm opacity-85">
+              <p>家族が交わしたありがとう {thanks.length}</p>
+              {thanks.slice(-2).map((x) => (
+                <p key={x.id} className="opacity-80">
+                  {x.from.name}から {x.to.name}へ{x.title ? `（${x.title}）` : ""}
+                </p>
+              ))}
+            </div>
+          )}
           {done && (
             <div className="mt-4 flex gap-3">
               <button type="button" onClick={start} className="min-h-12 rounded-full border border-[#f4f1ea]/60 px-6">

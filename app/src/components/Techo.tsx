@@ -22,11 +22,13 @@ import { StaleBox } from "./today/StaleBox";
 import { StartedLate } from "./today/StartedLate";
 import { AdvisorCard } from "./today/AdvisorCard";
 import { ConsultAsk } from "./today/ConsultAsk";
-import { PhotoNudge } from "./today/PhotoNudge";
+import { MilestoneDay } from "./today/MilestoneDay";
 import { LetterNews } from "./today/LetterNews";
 import { BirthdayCard } from "./today/BirthdayCard";
-import { birthdayFor, bornPromptFor, welcomeFor } from "@/lib/media-shared";
+import { birthdayFor, bornPromptFor, celebrationFor, welcomeFor } from "@/lib/media-shared";
 import { BornPrompt, WelcomeBaby } from "./today/WelcomeBaby";
+import { FamilyNews } from "./today/FamilyNews";
+import { doneWords, familyNewsFor, type Thanks } from "@/lib/done-words";
 import { hideCounts } from "@/lib/situation";
 import { byDays, daysLeft, planToday, withAssignee, type Task } from "./today/task";
 import { VisitToday, visitIsTop } from "./today/VisitToday";
@@ -55,6 +57,9 @@ export function Techo() {
   // 予防接種の次の回の打てる最短日（/api/done の retime。手帳の接種の日付から数え直した物）
   const [retime, setRetime] = useState<Record<string, Retime>>({});
   const [doneError, setDoneError] = useState("");
+  // 誰が済ませたか（家族の一人の id）と、済ませた人へ届いたありがとう（/api/done の doneBy・thanks。11/5 より前の記録には無い）
+  const [doneBy, setDoneBy] = useState<Record<string, string>>({});
+  const [thanks, setThanks] = useState<Record<string, Thanks>>({});
   const [visit, setVisit] = useState<{ next: VisitPlan["next"]; agenda: number; guess: string | null } | null>(null);
   const [keep, setKeep] = useState<Keep | null>(null);
   // 下書きに「送った」「使った」の印が付いた事（済んだ事として扱う）
@@ -71,12 +76,14 @@ export function Techo() {
   }, []);
 
   /** GET /api/done の返り（fromTecho は担当A の版から。無ければ空として読む） */
-  type DoneRes = { done: string[]; fromTecho?: string[]; retime?: Record<string, Retime>; doneOn?: Record<string, string> };
+  type DoneRes = { done: string[]; fromTecho?: string[]; retime?: Record<string, Retime>; doneOn?: Record<string, string>; doneBy?: Record<string, string>; thanks?: Record<string, Thanks> };
   const readDone = useCallback((j: DoneRes) => {
     setMarked(new Set(Array.isArray(j.done) ? j.done : []));
     setFromTecho(new Set(Array.isArray(j.fromTecho) ? j.fromTecho : []));
     setRetime(j.retime && typeof j.retime === "object" ? j.retime : {});
     setAppliedOn(j.doneOn && typeof j.doneOn === "object" ? j.doneOn : {});
+    setDoneBy(j.doneBy && typeof j.doneBy === "object" ? j.doneBy : {});
+    setThanks(j.thanks && typeof j.thanks === "object" ? j.thanks : {});
   }, []);
 
   // 「済んだにしました・もどす」は数秒だけ出す（押し間違えた時に戻せるように）
@@ -92,6 +99,8 @@ export function Techo() {
     setMarked(new Set());
     setFromTecho(new Set());
     setRetime({});
+    setDoneBy({});
+    setThanks({});
     setLastDone(null);
     setDoneError("");
     setKeep(null);
@@ -179,14 +188,20 @@ export function Techo() {
       setMarked(next);
       setLastDone(on ? { id: m.id, title: m.plain } : null);
       try {
-        await api("/api/done", { method: on ? "POST" : "DELETE", body: { familyId: family.id, milestoneId: m.id, today } });
+        await api("/api/done", { method: on ? "POST" : "DELETE", body: { familyId: family.id, milestoneId: m.id, today, ...(on && me ? { by: me.id } : {}) } });
+        setDoneBy((d) => {
+          const next = { ...d };
+          if (on && me) next[m.id] = me.id;
+          else delete next[m.id];
+          return next;
+        });
       } catch (e) {
         setMarked(prev);
         setLastDone(null);
         setDoneError((e as Error).message);
       }
     },
-    [marked, family.id, today],
+    [marked, family.id, today, me],
   );
 
   // 申請が済んだお金の手続きは、「届いたか確かめる」1件を足す（お金の1000日。lib/money.ts）
@@ -209,14 +224,31 @@ export function Techo() {
       // まとめて済んだにした時も「もどす」を出す（安心のデザイン #6）
       setLastDone(one ? { id: one.id, title: one.plain } : ids.length > 1 ? { id: ids[0], title: `${ids.length}つ`, ids } : null);
       try {
-        for (const id of ids) await api("/api/done", { body: { familyId: family.id, milestoneId: id, today } });
+        for (const id of ids) await api("/api/done", { body: { familyId: family.id, milestoneId: id, today, ...(me ? { by: me.id } : {}) } });
+        if (me) setDoneBy((d) => ({ ...d, ...Object.fromEntries(ids.map((id) => [id, me.id])) }));
       } catch (e) {
         setMarked(prev);
         setLastDone(null);
         setDoneError((e as Error).message);
       }
     },
-    [marked, schedule, family.id, today],
+    [marked, schedule, family.id, today, me],
+  );
+
+  // 済ませた家族の一人へ、ありがとう（先に画面へ。送れなかったら戻す）
+  const sendThanks = useCallback(
+    async (milestoneId: string) => {
+      if (!me) return;
+      const prev = thanks;
+      setThanks({ ...thanks, [milestoneId]: { by: me.id, today, at: new Date().toISOString() } });
+      try {
+        await api("/api/done", { method: "PATCH", body: { familyId: family.id, milestoneId, by: me.id, today } });
+      } catch (e) {
+        setThanks(prev);
+        setDoneError(`ありがとうを、まだ送れていません（${(e as Error).message}）`);
+      }
+    },
+    [me, thanks, family.id, today],
   );
 
   const undoMany = useCallback(
@@ -293,16 +325,19 @@ export function Techo() {
     void api("/api/keep", { body: { familyId: family.id, keep: { assign: { [milestoneId]: who } } } }).catch(() => {});
   };
   const common = { today, family, me, keep, onAssign };
-  // 法の期限を過ぎてまだの事があり、一番上が目安の事か何も無い時は、ふり返りを開いて一番上に出す
-  const staleFirst = stale.length > 0 && !(visitTop && nextVisit) && !focus && (!top || isGuide(top));
-  const loading = !(doneReady && sentReady && advisorOpen !== null);
-  const quiet = family.situation?.quiet;
-
   const bday = birthdayFor(family, today);
   // 「生まれました」の儀式: 37週から「生まれたら、ここから」、生まれた日からお七夜の前の日まで「ようこそ」（components/today/WelcomeBaby.tsx）
   const bornPrompt = bornPromptFor(family, today);
   const welcome = welcomeFor(family, today);
+  // 節目の日（お七夜・お宮参り・お食い初め・ハーフ・1歳6か月）の1枚（components/today/MilestoneDay.tsx）
+  const celebration = celebrationFor(family, today);
   const tripShown = !!trip && !(visitTop && nextVisit) && !focus;
+  // 法の期限を過ぎてまだの事があり、一番上が目安の事か何も無い時は、ふり返りを開いて一番上に出す（祝いの日は、祝いを上に。ふり返りはいつもの場所）
+  const festive = !!bday || welcome !== null || !!celebration;
+  const staleFirst = stale.length > 0 && !(visitTop && nextVisit) && !focus && (!top || isGuide(top)) && !festive;
+  const loading = !(doneReady && sentReady && advisorOpen !== null);
+  const quiet = family.situation?.quiet;
+
 
   if (quiet && !showAll) return <QuietDay family={family} quiet={quiet} onShowAll={() => setShowAll(true)} />;
 
@@ -319,7 +354,10 @@ export function Techo() {
       {lastDone && (
         <div className="pointer-events-none fixed inset-x-0 bottom-20 z-20 flex justify-center px-4" style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}>
           <p role="status" className="pointer-events-auto flex w-full max-w-md items-center justify-between gap-3 rounded-xl bg-ink px-4 text-base text-white shadow-lg">
-            <span className="min-w-0 py-3">{lastDone.ids ? `${lastDone.title}を済んだにしました` : `「${lastDone.title}」を済んだにしました`}</span>
+            <span className="min-w-0 py-3">
+              {lastDone.ids ? `${lastDone.title}を済んだにしました` : `「${lastDone.title}」を済んだにしました`}
+              {!lastDone.ids && doneWords(lastDone.id, family.childName) && <span className="block text-sm text-white/80">{doneWords(lastDone.id, family.childName)}</span>}
+            </span>
             <button
               type="button"
               onClick={() => {
@@ -343,6 +381,8 @@ export function Techo() {
       )}
       {/* 1歳・2歳の誕生日から2週間は、一番上に誕生日の1枚（開いた手紙・一冊・映画） */}
       {!loading && bday && <BirthdayCard key={`${family.id}:bday${bday}`} family={family} today={today} by={me?.name} age={bday} />}
+      {/* 節目の日は、その日から2日の間、一番上に節目の1枚（写真・声・手紙の入口）。やる事はすぐ下 */}
+      {!loading && celebration && <MilestoneDay key={`${family.id}:${celebration.id}`} family={family} today={today} m={celebration} />}
       {loading ? (
         <div className="h-40 rounded-2xl bg-rose-soft/60" aria-hidden />
       ) : visitTop && nextVisit ? (
@@ -388,6 +428,16 @@ export function Techo() {
       {/* 手帳が見渡して気づいた事は、一番上の1枚の次に（大きな札を2枚並べない） */}
       {!loading && advisorOpen! > 0 && <AdvisorCard key={`${family.id}:${today}`} familyId={family.id} today={today} meId={me?.id} />}
 
+      {/* 家族から: ほかの家族が済ませた事にありがとうを送り、自分に届いたありがとうを見る（家族が2人以上の手帳だけ） */}
+      {!loading && (
+        <FamilyNews
+          news={familyNewsFor(family, me, today, { doneBy, doneOn: appliedOn, thanks })}
+          childName={family.childName}
+          titleOf={(id) => schedule.find((m) => m.id === id)?.plain ?? ""}
+          onThank={(id) => void sendThanks(id)}
+        />
+      )}
+
       {!loading && rows.length > 0 && (
         <section aria-label="ほかに今やる事" className="flex flex-col">
           <h2 className="text-sm font-semibold text-muted">ほかに今やる事</h2>
@@ -425,9 +475,8 @@ export function Techo() {
       {!loading && !staleFirst && <StaleBox key={family.id} tasks={stale} {...common} onDone={(ids) => void setManyDone(ids)} />}
 
 
-      {/* 写真の節目の日だけ、1回の一言（月に1回まで。写真を残せる手帳だけ） */}
+      {/* 封をした手紙が開いた日から2週間の一言（誕生日の札が出ている間は、そちらに入れる） */}
       {!loading && !bday && <LetterNews key={`${family.id}:letters`} family={family} today={today} by={me?.name} />}
-      {!loading && <PhotoNudge key={`${family.id}:photo`} family={family} today={today} />}
 
       {/* 手帳の毎回の問い「相談できる人はいますか」（時期ごとに1回。答えた時期は出さない） */}
       {!loading && <ConsultAsk key={`${family.id}:consult`} family={family} today={today} meName={me?.name} />}

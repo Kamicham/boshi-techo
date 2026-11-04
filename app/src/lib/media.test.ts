@@ -153,7 +153,10 @@ describe("月齢・節目・この1枚", () => {
     expect(S.milestoneFor(fam.birthDate, "2027-05-02")?.id).toBe("oshichiya");
     expect(S.milestoneFor(fam.birthDate, "2027-06-15")).toBeNull();
     expect(S.milestoneFor(undefined, "2027-08-03")).toBeNull();
-    expect(S.milestoneToday(fam.birthDate, "2027-08-03")?.say).toBe("今日は生後100日です");
+    const m100 = S.milestoneToday(fam.birthDate, "2027-08-03")!;
+    expect(S.milestoneSay(m100, fam.birthDate, "2027-08-03")).toBe("今日はお食い初めの日です");
+    expect(m100.note).toBe("生まれた日から数えて100日目");
+    expect(S.milestoneSay(m100, fam.birthDate, "2027-08-04")).toBe("お食い初めのころです");
     expect(S.milestoneToday(fam.birthDate, "2027-08-10")).toBeNull();
     expect(S.ageLabel(fam, "2027-08-03")).toBe("生後3か月");
     expect(S.ageLabel(fam, "2027-01-10")).toMatch(/^妊娠\d+か月$/);

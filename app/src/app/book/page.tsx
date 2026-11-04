@@ -10,6 +10,7 @@ import { bookIntro, cameFromTecho } from "@/lib/book-intro";
 import { useMedia } from "@/components/album/useMedia";
 import { VoiceItem } from "@/components/album/VoiceItem";
 import { FutureLetters, MinnaChapter } from "@/components/album/Minna";
+import { ThanksChapter } from "@/components/album/ThanksChapter";
 import { FilmExport } from "@/components/album/FilmExport";
 import { FilmLink } from "@/components/album/FilmLink";
 import type { ClientMedia } from "@/lib/media-shared";
@@ -203,6 +204,7 @@ export default function BookPage() {
         <>
           <MinnaChapter />
           <FutureLetters />
+          <ThanksChapter />
         </>
       )}
       {error && <p className="rounded-xl bg-alert/10 px-4 py-3 text-base text-alert">{error}</p>}

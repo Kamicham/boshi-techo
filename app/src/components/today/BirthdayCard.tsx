@@ -49,6 +49,11 @@ export function BirthdayCard({ family, today, by, age }: { family: Family; today
           <span>🎞 映画で見る</span>
           <span className="text-muted" aria-hidden>›</span>
         </Link>
+        {/* 紙の母子手帳の「誕生日のメッセージ」と同じ欄（手帳の気持ちの記録。府令様式の保護者の記録） */}
+        <Link href="/techo#page-feeling" className={link}>
+          <span>✍ {name}へ、誕生日の一言を書く</span>
+          <span className="text-muted" aria-hidden>›</span>
+        </Link>
       </div>
     </section>
   );

@@ -1,11 +1,11 @@
-// 思い出の早送り: 作った30家族の1000日を毎日たどり、節目の写真の一言（PhotoNudge と同じ memoryNudgeFor）が
+// 思い出の早送り: 作った30家族の1000日を毎日たどり、節目の写真の一言（MilestoneDay・BirthdayCard のもとの memoryNudgeFor）が
 // - 静かにする（つらい別れ・赤ちゃんの入院）を選んだ家族には、1日も出ない
 // - 選んでいない家族には、生まれた後の節目（お七夜〜2歳の7つ）でだけ出て、生まれる前には出ない
 // を確かめる。30家族はそのまま・loss にした写し・nicu にした写しの3通りで通す（作った家族だけ。Claude は呼ばない）。
 import { describe, expect, it } from "vitest";
-import { addDays, addMonths, diffDays, lmpFromDue, secondBirthday } from "../lib/clock";
+import { addDays, addMonths, clockAt, diffDays, lmpFromDue, secondBirthday } from "../lib/clock";
 import { letterOpenOn, recentlyOpened, schoolEntry } from "../lib/letters-shared";
-import { birthdayFor, birthNewsText, bornPromptFor, groupForAlbum, memoryNudgeFor, PHOTO_MILESTONES, welcomeFor, type ClientMedia } from "../lib/media-shared";
+import { birthdayFor, birthNewsText, bornPromptFor, celebrationFor, groupForAlbum, memoryNudgeFor, milestoneSay, PHOTO_MILESTONES, welcomeFor, type ClientMedia } from "../lib/media-shared";
 import { scheduleFor } from "../lib/milestones";
 import { registrationLine } from "../components/today/welcome";
 import type { Quiet } from "../lib/situation";
@@ -189,4 +189,49 @@ describe("「生まれました」の儀式（BornPrompt・WelcomeBaby と同じ
     }
     expect(pairs).toBeGreaterThan(0);
   });
+});
+
+describe("節目の1枚（MilestoneDay と同じ celebrationFor）", () => {
+  const FIVE = ["oshichiya", "omiyamairi", "okuizome", "half", "18m"];
+  it("30家族: お七夜・お宮参り・お食い初め・ハーフ・1歳6か月のその日から2日の間だけ一番上に。「今日は」と言うのはその日だけ。1歳・2歳は誕生日の札", () => {
+    for (const f of SIM_FAMILIES.filter((x) => x.birthDate)) {
+      const seen = new Map<string, number>();
+      for (const d of days(f)) {
+        const c = celebrationFor(f, d);
+        if (!c) continue;
+        expect(FIVE, `${f.id} ${d}`).toContain(c.id);
+        const off = diffDays(d, c.at(f.birthDate!));
+        expect(off >= 0 && off <= 2, `${f.id} ${d} ${c.id}`).toBe(true);
+        const say = milestoneSay(c, f.birthDate!, d);
+        if (off > 0) expect(say, `${f.id} ${d}`).not.toMatch(/^今日/);
+        if (off === 0 && c.id !== "omiyamairi") expect(say, `${f.id} ${d}`).toMatch(/^今日/);
+        expect(birthdayFor(f, d), `${f.id} ${d}`).toBeNull();
+        seen.set(c.id, (seen.get(c.id) ?? 0) + 1);
+      }
+      // 1000日の中に入る節目は、どれも3日ずつ
+      for (const id of FIVE) {
+        const at = PHOTO_MILESTONES.find((m) => m.id === id)!.at(f.birthDate!);
+        if (addDays(at, 2) <= secondBirthday(f)) expect(seen.get(id), `${f.id} ${id}`).toBe(3);
+      }
+    }
+  });
+
+  it("お七夜とお食い初めは、上の帯（生まれた日を0日目に数える）と食い違わないよう、数え方を添える", () => {
+    const f = SIM_FAMILIES.find((x) => x.birthDate)!;
+    const o7 = PHOTO_MILESTONES.find((m) => m.id === "oshichiya")!;
+    expect(clockAt(f, o7.at(f.birthDate!)).label).toBe("生後6日");
+    expect(o7.note).toBe("生まれた日から数えて7日目");
+    const o100 = PHOTO_MILESTONES.find((m) => m.id === "okuizome")!;
+    expect(diffDays(o100.at(f.birthDate!), f.birthDate!)).toBe(99);
+    expect(o100.note).toBe("生まれた日から数えて100日目");
+  });
+
+  for (const quiet of ["loss", "nicu"] as Quiet[]) {
+    it(`静かにする（${quiet}）を選んだ30家族の写し: 1日も出ない`, () => {
+      for (const f0 of SIM_FAMILIES) {
+        const f = { ...f0, situation: { ...f0.situation, quiet } };
+        for (const d of days(f)) expect(celebrationFor(f, d), `${f.id} ${d}`).toBeNull();
+      }
+    });
+  }
 });

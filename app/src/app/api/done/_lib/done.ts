@@ -3,6 +3,7 @@
 // （印を外した時に消すのは auto の物だけ。自分で押した済みは残す）。
 import "server-only";
 import { get, list, put, remove } from "@/lib/db";
+import { HttpError } from "@/lib/http-error";
 import type { Family } from "@/lib/demo-family";
 import { listTecho } from "@/lib/techo-store";
 import { doneFromTecho, vaxHistory } from "@/lib/techo-done";
@@ -21,13 +22,37 @@ export interface DoneData {
    * そこで「まだ」と答えた事は "started-late-open"（予定の並びには戻さず、「始める前の事」の1枚に出し続ける）
    */
   auto?: "draft" | "started-late" | "started-late-open";
+  /**
+   * 済んだにした家族の一人（家族の設定の members の id）。11/5 より前の記録・下書きや始める前の事から付いた済みには無い
+   * （誰か分からない済みには、ありがとうを出さない）
+   */
+  by?: string;
+  /** 済ませた人へ届いたありがとう（1つ。送った人・押した時の「今日」・時刻）。11/5 より前の記録には無い */
+  thanks?: { by: string; today?: string; at: string };
 }
 
 export const doneId = (familyId: string, milestoneId: string) => `done:${familyId}:${milestoneId}`;
 
-/** 家族が自分で済みにする（下書きから付いた済みも、自分で押した物に置き換える） */
-export function markDone(familyId: string, milestoneId: string, today?: string): void {
-  put<DoneData>(familyId, "done", { milestoneId, today, at: new Date().toISOString() }, { id: doneId(familyId, milestoneId), date: today ?? null });
+/** 家族が自分で済みにする（下書きから付いた済みも、自分で押した物に置き換える）。by は押した家族の一人（分かる時） */
+export function markDone(familyId: string, milestoneId: string, today?: string, by?: string): void {
+  const prev = get<DoneData>(doneId(familyId, milestoneId))?.data;
+  // 同じ人が押し直しても、届いたありがとうは消さない
+  const kept = prev && !prev.auto && prev.by === by && prev.thanks ? { thanks: prev.thanks } : {};
+  put<DoneData>(familyId, "done", { milestoneId, today, at: new Date().toISOString(), ...(by ? { by } : {}), ...kept }, { id: doneId(familyId, milestoneId), date: today ?? null });
+}
+
+/**
+ * 済ませた人へ、ありがとうを送る（済ませた人とは別の家族の一人から。1つだけで、送り直すと新しい方）。
+ * 誰が済ませたか分からない記録（11/5 より前の記録・下書きや始める前の事から付いた済み）には送れない
+ */
+export function thankDone(familyId: string, milestoneId: string, by: string, today?: string): NonNullable<DoneData["thanks"]> {
+  const d = get<DoneData>(doneId(familyId, milestoneId));
+  if (!d) throw new HttpError(404, "済んだ記録が見つかりません");
+  if (!d.data.by || d.data.auto) throw new HttpError(400, "誰が済ませたか分からない記録には、ありがとうを送れません");
+  if (d.data.by === by) throw new HttpError(400, "自分が済ませた事には送れません");
+  const thanks = { by, ...(today ? { today } : {}), at: new Date().toISOString() };
+  put<DoneData>(familyId, "done", { ...d.data, thanks }, { id: d.id, date: d.date });
+  return thanks;
 }
 
 /** 下書きに「送った」などの印を付けた時: まだ済みでなければ済みにする */

@@ -161,6 +161,41 @@ describe("アカウントの仕組みが動いている時（BOSHI_DATA_DIR を�
     expect((await techo.GET(req(`/api/techo?familyId=${hidB}&today=2027-01-01`, { cookie: bob }))).status).toBe(200);
   });
 
+  it("済んだの「誰が」とありがとう: 11/4 までの形（by・thanks の無い済んだ）も読め、ありがとうは誰が済ませたか分かる物だけ・家族の一人から・自分以外へ", async () => {
+    const done = await import("@/app/api/done/route");
+    const { put } = await import("./db");
+    // 11/4 までの版が書いた形（by も thanks も無い）
+    put(hidA, "done", { milestoneId: "pregnancy-report", today: "2026-11-03", at: "2026-11-03T00:00:00.000Z" }, { id: `done:${hidA}:pregnancy-report`, date: "2026-11-03" });
+    const read = async () => (await json(await done.GET(req(`/api/done?familyId=${hidA}&today=2027-05-01`, { cookie: alice })))).body;
+    let r = await read();
+    expect(r.done).toContain("pregnancy-report");
+    expect(r.doneOn).toMatchObject({ "pregnancy-report": "2026-11-03" });
+    expect(r.doneBy).not.toHaveProperty("pregnancy-report");
+    expect(r.thanks).toEqual({});
+    const thank = (milestoneId: string, by: string, cookie = alice) =>
+      done.PATCH(req("/api/done", { cookie, method: "PATCH", body: { familyId: hidA, milestoneId, by, today: "2027-05-01" } }));
+    expect((await thank("pregnancy-report", "m1")).status).toBe(400);
+
+    // パートナー（m2）が済ませる → 母（m1）からありがとう
+    expect((await done.POST(req("/api/done", { cookie: alice, body: { familyId: hidA, milestoneId: "birth-registration", today: "2027-04-28", by: "m2" } }))).status).toBe(200);
+    r = await read();
+    expect(r.doneBy).toMatchObject({ "birth-registration": "m2" });
+    expect((await thank("birth-registration", "m2")).status).toBe(400); // 自分には送れない
+    expect((await thank("birth-registration", "someone")).status).toBe(400); // 家族の外の人
+    expect((await thank("birth-registration", "m1", bob)).status).toBe(404); // 他人の世帯
+    expect((await thank("birth-registration", "m1", "")).status).toBe(401); // ログインなし
+    expect((await thank("not-done-yet", "m1")).status).toBe(404);
+    const ok = await json(await thank("birth-registration", "m1"));
+    expect(ok.status).toBe(200);
+    expect(ok.body.thanks).toMatchObject({ by: "m1", today: "2027-05-01" });
+    expect((await read()).thanks).toMatchObject({ "birth-registration": { by: "m1", today: "2027-05-01" } });
+    // 同じ人が押し直しても、届いたありがとうは残る。家族の外の by は記録しない
+    await done.POST(req("/api/done", { cookie: alice, body: { familyId: hidA, milestoneId: "birth-registration", today: "2027-04-29", by: "m2" } }));
+    expect((await read()).thanks).toHaveProperty("birth-registration");
+    await done.POST(req("/api/done", { cookie: alice, body: { familyId: hidA, milestoneId: "health-insurance", by: "stranger" } }));
+    expect((await read()).doneBy).not.toHaveProperty("health-insurance");
+  });
+
   it("本物の世帯は、claude_us の同意が無いと Claude に送らない（分かる誤りを返す）", async () => {
     const cap = await import("@/app/api/capture/route");
     const r = await json(await cap.POST(req("/api/capture", { cookie: alice, body: { familyId: hidA, today: "2027-01-10", text: "健診に行った" } })));
