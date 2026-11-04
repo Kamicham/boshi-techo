@@ -39,10 +39,12 @@ describe("出し分け", () => {
     expect(q).toContain("maternity-allowance-apply");
     expect(q).not.toContain("childcare-benefit-first");
   });
-  it("パパの14日の1件は、14日未満か長さがわからない時だけ", () => {
+  it("パパの14日の1件は、14日未満と答えた時だけ。長さがわからない時は育休の相談の一言に足す", () => {
     const base = { motherWork: "会社員・公務員", partnerWork: "会社員・公務員", partnerLeave: "取る" };
     expect(ids({ ...base, partnerLeaveLen: "14日未満" }, both)).toContain("partner-leave-14");
-    expect(ids(base, both)).toContain("partner-leave-14");
+    expect(ids(base, both)).not.toContain("partner-leave-14");
+    const pl = scheduleFor({ dueDate: "2027-01-10", situation: base, members: both } as never, "2026-10-01").find((m) => m.id === "partner-leave");
+    expect(pl?.hint).toContain("14日以上");
     expect(ids({ ...base, partnerLeaveLen: "2週間〜1か月" }, both)).not.toContain("partner-leave-14");
     expect(ids({ ...base, partnerLeave: "取らない" }, both)).not.toContain("partner-leave-14");
   });
