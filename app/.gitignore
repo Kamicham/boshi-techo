@@ -49,3 +49,4 @@ next-env.d.ts
 /.next-ask/
 /sim/out/
 /.next-polish/
+/.next-*/
