@@ -477,7 +477,13 @@ function adjust(m: MilestoneDef, f: ScheduleInput): MilestoneDef {
 export function scheduleFor(input: ScheduleInput, today?: string): Milestone[] {
   // 今日より先の生まれた日は、まだ生まれていない（作った家族は先の生まれた日を持っている。予定がその日で組まれ、
   // 「授かる前」「予定日を過ぎた」日に、生まれる日を知っているような日付が出ていた＝なりきり 2026-11-03）
-  const f = input.birthDate && today && input.birthDate > today ? { ...input, birthDate: undefined } : input;
+  const b = input.birthDate && today && input.birthDate > today ? { ...input, birthDate: undefined } : input;
+  // 今日より先の引っ越しも、まだ引っ越していない（前の町に住んでいる）。見本の家族は24週で引っ越すので、8週の画面に転入届が出ていた
+  // （本物の家族の引っ越した日は今日まで＝設定の欄。早送りの検査の viewAt と同じ見方）
+  const f =
+    b.movedOn && today && b.movedOn > today
+      ? { ...b, city: b.previousCity ?? b.city, prefecture: b.previousPrefecture ?? b.prefecture, previousCity: undefined, previousPrefecture: undefined, movedOn: undefined }
+      : b;
   const lmp = lmpFromDue(f.dueDate);
   const birth = f.birthDate ?? f.dueDate;
   const trying = !!today && today < lmp && !f.birthDate;

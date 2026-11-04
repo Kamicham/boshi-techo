@@ -60,6 +60,11 @@ describe("引っ越した時の行（見直し C10①）", () => {
     expect(rows(same).filter((m) => MOVED.includes(m.id))).toEqual([]);
   });
 
+  it("引っ越す前の日には出さない（作った家族は先の引っ越しを持っている。見本の家族は24週の 1/18）", () => {
+    for (const day of ["2026-09-28", "2027-01-17"]) expect(rows(PREG, day).filter((m) => MOVED.includes(m.id)), day).toEqual([]);
+    expect(rows(PREG, "2027-01-18").map((m) => m.id)).toEqual(expect.arrayContaining(["moved-tennyu", "moved-checkup-tickets"]));
+  });
+
   it("授かる前に引っ越した家族には、受診券の行を出さない", () => {
     const f = { ...PREG, movedOn: "2026-07-01" } as Family;
     expect(rows(f).map((m) => m.id)).not.toContain("moved-checkup-tickets");
