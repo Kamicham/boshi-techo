@@ -7,6 +7,12 @@
 /** サーバの ConsentRequiredError の文（lib/claude.ts）に入っている言葉 */
 export const CLAUDE_CONSENT_MARK = "米国の Claude に送る同意";
 
+/**
+ * 同意がまだの時の共通の文（lib/claude.ts の ConsentRequiredError と、画面の案内で同じ文。見直し C38 ③・2026-11-05）。
+ * 話す・撮るだけでなく、下書き・手帳に聞く・気づき・一冊でも同じ所で止まるので、どの仕事にも合う言い方にする
+ */
+export const CONSENT_REQUIRED_TEXT = `手帳が書く・答える・分けるのに、${CLAUDE_CONSENT_MARK}が要ります（まだの人がいます）。読んで決めると、そのまま続けられます`;
+
 /** 同意の状態。ok＝送ってよい（見本の家族・移る前のわが家も ok）／needed＝まだの本人がいる／mother＝まだ手帳に入っていないママの分が要る（母の分は母本人だけ）／null＝読めなかった */
 export type ClaudeConsentState = "ok" | "needed" | "mother" | null;
 
@@ -38,3 +44,37 @@ export const consentWaitKey = (familyId: string) => `boshi.captureConsentWait:${
 
 /** 手帳に聞く: 同意の画面へ移る前に、答えの付かなかった問いを控える置き場（戻ったら窓を開き直して聞き直す） */
 export const askConsentWaitKey = (familyId: string) => `boshi.askConsentWait:${familyId}`;
+
+// ── 下書き（見直し C38 ①・2026-11-05）: 「書く事のメモを作る」が同意の前で止まった時 ──
+// 同意の画面へ移る前に、どの事の下書きかを控える。戻ってその事の動きが開いたら、同意が済んでいれば1回だけそのまま作る。
+
+/** 下書きを待っている控えの置き場（sessionStorage。この端末のこのタブだけ） */
+export const draftConsentWaitKey = (familyId: string) => `boshi.draftConsentWait:${familyId}`;
+
+/** 控えの中身（どの事か・いつ控えたか） */
+export function draftWaitValue(milestoneId: string, now: number): string {
+  return JSON.stringify({ m: milestoneId, at: now });
+}
+
+/** 控えを使える時間（同意の画面を読んで決めるのに十分な長さ。古い控えで、別の日に急に作り始めない） */
+export const DRAFT_WAIT_MS = 30 * 60_000;
+
+/**
+ * 同意の画面から戻った時、この事の下書きをどうするか。
+ * make＝同意が済んだので作る／ask＝待っていたが同意がまだ（読めなかった時も）なので、作らずに同じ案内を出す／none＝この事を待っていない
+ */
+export function afterDraftConsentReturn(p: { raw: string | null; milestoneId: string; now: number; state: ClaudeConsentState }): "make" | "ask" | "none" {
+  if (!waitingDraftFor(p.raw, p.milestoneId, p.now)) return "none";
+  return p.state === "ok" ? "make" : "ask";
+}
+
+/** 控えが、この事の物で、まだ新しいか */
+export function waitingDraftFor(raw: string | null, milestoneId: string, now: number): boolean {
+  if (!raw) return false;
+  try {
+    const v = JSON.parse(raw) as { m?: unknown; at?: unknown };
+    return v.m === milestoneId && typeof v.at === "number" && now >= v.at && now - v.at < DRAFT_WAIT_MS;
+  } catch {
+    return false;
+  }
+}
