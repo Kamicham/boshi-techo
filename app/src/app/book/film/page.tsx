@@ -11,6 +11,7 @@ import { useMedia } from "@/components/album/useMedia";
 import { voiceUrl } from "@/components/album/VoiceItem";
 import { useThanksLog } from "@/components/album/ThanksChapter";
 import type { Book } from "@/lib/book";
+import { childView } from "@/lib/call-name";
 import type { ClientMedia } from "@/lib/media-shared";
 import { MusicBox } from "./music";
 import { dayLine, filmShots, firstSentences, letterLine, type FilmLetter, type Shot as FilmShot } from "@/lib/film-plan";
@@ -201,7 +202,7 @@ function Player({ book, shots }: { book: Book; shots: Shot[] }) {
           <span aria-hidden className="text-5xl opacity-80">✉</span>
           <p className="text-xs tracking-[0.5em] opacity-70">未 来 の 手 紙</p>
           <p className="font-display text-3xl font-bold">
-            {cur.letter.from}から {cur.letter.to}へ
+            {childView(family, cur.letter.from)}から {cur.letter.to}へ
           </p>
           <p className="tabular text-sm opacity-85 [text-wrap:balance]">{letterLine(cur.letter)}</p>
           <p className="mt-2 rounded-full bg-black/40 px-3 py-1 text-xs">♪ 声の手紙</p>
@@ -236,7 +237,7 @@ function Player({ book, shots }: { book: Book; shots: Shot[] }) {
               <p>家族が交わしたありがとう {thanks.length}</p>
               {thanks.slice(-2).map((x) => (
                 <p key={x.id} className="opacity-80">
-                  {x.from.name}から {x.to.name}へ{x.title ? `（${x.title}）` : ""}
+                  {childView(family, x.from.name)}から {childView(family, x.to.name)}へ{x.title ? `（${x.title}）` : ""}
                 </p>
               ))}
             </div>

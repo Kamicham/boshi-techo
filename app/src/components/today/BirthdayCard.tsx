@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import type { Family } from "@/lib/demo-family";
 import { recentlyOpened, type ClientLetter } from "@/lib/letters-shared";
 import { ThousandDays } from "./ThousandDays";
+import { childView } from "@/lib/call-name";
 
 export function BirthdayCard({ family, today, by, age }: { family: Family; today: string; by?: string; age: 1 | 2 }) {
   const [letters, setLetters] = useState<ClientLetter[]>([]);
@@ -36,7 +37,7 @@ export function BirthdayCard({ family, today, by, age }: { family: Family; today
         {opened.length > 0 && (
           <Link href="/book#letters" className={link}>
             <span className="min-w-0">
-              💌 {opened[0].from}からの手紙が開きました
+              💌 {childView(family, opened[0].from)}からの手紙が開きました
               {opened[0].voiceSec !== undefined ? <span className="font-normal text-muted">・🎙 声つき</span> : null}
               {opened.length > 1 ? <span className="font-normal text-muted">（ほか{opened.length - 1}通）</span> : null}
             </span>

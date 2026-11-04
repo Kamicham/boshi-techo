@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Family } from "@/lib/demo-family";
 import { openedNewsLine, recentlyOpened, type ClientLetter } from "@/lib/letters-shared";
+import { childView } from "@/lib/call-name";
 
 export function LetterNews({ family, today, by }: { family: Family; today: string; by?: string }) {
   const [letters, setLetters] = useState<ClientLetter[]>([]);
@@ -34,7 +35,7 @@ export function LetterNews({ family, today, by }: { family: Family; today: strin
           {news.length > 1 ? `（ほか${news.length - 1}通）` : ""}
         </span>
         <span className="text-sm text-muted">
-          {l.from}から {l.to}へ{l.voiceSec !== undefined ? "・🎙 声つき" : ""}・一冊で読む ›
+          {childView(family, l.from)}から {l.to}へ{l.voiceSec !== undefined ? "・🎙 声つき" : ""}・一冊で読む ›
         </span>
       </span>
     </Link>

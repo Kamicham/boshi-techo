@@ -1,6 +1,7 @@
 // 家族を引く（サーバ側）。デモの家族は固定、「わが家」は DB の profile から。
 import "server-only";
 import { DEMO_FAMILY, type Family } from "./demo-family";
+import { callNameField } from "./call-name";
 import { get, put } from "./db";
 import { scheduleFor } from "./milestones";
 import { birthFacts, isMadeFamily } from "./techo-seed";
@@ -117,7 +118,7 @@ export function withBirthFacts(f: Family): Family {
 function fromSaved(f: Family): Family {
   const members = (f.members ?? [])
     .filter((m) => m.role === "母" || m.role === "パートナー")
-    .map((m) => ({ id: m.id, name: m.name, role: m.role }));
+    .map((m) => ({ id: m.id, name: m.name, role: m.role, ...callNameField(m.callName) }));
   const { situation: raw, ...rest } = f;
   const situation = cleanSituation(raw, members.some((m) => m.role === "パートナー"));
   return { ...rest, members, ...(situation ? { situation } : {}) };

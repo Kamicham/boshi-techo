@@ -10,6 +10,7 @@ import { useMedia } from "./useMedia";
 import { VoiceItem } from "./VoiceItem";
 import { LetterSheet } from "./LetterKeeper";
 import { openLine, type ClientLetter } from "@/lib/letters-shared";
+import { childView } from "@/lib/call-name";
 import type { ClientMedia } from "@/lib/media-shared";
 
 function jpDay(s: string) {
@@ -33,7 +34,7 @@ export function MinnaChapter() {
     return (
       <section aria-label="みんなの章" className="flex flex-col gap-2 rounded-2xl border border-line bg-card px-5 py-4">
         <p className="text-xs tracking-[0.4em] text-rose">み ん な の 章</p>
-        <p className="text-base">ばあば・じいじ・パートナーに、{family.childName ?? "赤ちゃん"}へのひと言を頼めます。招いた人が足した写真・声・手紙が、ここに並びます。</p>
+        <p className="text-base">家族や周りの人に、{family.childName ?? "赤ちゃん"}へのひと言を頼めます。招いた人が足した写真・声・手紙が、ここに並びます。</p>
         <div>
           <Btn kind="secondary" href={inviteHref}>
             家族に頼む（招く）
@@ -198,7 +199,7 @@ function LetterRow({ l, onRemoved }: { l: ClientLetter; onRemoved: () => void })
         </span>
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="text-base font-semibold">
-            {l.from}から {l.to}へ
+            {childView(family, l.from)}から {l.to}へ
           </span>
           <span className="tabular text-xs text-muted">
             {l.opened ? (l.openOn ? `${jpDay(l.openOn)}に開きました` : "いつでも読めます") : `${openLine(l)}開きます`}・{jpDay(l.sealedOn)}に書いた
@@ -207,7 +208,7 @@ function LetterRow({ l, onRemoved }: { l: ClientLetter; onRemoved: () => void })
         </span>
         {l.opened && <span className="text-sm font-bold text-rose">{body === null ? "読む" : "閉じる"}</span>}
       </button>
-      {body !== null && voiceUrl && <audio controls autoPlay src={voiceUrl} aria-label={`${l.from}の声`} className="w-full" />}
+      {body !== null && voiceUrl && <audio controls autoPlay src={voiceUrl} aria-label={`${childView(family, l.from)}の声`} className="w-full" />}
       {body !== null && body && <p className="whitespace-pre-wrap font-display text-base leading-loose">{body}</p>}
       {l.mine && (
         <div className="flex items-center gap-2 text-sm">

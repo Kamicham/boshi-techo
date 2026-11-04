@@ -161,6 +161,24 @@ describe("アカウントの画面の API", () => {
     expect(l.body.kinds[hid]).toBe("real");
   });
 
+  it("子どもから見た呼び名を保存して読み直せる。入れていない人（11/4 までの画面から送った形）は今までの形のまま", async () => {
+    const P = await import("./profile/route");
+    const { getFamily } = await import("@/lib/family");
+    const base = { familyId: hid, dueDate: "2027-03-01", city: "上牧町", prefecture: "奈良県" };
+    const r = await json<{ family: { members: unknown[] } }>(
+      P.POST(rq("/api/account/profile", mom, "POST", { ...base, members: [{ id: "m0", name: "はな", role: "母", callName: " かあちゃん " }, { id: "m1", name: "たろう", role: "パートナー" }] })),
+    );
+    expect(r.status).toBe(200);
+    const want = [{ id: "m0", name: "はな", role: "母", callName: "かあちゃん" }, { id: "m1", name: "たろう", role: "パートナー" }];
+    expect(r.body.family.members).toEqual(want);
+    expect(getFamily(hid)!.members).toEqual(want);
+    // 11/4 までの画面は呼び名の欄を送らない: そのまま保存でき、呼び名の欄は付かない
+    const o = await json<{ family: { members: unknown[] } }>(P.POST(rq("/api/account/profile", mom, "POST", { ...base, members: [{ id: "m0", name: "はな", role: "母" }] })));
+    expect(o.status).toBe(200);
+    expect(o.body.family.members).toEqual([{ id: "m0", name: "はな", role: "母" }]);
+    expect(getFamily(hid)!.members).toEqual([{ id: "m0", name: "はな", role: "母" }]);
+  });
+
   it("同意して、撤回できる（履歴に残る）", async () => {
     const H = await import("./household/route");
     const C = await import("./consent/route");

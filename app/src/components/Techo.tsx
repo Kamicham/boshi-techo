@@ -30,7 +30,7 @@ import { birthdayFor, bornPromptFor, celebrationFor, welcomeFor } from "@/lib/me
 import { BornPrompt, WelcomeBaby } from "./today/WelcomeBaby";
 import { FamilyNews } from "./today/FamilyNews";
 import { doneWords, familyNewsFor, type Thanks } from "@/lib/done-words";
-import { byDays, daysLeft, planToday, withAssignee, type Task } from "./today/task";
+import { byDays, daysLeft, planToday, whoLabel, withAssignee, type Task } from "./today/task";
 import { VisitToday, visitIsTop } from "./today/VisitToday";
 
 /** 「済んだにしました・もどす」を出しておく長さ */
@@ -415,7 +415,7 @@ export function Techo() {
         // 今やる事が無く、妊婦健診の予約の目安が近い日は「今すぐやる事はありません」と言わず、予約を一番上に（UX 2026-11-04: 大きな箱の真下に「今日ごろ」が出て、言う事が食い違っていた）
         <NextStep
           tone="rose"
-          eyebrow={me?.role === "パートナー" ? "いま、いちばん先の事（ママの番）" : "いま、いちばん先の事"}
+          eyebrow={me?.role === "パートナー" ? `いま、いちばん先の事（${whoLabel({ who: "母" }, family, me)}の番）` : "いま、いちばん先の事"}
           title="次の妊婦健診を予約する"
           sub={`国の目安では${daysUntil(today, guess) === 0 ? "今ごろ" : `あと${daysUntil(today, guess)}日ごろ`}です。病院で日を言われていたら、そちらに合わせてください。`}
         >
@@ -447,7 +447,7 @@ export function Techo() {
             ) : r.kind === "prenatal" ? (
               <Link key="prenatal" href="/visit" className="flex min-h-12 items-center justify-between gap-3 border-b border-line py-2 last:border-b-0">
                 <span className="min-w-0">
-                  <span className="block text-base font-semibold">次の妊婦健診を予約する{me?.role === "パートナー" && <span className="text-sm font-normal text-muted">（ママの番）</span>}</span>
+                  <span className="block text-base font-semibold">次の妊婦健診を予約する{me?.role === "パートナー" && <span className="text-sm font-normal text-muted">（{whoLabel({ who: "母" }, family, me)}の番）</span>}</span>
                   <span className="block text-sm text-muted">国の目安では今ごろです。病院で日を言われていたら、そちらに合わせてください</span>
                 </span>
                 <span className="flex shrink-0 items-center gap-2">

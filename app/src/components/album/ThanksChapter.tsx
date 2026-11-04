@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { jpDate } from "@/components/today/dates";
 import { thanksLog, type Thanks } from "@/lib/done-words";
+import { childView } from "@/lib/call-name";
 import { scheduleFor } from "@/lib/milestones";
 
 export function useThanksLog() {
@@ -25,7 +26,7 @@ export function useThanksLog() {
 }
 
 export function ThanksChapter() {
-  const { today } = useFamily();
+  const { family, today } = useFamily();
   const log = useThanksLog();
   if (!log.length) return null;
   return (
@@ -38,7 +39,7 @@ export function ThanksChapter() {
         {log.map((x) => (
           <li key={x.id} className="flex flex-col border-b border-line py-2 last:border-b-0">
             <span className="text-base">
-              🌷 <b>{x.from.name}</b>から <b>{x.to.name}</b>へ
+              🌷 <b>{childView(family, x.from.name)}</b>から <b>{childView(family, x.to.name)}</b>へ
             </span>
             <span className="text-sm text-muted">
               {x.title ? `「${x.title}」に` : ""}（{jpDate(x.on, today)}）

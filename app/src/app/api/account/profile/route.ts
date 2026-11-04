@@ -7,6 +7,7 @@ import { HttpError } from "@/lib/http-error";
 import { scheduleFor } from "@/lib/milestones";
 import { audit } from "@/lib/households";
 import type { Family } from "@/lib/demo-family";
+import { callNameField } from "@/lib/call-name";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ export const POST = route(async (req: Request) => {
     : { previousCity: prior?.previousCity, previousPrefecture: prior?.previousPrefecture, movedOn: prior?.movedOn };
   const members = (b.members ?? [])
     .filter((m) => m?.name?.trim() && (m.role === "母" || m.role === "パートナー"))
-    .map((m) => ({ id: String(m.id), name: String(m.name).trim().slice(0, 30), role: m.role }));
+    .map((m) => ({ id: String(m.id), name: String(m.name).trim().slice(0, 30), role: m.role, ...callNameField(m.callName) }));
   const hasPartner = members.some((m) => m.role === "パートナー");
   const situation = "situation" in b ? cleanSituation(b.situation, hasPartner) : prior?.situation;
   const fam = saveFamilyProfile(hid, {

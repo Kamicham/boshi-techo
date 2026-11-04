@@ -243,6 +243,7 @@ const SYSTEM = `あなたの役割: 家族の1000日の記録から、いつか�
 - 章は渡した時期の順に、記録のある時期だけ。period は渡した時期の名前をそのまま使う。
 - moments の date は記録の日付をそのまま使う。
 - 家族の名前は記録と家族の情報にある呼び名だけを使う。
+- 親や家族のことは、家族の情報に「子どもからは「…」」とある人はその呼び名で（例: ママは、パパは）、無い人は名前で書く。母・パートナーという役から「ママ」「パパ」を決めつけない。
 写真:
 - 写真は見ていない。渡すのは写真の候補の文字の一覧（番号・日付・月齢・節目・家族の一言・結んだ手帳の記録・★の数）だけ。写真に何が写っているかを想像して書かない。
 - 章の photos は、その時期の候補から0〜4枚を番号（P1 など）で選ぶ。★・節目・手帳に結んだ写真を先に。line は候補の一言か記録にある事だけで短く（無ければ空）。
@@ -321,7 +322,8 @@ export function bookInput(f: Family, today: string, entries: readonly Entry[], k
     `- ${key} ${x.date}・${x.age}${x.milestone ? `・節目「${x.milestone}」` : ""}${x.star ? `・★${x.star}` : ""}${x.caption ? `・一言「${x.caption}」` : ""}${x.techo.length ? `・手帳「${x.techo.join("・")}」` : ""}`;
   const voicesOf = (p: Period) => vkeys.filter((k) => k.voice.period === p);
   const voiceLine = ({ key, voice: v }: VoiceKey) => `- ${key} ${v.date}・${v.age}・題「${v.title}」${v.star ? `・★${v.star}` : ""}${v.first ? `・最初の一文「${v.first}」` : ""}`;
-  const members = f.members.map((m) => `${m.name}（${m.role}）`).join("、") || "（呼び名なし）";
+  // 子どもから見た呼び名（lib/call-name.ts）がある人は添える。無い人（11/4 までの形）は今までどおり名前と役だけ
+  const members = f.members.map((m) => `${m.name}（${m.role}${m.callName ? `・子どもからは「${m.callName}」` : ""}）`).join("、") || "（呼び名なし）";
   return [
     `子どもの呼び名: ${childName}`,
     `家族: ${members}`,

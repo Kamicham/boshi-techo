@@ -9,6 +9,12 @@ export interface Member {
   name: string;
   /** 家族の人は母とパートナーだけ（2026-11-03 に祖父母の役を消した） */
   role: "母" | "パートナー";
+  /**
+   * 子どもから見た呼び名（「ママ」「パパ」「かあちゃん」など・任意・10字まで。2026-11-04〜）。
+   * 手紙・一冊・映画の言い方だけに使う（lib/call-name.ts の childView）。予定表の題と担当（誰の番）は名前で言う。
+   * 入れていない家族（11/4 までの形）は今までどおり名前だけ。役から呼び名を決めつけない
+   */
+  callName?: string;
 }
 
 export interface Family extends FamilyDates {
@@ -54,8 +60,8 @@ export const DEMO_FAMILY: Family = {
   },
   members: [
     // 美咲: 初めての出産。会社員で、細かい段取りは苦手ではないが、時間がない
-    { id: "misaki", name: "美咲", role: "母" },
+    { id: "misaki", name: "美咲", role: "母", callName: "ママ" },
     // 翔太: やる気はあるが、何をすればいいか分からない
-    { id: "shota", name: "翔太", role: "パートナー" },
+    { id: "shota", name: "翔太", role: "パートナー", callName: "パパ" },
   ],
 };

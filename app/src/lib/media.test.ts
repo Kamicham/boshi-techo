@@ -337,6 +337,13 @@ describe("声を残す", () => {
 describe("一冊と写真", () => {
   const chapter = (period: string, photos: { mediaId: string; line: string }[] = []) => ({ period, title: "題", text: "本文", moments: [], photos });
 
+  it("一冊の家族の行: 子どもから見た呼び名がある人は添え、無い人（11/4 までの形）は名前と役だけ", async () => {
+    const { DEMO_FAMILY } = await import("./demo-family");
+    expect(B.bookInput(DEMO_FAMILY, "2027-12-31", [], [])).toContain("家族: 美咲（母・子どもからは「ママ」）、翔太（パートナー・子どもからは「パパ」）");
+    const old = { ...DEMO_FAMILY, members: DEMO_FAMILY.members.map((m) => ({ id: m.id, name: m.name, role: m.role })) };
+    expect(B.bookInput(old, "2027-12-31", [], [])).toContain("家族: 美咲（母）、翔太（パートナー）");
+  });
+
   it("写真が0枚でも一冊ができ、写真の欄は空。Claude への入力は文字だけ", async () => {
     const { getFamily } = await import("./family");
     const f = { ...getFamily("demo-sato")!, id: "demo-empty" } as import("./demo-family").Family;

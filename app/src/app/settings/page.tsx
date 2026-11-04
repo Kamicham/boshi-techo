@@ -19,7 +19,8 @@ import type { Keep } from "@/lib/keep";
 import type { Family, Member } from "@/lib/demo-family";
 
 const ROLES: Member["role"][] = ["母", "パートナー"];
-const ROLE_WORD: Record<Member["role"], string> = { 母: "ママ（母）", パートナー: "パートナー" };
+// 役の見出し。「ママ」「パパ」などの呼び名は家族が下の欄で決める（役から決めつけない。総点検 2-2・2026-11-04）
+const ROLE_WORD: Record<Member["role"], string> = { 母: "母", パートナー: "パートナー" };
 
 const field = "min-h-12 w-full rounded-xl border border-line bg-card px-3 text-base";
 
@@ -175,16 +176,32 @@ export default function Settings() {
             <Question q="家族は？" n={3}>
               {members.map((m, i) => {
                 const input = (
-                  <label key={m.id} className="flex flex-col gap-1 text-base">
-                    <span className="text-sm font-semibold text-muted">{ROLE_WORD[m.role]}</span>
-                    <input
-                      id={`member-${i}`}
-                      className={field}
-                      value={m.name}
-                      placeholder="呼び名"
-                      onChange={(e) => setMembers(members.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
-                    />
-                  </label>
+                  <div key={m.id} className="flex flex-col gap-2">
+                    <label className="flex flex-col gap-1 text-base">
+                      <span className="text-sm font-semibold text-muted">{ROLE_WORD[m.role]}</span>
+                      <input
+                        id={`member-${i}`}
+                        className={field}
+                        value={m.name}
+                        placeholder="呼び名"
+                        onChange={(e) => setMembers(members.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
+                      />
+                    </label>
+                    {/* 子どもから見た呼び名（任意）。手紙・一冊・映画で、名前に添えて言う（予定表と担当は名前のまま） */}
+                    {m.name.trim() && (
+                      <label className="flex flex-col gap-1 text-base">
+                        <span className="text-sm text-muted">{form.childName.trim() || "子ども"}から見た呼び名（任意・手紙と一冊で使います）</span>
+                        <input
+                          id={`member-call-${i}`}
+                          className={field}
+                          value={m.callName ?? ""}
+                          maxLength={10}
+                          placeholder="例: ママ・パパ・かあちゃん"
+                          onChange={(e) => setMembers(members.map((x, j) => (j === i ? { ...x, callName: e.target.value } : x)))}
+                        />
+                      </label>
+                    )}
+                  </div>
                 );
                 // まだいない役（保存した家族にパートナーがいない）の空の欄は、押した時だけ開く
                 if (m.role === "パートナー" && noPartnerSaved && !shown?.members.some((x) => x.id === m.id))

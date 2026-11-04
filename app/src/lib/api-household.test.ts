@@ -132,6 +132,18 @@ describe("アカウントの仕組みが動いている時（BOSHI_DATA_DIR を�
     expect((await POST(req("/api/family", { body: { ...PROFILE, familyId: "demo-sato" } }))).status).toBe(403);
   });
 
+  it("家族の設定（/api/family）も、子どもから見た呼び名を保つ。11/4 までの形（呼び名なし）はそのまま", async () => {
+    const { POST } = await import("@/app/api/family/route");
+    const { getFamily } = await import("./family");
+    const withCall = { ...PROFILE, familyId: hidB, members: [{ ...PROFILE.members[0], callName: "おかん" }, PROFILE.members[1]] };
+    const r = await json(await POST(req("/api/family", { cookie: bob, body: withCall })));
+    expect(r.status).toBe(200);
+    expect((r.body.family as { members: unknown[] }).members).toEqual([{ id: "m1", name: "作った母", role: "母", callName: "おかん" }, { id: "m2", name: "作ったパートナー", role: "パートナー" }]);
+    expect(getFamily(hidB)!.members[0].callName).toBe("おかん");
+    expect((await POST(req("/api/family", { cookie: bob, body: { ...PROFILE, familyId: hidB } }))).status).toBe(200);
+    expect(getFamily(hidB)!.members).toEqual(PROFILE.members);
+  });
+
   it("家族の一覧: 自分の世帯と見本の家族だけ。ログインなしは見本の家族だけ", async () => {
     const { GET } = await import("@/app/api/family/route");
     const ids = async (cookie?: string) => ((await json(await GET(req("/api/family", { cookie })))).body.families as { id: string }[]).map((f) => f.id);

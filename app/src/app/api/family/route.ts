@@ -8,6 +8,7 @@ import { allFamilies, cleanSituation, getFamily, HttpError, saveFamilyProfile, s
 import { list, put } from "@/lib/db";
 import { scheduleFor } from "@/lib/milestones";
 import { DEMO_FAMILY, type Family } from "@/lib/demo-family";
+import { callNameField } from "@/lib/call-name";
 import { accountsOn, householdFor, LEGACY_MINE_ID } from "../_lib/household";
 
 /** シミュレーションのサーバだけ: 1000組の家族（pop-）は一覧に入れず、開いている家族だけを足す */
@@ -73,7 +74,7 @@ export const POST = route(async (req: Request) => {
   // 家族の人は母とパートナーだけ（ほかの役・前の形の欄は捨てる）
   const members = (b.members ?? [])
     .filter((m) => m?.name?.trim() && (m.role === "母" || m.role === "パートナー"))
-    .map((m) => ({ id: String(m.id), name: String(m.name).trim().slice(0, 30), role: m.role }));
+    .map((m) => ({ id: String(m.id), name: String(m.name).trim().slice(0, 30), role: m.role, ...callNameField(m.callName) }));
   // 家族の形: 送られて来なければ前のままにする。パートナーの欄は、パートナーを入れた時だけ持つ
   const hasPartner = members.some((m) => m.role === "パートナー");
   const situation = "situation" in b ? cleanSituation(b.situation, hasPartner) : prior?.situation;
