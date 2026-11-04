@@ -10,6 +10,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useFamily } from "@/components/FamilyProvider";
 import { HelpPlaces } from "@/components/today/HelpPlaces";
+import { MoneyLine } from "@/components/techo/MoneyLine";
 import { Btn, Notice } from "@/components/ui";
 import { DevelopmentList } from "@/components/techo/DevelopmentList";
 import { EntryCard } from "@/components/techo/EntryCard";
@@ -197,6 +198,8 @@ export default function TechoPage() {
           </div>
         </details>
       )}
+
+      <MoneyLine />
 
       <section
         id="book"

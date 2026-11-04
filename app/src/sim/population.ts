@@ -668,6 +668,8 @@ export function situationFromProfile(p: PopProfile, dueDate?: string): Situation
     babies: p.twins ? 2 : 1,
     satogaeri: !!p.satogaeri,
   };
+  // 里帰り先の町は、もう配ってある里帰り先（同じ市町村・同じ都道府県・ほかの都道府県）を写す。戻る時期は統計が無いので空のまま（決めていない扱い）
+  if (p.satogaeri) s.satogaeriPlace = { prefecture: p.satogaeri.prefecture, city: p.satogaeri.city };
   // 上の子の生まれた日は、上の子の月齢（予定日の時点）から戻す。通う所は乱数を引かずに近似で決める:
   // 6歳3か月以上は小学校、母が妊娠中に働いていれば保育園（保育所等の利用は共働きが前提）、3歳以上は幼稚園、ほかは家。
   // 3歳以上の保育所等と幼稚園の利用はおよそ半々（こども家庭庁「保育所等関連状況取りまとめ」2024・文部科学省「学校基本調査」2024 から近似）

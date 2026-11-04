@@ -276,7 +276,7 @@ export const SIM_FAMILIES: SimFamily[] = [
       // 祖父母の節子（家族の人には入れない）: 遥の母。霧島市に住む。里帰り中の世話をする
     ],
     // 家族の形: 34週ごろ帰る（2027-01-04 ごろ）。戻る日は決めていない。智也の働き方は書いていないので空
-    situation: { motherWork: "会社員・公務員", olderChildren: false, babies: 1, satogaeri: true },
+    situation: { motherWork: "会社員・公務員", olderChildren: false, babies: 1, satogaeri: true, satogaeriPlace: { prefecture: "鹿児島県", city: "霧島市" }, satogaeriBack: "産後2か月ごろ" },
     persona: {
       label: "妊娠中期・里帰り出産（江東区→霧島市の実家）",
       meId: "haruka",

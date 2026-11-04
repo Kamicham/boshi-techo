@@ -2,6 +2,7 @@
 
 // 「今日」の画面: 開いた瞬間に「今やる1つ」。2つ目からは1行ずつ、まだ先と済んだ事は畳む。
 import Link from "next/link";
+import { moneyWatch } from "@/lib/money";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { clockAt, diffDays, totalDays } from "@/lib/clock";
 import type { Family } from "@/lib/demo-family";
@@ -45,6 +46,8 @@ export function Techo() {
   const [showAll, setShowAll] = useState(false);
   // 手帳の記録（接種・健診など）から済みにした事（/api/done の fromTecho。無い版では空）。「戻す」は出さない
   const [fromTecho, setFromTecho] = useState<Set<string>>(new Set());
+  // 済んだにした日（お金の手続きの届く見込みを数える。lib/money.ts）
+  const [appliedOn, setAppliedOn] = useState<Record<string, string>>({});
   // 予防接種の次の回の打てる最短日（/api/done の retime。手帳の接種の日付から数え直した物）
   const [retime, setRetime] = useState<Record<string, Retime>>({});
   const [doneError, setDoneError] = useState("");
@@ -64,11 +67,12 @@ export function Techo() {
   }, []);
 
   /** GET /api/done の返り（fromTecho は担当A の版から。無ければ空として読む） */
-  type DoneRes = { done: string[]; fromTecho?: string[]; retime?: Record<string, Retime> };
+  type DoneRes = { done: string[]; fromTecho?: string[]; retime?: Record<string, Retime>; doneOn?: Record<string, string> };
   const readDone = useCallback((j: DoneRes) => {
     setMarked(new Set(Array.isArray(j.done) ? j.done : []));
     setFromTecho(new Set(Array.isArray(j.fromTecho) ? j.fromTecho : []));
     setRetime(j.retime && typeof j.retime === "object" ? j.retime : {});
+    setAppliedOn(j.doneOn && typeof j.doneOn === "object" ? j.doneOn : {});
   }, []);
 
   // 「済んだにしました・もどす」は数秒だけ出す（押し間違えた時に戻せるように）
@@ -181,7 +185,14 @@ export function Techo() {
     [marked, family.id, today],
   );
 
-  const schedule = useMemo(() => applyRetime(scheduleFor(family, today), retime), [family, today, retime]);
+  // 申請が済んだお金の手続きは、「届いたか確かめる」1件を足す（お金の1000日。lib/money.ts）
+  const schedule = useMemo(() => {
+    const base = applyRetime(scheduleFor(family, today), retime);
+    const applied = new Set([...marked, ...sent, ...fromTecho]);
+    if (isDemo) for (const m of base) if (m.deadlineDate && m.deadlineDate < today) applied.add(m.id);
+    const born = family.birthDate && family.birthDate <= today ? family.birthDate : undefined;
+    return [...base, ...moneyWatch(base, applied, appliedOn, born)];
+  }, [family, today, retime, marked, sent, fromTecho, isDemo, appliedOn]);
 
   const setManyDone = useCallback(
     async (ids: string[]) => {
