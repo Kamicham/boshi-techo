@@ -162,8 +162,8 @@ function Player({ book, shots }: { book: Book; shots: Shot[] }) {
               alt=""
               className="h-full w-full object-cover"
               style={{
-                animation: n === i && !paused ? `kb${n % 4} ${s.sec + 1.4}s linear both` : undefined,
-                animationPlayState: paused ? "paused" : "running",
+                // 止めた時も寄りの途中で止まるよう、再生の状態を1つの書き方に入れる
+                animation: n === i ? `kb${n % 4} ${s.sec + 1.4}s linear both ${paused ? "paused" : "running"}` : undefined,
               }}
             />
             <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/70 to-transparent" />
@@ -218,7 +218,7 @@ function Player({ book, shots }: { book: Book; shots: Shot[] }) {
         <Link href="/book" onClick={(e) => e.stopPropagation()} className="min-h-11 rounded-full bg-black/40 px-4 py-2 text-sm">
           ✕ 閉じる
         </Link>
-        {i >= 0 && !done && <span className="rounded-full bg-black/40 px-3 py-1 text-xs">{paused ? "止めています・押すと続き" : ""}</span>}
+        {i >= 0 && !done && paused && <span className="rounded-full bg-black/40 px-3 py-1 text-xs">止めています・押すと続き</span>}
       </div>
       {i >= 0 && !done && (
         <div className="absolute inset-x-0 bottom-0 h-1 bg-white/10">
