@@ -1,0 +1,46 @@
+# 検査: 型・lint・試験・早送りの検査（作った30家族と1000組で「今日」の画面と同じ関数を通す）
+# - 鍵と秘密は使わない。Claude は呼ばない（試験は偽の SDK か、鍵が無い時の決まりで動く）
+# - 時刻の帯は runner の既定（UTC）のまま。手元（日本時間）と両方で通る事を確かめる
+name: 検査
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# main への push は1つずつ最後まで回す（取り消された印を main に残さない）。PR は新しい push で前の回を止める
+concurrency:
+  group: check-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    name: 型・lint・試験・早送り
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: app
+    env:
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - name: 部品を入れる
+        run: npm ci --no-audit --no-fund
+      - name: 型
+        run: npm run typecheck
+      - name: lint
+        run: npm run lint
+      - name: 試験
+        run: npx vitest run --exclude "src/sim/**"
+      - name: 早送りの検査（30家族と1000組）
+        run: npm run sim
