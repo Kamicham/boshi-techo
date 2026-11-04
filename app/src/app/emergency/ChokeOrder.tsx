@@ -5,10 +5,12 @@
 // 妊娠中・生まれた日が分からない・読めない時は、今までどおり「1歳になる前」が先。
 // ママの体の急ぎ（MamaUrgent）も同じ読み方で、妊娠中と産後8週までの家族では一番上に出す。
 // #7119（Line7119）も同じ読み方で、家族の住む町で実施している時だけ出す（lib/emergency-lines.ts）。
+// 「#」の入った番号（#8000・#7119）のボタンには、すぐ下に、つながらない時のふつうの番号（家族の県の窓口）を添える（Alt8000・AltCall）。
+// 「#」の入ったリンク（tel:%238000）は、電話によってかからない事がある（IPHONE_NOTE）。家族の県が分からない時は添えない。
 import { useEffect, useRef, useState } from "react";
 import { clockAt } from "@/lib/clock";
 import { DEMO_FAMILY, type Family } from "@/lib/demo-family";
-import { line7119, telLink } from "@/lib/emergency-lines";
+import { line7119, line8000, normPref, telLink } from "@/lib/emergency-lines";
 
 function read(key: string): string | null {
   try {
@@ -91,34 +93,76 @@ function isPregnantNow(): { familyId: string } | null {
   return clockAt(cur.family, cur.today).phase === "pregnant" ? { familyId: cur.family.id } : null;
 }
 
+type Info7119 = { hours: string | null; tel: string; alt: string | null; pref: string | null };
+
 /** 家族の住む町の #7119（実施していなければ null）。家族を読めない時・見本の家族に落ちただけの時も null（ほかの町の人に、見本の町の番号を出さない） */
-function use7119(): { hours: string | null; tel: string } | null {
-  const [line, setLine] = useState<{ hours: string | null; tel: string } | null>(null);
+function use7119(): Info7119 | null {
+  const [line, setLine] = useState<Info7119 | null>(null);
   useEffect(() => {
     const cur = currentFamily();
-    setLine(cur?.chosen ? line7119(cur.family.prefecture, cur.family.city) : null);
+    const l = cur?.chosen ? line7119(cur.family.prefecture, cur.family.city) : null;
+    setLine(l && cur ? { ...l, pref: normPref(cur.family.prefecture) } : null);
   }, []);
   return line;
 }
 
 /**
+ * 「#」の番号につながらない時の、ふつうの番号。すぐ上の「#」のボタンと1つの枠に入れる（枠は呼ぶ側）。
+ * 見える文は「つながらない時は 番号（県）」の1行（iPhone の幅 390px で折り返さない長さ）。読み上げには、どの番号の代わりかも入れる。
+ *
+ * IPHONE_NOTE（なぜ添えるか）: Apple の開発者向けの古い文書「Apple URL Scheme Reference」の Phone Links に、
+ * 「if a URL contains the * or # characters, the Phone app does not attempt to dial the corresponding phone number.」とある
+ * （https://developer.apple.com/library/archive/featuredarticles/iPhoneURLScheme_Reference/PhoneLinks/PhoneLinks.html ）。
+ * 今の iOS でも同じかは、実機で確かめていない（本物の #8000 にかけて試すと、相談の窓口につながってしまうので試さない）。
+ * どの電話でも届くよう、ふつうの番号を添える（2026-11-05 統括の決め）。
+ */
+function AltCall({ tel, instead, where }: { tel: string; instead: string; where: string }) {
+  return (
+    <a
+      href={telLink(tel)}
+      aria-label={`${instead} につながらない時は、${tel}（${where}の窓口）にかける`}
+      className="flex min-h-11 items-center justify-center border-t border-sky/30 px-3 py-1 text-center text-sm text-muted"
+    >
+      <span>
+        つながらない時は <span className="tabular font-semibold text-sky underline underline-offset-2">{tel}</span>（{where}）
+      </span>
+    </a>
+  );
+}
+
+/**
  * #7119（救急安心センター事業）: 大人の体（ママ）の事で、救急車を呼ぶか迷う時の相談先。家族の町で実施している時だけ、電話の段に1行足す。
  * 実施していない町・家族を読めない時（組み立てたページ）は出さない。受付が24時間でない県は時間を、一覧に別の番号が書かれた町はその番号を添える。
+ * 「#7119」にかける町は、すぐ下に一覧のふつうの番号（つながらない時）を添える。
  */
 export function Line7119() {
   const line = use7119();
   if (!line) return null;
   return (
-    <a
-      href={telLink(line.tel)}
-      className="flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-2xl border-2 border-sky/50 bg-card px-4 py-2 text-center"
-    >
-      <span className="font-display text-xl font-bold text-sky">#7119 に聞く</span>
-      <span className="text-sm text-muted">大人の体（ママ）の事で、救急車を呼ぶか迷う時</span>
-      {line.tel !== "#7119" && <span className="tabular text-xs text-muted">この町からは {line.tel} にかけます</span>}
-      {line.hours && <span className="text-xs text-muted">受付: {line.hours}</span>}
-    </a>
+    <div className="flex flex-col overflow-hidden rounded-2xl border-2 border-sky/50 bg-card">
+      <a href={telLink(line.tel)} className="flex min-h-14 flex-col items-center justify-center gap-0.5 px-4 py-2 text-center">
+        <span className="font-display text-xl font-bold text-sky">#7119 に聞く</span>
+        <span className="text-sm text-muted">大人の体（ママ）の事で、救急車を呼ぶか迷う時</span>
+        {line.tel !== "#7119" && <span className="tabular text-xs text-muted">この町からは {line.tel} にかけます</span>}
+        {line.hours && <span className="text-xs text-muted">受付: {line.hours}</span>}
+      </a>
+      {line.alt && line.pref && <AltCall tel={line.alt} instead="#7119" where={line.pref} />}
+    </div>
   );
+}
+
+/**
+ * #8000 につながらない時の、家族の都道府県のふつうの番号（厚生労働省の表）。#8000 のボタンと同じ枠の中、すぐ下に置く。
+ * 家族を読めない時・見本の家族に落ちただけの時は出さない（#7119 と同じ。ほかの県の人に、見本の県の番号を出さない）。
+ */
+export function Alt8000() {
+  const [line, setLine] = useState<{ tel: string; prefecture: string } | null>(null);
+  useEffect(() => {
+    const cur = currentFamily();
+    setLine(cur?.chosen ? line8000(cur.family.prefecture) : null);
+  }, []);
+  if (!line) return null;
+  return <AltCall tel={line.tel} instead="#8000" where={line.prefecture} />;
 }
 
 /** 母子手帳（国の様式）の言葉をそのまま引く。cite は最後の引用にだけ付ける */
@@ -197,12 +241,18 @@ export function MamaUrgent({ slot }: { slot: "top" | "bottom" }) {
         : "体の事で心配な時は、かかっている産院（お産をした産院）に電話します（夜間も）。どうするかは、電話で産院が教えてくれます。";
   const find =
     kind === "pregnant"
-      ? "番号は、診察券や産院からもらった書類で探せます。"
+      ? "番号は、診察券や産院の書類で探せます。"
       : kind === "postpartum"
         ? "番号は、母子手帳の「退院時の記録」の欄や、診察券で探せます。"
         : "番号は、診察券や産院からもらった書類、母子手帳の「退院時の記録」の欄で探せます。";
   return (
-    <section ref={ref} id="mama" aria-labelledby="mama-h" className="flex scroll-mt-4 flex-col gap-3 rounded-2xl border border-line bg-card p-4">
+    // 高さの低い画面（Safari のツールバーが出ている iPhone は 664px ほど）では余白を詰め、妊娠中でも札・119・#8000 を1画面目に
+    <section
+      ref={ref}
+      id="mama"
+      aria-labelledby="mama-h"
+      className="flex scroll-mt-4 flex-col gap-2 rounded-2xl border border-line bg-card p-4 [@media(max-height:760px)]:p-3"
+    >
       <div>
         <h2 id="mama-h" className="font-display text-xl font-bold">
           {title}
