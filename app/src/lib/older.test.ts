@@ -77,3 +77,20 @@ describe("上の子の予定", () => {
     expect(s[0].hint).toContain("目安");
   });
 });
+
+describe("上の子の園と送り迎え", () => {
+  const ids = (sit: object) => scheduleFor({ ...base, situation: sit }, "2027-01-15").map((m) => m.id);
+  it("保育園の上の子がいる時だけ、育休中の継続の申請が出る（予定日の12週前から・生まれて30日が目安）", () => {
+    expect(ids({ olderChildren: true, olderKids: [kid] })).toContain("older-daycare-continue");
+    expect(ids({ olderChildren: true, olderKids: [{ ...kid, care: "幼稚園" }] })).not.toContain("older-daycare-continue");
+    expect(ids({ olderChildren: true })).not.toContain("older-daycare-continue");
+    const m = scheduleFor({ ...base, situation: { olderChildren: true, olderKids: [kid] } }, "2027-01-15").find((x) => x.id === "older-daycare-continue")!;
+    expect(m.startDate).toBe("2027-03-09");
+    expect(m.deadlineDate).toBe("2027-07-01");
+  });
+  it("園か幼稚園に通う上の子がいる時だけ、送り迎えの担当が出る", () => {
+    expect(ids({ olderChildren: true, olderKids: [{ ...kid, care: "幼稚園" }] })).toContain("older-pickup");
+    expect(ids({ olderChildren: true, olderKids: [{ ...kid, care: "家" }] })).not.toContain("older-pickup");
+    expect(ids({ olderChildren: false })).not.toContain("older-pickup");
+  });
+});

@@ -12,7 +12,7 @@ import { fillBlanks, getKeep, type Keep } from "./keep";
 import { getLocal } from "./local";
 import { MILESTONES, scheduleFor, type MilestoneDef } from "./milestones";
 
-export const DRAFT_KINDS = ["メール", "記入メモ", "質問リスト"] as const;
+export const DRAFT_KINDS = ["メール", "記入メモ", "質問リスト", "頼み文"] as const;
 export type DraftKind = (typeof DRAFT_KINDS)[number];
 
 export const DraftSchema = z.object({
@@ -150,8 +150,24 @@ export function viewDraft(family: Family, draft: Draft | null, meId?: string | n
   };
 }
 
+/** 上の子の事の下書きの向き（第2波①）。上の子の年と通う所を渡す。名前は呼び名だけ */
+function olderDraftLines(id: string, family: Family): string[] {
+  const kids = family.situation?.olderKids ?? [];
+  if (!["older-child-care", "older-pickup", "older-daycare-continue"].includes(id)) return [];
+  const who = kids.length
+    ? kids.map((k, i) => `- ${k.name ?? (kids.length > 1 ? `上の子${i + 1}` : "上の子")}: ${k.birthDate.slice(0, 7)}生まれ${k.care ? `・日中は${k.care}` : ""}`).join("\n")
+    : "- 上の子（年と通う所は分からない）";
+  const dir =
+    id === "older-daycare-continue"
+      ? `下書きの向き: 上の子が通う保育園か、住む町（${family.city}）の保育の窓口への問い合わせのメール。聞く事: 育休中も上の子が続けて通えるか・続けられる期間・申請の書類と出す期限・短い時間になるか。予定日を書く。続けられるかは決めつけない`
+      : id === "older-pickup"
+        ? "下書きの向き: 祖父母かパートナーへの頼み文。入院中と産後1か月の、上の子の園の送り迎えを頼む。曜日と時間は【送りの時間】【迎えの時間】の空欄。頼めない日があってよい事も書く"
+        : "下書きの向き: 祖父母への頼み文。出産の入院中（数日〜1週間ほど）に上の子を見てほしい事と、夜中に陣痛が来た時に駆けつけてもらえるか・難しければ一時保育やファミリー・サポートを登録しておく事を、短く頼む。予定日を書く";
+  return ["", "上の子:", who, dir];
+}
+
 const SYSTEM = `あなたの役割: 家族の「やる事」1件について、家族がそのまま使える下書きを1つ作る係。家族がするのは最後に送る・使うだけにする。
-- 種類（kind）は事に合う物を選ぶ: 職場への相談・報告は「メール」、役所の届出・申請書は「記入メモ」（欄ごとに何を書くか・どこで分かるか）、窓口や保育園・病院で聞く事は「質問リスト」（1行に1つ）。
+- 種類（kind）は事に合う物を選ぶ: 職場への相談・報告は「メール」、役所の届出・申請書は「記入メモ」（欄ごとに何を書くか・どこで分かるか）、窓口や保育園・病院で聞く事は「質問リスト」（1行に1つ）、祖父母・親せき・パートナーへの頼み事は「頼み文」（LINE などでそのまま送れる、短くあたたかい話し言葉。宛名は「お母さんへ」などの呼び方で、分からなければ【頼む人の呼び方】）。
 - 書き手は、この手帳を開いた家族の一人（呼び名と役割を渡す）。
 - 「覚えている事」が渡された時は、会社名・上司の名前・病院の名前などをそれで書く。
 - 書き手の名前は、家族が送る文の最後に必ず書く（分からなければ【自分の名前】）。町名・都道府県・家族の名前・予定日・生まれた日は、渡した家族の情報で書く（空欄にしない）。
@@ -212,6 +228,7 @@ export async function makeDraft(family: Family, m: MilestoneDef, today: string, 
           `下書きの向き: 住む町（${family.city}）のこども家庭センター（母子保健の窓口）への問い合わせのメール。聞く事: 2回目の面談の予約の仕方・申請書の出し方（郵送・電子申請）・受け取り方・申請の期限${family.situation?.satogaeri ? "。里帰り中なので、面談を里帰り先かオンラインで受けられるかと、戻る前に済ませるべきかも聞く" : ""}。おなかの子の数: ${family.situation?.babies && family.situation.babies > 1 ? family.situation.babies : 1}人。額は書かない`,
         ]
       : []),
+    ...olderDraftLines(m.id, family),
   ];
   if (local) {
     lines.push(

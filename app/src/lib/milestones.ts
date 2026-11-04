@@ -25,6 +25,8 @@ export type Only =
   | "single" // 家族にパートナーがいない（members でわかった時だけ）
   | "first-child" // 第1子（わからない時も）
   | "older-children" // 上の子がいる（わかった時だけ）
+  | "older-daycare" // 上の子が保育園に通っている（上の子の欄でわかった時だけ）
+  | "older-commute" // 上の子が保育園か幼稚園に通っている（わかった時だけ）
   | "satogaeri" // 里帰り出産をする（わかった時だけ）
   | "daycare" // 保育園に預けて働く家族: 母が働き続け（雇われて・自営。辞める・仕事なしは除く）、パートナーがいれば働いている（わからない欄は当てはまる側）
   | "low-birth-weight" // 出生体重が 2500g 未満（手帳の出産の記録でわかった時だけ）
@@ -117,7 +119,9 @@ export const MILESTONES: MilestoneDef[] = [
   { id: "partner-leave", title: "パートナーの育休（産後パパ育休）を職場に相談する", plain: "パパの育休を職場に伝える", hint: "産後すぐ休むなら、予定日の2週間前までに", kind: "仕事", who: "パートナー", anchor: "lmp", start: w(20), deadline: { days: 280 - 14 }, basis: "育児・介護休業法（産後パパ育休の申し出は原則2週間前まで。予定日から休むなら予定日の2週間前）", needsLocal: false, only: ["partner-leave"] },
   { id: "nenkin-maternity-exempt", title: "国民年金の産前産後期間の保険料免除を届け出る", plain: "国民年金の産前産後の免除を届ける", hint: "予定日の6か月前から届けられます", kind: "手続き", who: "母", anchor: "due", start: { months: -6 }, deadline: { days: 0 }, deadlineKind: "目安", basis: "国民年金法第88条の2（2019年4月から。予定月の前月から4か月分、双子などは3か月前から6か月分の保険料が免除。予定日の6か月前から届けられ、生まれた後でも届けられる。窓口は役所の国民年金の係。日本年金機構のページで確かめる）", needsLocal: true, only: ["mother-kokuho"] },
   { id: "kokuho-maternity-exempt", title: "国民健康保険の産前産後期間の保険料の減額（免除）を届け出る", plain: "国保の産前産後の減額を届ける", hint: "国保に入っている人。予定日の6か月前から", kind: "手続き", who: "母", anchor: "due", start: { months: -6 }, deadline: { days: 0 }, deadlineKind: "目安", basis: "国民健康保険法施行令の改正（2024年1月から。予定月の前月から4か月分、双子などは3か月前から6か月分の所得割・均等割が減る（0円になるとは限らない）。予定日の6か月前から届けられ、生まれた後でも届けられる。窓口は役所の国保の係）", needsLocal: true, only: ["mother-kokuho"] },
-  { id: "older-child-care", title: "出産の入院中、上の子を見てもらう先を決める（一時保育・ファミリー・サポート・祖父母）", plain: "入院中の上の子の預け先を決める", hint: "一時保育やファミサポは、前もって登録が要ります", kind: "準備", who: "家族", anchor: "lmp", start: w(24), deadline: w(34), deadlineKind: "目安", basis: "一時預かり事業（児童福祉法第6条の3第7項）・ファミリー・サポート・センター（子ども・子育て支援法第59条の子育て援助活動支援事業）・ショートステイ（子育て短期支援事業）。使える物と登録の仕方は町ごとに違う", needsLocal: true, pregnancyOnly: true, only: ["older-children"] },
+  { id: "older-child-care", title: "出産の入院中、上の子を見てもらう先を決める（一時保育・ファミリー・サポート・祖父母）", plain: "入院中の上の子の預け先を決める", hint: "夜中の陣痛の時に見る人も。一時保育は登録が要ります", kind: "準備", who: "家族", anchor: "lmp", start: w(24), deadline: w(34), deadlineKind: "目安", basis: "一時預かり事業（児童福祉法第6条の3第7項）・ファミリー・サポート・センター（子ども・子育て支援法第59条の子育て援助活動支援事業）・ショートステイ（子育て短期支援事業）。使える物と登録の仕方は町ごとに違う", needsLocal: true, pregnancyOnly: true, only: ["older-children"] },
+  { id: "older-daycare-continue", title: "育休中も上の子が保育園に通い続けられるか、町の決まりを確かめて申請する", plain: "上の子の保育園を育休中も続ける申請", hint: "続けられる期間と申請の期限は町ごとに違います。生まれる前に確かめると安心", kind: "手続き", who: "家族", anchor: "due", start: { days: -84 }, deadline: { days: 30 }, deadlineKind: "目安", basis: "子ども・子育て支援法施行規則第1条の5（保育が必要な理由の1つに「育児休業をする時、すでに保育を使っている子が続けて使う必要がある時」がある）。続けられるか・期間（育休の終わりまで・赤ちゃんが1歳になる年度の終わりまで・上の子の年で分けるなど）・申請の書類と期限は町ごとに違う。町の利用案内で確かめる", needsLocal: true, only: ["older-children", "older-daycare"] },
+  { id: "older-pickup", title: "入院中と産後1か月の、上の子の送り迎えの担当を決める", plain: "上の子の送り迎えの担当を決める", hint: "入院中と、産後しばらくの分。決めておくと当日あわてません", kind: "準備", who: "家族", anchor: "lmp", start: w(28), deadline: w(36), deadlineKind: "目安", basis: "法の決まりは無い。母は産後8週まで休業の期間（労働基準法第65条）。入院は出産で数日〜1週間ほどが多い（近似）。送り迎えの担当は家族で決める", needsLocal: false, only: ["older-children", "older-commute"] },
   { id: "satogaeri-visit", title: "赤ちゃん訪問を里帰り先で受けたい事を、住む町に伝える", plain: "里帰り先での訪問を頼む", hint: "住む町から、里帰り先の町へ頼んでもらえます", kind: "手続き", who: "母", anchor: "lmp", start: w(28), deadline: w(34), deadlineKind: "目安", basis: "新生児訪問（母子保健法第11条）・乳児家庭全戸訪問（児童福祉法第6条の3第4項）。里帰り先での訪問は、住む町が里帰り先の町に頼む形が多い。できるかと頼み方は住む町に確かめる", needsLocal: true, only: ["satogaeri"] },
   { id: "pregnancy-support-2", title: "妊婦のための支援給付の2回目を申請する（町の面談を受けて、おなかの子の数を届ける）", plain: "支援給付の2回目を申請する", hint: "予定日の8週前から。1人5万円の目安（町で確かめる）", kind: "手続き", who: "母", anchor: "due", start: { days: -56 }, deadline: { months: 24, days: -57 }, deadlineKind: "期限", basis: "子ども・子育て支援法の改正（妊婦のための支援給付・2025年4月から）。2回目は出産予定日の8週前の日から申請でき、おなかの子1人につき5万円の目安。町の面談（妊婦等包括相談支援）を受けてから申請する町が多い。申請の期限は8週前の日から2年（秋田市・広島市などの案内で確かめた・2026年）。面談の予約・受け取り方は町で確かめる。流産・死産でも対象", needsLocal: true },
   { id: "direct-payment", title: "出産育児一時金の直接支払制度の書類を産院で出す", plain: "出産のお金の書類を産院に出す", hint: "退院の時に大きなお金を払わずにすみます", kind: "手続き", who: "母", anchor: "lmp", start: w(30), deadline: w(36), deadlineKind: "目安", basis: "健康保険法（出産育児一時金。金額と手続きは制度が変わる事があるので、そのつど公式の情報で確かめる）", needsLocal: true, pregnancyOnly: true },
@@ -234,6 +238,10 @@ export function applies(only: Only, f: ScheduleInput): boolean {
       return !hasOlderChildren(s);
     case "older-children":
       return hasOlderChildren(s);
+    case "older-daycare":
+      return hasOlderChildren(s) && !!s?.olderKids?.some((k) => k.care === "保育園");
+    case "older-commute":
+      return hasOlderChildren(s) && !!s?.olderKids?.some((k) => k.care === "保育園" || k.care === "幼稚園");
     case "satogaeri":
       return !!s?.satogaeri;
     case "daycare": {
