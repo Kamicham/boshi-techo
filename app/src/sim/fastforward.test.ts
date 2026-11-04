@@ -20,6 +20,7 @@
 //
 // 判定: ○ = 守れた／△ = 今の作りでは避けられない既知の穴（KNOWN_GAPS に理由つきで登録）／× = それ以外の破れ（テストが落ちる）
 import { afterAll, describe, expect, it } from "vitest";
+import { backDays, satogaeriReach } from "../lib/satogaeri";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -70,6 +71,7 @@ const RULES = {
   k: "妊娠中の妊婦健診の目安は、今日より前にならず予定日より前で、今日受けた時の次は国の標準の間隔を超えない（第1波⑧）",
   l: "上の子の予定は上の子がいる家族だけに出て、健診・接種の日は上の子の生まれた日から数え、期限切れにならない。園の継続は保育園の上の子がいる時だけ（第2波①）",
   m: "保育園の入る4月が仕事に戻りたい時期に合い（1歳まで＝1歳の誕生日まで・1歳を過ぎて＝その後）、見学は生後1か月より前に来ず、延長の申し出の期限は1歳の誕生日の2週間前（第2波④）",
+  o: "里帰り: 同じ市なら遠方向け（訪問を頼む・健診代の申請・戻る日の段取り・里帰り先の町の調べ）が出ず、健診代の申請と戻る日の段取りは戻る日から、里帰り先の町の調べは里帰り先の町を答えた家族だけ（第2波⑦）",
   n: "産休・育休のお金: 育休の給付の初回の期限は育休の4か月目の月末で、自営・仕事なし・辞める母には育休の給付が出ず、パパの14日の1件は14日以上の家族に出ない（第2波⑤）",
 } as const;
 type Rule = keyof typeof RULES;
@@ -426,6 +428,20 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
       }
       const len = fv.situation?.partnerLeaveLen;
       if (tasks.some((t) => t.id === "partner-leave-14") && (len === "2週間〜1か月" || len === "1か月以上")) push("n", "14", `パパの育休が${len}なのに、14日の1件が出る`);
+    }
+    // o: 里帰りの2つの町
+    if (fv.situation?.satogaeri) {
+      const reach = satogaeriReach(fv, fv.situation);
+      const away = ["satogaeri-visit", "satogaeri-checkup-refund", "satogaeri-return", "satogaeri-local"].filter((id) => tasks.some((t) => t.id === id));
+      if (reach === "同じ市" && away.length) push("o", "same", `同じ市の里帰りに遠方向けが出る（${away.join("・")}）`);
+      if (tasks.some((t) => t.id === "satogaeri-local") && reach !== "同じ県" && reach !== "ほかの県") push("o", "local", "里帰り先の町を答えていないのに、里帰り先の町の調べが出る");
+      if (isBorn && f.birthDate) {
+        const back = addDays(f.birthDate, backDays(fv.situation.satogaeriBack));
+        const refund = tasks.find((t) => t.id === "satogaeri-checkup-refund");
+        if (refund && refund.startDate !== back) push("o", "refund", `健診代の申請が ${refund.startDate}（戻る日 ${back} でない）`);
+        const ret = tasks.find((t) => t.id === "satogaeri-return");
+        if (ret && ret.deadlineDate !== back) push("o", "return", `戻る日の段取りの目安が ${ret.deadlineDate}（戻る日 ${back} でない）`);
+      }
     }
     // f: 参謀のきっかけ
     const trig = detectTriggers({ family: fv, today: day, done: new Set(done), isDemo: false });
