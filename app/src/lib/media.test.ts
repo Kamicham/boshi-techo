@@ -169,7 +169,22 @@ describe("月齢・節目・この1枚", () => {
     expect(S.pickOfMonth([])).toBeNull();
     const g = S.groupForAlbum(fam, xs);
     expect(g.map((p) => p.period)).toEqual(["はじめての一年"]);
-    expect(g[0].months[0].label).toBe("生後3か月（2027年8月）");
+    expect(g[0].months[0].label).toBe("生後3か月（2027年7月26日〜）");
+  });
+
+  it("月の見出しは月齢でまとめ、同じ見出しが2回出ない（生まれて1週間・1か月まで・生後の月・妊娠の月）", () => {
+    const base = (id: string, date: string) => ({ id, date, createdAt: `${date}T00:00:00Z`, star: 0, techoIds: [], hidden: false, trashedAt: null }) as unknown as import("./media-shared").ClientMedia;
+    const days = ["2026-10-01", "2026-10-25", "2027-04-26", "2027-04-30", "2027-05-06", "2027-05-16", "2027-05-26", "2027-06-10", "2027-09-30", "2027-10-06", "2027-10-26", "2028-04-26"];
+    const g = S.groupForAlbum(fam, days.map((d, i) => base(String(i), d)));
+    const labels = g.flatMap((p) => p.months.map((m) => m.label));
+    expect(new Set(labels).size).toBe(labels.length);
+    expect(labels).toContain("生まれて1週間（2027年4月26日〜）");
+    expect(labels).toContain("生まれて1か月まで（2027年5月3日〜）");
+    expect(labels).toContain("生後1か月（2027年5月26日〜）");
+    expect(labels).toContain("生後5か月（2027年9月26日〜）");
+    expect(labels).toContain("1歳（2028年4月26日〜）");
+    // 生後1か月の間（5/26〜6/25）は1つの見出し
+    expect(g.flatMap((p) => p.months).find((m) => m.label.startsWith("生後1か月"))!.items.length).toBe(2);
   });
 });
 

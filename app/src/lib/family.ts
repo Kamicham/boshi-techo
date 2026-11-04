@@ -5,7 +5,7 @@ import { get, put } from "./db";
 import { scheduleFor } from "./milestones";
 import { birthFacts, isMadeFamily } from "./techo-seed";
 import { listTecho } from "./techo-store";
-import { LEAVE_LENS, RETURN_ATS, cleanOlderKids, cleanQuiet, type Leave, type MotherWork, type Situation, type Work } from "./situation";
+import { LEAVE_LENS, RETURN_ATS, SATOGAERI_BACKS, cleanOlderKids, cleanQuiet, type Leave, type MotherWork, type Situation, type Work } from "./situation";
 import { HttpError } from "./http-error";
 import { isTrialId } from "./trial-cookie";
 
@@ -198,6 +198,13 @@ export function cleanSituation(x: unknown, hasPartner: boolean): Situation | und
   }
   if (typeof r.babies === "number" && Number.isInteger(r.babies) && r.babies >= 1 && r.babies <= 5) s.babies = r.babies;
   s.satogaeri = yesNo(r.satogaeri);
+  if (s.satogaeri) {
+    const p = r.satogaeriPlace as Record<string, unknown> | undefined;
+    const pref = typeof p?.prefecture === "string" ? p.prefecture.trim().slice(0, 10) : "";
+    const city = typeof p?.city === "string" ? p.city.trim().slice(0, 20) : "";
+    if (pref && city) s.satogaeriPlace = { prefecture: pref, city };
+    s.satogaeriBack = oneOf(r.satogaeriBack, SATOGAERI_BACKS);
+  }
   s.returnAt = oneOf(r.returnAt, RETURN_ATS);
   s.quiet = cleanQuiet(r.quiet);
   s.publicServant = yesNo(r.publicServant);

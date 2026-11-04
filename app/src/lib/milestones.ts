@@ -29,7 +29,7 @@ export type Only =
   | "older-daycare" // 上の子が保育園に通っている（上の子の欄でわかった時だけ）
   | "older-commute" // 上の子が保育園か幼稚園に通っている（わかった時だけ）
   | "mother-leave" // 母が雇われて働き続ける（会社員・公務員・パート・派遣。わからない時も。出産で辞める・自営・仕事なしは除く）
-  | "leave-short" // パートナーの育休が14日に届かないかもしれない（14日未満と答えた・長さがわからない）
+  | "leave-short" // パートナーの育休が14日に届かない（14日未満と答えた時だけ。長さがわからない時は、パパの育休の一言に足す）
   | "return-late" // ママが1歳を過ぎてから仕事に戻りたい（わかった時だけ）
   | "satogaeri" // 里帰り出産をする（わかった時だけ）
   | "daycare" // 保育園に預けて働く家族: 母が働き続け（雇われて・自営。辞める・仕事なしは除く）、パートナーがいれば働いている（わからない欄は当てはまる側）
@@ -296,7 +296,7 @@ export function applies(only: Only, f: ScheduleInput): boolean {
       return w === undefined || w === "会社員・公務員" || w === "パート・派遣";
     }
     case "leave-short":
-      return s?.partnerLeaveLen === undefined || s.partnerLeaveLen === "14日未満";
+      return s?.partnerLeaveLen === "14日未満";
     case "return-late":
       return s?.returnAt === "1歳を過ぎて";
     case "older-daycare":
@@ -342,6 +342,10 @@ function adjust(m: MilestoneDef, f: ScheduleInput): MilestoneDef {
   if (plan && s?.returnAt) {
     out = { ...out, dates: (b) => plan(daycarePlan(b, s.returnAt)) };
     if (out.id === "daycare-apply") out = { ...out, basis: `${DAYCARE_BASIS}。入る4月は、仕事に戻りたい時期（${s.returnAt === "1歳まで" ? "1歳になるまでに" : "1歳を過ぎてから"}）から置いた（近似）` };
+  }
+  // パパの育休の長さがわからない時: 14日以上で上乗せになる事を、育休の相談の一言に足す（第2波⑤。別の1件にすると同じ期限で2行並ぶ）
+  if (out.id === "partner-leave" && s?.partnerLeave !== "取らない" && s?.partnerLeaveLen === undefined) {
+    out = { ...out, hint: "予定日の2週前までに。14日以上で給付の上乗せ", basis: `${out.basis}。生まれて8週の間に通算14日以上取ると、2025年4月からの出生後休業支援給付で賃金の13%が上乗せされる（雇用保険法第61条の10・最大28日分。母の条件もある）` };
   }
   // 双子など: 支援給付の2回目は、おなかの子の数だけ（1人5万円の目安）
   if (n >= 2 && out.id === "pregnancy-support-2") {
