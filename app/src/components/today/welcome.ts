@@ -14,7 +14,8 @@ export function registrationLine(family: Family, me: Member | null, reg: (Task &
   if (family.members.length < 2) return `出生届は${until}（14日以内）です。今日でなくて大丈夫です。届書を窓口へ持っていくのは、ほかの家族でもできます。`;
   if (reg.together) return `出生届は、2人で出す事にしています（${until}）。${me?.role === "母" ? rest : ""}`;
   const person = reg.who === "家族" ? undefined : family.members.find((m) => m.role === reg.who);
-  if (!person) return `出生届は${until}（14日以内）です。誰が出すかは、下の札で決められます。`;
+  // 担当をまだ決めていない時も、産んだ人には休む事を先に（パートナーには「〇〇が休めるように」）
+  if (!person) return `出生届は${until}（14日以内）です。誰が出すかは、下の札で決められます。${rest}`;
   if (me && person.id === me.id) return `出生届は、あなたの番です（${until}）。${me.role === "母" ? "" : rest}`;
   return `出生届は、${person.name}の番です（${until}）。${person.role === "母" ? "" : rest}`;
 }

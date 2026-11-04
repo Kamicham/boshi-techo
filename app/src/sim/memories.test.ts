@@ -239,6 +239,11 @@ describe("「生まれました」の儀式（BornPrompt・WelcomeBaby と同じ
       if (f.members.length < 2) expect(lines[0], f.id).toContain("ほかの家族でもできます");
       if (mother && partner) {
         pairs++;
+        // 担当をまだ決めていない時（「家族」の事のまま）も、産んだ人には休む事を先に
+        if (base.who === "家族") {
+          expect(lines[0], f.id).toContain("あなたは、休む事を一番に");
+          expect(lines[1], f.id).toContain(`${mother.name}が休めるように`);
+        }
         const toPartner = { ...base, who: "パートナー" as const };
         const a = registrationLine(f, mother, toPartner);
         const b = registrationLine(f, partner, toPartner);

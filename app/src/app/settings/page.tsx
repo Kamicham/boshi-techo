@@ -190,7 +190,7 @@ export default function Settings() {
                     {/* 子どもから見た呼び名（任意）。手紙・一冊・映画で、名前に添えて言う（予定表と担当は名前のまま） */}
                     {m.name.trim() && (
                       <label className="flex flex-col gap-1 text-base">
-                        <span className="text-sm text-muted">{form.childName.trim() || "子ども"}から見た呼び名（任意・手紙と一冊で使います）</span>
+                        <span className="text-sm text-muted">{form.childName.trim() || "子ども"}から見た呼び名（任意・手紙と一冊で）</span>
                         <input
                           id={`member-call-${i}`}
                           className={field}
