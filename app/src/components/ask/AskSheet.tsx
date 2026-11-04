@@ -259,7 +259,7 @@ function AskSheet({ onClose }: { onClose: () => void }) {
   const oldTurns = turns && recentFrom > 0 ? turns.slice(0, recentFrom) : turns && recentFrom < 0 ? turns : [];
   const newTurns = turns ? turns.slice(oldTurns.length) : [];
   const lastAsk = newTurns.length > 0 && newTurns[newTurns.length - 1].role === "user" ? newTurns[newTurns.length - 1] : null;
-  const consentBlocked = isClaudeConsentError(error) || (!error && consent === "needed");
+  const consentBlocked = isClaudeConsentError(error) || (!error && (consent === "needed" || consent === "mother"));
   const renderTurn = (t: ChatTurn, i: number) =>
     t.role === "user" ? <UserBubble key={t.at + i} turn={t} /> : <Answer key={t.at + i} turn={t} onNavigate={onClose} onUsed={markUsed} />;
   return (
@@ -288,8 +288,8 @@ function AskSheet({ onClose }: { onClose: () => void }) {
           {turns && turns.length === 0 && !waiting && (
             <div className="flex flex-col gap-3">
               <p className="text-base">この家族の予定と手帳を見て答えます。窓口調べ・下書き・画面の案内まで、そのままできます。</p>
-              {consent === "needed" && (
-                <p className="text-sm text-muted">次にやる事・健診と予防接種の日など、予定表で分かる事はすぐ答えます。ほかの問いは、米国の Claude に送る同意の後に答えます。</p>
+              {(consent === "needed" || consent === "mother") && (
+                <p className="text-sm text-muted">次にやる事・健診と予防接種の日など、予定表で分かる事はすぐ答えます。ほかの問いは、{consent === "mother" ? "ママが手帳に入って同意した後" : "米国の Claude に送る同意の後"}に答えます。</p>
               )}
               <p className="rounded-xl bg-sky-soft px-3 py-2 text-sm">体や心のこと、授乳や離乳食の量は、判断しません。日付つきで記録し、健診で聞く事と連絡先につなぎます。急ぐ時は赤い「急ぎの時」・119・#8000。</p>
               <ul className="flex flex-wrap gap-2">
@@ -318,6 +318,7 @@ function AskSheet({ onClose }: { onClose: () => void }) {
               <ClaudeConsentLink
                 need
                 back={path}
+                waitMother={consent === "mother"}
                 lead={<>この問いに答えるには、<b>米国の Claude に送る同意</b>が要ります（送るのは問いの文字だけです）。同意の後に、続けて答えます。</>}
                 onGo={() => {
                   try {

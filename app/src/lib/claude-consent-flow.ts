@@ -7,8 +7,8 @@
 /** サーバの ConsentRequiredError の文（lib/claude.ts）に入っている言葉 */
 export const CLAUDE_CONSENT_MARK = "米国の Claude に送る同意";
 
-/** 同意の状態。ok＝送ってよい（見本の家族・移る前のわが家も ok）／needed＝まだの本人がいる／null＝読めなかった */
-export type ClaudeConsentState = "ok" | "needed" | null;
+/** 同意の状態。ok＝送ってよい（見本の家族・移る前のわが家も ok）／needed＝まだの本人がいる／mother＝まだ手帳に入っていないママの分が要る（母の分は母本人だけ）／null＝読めなかった */
+export type ClaudeConsentState = "ok" | "needed" | "mother" | null;
 
 /** 失敗の文が「同意がまだ」の知らせか（ClaudeConsentLink と同じ見分け方） */
 export function isClaudeConsentError(message: string | null | undefined): boolean {
@@ -18,12 +18,12 @@ export function isClaudeConsentError(message: string | null | undefined): boolea
 /** GET /api/account/consent の答えから状態を取り出す（形が違えば読めなかった扱い） */
 export function readConsentState(j: unknown): ClaudeConsentState {
   const v = (j as { claude?: unknown } | null)?.claude;
-  return v === "ok" || v === "needed" ? v : null;
+  return v === "ok" || v === "needed" || v === "mother" ? v : null;
 }
 
 /** 送る前の判断: 同意がまだと分かっている時だけ送らない（読めない時は送ってみる） */
 export function mayTrySend(state: ClaudeConsentState): boolean {
-  return state !== "needed";
+  return state !== "needed" && state !== "mother";
 }
 
 /** 同意の画面から戻った時の判断（控えの文・待っている印・同意の状態から） */

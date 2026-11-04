@@ -200,7 +200,7 @@ export function CaptureScreen() {
       }
       // 同意がまだだった時は、失敗の知らせ（赤）を出さず、同意の案内（青）だけを出す
       if (isClaudeConsentError(plainError(e))) {
-        setConsent("needed");
+        setConsent((c) => (c === "mother" ? c : "needed"));
         setHeld(kind);
         return false;
       }
@@ -429,6 +429,7 @@ export function CaptureScreen() {
         <ClaudeConsentLink
           need
           back="/capture"
+          waitMother={consent === "mother"}
           lead={consentLead(held)}
           onGo={() => {
             try {

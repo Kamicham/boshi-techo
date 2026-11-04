@@ -3,7 +3,7 @@
 import { body, route } from "@/lib/api";
 import { withHousehold } from "@/lib/access";
 import { HttpError } from "@/lib/http-error";
-import { audit, grantConsent, revokeConsent } from "@/lib/households";
+import { audit, grantConsent, listSubjects, revokeConsent } from "@/lib/households";
 import { CONSENT_VERSION, type ScreenConsentKind } from "@/components/settings/consent-texts";
 import { canConsentFor, ensureMadeSubjects, requireSubject } from "../_lib/server";
 import { assertConsent, ConsentRequiredError } from "@/lib/claude";
@@ -35,7 +35,12 @@ export const GET = route(async (req: Request) => {
     assertConsent(h.who);
     return { claude: "ok" as const };
   } catch (e) {
-    if (e instanceof ConsentRequiredError) return { claude: "needed" as const };
+    if (e instanceof ConsentRequiredError) {
+      // まだ手帳に入っていない母の分が足りない時は、押しても進めない。「ママを手帳に入れる」へつなぐ（母の分は母本人だけ）
+      const subjects = listSubjects(h.who.householdId);
+      const waitsMother = e.missing.some((id) => subjects.some((s) => s.id === id && s.kind === "mother" && !s.accountId));
+      return { claude: waitsMother ? ("mother" as const) : ("needed" as const) };
+    }
     throw e;
   }
 });

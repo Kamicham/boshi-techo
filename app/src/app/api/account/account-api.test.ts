@@ -230,6 +230,35 @@ describe("アカウントの画面の API", () => {
     expect(r.status).toBe(403);
   });
 
+  it("母の分の同意は母本人だけ: パートナーは押せず、ママを招くと母として入り、ママ本人が押す", async () => {
+    const papa2 = await signIn("papa2@example.com");
+    const H = await import("./household/route");
+    const I = await import("./invite/route");
+    const AC = await import("./invite/accept/route");
+    const C = await import("./consent/route");
+    const c = await json<{ householdId: string }>(H.POST(rq("/api/account/household", papa2, "POST", { me: "partner", partnerName: "たろう" })));
+    const h2 = c.body.householdId;
+    const d = await json<{ subjects: { id: string; kind: string; canConsent: boolean }[] }>(H.GET(rq(`/api/account/household?familyId=${h2}`, papa2)));
+    const by = (k: string) => d.body.subjects.find((s) => s.kind === k)!;
+    expect(by("mother").canConsent).toBe(false);
+    expect(by("child").canConsent).toBe(true);
+    expect((await C.POST(rq("/api/account/consent", papa2, "POST", { familyId: h2, kind: "claude_us", subjectIds: [by("mother").id] }))).status).toBe(403);
+    expect((await C.POST(rq("/api/account/consent", papa2, "POST", { familyId: h2, kind: "claude_us", subjectIds: [by("partner").id, by("child").id] }))).status).toBe(200);
+    // 母の分が空いているので、Claude に送る前の確かめは「ママを待っている」
+    expect((await json<{ claude: string }>(C.GET(rq(`/api/account/consent?familyId=${h2}`, papa2)))).body.claude).toBe("mother");
+    // ママを招く（共同の管理）。受けると母の本人に結びつき、ママ本人が押せる
+    const inv = await json<{ id: string }>(I.POST(rq("/api/account/invite", papa2, "POST", { familyId: h2, email: "mama2@example.com", relation: "ママ" })));
+    expect(inv.status).toBe(200);
+    const mama2 = await signIn("mama2@example.com");
+    expect((await AC.POST(rq("/api/account/invite/accept", mama2, "POST", { invitationId: inv.body.id }))).status).toBe(200);
+    const m = await json<{ subjects: { id: string; kind: string; mine: boolean; canConsent: boolean }[] }>(H.GET(rq(`/api/account/household?familyId=${h2}`, mama2)));
+    expect(m.body.subjects.find((s) => s.kind === "mother")).toMatchObject({ mine: true, canConsent: true });
+    expect((await C.POST(rq("/api/account/consent", mama2, "POST", { familyId: h2, kind: "claude_us", subjectIds: [by("mother").id] }))).status).toBe(200);
+    expect((await json<{ claude: string }>(C.GET(rq(`/api/account/consent?familyId=${h2}`, papa2)))).body.claude).toBe("ok");
+    // ママがもう入っているので、2人目のママは招けない
+    expect((await I.POST(rq("/api/account/invite", papa2, "POST", { familyId: h2, email: "x2@example.com", relation: "ママ" }))).status).toBe(400);
+  });
+
   it("書き出しは zip で、記録と同意の履歴が入る", async () => {
     const E = await import("../export/route");
     const r = await E.GET(rq(`/api/export?familyId=${hid}`, mom));

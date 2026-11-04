@@ -103,7 +103,8 @@ export function inviteScope(invitationId: string): InviteScope | null {
  * その本人の同意を、この人が押してよいか。
  * - 本人（アカウントが結びついた本人）は自分の分
  * - 子の分は、世帯の持ち主・共同の管理の人が、法定代理人として
- * - まだアカウントの無い大人の本人は、世帯の持ち主・共同の管理の人が、本人に画面を見せて代わりに押す（押した人は履歴に残る）
+ * - まだアカウントの無い大人の本人は、世帯の持ち主・共同の管理の人が、本人に画面を見せて代わりに押す（押した人は履歴に残る）。
+ *   ただし母の分は、母本人だけ（健診・体の記録は母の要配慮個人情報。2026-11-04 社長「母の分は母本人だけ」）
  * 公開の世帯（作った家族）はログインなしで押せる（作った家族なので守る物が無い）
  */
 export function canConsentFor(ctx: HouseholdCtx, s: Subject): boolean {
@@ -111,7 +112,7 @@ export function canConsentFor(ctx: HouseholdCtx, s: Subject): boolean {
   const me = ctx.account?.id ?? null;
   if (me && s.accountId === me) return true;
   if (!ctx.can("household:admin")) return false;
-  return s.kind === "child" || s.accountId === null;
+  return s.kind === "child" || (s.accountId === null && s.kind !== "mother");
 }
 
 /** 見てよい本人（visible）の中から引く。member が見えない本人を指すと 404 */

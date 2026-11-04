@@ -6,7 +6,7 @@ import { body, route } from "@/lib/api";
 import { authReady } from "@/lib/auth";
 import { requireAccount } from "@/lib/access";
 import { HttpError } from "@/lib/http-error";
-import { addSubject, audit, listSubjects, setProxy, updateSubject } from "@/lib/households";
+import { activeConsent, addSubject, audit, listSubjects, revokeConsent, setProxy, updateSubject } from "@/lib/households";
 import { getFamily, saveFamilyProfile } from "@/lib/family";
 import { authError, inviteScope } from "../../_lib/server";
 
@@ -34,7 +34,17 @@ export const POST = route(async (req: Request) => {
   // パートナーが始めた手帳に招かれたママは、母の本人に結びつける（空いている母がいる時）
   if (scope?.relation === "ママ" && !subjects.some((s) => s.accountId === account.id)) {
     const free = subjects.find((s) => s.kind === "mother" && !s.accountId);
-    if (free) updateSubject(hid, free.id, { accountId: account.id });
+    if (free) {
+      updateSubject(hid, free.id, { accountId: account.id });
+      // 母の分の同意は母本人だけ。前にほかの人が代わりに押していた同意は外し、同意の画面で本人に決めてもらう（履歴には残る）
+      for (const kind of ["record", "claude_us"] as const) {
+        const c = activeConsent(hid, free.id, kind);
+        if (c && c.byAccount !== account.id) {
+          revokeConsent(hid, free.id, kind);
+          audit(hid, account.id, "consent.reset", { target: kind, detail: { subject: free.id, by: c.byAccount } });
+        }
+      }
+    }
   }
   if (scope?.relation === "パートナー" && !subjects.some((s) => s.accountId === account.id)) {
     const free = subjects.find((s) => s.kind === "partner" && !s.accountId);

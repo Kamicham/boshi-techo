@@ -16,6 +16,7 @@ export function ClaudeConsentLink({
   lead,
   back,
   onGo,
+  waitMother,
 }: {
   error?: string | null;
   /** 送る前に、同意がまだと分かっている */
@@ -25,9 +26,20 @@ export function ClaudeConsentLink({
   back: string;
   /** 「読んで決める」を押した時（戻った時に続きをするための控えなど） */
   onGo?: () => void;
+  /** まだ手帳に入っていないママの分が要る（母の分は母本人だけが押す。押しても進めないので、ママを招く道へ） */
+  waitMother?: boolean;
 }) {
   const { family } = useFamily();
   if (!need && !isClaudeConsentError(error)) return null;
+  if (waitMother)
+    return (
+      <div className="flex flex-col gap-2 rounded-2xl bg-sky-soft px-4 py-3">
+        <p className="text-base">ママが手帳に入って同意すると、話す・撮る・手帳に聞くが使えます（ママの記録の同意は、ママ本人だけが押せます）。予定表・やる事は、今のまま使えます。</p>
+        <Btn href={`/invite/new?familyId=${encodeURIComponent(family.id)}`} full>
+          ママを手帳に入れる
+        </Btn>
+      </div>
+    );
   return (
     <div className="flex flex-col gap-2 rounded-2xl bg-sky-soft px-4 py-3">
       <p className="text-base">

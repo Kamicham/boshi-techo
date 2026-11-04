@@ -114,7 +114,9 @@ export function ConsentScreen({
                           ? s.mine || data.role === "guest"
                             ? ""
                             : "本人にこの画面を見せて、本人が決めてから押してください"
-                          : "本人がログインして押します"}
+                          : s.kind === "mother"
+                            ? "ママが手帳に入った時に、ママ本人が押します"
+                            : "本人がログインして押します"}
                   </span>
                 </span>
               </label>
