@@ -100,7 +100,14 @@ export function FutureLetters() {
 function LetterRow({ l, onRemoved }: { l: ClientLetter; onRemoved: () => void }) {
   const { family, today, me } = useFamily();
   const [body, setBody] = useState<string | null>(null);
+  const [voiceUrl, setVoiceUrl] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
+  useEffect(
+    () => () => {
+      if (voiceUrl) URL.revokeObjectURL(voiceUrl);
+    },
+    [voiceUrl],
+  );
   const [confirm, setConfirm] = useState(false);
   const qs = (extra: Record<string, string> = {}) => new URLSearchParams({ familyId: family.id, today, ...(me?.name ? { by: me.name } : {}), ...extra });
 
@@ -108,8 +115,14 @@ function LetterRow({ l, onRemoved }: { l: ClientLetter; onRemoved: () => void })
     if (body !== null) return setBody(null);
     const r = await fetch(`/api/letters/${encodeURIComponent(l.id)}?${qs()}`);
     const j = (await r.json().catch(() => ({}))) as { letter?: ClientLetter; error?: string };
-    if (!r.ok || !j.letter?.body) return setMsg(j.error ?? "読めませんでした");
+    if (!r.ok || !j.letter || typeof j.letter.body !== "string") return setMsg(j.error ?? "読めませんでした");
     setBody(j.letter.body);
+    // 添えた声は、開いた後だけ届く（封の間は 403）。端末の中だけで流す
+    if (l.voiceSec !== undefined && !voiceUrl) {
+      const v = await fetch(`/api/letters/${encodeURIComponent(l.id)}/voice?${qs()}`);
+      if (v.ok) setVoiceUrl(URL.createObjectURL(await v.blob()));
+      else setMsg("声を開けませんでした");
+    }
   };
   const remove = async () => {
     const r = await fetch(`/api/letters?${qs({ id: l.id })}`, { method: "DELETE" });
@@ -129,11 +142,13 @@ function LetterRow({ l, onRemoved }: { l: ClientLetter; onRemoved: () => void })
           </span>
           <span className="tabular text-xs text-muted">
             {l.opened ? (l.openOn ? `${jpDay(l.openOn)}に開きました` : "いつでも読めます") : `${openLine(l)}開きます`}・{jpDay(l.sealedOn)}に書いた
+            {l.voiceSec !== undefined && `・🎙 声つき${l.voiceSec ? ` ${Math.floor(l.voiceSec / 60)}:${String(Math.floor(l.voiceSec % 60)).padStart(2, "0")}` : ""}`}
           </span>
         </span>
         {l.opened && <span className="text-sm font-bold text-rose">{body === null ? "読む" : "閉じる"}</span>}
       </button>
-      {body !== null && <p className="whitespace-pre-wrap font-display text-base leading-loose">{body}</p>}
+      {body !== null && voiceUrl && <audio controls autoPlay src={voiceUrl} aria-label={`${l.from}の声`} className="w-full" />}
+      {body !== null && body && <p className="whitespace-pre-wrap font-display text-base leading-loose">{body}</p>}
       {l.mine && (
         <div className="flex items-center gap-2 text-sm">
           {confirm ? (

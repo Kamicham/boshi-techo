@@ -125,8 +125,8 @@ describe("未来の手紙（見本の家族）", () => {
     const doc = ctx.db.get<{ ct: string }>(l.id)!;
     expect(Buffer.from(doc.data.ct, "base64").toString("utf8")).not.toMatch(/ありがとう/);
     // 消すのは書いた人だけ（公開の世帯では呼び名で）
-    expect(() => L.removeLetter(ctx, l.id, "翔太")).toThrow(expect.objectContaining({ status: 403 }));
-    L.removeLetter(ctx, l.id, "美咲");
+    await expect(L.removeLetter(ctx, l.id, "翔太")).rejects.toMatchObject({ status: 403 });
+    await L.removeLetter(ctx, l.id, "美咲");
     expect(L.listLetters(ctx, open).some((x) => x.id === l.id)).toBe(false);
   });
 
@@ -137,6 +137,48 @@ describe("未来の手紙（見本の家族）", () => {
     expect(() => L.writeLetter(ctx, { body: "x", open: "date", date: "2027-03-01", today: "2027-03-01" })).toThrow(expect.objectContaining({ status: 400 }));
     expect(() => L.writeLetter(ctx, { body: "", open: "now" })).toThrow(expect.objectContaining({ status: 400 }));
     expect(() => L.writeLetter(ctx, { body: "x", open: "someday" })).toThrow(expect.objectContaining({ status: 400 }));
+  });
+});
+
+describe("手紙に添えた声（見本の家族）", () => {
+  it("封の間は書いた本人にも声が流れない。開いた後は同じ声。アルバムに混ざらない。声だけの手紙も残せる。消すと置き場から消える", async () => {
+    const ctx = await A.withHousehold(req(), "demo-sato", "media:contribute");
+    const voice = wav(7);
+    const l = await L.writeVoiceLetter(ctx, { body: "", open: "1y", from: "美咲", today: "2027-01-12" }, { audio: voice, sec: 42 });
+    expect(l.voiceSec).toBe(42);
+    expect(l.body).toBeUndefined();
+    const listed = L.listLetters(ctx, "2027-02-01", "美咲").find((x) => x.id === l.id)!;
+    expect(listed.voiceSec).toBe(42);
+    expect(JSON.stringify(listed)).not.toMatch(/"key"|"iv"|"tag"|letters\//);
+    // 封の間は 403（書いた本人でも）
+    await expect(L.readLetterVoice(ctx, l.id, "2027-02-01")).rejects.toMatchObject({ status: 403 });
+    // 置き場の中身は暗号で、アルバムの台帳（media の表）には無い
+    const doc = ctx.db.get<import("./letters").LetterData>(l.id)!;
+    const ct = await ctx.storage.get(doc.data.voice!.key);
+    expect(ct!.equals(voice)).toBe(false);
+    expect(ctx.db.media.list({ kind: "audio" }).some((x) => x.storageKey === doc.data.voice!.key || x.id === l.id)).toBe(false);
+    // 1歳の誕生日に開くと、同じ声が戻る
+    const open = LSH.letterOpenOn("1y", ctx.family!)!;
+    const got = await L.readLetterVoice(ctx, l.id, open);
+    expect(got.buf.equals(voice)).toBe(true);
+    expect(got.mime).toBe("audio/wav");
+    expect(L.readLetter(ctx, l.id, open).body).toBe("");
+    // 声の無い手紙は 404
+    const t = L.writeLetter(ctx, { body: "文字だけ", open: "now", from: "翔太", today: "2027-01-12" });
+    await expect(L.readLetterVoice(ctx, t.id, "2027-01-12")).rejects.toMatchObject({ status: 404 });
+    await L.removeLetter(ctx, t.id, "翔太");
+    // 消すと声も消える
+    await L.removeLetter(ctx, l.id, "美咲");
+    expect(await ctx.storage.exists(doc.data.voice!.key)).toBe(false);
+  });
+
+  it("声の形が読めない・短すぎる・開く日が悪い時は、声を置かずに断る", async () => {
+    const ctx = await A.withHousehold(req(), "demo-sato", "media:contribute");
+    await expect(L.writeVoiceLetter(ctx, { body: "", open: "now" }, { audio: Buffer.alloc(5000, 1) })).rejects.toMatchObject({ status: 415 });
+    await expect(L.writeVoiceLetter(ctx, { body: "", open: "now" }, { audio: Buffer.alloc(10) })).rejects.toMatchObject({ status: 400 });
+    const before = (await ctx.storage.list(`households/${ctx.household.id}/letters`)).length;
+    await expect(L.writeVoiceLetter(ctx, { body: "", open: "date", date: "2027-01-01", today: "2027-01-12" }, { audio: wav(3) })).rejects.toMatchObject({ status: 400 });
+    expect((await ctx.storage.list(`households/${ctx.household.id}/letters`)).length).toBe(before);
   });
 });
 
@@ -170,7 +212,11 @@ describe("本物の家族: みんなの章と手紙", () => {
     })();
     const cctx = await A.withHousehold(req(carol), own, "media:read");
     expect(() => L.readLetter(cctx, l.id)).toThrow(expect.objectContaining({ status: 404 }));
-    expect(() => L.removeLetter(cctx, l.id)).toThrow(expect.objectContaining({ status: 404 }));
+    // 声も、世帯をまたぐと 404・本物の家族は画面の「今日」で開かない
+    const v = await L.writeVoiceLetter(ctx, { body: "", open: "date", date: "2099-01-01" }, { audio: wav(5), sec: 3 });
+    await expect(L.readLetterVoice(ctx, v.id, "2100-01-01")).rejects.toMatchObject({ status: 403 });
+    await expect(L.readLetterVoice(cctx, v.id, "2100-01-01")).rejects.toMatchObject({ status: 404 });
+    await expect(L.removeLetter(cctx, l.id)).rejects.toMatchObject({ status: 404 });
   });
 
   it("祖父母（member）はみんなの章に足せる。名乗りは本人のアカウント。自分が足した物だけ消せる", async () => {
@@ -195,8 +241,8 @@ describe("本物の家族: みんなの章と手紙", () => {
     const gl = L.writeLetter(g, { body: "ばあばより", open: "now" });
     expect(gl.from).toBe(g.account!.name || "家族");
     const ol = L.writeLetter(owner, { body: "ママより", open: "date", date: "2099-01-01" });
-    expect(() => L.removeLetter(g, ol.id)).toThrow(expect.objectContaining({ status: 403 }));
-    L.removeLetter(owner, gl.id);
+    await expect(L.removeLetter(g, ol.id)).rejects.toMatchObject({ status: 403 });
+    await L.removeLetter(owner, gl.id);
     expect(L.listLetters(owner).some((x) => x.id === gl.id)).toBe(false);
     // 祖父母も一覧（中身なし）は見える
     expect(L.listLetters(g).some((x) => x.id === ol.id)).toBe(true);

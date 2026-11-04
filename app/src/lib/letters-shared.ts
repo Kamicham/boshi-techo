@@ -14,6 +14,8 @@ export const LETTER_OPENS = [
 export type LetterOpen = (typeof LETTER_OPENS)[number]["id"];
 
 export const MAX_LETTER_CHARS = 4000;
+/** 手紙に添える声の長さ（秒） */
+export const MAX_LETTER_VOICE_SEC = 300;
 
 export function isLetterOpen(v: unknown): v is LetterOpen {
   return LETTER_OPENS.some((o) => o.id === v);
@@ -62,8 +64,10 @@ export interface ClientLetter {
   opened: boolean;
   /** 自分が書いた手紙（消せる） */
   mine: boolean;
-  /** 開いた手紙だけ */
+  /** 開いた手紙だけ（声だけの手紙は空の文字） */
   body?: string;
+  /** 声を添えた手紙は、その秒（封の間も「声つき」とだけ出す。声そのものは開いた後に ./[id]/voice から） */
+  voiceSec?: number;
 }
 
 /** 「2046年4月27日に開きます」「20歳の誕生日に（2046年4月27日）」 */
