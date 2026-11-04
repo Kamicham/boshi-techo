@@ -2,6 +2,8 @@
 // 記録が少ない・0件の時は「一冊の本」を先に見せて、最初の1つを残す方へ。記録がある時は「記録を本にまとめる」。
 // 「一冊」の字は小見出しの1か所だけに置き、大見出しと重ねない。
 
+import { PUBLIC_UI } from "./trial-words";
+
 /** これより少ない記録（妊娠中）は、まず記録を足す方を主にする */
 export const FEW_RECORDS = 10;
 
@@ -42,7 +44,10 @@ export function bookIntro(o: { childName?: string | null; count: number; born: b
     kind: "make",
     eyebrow: `${child}への一冊`,
     title: "記録を本にまとめる",
-    sub: `${n}件の記録を、AI（Claude）が時期ごとの章に分けて、本の形にまとめます（数分かかります）。画面で読めて、何度でも作り直せます`,
+    // 体験版は Claude を呼ばない（作れるのは、前に Claude が書いた見本の一冊がある日だけ。lib/book.ts の makeBook）
+    sub: PUBLIC_UI
+      ? `この体験版では Claude を呼ばず、見本の答えを出しています。${n}件の記録から本にまとめるのは、Claude を使う手帳だけです。1歳・2歳の日で、前に Claude が書いた一冊を読めます`
+      : `${n}件の記録を、AI（Claude）が時期ごとの章に分けて、本の形にまとめます（数分かかります）。画面で読めて、何度でも作り直せます`,
     cta: "本にまとめてみる",
   };
 }

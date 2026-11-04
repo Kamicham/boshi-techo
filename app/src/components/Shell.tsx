@@ -9,6 +9,7 @@ import { clockAt } from "@/lib/clock";
 import { hideCounts } from "@/lib/situation";
 import { recordingBusy, recordingBusyServer, subscribeRecording } from "@/lib/recording-state";
 import { TABS } from "@/lib/app-guide";
+import { PUBLIC_UI, TRIAL_BANNER } from "@/lib/trial-words";
 import { AskButton } from "./ask/AskSheet";
 import { useFamily } from "./FamilyProvider";
 import { readWelcomed, StageSheet, Welcome } from "./Welcome";
@@ -96,6 +97,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
           急ぎの時
         </Link>
       </div>
+      {/* 体験版（公開版）: 何を触っているかを、どの画面でも上の帯の下に1つ（AI を呼ばず、前に Claude が書いた一冊と見本の答えで動く） */}
+      {PUBLIC_UI && !recording && <p className="px-4 pt-1 text-xs leading-snug text-muted">{TRIAL_BANNER}</p>}
       {isDemo && !welcomed && <Welcome onClose={() => setWelcomed(true)} />}
       {isDemo && stageOpen && <StageSheet onClose={() => setStageOpen(false)} />}
       {accountsEnabled && !recording && <AccountBar isDemo={isDemo} signedIn={!!account} hasOwn={households.length > 0} consentFor={here?.needsRecordConsent && !path.startsWith("/account/consent") ? here.id : null} />}

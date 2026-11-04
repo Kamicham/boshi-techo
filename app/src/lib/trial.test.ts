@@ -96,6 +96,9 @@ describe("公開版の体験用の家族", () => {
     expect(r.status).toBe(200);
     const j = (await r.json()) as { draft?: { title?: string; body?: string } };
     expect(j.draft?.title).toContain("（見本の答え）");
+    // 断り書きは体験版の言葉（作り手向けの「鍵を入れると…」は出さない）
+    expect(j.draft?.body).toContain("この体験版では Claude を呼ばず、見本の答えを出しています");
+    expect(j.draft?.body).not.toContain("鍵");
   });
 
   it("1つの住所から作れる写しは1日10まで。7日たった写しは消える", async () => {

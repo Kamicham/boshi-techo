@@ -10,12 +10,18 @@ import { DRAFTABLE } from "./draft-kinds";
 import type { DraftKind } from "./drafts";
 import { MILESTONES } from "./milestones";
 import { MONEY, paidDef } from "./money";
+import { publicOn } from "./trial-cookie";
+import { TRIAL_SAMPLE_WHY } from "./trial-words";
 
 /** 答えの頭に付ける札 */
 export const SAMPLE_MARK = "（見本の答え）";
-/** 見本にした訳（鍵が無い／公開版で今日の上限に達した） */
+/** 見本にした訳（体験版は Claude を呼ばない／鍵が無い／今日の上限に達した）。体験版の訳は、作り手向けの「鍵を入れると…」にしない */
 const noKey = () =>
-  process.env.ANTHROPIC_API_KEY ? "今日の体験で Claude を使える上限に達したので、見本の答えにしました。明日はここを Claude が書きます。" : "Claude の鍵を入れると、ここを Claude が書きます。";
+  publicOn()
+    ? TRIAL_SAMPLE_WHY
+    : process.env.ANTHROPIC_API_KEY
+      ? "今日の体験で Claude を使える上限に達したので、見本の答えにしました。明日はここを Claude が書きます。"
+      : "Claude の鍵を入れると、ここを Claude が書きます。";
 
 type Content = string | readonly { type: string; text?: string }[];
 
@@ -63,7 +69,9 @@ function capturePage() {
     page: "unknown",
     entries: [],
     unreadable: false,
-    reply: `${SAMPLE_MARK}${key ? "今日の体験で Claude を使える上限に達したので" : "見本なので"}、写真は読まず、残してもいません。${key ? "明日は" : "Claude の鍵を入れると、"}紙の母子手帳のページを読んで、行ごとに写します。`,
+    reply: publicOn()
+      ? `${SAMPLE_MARK}この体験版では Claude を呼ばないので、写真は読まず、残してもいません。Claude を使う手帳では、紙の母子手帳のページを読んで、行ごとに写します。`
+      : `${SAMPLE_MARK}${key ? "今日の体験で Claude を使える上限に達したので" : "見本なので"}、写真は読まず、残してもいません。${key ? "明日は" : "Claude の鍵を入れると、"}紙の母子手帳のページを読んで、行ごとに写します。`,
   };
 }
 
@@ -124,9 +132,11 @@ function advice(content: Content) {
   const mother = lines.map((l) => l.match(/^- (.+)（母）$/)?.[1]).find(Boolean);
   const rule = ruleAdvice(facts, { today, partner: works ? partner : undefined, mother });
   if (rule) {
-    const note = process.env.ANTHROPIC_API_KEY
-      ? "今日の体験で Claude を使える上限に達したので、予定表の決まりだけで書きました。明日はここを Claude が書きます。"
-      : "Claude の鍵を入れると、家族の形（働き方・上の子）も見て、ここを Claude が書きます。";
+    const note = publicOn()
+      ? "この体験版では Claude を呼ばず、予定表の決まりだけで書いています。"
+      : process.env.ANTHROPIC_API_KEY
+        ? "今日の体験で Claude を使える上限に達したので、予定表の決まりだけで書きました。明日はここを Claude が書きます。"
+        : "Claude の鍵を入れると、家族の形（働き方・上の子）も見て、ここを Claude が書きます。";
     return { ...rule, why: `${rule.why}${note}` };
   }
   return {

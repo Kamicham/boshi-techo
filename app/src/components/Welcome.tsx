@@ -7,12 +7,24 @@ import { useState } from "react";
 import { api, useFamily } from "./FamilyProvider";
 import { demoStages, StagePicker } from "./today/StagePicker";
 import { setStageFocus } from "./today/stage-focus";
+import { PUBLIC_UI, TRIAL_BANNER, TRIAL_BODY, TRIAL_KEEP } from "@/lib/trial-words";
 
 export const WELCOMED_KEY = "boshi.welcomed";
 // 公開版（体験）では合言葉の口（/unlock）を閉じているので、合言葉の扉は出さない（middleware.ts）
-const PUBLIC = process.env.NEXT_PUBLIC_BOSHI_PUBLIC === "1";
+const PUBLIC = PUBLIC_UI;
 // 「あなただけの写しで、7日で消えます」は公開版（開いた人ごとの写し・lib/trial.ts）の時だけ本当。ほかの置き場では見本の家族を分け合い、消えない
-const TRIAL_NOTE = PUBLIC ? "作った家族です。あなただけの写しで、7日で消えます。本物の記録は書かないでください。" : "作った家族です。本物の記録は書かないでください。";
+const TRIAL_NOTE = PUBLIC ? `${TRIAL_BANNER}。あなただけの写しで、7日で消えます。本物の記録は書かないでください。` : "作った家族です。本物の記録は書かないでください。";
+
+/** 入口の注: 何を触っているか・体の判断はしない・残す物（体験版だけ）。2026-11-05 体験版を API なしで開ける時に足した */
+function TrialNote() {
+  return (
+    <div className="flex flex-col gap-1 text-sm text-muted">
+      <p>{TRIAL_NOTE}</p>
+      <p>{TRIAL_BODY}</p>
+      {PUBLIC && <p>{TRIAL_KEEP}</p>}
+    </div>
+  );
+}
 
 function markWelcomed() {
   try {
@@ -108,7 +120,7 @@ export function Welcome({ onClose }: { onClose: () => void }) {
               手帳を開いています…
             </p>
           )}
-          <p className="text-sm text-muted">{TRIAL_NOTE}</p>
+          <TrialNote />
         </section>
         {/* 扉: 自分の手帳を始める。家族に入れてもらう人の合言葉（/unlock）は古い道なので、小さな文字のリンクに下げる（初見の目 L3-7） */}
         <nav aria-label="入口" className="flex flex-col gap-3">
@@ -173,7 +185,7 @@ export function StageSheet({ onClose }: { onClose: () => void }) {
             if (demoStages(family).some((s) => s.date === d)) onClose();
           }}
         />
-        <p className="text-sm text-muted">{TRIAL_NOTE}</p>
+        <TrialNote />
       </div>
     </div>
   );
