@@ -4,14 +4,16 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type Anthropic from "@anthropic-ai/sdk";
+import { getPlan, ongoingVisit, savePlan } from "@/app/api/visit/_lib/server";
 import { EVERYDAY_MODEL, sampleMode, structured } from "./claude";
 import { addDays, addMonths, clockAt, conceptionDate, lmpFromDue } from "./clock";
-import { list, put, remove, type Doc } from "./db";
+import { list, patch, put, remove, type Doc } from "./db";
 import { DEMO_FAMILY, type Family } from "./demo-family";
 import { TECHO_PAGES, TECHO_PAGE_IDS, type TechoPageId, type TechoSource } from "./techo";
 import { HttpError } from "./http-error";
 import { cleanManual, temperatureRecord, type ManualInput } from "./manual-entry";
 import { addTecho, removePendingByCapture, toNumber, VALUE_KEYS, type TechoDoc } from "./techo-store";
+import { concernSide, type VisitData, type VisitPlan } from "./visit";
 
 export const RECORD_KINDS = ["気がかり", "できごと", "予定", "書類", "メモ"] as const;
 export type RecordKind = (typeof RECORD_KINDS)[number];
@@ -88,7 +90,7 @@ const Schema = z.object({
       urgent: z
         .boolean()
         .describe(
-          "その日のうちに医療機関へ連絡した方がよさそうに見える時だけ true（出血・強い痛み・胎動が少ない・破水らしい・子どもの高熱やぐったり など）。体の判断ではなく連絡を勧める印。それ以外は false",
+          "その日のうちに医療機関へ連絡した方がよさそうに見える時だけ true（出血・強い痛み・胎動が少ない・破水らしい・水も飲めない・子どもの高熱やぐったり など）。体の判断ではなく連絡を勧める印。それ以外は false",
         ),
       who: z.string().nullable().describe("誰の事・誰が話したか（家族の呼び名）。分からなければ null"),
     }),
@@ -113,11 +115,12 @@ const SYSTEM = `あなたの役割は「入力ゼロ」の書記です。家族�
 - 提出・申込・支払いの締切は deadlines に入れる（source に出どころ）。同じ事を records の予定に重ねて書かない。
 - 写真なら、写っている紙（役所の封筒・通知、健診の結果の紙、母子手帳のページ、保育園の案内など）を読み、gist に要点を書く。個人番号・住所の番地・電話番号は書き写さない。
 - 気がかりは体の判断をせず、家族の言葉のまま記録し、detail の最後に「次の健診で聞く」と添える。
-- 出血・強い痛み・胎動が少ない・破水らしい・子どもの高熱やぐったり など、その日のうちに医療機関へ連絡した方がよさそうに見える時は、その記録の urgent を true にし、detail の最後は「次の健診で聞く」ではなく「その日のうちに産院へ電話」と添える（子どもの事なら「その日のうちにかかりつけへ電話。迷ったら #8000」）。大丈夫・心配ないとは言わず、診断もせず、連絡を勧める言い方にする。reply でも連絡先を案内する: 妊娠中・産後の体はかかりつけの産院（夜間も）・119、子どもは #8000（子ども医療電話相談）。
+- 出血・強い痛み・胎動が少ない・破水らしい・水も飲めない・子どもの高熱やぐったり など、その日のうちに医療機関へ連絡した方がよさそうに見える時は、その記録の urgent を true にし、detail の最後は「次の健診で聞く」ではなく「その日のうちに産院へ電話」と添える（子どもの事なら「その日のうちにかかりつけへ電話。迷ったら #8000」）。大丈夫・心配ないとは言わず、診断もせず、連絡を勧める言い方にする。reply でも連絡先を案内する: 妊娠中・産後の体はかかりつけの産院（夜間も）・119、子どもは #8000（子ども医療電話相談）。
 - 健診の結果の紙でも、数値の良い・悪いは言わない。書いてある項目と日付だけ記録する。
 - 足りない事は推測で埋めず、どうしても必要な1つだけを oneQuestion で聞く。日付が分からないだけなら今日として記録し、聞かない（撮った紙の手帳の記録は、techo の dateWritten を false にするだけでよい。家族が候補の日付を直せる）。
 - 母子手帳のページに入る事（できた日・体重などの数字・接種した・気持ち・便色の番号・相談した事など）は、records とは別に techo にも入れる。家族が後で「OK」を押して確定するので、候補として出す。
 - reply は家族の側に立った短い話し言葉。押し付けない（「〜しましょう」より「手帳に書いておきました」）。
+- 急ぎでない気がかりは、手帳が次の健診の「先生に聞く事」にも並べ、返事の最後にそう書き足す。reply では、そこには触れない（同じ事を2回言わない）。
 
 ${TECHO_RULES}`;
 
@@ -190,8 +193,14 @@ export async function capture(input: CaptureInput, replaceCaptureId?: string): P
   }
   // 聞き返しの後は、前回の記録を作り直した物で置き換える
   if (replaceCaptureId) {
-    for (const r of listRecords(family.id)) if (r.data.captureId === replaceCaptureId) remove(r.id);
+    const gone = new Set<string>();
+    for (const r of listRecords(family.id))
+      if (r.data.captureId === replaceCaptureId) {
+        remove(r.id);
+        gone.add(r.id);
+      }
     removePendingByCapture(family.id, replaceCaptureId);
+    dropFromAgenda(family.id, gone, today);
   }
   const captureId = replaceCaptureId ?? randomUUID();
   const records: CaptureRecord[] = [];
@@ -241,15 +250,108 @@ export async function capture(input: CaptureInput, replaceCaptureId?: string): P
   // 聞き返しは、画面を開き直しても答えられるようにサーバに残す（答える・やめると消す）
   if (oneQuestion) saveAsk(family.id, { captureId, question: oneQuestion, basis, source }, today);
 
+  // 急ぎでない気がかりは、次の健診の「先生に聞く事」にも並べる（返事の最後は決まった文。Claude の言い換えにしない）
+  const sides = addConcernsToAgenda(family, records, today);
   return {
     captureId,
     records,
     deadlines: out.deadlines,
     oneQuestion,
-    reply: out.reply,
+    reply: withAgendaNote(out.reply, agendaNote(sides, family.childName)),
     basis,
     techo,
   };
+}
+
+// ── 話した・打った気がかりを、次の健診の「先生に聞く事」へ（見直し C03・2026-11-04） ──
+// 記録はそのまま1つ。「先生に聞く事」（visit-plan の concerns）には、記録の id で1行だけ並べる（二重に持たない）。
+// 急ぎの記録は入れない（その日のうちに電話する物で、次の健診まで待たせない）。
+
+/** 子の事と読める呼び方（生まれた後に、だれの健診で聞くかを見分ける。components/capture/urgent-note.ts と同じ見分け方） */
+const CHILD_WORDS = /赤ちゃん|あかちゃん|子ども|子供|こども|ベビー|娘|息子|この子/;
+
+/**
+ * 気がかりを、だれの健診で聞くか（chosen は家族が打つ時に選んだ物）。
+ * - 上の子の事（「上の子」・上の子の呼び名）: older（この子とママの健診には並べない）
+ * - その日にまだ生まれていない: ママ
+ * - 生まれた後: 子の呼び名・赤ちゃん等なら子。分からなければ印を付けない（健診の画面の決まり concernSide が、生まれた後は子の欄に回す。
+ *   ママの健診は産後1か月で終わるので、ママの欄に入れると行き場が無くなる。who は話した人の事もある＝seedItems の「夕方になるとよく泣く」）
+ */
+export function concernOwner(
+  family: Pick<Family, "birthDate" | "childName" | "situation">,
+  date: string,
+  who?: string | null,
+  chosen?: "child" | "mother",
+): "child" | "mother" | "older" | undefined {
+  if (chosen) return chosen;
+  const w = who?.trim() ?? "";
+  const child = family.childName?.trim();
+  if (w && !(child && w.includes(child)) && (/上の子/.test(w) || (family.situation?.olderKids ?? []).some((k) => k.name && w.includes(k.name)))) return "older";
+  if (!family.birthDate || date < family.birthDate) return "mother";
+  if (w && ((child && w.includes(child)) || CHILD_WORDS.test(w))) return "child";
+  return undefined;
+}
+
+/**
+ * 記録のうち、急ぎでない気がかりを「先生に聞く事」に足す。足した物の欄（mother／child）を返す。
+ * 同じ記録（id）・同じ文がもう並んでいれば足さない。妊娠中の事を生まれた後に話した時（ふり返り）は並べない。
+ * 今日の健診がもう始まっていれば、ママの事はその健診の「今日聞く事」に入れる（/api/visit/plan・手帳に聞くと同じ）。
+ */
+export function addConcernsToAgenda(family: Family, records: CaptureRecord[], today: string, chosen?: "child" | "mother"): ("child" | "mother")[] {
+  const picks = records.filter((r) => r.data.kind === "気がかり" && !r.data.urgent && r.data.title.trim());
+  if (!picks.length) return [];
+  const plan = getPlan(family.id);
+  const born = family.birthDate && family.birthDate <= today ? family.birthDate : null;
+  const v = ongoingVisit(family.id, today);
+  const seen = new Set([...plan.concerns, ...(v?.data.carried?.concerns ?? [])].flatMap((c) => [c.id, c.text.trim()]));
+  const toPlan: VisitPlan["concerns"] = [];
+  const toVisit: VisitPlan["concerns"] = [];
+  const sides: ("child" | "mother")[] = [];
+  for (const r of picks) {
+    const text = r.data.title.trim().slice(0, 300);
+    if (seen.has(r.id) || seen.has(text)) continue;
+    const date = r.date ?? today;
+    const owner = concernOwner(family, date, r.data.who, chosen);
+    if (owner === "older") continue;
+    const c = { id: r.id, text, date, ...(owner ? { for: owner } : {}) };
+    const side = concernSide(c, born);
+    if (side === "past") continue;
+    (v && side === "mother" ? toVisit : toPlan).push(c);
+    sides.push(side);
+    seen.add(r.id).add(text);
+  }
+  if (toPlan.length) savePlan(family.id, { ...plan, concerns: [...plan.concerns, ...toPlan] });
+  if (v && toVisit.length)
+    patch<VisitData>(v.id, {
+      agenda: [...(v.data.agenda ?? []), ...toVisit.map((c) => ({ id: c.id, text: c.text, from: "気がかり" as const }))],
+      carried: { prevCarriedFrom: v.data.carried?.prevCarriedFrom, concerns: [...(v.data.carried?.concerns ?? []), ...toVisit] },
+    });
+  return sides;
+}
+
+/** 消した記録から足した「先生に聞く事」を外す（聞き返しで作り直した時） */
+function dropFromAgenda(familyId: string, ids: Set<string>, today: string): void {
+  if (!ids.size) return;
+  const plan = getPlan(familyId);
+  if (plan.concerns.some((c) => ids.has(c.id))) savePlan(familyId, { ...plan, concerns: plan.concerns.filter((c) => !ids.has(c.id)) });
+  const v = ongoingVisit(familyId, today);
+  if (v && (v.data.agenda ?? []).some((a) => ids.has(a.id)))
+    patch<VisitData>(v.id, {
+      agenda: (v.data.agenda ?? []).filter((a) => !ids.has(a.id)),
+      carried: v.data.carried && { ...v.data.carried, concerns: v.data.carried.concerns.filter((c) => !ids.has(c.id)) },
+    });
+}
+
+/** 返事の最後に足す決まった文（並べた物が無ければ空） */
+export function agendaNote(sides: ("child" | "mother")[], childName?: string): string {
+  if (!sides.length) return "";
+  return sides.every((x) => x === "child") ? `${childName ?? "赤ちゃん"}の次の健診で聞く事にも並べました` : "次の健診の『先生に聞く事』にも並べました";
+}
+
+function withAgendaNote(reply: string, note: string): string {
+  if (!note) return reply;
+  const r = reply.trim();
+  return `${r}${r && !/[。！？!?」）)]$/.test(r) ? "。" : ""}${note}。`;
 }
 
 // ── 手帳の候補の下ごしらえ ──

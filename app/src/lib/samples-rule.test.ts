@@ -55,7 +55,7 @@ async function adviceOn(family: import("./demo-family").Family, today: string) {
 
 /** 文字数の約束（題30字・次にする事40字・3つまで）と、脅さない言葉 */
 function fair(a: { title: string; plan: string[] }) {
-  expect(a.title.length).toBeLessThanOrEqual(30);
+  expect(a.title.length).toBeLessThanOrEqual(24);
   expect(a.title).not.toMatch(/早く|遅く|このままだと|失う|もらえない|損|見本/);
   expect(a.plan.length).toBeGreaterThan(0);
   expect(a.plan.length).toBeLessThanOrEqual(3);
@@ -111,7 +111,8 @@ describe("気づき: 鍵が無い時は、予定表の決まりから書く", ()
     const { RULE_MARK } = await import("./advisor");
     const { a, t } = await adviceOn({ ...DEMO_FAMILY, id: "demo-rule-moved" }, "2027-01-19");
     expect(t.kind).toBe("moved");
-    expect(a.title).toBe("横浜市からさいたま市へ: 転入の届けと健診の券の取り替え");
+    // カードの2行に収まるよう、24字を超える時は前の町を省く（前の町は文面と「機械で確かめた事」に残る）
+    expect(a.title).toBe("さいたま市へ: 転入の届けと健診の券の取り替え");
     fair(a);
     expect(a.why.startsWith(RULE_MARK)).toBe(true);
     expect(a.why).toContain("住民基本台帳法第22条");
@@ -127,7 +128,7 @@ describe("気づき: 鍵が無い時は、予定表の決まりから書く", ()
   it("生まれた後に引っ越した: 医療証と予防接種。14日を過ぎていたら、済んだか確かめる言い方", async () => {
     const { DEMO_FAMILY } = await import("./demo-family");
     const { a } = await adviceOn({ ...DEMO_FAMILY, id: "demo-rule-moved-born", movedOn: "2027-06-01" }, "2027-06-20");
-    expect(a.title).toBe("横浜市からさいたま市へ: 転入の届けと医療証・予防接種");
+    expect(a.title).toBe("さいたま市へ: 転入の届けと医療証・予防接種");
     fair(a);
     expect(a.plan[0]).toBe("転入の届けが済んだか確かめる（引っ越した日から14日以内）");
     expect(a.plan.some((p) => p.includes("医療証") && p.includes("予診票"))).toBe(true);

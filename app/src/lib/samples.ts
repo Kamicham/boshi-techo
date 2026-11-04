@@ -23,9 +23,11 @@ const textOf = (c: Content): string => (typeof c === "string" ? c : c.map((b) =>
 const firstDay = (s: string): string | null => s.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? null;
 
 /** 急ぎに見える言葉（見本の時も、連絡を勧める印だけは付ける。体の判断はしない） */
-const URGENT = /出血|破水|強い痛み|お腹が痛|胎動が(少な|無|ない)|ぐったり|高熱|けいれん|息が苦し/;
+const URGENT = /出血|破水|強い痛み|お腹が痛|胎動が(少な|無|ない)|ぐったり|高熱|けいれん|息が苦し|水も飲めない/;
+/** 気がかりに見える言葉（見本の時も、メモでなく気がかりにして、次の健診の「先生に聞く事」へ並べる道を通す。体の判断はしない） */
+const WORRY = /気にな|心配|不安|痛|足がつ|こむら返り|つる|眠れない|寝られない|寝つけない|かゆ|むくみ|張る|張って|吐き|吐いた|つわり|泣き止まない|泣きやまない|よく泣く|飲まない|食べない|熱|咳|せき|鼻水|湿疹|発疹|便秘|下痢/;
 
-/** 撮る・書く: 書いた文を、そのまま1つのメモとして残す */
+/** 撮る・書く: 書いた文を、そのまま1つの記録として残す（気がかりに見える言葉なら気がかり、ほかはメモ） */
 function capture(content: Content) {
   const all = textOf(content);
   const today = firstDay(all) ?? new Date().toISOString().slice(0, 10);
@@ -33,14 +35,15 @@ function capture(content: Content) {
   // capture() は「家族の時計など\n\n書いた事:\n<家族の文>」の形で渡す。最後の段の見出しの行を外す
   const said = all.split(/\n\s*\n/).pop()?.replace(/^[^\n]*[:：]\n/, "").trim() || all.trim();
   const urgent = URGENT.test(said);
+  const worry = urgent || WORRY.test(said);
   return {
     gist: "",
     records: [
       {
         date: today,
-        kind: "メモ" as const,
+        kind: worry ? ("気がかり" as const) : ("メモ" as const),
         title: said.replace(/\s+/g, " ").slice(0, 20),
-        detail: `${said}${urgent ? "\nその日のうちに産院（子どもの事ならかかりつけ・迷ったら #8000）へ電話" : ""}`,
+        detail: `${said}${urgent ? "\nその日のうちに産院（子どもの事ならかかりつけ・迷ったら #8000）へ電話" : worry ? "\n次の健診で聞く" : ""}`,
         urgent,
         who: null,
       },
@@ -48,7 +51,7 @@ function capture(content: Content) {
     deadlines: [],
     techo: [],
     oneQuestion: null,
-    reply: `${SAMPLE_MARK}書いた文を、そのままメモに残しました。${noKey()}（いつ・誰の事・期限を読み分けます）`,
+    reply: `${SAMPLE_MARK}書いた文を、そのまま${worry ? "気がかり" : "メモ"}に残しました。${noKey()}（いつ・誰の事・期限を読み分けます）`,
   };
 }
 
@@ -97,7 +100,8 @@ function draft(content: Content) {
   const s = DRAFT_SAMPLE[kind];
   return {
     kind,
-    title: `${SAMPLE_MARK}${(title || "手続きの下書き").slice(0, 30)}`,
+    // 題は末尾の括弧（補いの説明）を外して短く（30字で括弧の途中が切れないように）
+    title: `${SAMPLE_MARK}${(title.replace(/（[^（）]*）$/, "").trim() || title || "手続きの下書き").slice(0, 30)}`,
     to: kind === "メール" && def?.kind === "仕事" ? "【会社名】 【上司の名前】様" : s.to,
     body: `${noKey()}\n${s.how}\n\n見本では、出す前に確かめる事だけを並べています。`,
     checklist: s.check,

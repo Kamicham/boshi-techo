@@ -44,6 +44,8 @@ export function TypeSheet({ onClose, onSaved }: { onClose: () => void; onSaved: 
   const { items, add } = useTecho();
   const born = !!family.birthDate && family.birthDate <= today;
   const child = family.childName ?? "赤ちゃん";
+  const mama = family.members.find((m) => m.role === "母");
+  const mamaCall = mama?.callName ?? mama?.name ?? "ママ";
   const [pick, setPick] = useState<Pick | null>(null);
   const [date, setDate] = useState(today);
   const [raw, setRaw] = useState<Record<string, string>>({});
@@ -51,6 +53,8 @@ export function TypeSheet({ onClose, onSaved }: { onClose: () => void; onSaved: 
   const [time, setTime] = useState("");
   const [deadline, setDeadline] = useState(false);
   const [who, setWho] = useState(me?.name ?? "");
+  // 生まれた後の気がかり: だれの健診で聞くか（1回だけ選ぶ）
+  const [about, setAbout] = useState<"mother" | "child" | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -70,6 +74,7 @@ export function TypeSheet({ onClose, onSaved }: { onClose: () => void; onSaved: 
     setTime("");
     setDeadline(false);
     setKind(p === "plan" ? "予定" : "できごと");
+    setAbout(null);
     setRaw(p === "checkup" ? techoPrefill("pregnancy-checkup", family, today, items) : {});
     if (p === "temp") setWho(born ? child : (me?.name ?? ""));
   };
@@ -92,8 +97,22 @@ export function TypeSheet({ onClose, onSaved }: { onClose: () => void; onSaved: 
         await api("/api/capture/manual", { body: { familyId: family.id, today, temperature: raw.temp ?? "", date, who } });
         onSaved("体温を記録に入れました");
       } else {
-        await api("/api/capture/manual", { body: { familyId: family.id, today, kind, title: raw.title ?? "", date, time, deadline, who: me?.name } });
-        onSaved(kind === "予定" ? (deadline ? "期限として入れました（いまのやる事に並びます）" : "予定に入れました") : "記録に入れました");
+        const asking = kind === "気がかり" && born;
+        if (asking && !about) throw new Error(`${mamaCall}の事か、${child}の事かを選んでください`);
+        const r = await api<{ agenda?: "mother" | "child" | null }>("/api/capture/manual", {
+          body: { familyId: family.id, today, kind, title: raw.title ?? "", date, time, deadline, who: me?.name, concernFor: asking ? about : undefined },
+        });
+        onSaved(
+          kind === "予定"
+            ? deadline
+              ? "期限として入れました（いまのやる事に並びます）"
+              : "予定に入れました"
+            : r.agenda === "child"
+              ? `記録に入れ、${child}の次の健診で聞く事にも並べました`
+              : r.agenda === "mother"
+                ? "記録に入れ、次の健診の『先生に聞く事』にも並べました"
+                : "記録に入れました",
+        );
       }
       setPick(null);
       setRaw({});
@@ -196,9 +215,24 @@ export function TypeSheet({ onClose, onSaved }: { onClose: () => void; onSaved: 
               className={field}
             />
           </label>
+          {kind === "気がかり" && born && (
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="だれの事">
+              <span className="text-sm text-muted">だれの事？</span>
+              {(
+                [
+                  ["mother", `${mamaCall}の事`],
+                  ["child", `${child}の事`],
+                ] as const
+              ).map(([k, label]) => (
+                <button key={k} type="button" aria-pressed={about === k} onClick={() => setAbout(k)} className={`min-h-11 rounded-full border px-4 text-base ${about === k ? "border-rose bg-rose text-white" : "border-line bg-paper"}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
           {kind === "気がかり" && (
             <p className="text-sm text-muted">
-              書いた事は、次の健診で聞く事の元になります。急ぎに見える時は、書くより先に電話を（<Link href="/emergency" className="font-semibold text-sky underline">急ぎの時</Link>）
+              書いた事は、次の健診の「先生に聞く事」にも並びます。急ぎに見える時は、書くより先に電話を（<Link href="/emergency" className="font-semibold text-sky underline">急ぎの時</Link>）
             </p>
           )}
           <div className="grid grid-cols-2 gap-2">

@@ -220,8 +220,8 @@ export function trimAdvice(a: AdviceFields): AdviceFields {
 
 // ── 鍵の無い時の気づき（見本の家族・公開版で上限の日）: 機械で確かめた事から、決まりで文を作る（Claude は呼ばない） ──
 
-/** 決まりで作った気づきの1文目（カードの表に出る）。Claude が書いたふりをしない */
-export const RULE_MARK = "予定表から数えました（Claude は使っていません）。";
+/** 決まりで作った気づきの頭の札。Claude が書いたふりをしない（カードの表には1文目だけが1行で出るので、短い1文目と分ける） */
+export const RULE_MARK = "予定表から数えました。Claude は使っていません。";
 
 const MD = "(\\d{1,2}月\\d{1,2}日)";
 type Find = (re: RegExp) => RegExpMatchArray | null;
@@ -259,7 +259,7 @@ function birthRule(lines: string[], find: Find, leave: RegExpMatchArray, partner
   if (next) plan.push(`${next[1].replace(/（.*?）/g, "")}: ${next[2]}まで${recount.length > 1 ? `（ほか${recount.length - 1}件も数え直し）` : ""}`);
   return {
     title: `育休の始まりを${start}に数え直しました`,
-    why: `${RULE_MARK}産後休業は、生まれた日の翌日から8週間（労働基準法第65条）${post ? `で、${post[1]}まで` : ""}。その翌日の${start}から育休が始まります（予定日で数えると${startByDue}。${n}日${early ? "早まります" : "遅くなります"}）。`,
+    why: `${RULE_MARK}産後休業は、生まれた日の翌日から8週間（労働基準法第65条）${post ? `で、${post[1]}まで` : ""}。その翌日の${start}から育休が始まります（予定日で数えると${startByDue}で、${n}日${early ? "早まります" : "遅くなります"}）。`,
     plan,
     message: {
       to: "職場の上司",
@@ -290,7 +290,8 @@ function movedRule(find: Find, mv: RegExpMatchArray, today?: string): AdviceFiel
   const pregnant = phase.startsWith("妊娠");
   const born = /^生|歳/.test(phase);
   const what = pregnant ? "転入の届けと健診の券の取り替え" : born ? "転入の届けと医療証・予防接種" : "転入の届け";
-  const title = [`${from}から${to}へ: ${what}`, `${to}へ: ${what}`].find((t) => t.length <= 30) ?? what;
+  // 題はカードの2行（iPhone の幅で24字ほど）に収める。長い時は前の町を省く
+  const title = [`${from}から${to}へ: ${what}`, `${to}へ: ${what}`].find((t) => t.length <= 24) ?? what;
   // 転入の届けは、引っ越した日の翌日から数えて14日以内（住民基本台帳法第22条・初日は数えない）
   const since = Number(find(/^今日は引っ越して(\d+)日目/)?.[1]);
   const by = today && Number.isFinite(since) && since <= 14 ? jp(addDays(today, 14 - since)) : null;
