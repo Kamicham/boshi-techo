@@ -4,6 +4,10 @@
 name: 検査
 
 on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -40,7 +44,8 @@ jobs:
         run: npm run typecheck
       - name: lint
         run: npm run lint
+      # CI の機械は手元より遅く、30家族×1000日を回す試験が、ほかの試験と並ぶと既定の5秒を超える事がある（手元では2秒ほど）
       - name: 試験
-        run: npx vitest run --exclude "src/sim/**"
+        run: npx vitest run --exclude "src/sim/**" --testTimeout=60000
       - name: 早送りの検査（30家族と1000組）
         run: npm run sim
