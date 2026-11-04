@@ -14,6 +14,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import type { z } from "zod";
 import { HttpError } from "./http-error";
+import { CONSENT_REQUIRED_TEXT } from "./claude-consent-flow";
 import { activeConsent, audit } from "./households";
 import { sampleAnswer } from "./samples";
 import { budgetReached, checkBudget, checkHouseholdBudget, checkSimHouseholdBudget, recordSpend } from "./spend";
@@ -88,7 +89,8 @@ export interface SendWho {
 export class ConsentRequiredError extends HttpError {
   readonly code = "consent_required";
   constructor(public readonly missing: readonly string[]) {
-    super(403, "話した事・撮った紙を手帳の欄に分けるのに、米国の Claude に送る同意が要ります（まだの人がいます）。読んで決めると、そのまま続けられます");
+    // 話す・撮るだけでなく、下書き・手帳に聞く・気づき・一冊でも同じ所で止まるので、どの仕事にも合う共通の文（見直し C38 ③）
+    super(403, CONSENT_REQUIRED_TEXT);
   }
 }
 

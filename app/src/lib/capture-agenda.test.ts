@@ -29,6 +29,19 @@ vi.mock("@anthropic-ai/sdk", () => {
   return { default: Anthropic };
 });
 
+// 手帳に聞くの「健診で聞く事に足す」（/api/ask/act）を、ログインの関所なしで見本の家族の写しとして通す（関所の試験は api-household.test.ts）
+vi.mock("@/app/api/_lib/household", async (orig) => {
+  const real = await orig<typeof import("@/app/api/_lib/household")>();
+  return {
+    ...real,
+    familyFor: async (_req: Request, familyId: unknown) => {
+      const { getFamily } = await import("./family");
+      const id = String(familyId);
+      return { family: getFamily(id), who: { householdId: id, kind: "demo", accountId: null, subjectIds: [], legacy: true }, legacy: true };
+    },
+  };
+});
+
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "boshi-capture-agenda-test-"));
 process.env.BOSHI_DATA_DIR = dir;
 delete process.env.BOSHI_SIM;
@@ -141,6 +154,52 @@ describe("打った気がかり（家族が選ぶ）と、並べ方の決まり"
     expect(addConcernsToAgenda(f, [older], "2027-02-20")).toEqual([]);
     const past = addManualRecord(f.id, { kind: "気がかり", title: "足のむくみ", date: "2027-03-01" }, "2027-06-01");
     expect(addConcernsToAgenda(f, [past], "2027-06-01")).toEqual([]);
+  });
+
+  it("手帳に聞くの「健診で聞く事に足す」と記録は同じ決まり: どちらの順でも同じ文は1行。行の id は別々で、作り直しで外れるのは記録の行だけ", async () => {
+    const { getPlan } = await import("@/app/api/visit/_lib/server");
+    const { saveChat } = await import("./ask/agent");
+    const act = await import("@/app/api/ask/act/route");
+    const press = async (familyId: string, text: string, forWho: "child" | "mother", today: string) => {
+      const at = `${today}T01:00:00.000Z`;
+      saveChat(familyId, [{ role: "assistant", text: "次の健診で聞いてみましょう", today, at, actions: [{ type: "concern", text, for: forWho }] }]);
+      const res = await act.POST(
+        new Request("http://localhost:3000/api/ask/act", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ familyId, at, index: 0 }) }),
+      );
+      expect(res.status).toBe(200);
+      return ((await res.json()) as { note: string }).note;
+    };
+    const today = "2027-02-20";
+
+    // 記録が先 → 手帳に聞くで同じ文を押しても足さない（「もう並んでいます」）
+    const a = await family(9);
+    const rec = (await say(a, today, "夜に足がつって目が覚める")).records[0];
+    const title = rec.data.title;
+    expect(await press(a.id, title, "mother", today)).toContain("もうママの健診で聞く事に並んでいます");
+    expect(getPlan(a.id).concerns.map((c) => c.id)).toEqual([rec.id]);
+
+    // 手帳に聞くが先 → 同じ文を話しても足さない。返事にも「並べました」を書かない
+    const b = await family(10);
+    expect(await press(b.id, title, "mother", today)).toContain("ママの次の健診で聞く事に足しました");
+    const [asked] = getPlan(b.id).concerns;
+    expect(asked).toMatchObject({ text: title, date: today, for: "mother" });
+    const spoken = await say(b, today, "夜に足がつって目が覚める");
+    expect(spoken.reply).not.toContain("並べました");
+    // 手帳に聞くの行の id は記録の id と別（どちらも randomUUID）
+    expect(asked.id).not.toBe(spoken.records[0].id);
+    expect(asked.id).toMatch(/^[0-9a-f-]{36}$/);
+    // 同じ文を送り直す（見本は前の記録を作り直す）と、記録の行だけが外れる。手帳に聞くの行は残り、1行のまま
+    await say(b, today, "夜に足がつって目が覚める");
+    expect(getPlan(b.id).concerns).toEqual([asked]);
+
+    // 生まれた後の子の事も同じ（家族が選んで打った気がかりと、手帳に聞くの子の健診）
+    const { addConcernsToAgenda, addManualRecord } = await import("./capture");
+    const c = await family(11);
+    const baby = addManualRecord(c.id, { kind: "気がかり", title: "おへそがじくじくしている", date: "2027-06-01" }, "2027-06-01");
+    expect(addConcernsToAgenda(c, [baby], "2027-06-01", "child")).toEqual(["child"]);
+    expect(await press(c.id, "おへそがじくじくしている", "child", "2027-06-01")).toContain("もうひなたの次の健診で聞く事に並んでいます");
+    expect(getPlan(c.id).concerns.map((x) => x.id)).toEqual([baby.id]);
+    expect(calls).toHaveLength(0);
   });
 
   it("だれの健診か: 妊娠中はママ・生まれた後は子の呼び名なら子・分からなければ印なし・選んだ物が先", async () => {

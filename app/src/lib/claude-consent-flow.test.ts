@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { afterConsentReturn, CLAUDE_CONSENT_MARK, consentWaitKey, isClaudeConsentError, mayTrySend, readConsentState } from "./claude-consent-flow";
+import {
+  afterConsentReturn,
+  afterDraftConsentReturn,
+  CLAUDE_CONSENT_MARK,
+  CONSENT_REQUIRED_TEXT,
+  consentWaitKey,
+  DRAFT_WAIT_MS,
+  draftConsentWaitKey,
+  draftWaitValue,
+  isClaudeConsentError,
+  mayTrySend,
+  readConsentState,
+} from "./claude-consent-flow";
 
 describe("Claude に送る同意の順番", () => {
   it("サーバの ConsentRequiredError の文を見分ける", () => {
@@ -36,5 +48,35 @@ describe("Claude に送る同意の順番", () => {
 
   it("待っている印は家族ごとに分ける", () => {
     expect(consentWaitKey("a")).not.toBe(consentWaitKey("b"));
+    expect(draftConsentWaitKey("a")).not.toBe(draftConsentWaitKey("b"));
+  });
+
+  it("同意がまだの文は1つ。どの仕事にも合う言い方で、画面が同意の知らせと見分けられる（見直し C38 ③）", () => {
+    expect(isClaudeConsentError(CONSENT_REQUIRED_TEXT)).toBe(true);
+    expect(CONSENT_REQUIRED_TEXT).toContain("書く・答える・分ける");
+    expect(CONSENT_REQUIRED_TEXT).not.toMatch(/話した事・撮った紙を/);
+  });
+});
+
+describe("下書きが同意の前で止まった時（見直し C38 ①）", () => {
+  const now = Date.parse("2027-05-01T09:00:00+09:00");
+  const raw = draftWaitValue("tell-work", now);
+
+  it("戻って同意が済んでいれば、待っていた事の下書きを作る", () => {
+    expect(afterDraftConsentReturn({ raw, milestoneId: "tell-work", now: now + 60_000, state: "ok" })).toBe("make");
+  });
+
+  it("同意がまだ・読めない時は作らず、同じ案内を出す（同意を取らずに作らない）", () => {
+    expect(afterDraftConsentReturn({ raw, milestoneId: "tell-work", now: now + 60_000, state: "needed" })).toBe("ask");
+    expect(afterDraftConsentReturn({ raw, milestoneId: "tell-work", now: now + 60_000, state: "mother" })).toBe("ask");
+    expect(afterDraftConsentReturn({ raw, milestoneId: "tell-work", now: now + 60_000, state: null })).toBe("ask");
+  });
+
+  it("ほかの事・古い控え・壊れた控えでは何もしない", () => {
+    expect(afterDraftConsentReturn({ raw, milestoneId: "birth-registration", now: now + 60_000, state: "ok" })).toBe("none");
+    expect(afterDraftConsentReturn({ raw, milestoneId: "tell-work", now: now + DRAFT_WAIT_MS, state: "ok" })).toBe("none");
+    expect(afterDraftConsentReturn({ raw, milestoneId: "tell-work", now: now - 1, state: "ok" })).toBe("none");
+    expect(afterDraftConsentReturn({ raw: "{", milestoneId: "tell-work", now, state: "ok" })).toBe("none");
+    expect(afterDraftConsentReturn({ raw: null, milestoneId: "tell-work", now, state: "ok" })).toBe("none");
   });
 });

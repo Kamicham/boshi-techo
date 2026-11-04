@@ -292,41 +292,59 @@ export function concernOwner(
   return undefined;
 }
 
+type Concern = VisitPlan["concerns"][number];
+type AgendaSide = "child" | "mother";
+
 /**
- * 記録のうち、急ぎでない気がかりを「先生に聞く事」に足す。足した物の欄（mother／child）を返す。
- * 同じ記録（id）・同じ文がもう並んでいれば足さない。妊娠中の事を生まれた後に話した時（ふり返り）は並べない。
- * 今日の健診がもう始まっていれば、ママの事はその健診の「今日聞く事」に入れる（/api/visit/plan・手帳に聞くと同じ）。
+ * 「先生に聞く事」に足す。話した・打った気がかりの記録（addConcernsToAgenda）と、手帳に聞くの「健診で聞く事に足す」（/api/ask/act）が、
+ * 同じ決まりでここを通る（どちらの順で入っても1行。見直し C03 の続き・2026-11-05）:
+ * - 同じ id・同じ文が、次の健診の分・今日の健診の「今日聞く事」のどこかにもう並んでいれば足さない
+ * - 今日の健診がもう始まっていて、ママの側の物は、その健診の「今日聞く事」へ（/api/visit/plan と同じ）。ほかは次の健診の分へ
+ * id は、記録から入った行は記録の id、手帳に聞くから入った行は新しい id（どちらも randomUUID なので、ぶつからない）。
+ * 足した物だけを返す。
  */
-export function addConcernsToAgenda(family: Family, records: CaptureRecord[], today: string, chosen?: "child" | "mother"): ("child" | "mother")[] {
-  const picks = records.filter((r) => r.data.kind === "気がかり" && !r.data.urgent && r.data.title.trim());
-  if (!picks.length) return [];
-  const plan = getPlan(family.id);
-  const born = family.birthDate && family.birthDate <= today ? family.birthDate : null;
-  const v = ongoingVisit(family.id, today);
-  const seen = new Set([...plan.concerns, ...(v?.data.carried?.concerns ?? [])].flatMap((c) => [c.id, c.text.trim()]));
-  const toPlan: VisitPlan["concerns"] = [];
-  const toVisit: VisitPlan["concerns"] = [];
-  const sides: ("child" | "mother")[] = [];
-  for (const r of picks) {
-    const text = r.data.title.trim().slice(0, 300);
-    if (seen.has(r.id) || seen.has(text)) continue;
-    const date = r.date ?? today;
-    const owner = concernOwner(family, date, r.data.who, chosen);
-    if (owner === "older") continue;
-    const c = { id: r.id, text, date, ...(owner ? { for: owner } : {}) };
-    const side = concernSide(c, born);
-    if (side === "past") continue;
-    (v && side === "mother" ? toVisit : toPlan).push(c);
-    sides.push(side);
-    seen.add(r.id).add(text);
+export function addToAgenda(familyId: string, items: { c: Concern; side: AgendaSide }[], today: string): { c: Concern; side: AgendaSide }[] {
+  if (!items.length) return [];
+  const plan = getPlan(familyId);
+  const v = ongoingVisit(familyId, today);
+  const seen = new Set<string>(
+    [...plan.concerns, ...(v?.data.carried?.concerns ?? []), ...(v?.data.agenda ?? [])].flatMap((c) => [c.id, c.text.trim()]),
+  );
+  const added: { c: Concern; side: AgendaSide }[] = [];
+  for (const it of items) {
+    const text = it.c.text.trim().slice(0, 300);
+    if (!text || seen.has(it.c.id) || seen.has(text)) continue;
+    added.push({ c: { ...it.c, text }, side: it.side });
+    seen.add(it.c.id).add(text);
   }
-  if (toPlan.length) savePlan(family.id, { ...plan, concerns: [...plan.concerns, ...toPlan] });
+  const toVisit = v ? added.filter((a) => a.side === "mother").map((a) => a.c) : [];
+  const toPlan = added.map((a) => a.c).filter((c) => !toVisit.includes(c));
+  if (toPlan.length) savePlan(familyId, { ...plan, concerns: [...plan.concerns, ...toPlan] });
   if (v && toVisit.length)
     patch<VisitData>(v.id, {
       agenda: [...(v.data.agenda ?? []), ...toVisit.map((c) => ({ id: c.id, text: c.text, from: "気がかり" as const }))],
       carried: { prevCarriedFrom: v.data.carried?.prevCarriedFrom, concerns: [...(v.data.carried?.concerns ?? []), ...toVisit] },
     });
-  return sides;
+  return added;
+}
+
+/**
+ * 記録のうち、急ぎでない気がかりを「先生に聞く事」に足す。足した物の欄（mother／child）を返す。
+ * 同じ記録（id）・同じ文がもう並んでいれば足さない（addToAgenda）。妊娠中の事を生まれた後に話した時（ふり返り）は並べない。
+ */
+export function addConcernsToAgenda(family: Family, records: CaptureRecord[], today: string, chosen?: AgendaSide): AgendaSide[] {
+  const born = family.birthDate && family.birthDate <= today ? family.birthDate : null;
+  const items: { c: Concern; side: AgendaSide }[] = [];
+  for (const r of records) {
+    if (r.data.kind !== "気がかり" || r.data.urgent || !r.data.title.trim()) continue;
+    const date = r.date ?? today;
+    const owner = concernOwner(family, date, r.data.who, chosen);
+    if (owner === "older") continue;
+    const c = { id: r.id, text: r.data.title, date, ...(owner ? { for: owner } : {}) };
+    const side = concernSide(c, born);
+    if (side !== "past") items.push({ c, side });
+  }
+  return addToAgenda(family.id, items, today).map((a) => a.side);
 }
 
 /** 消した記録から足した「先生に聞く事」を外す（聞き返しで作り直した時） */

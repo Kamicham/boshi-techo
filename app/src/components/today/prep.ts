@@ -5,7 +5,14 @@
 import type { DraftKind } from "@/lib/drafts";
 import type { Family, Member } from "@/lib/demo-family";
 import { diffDays } from "@/lib/clock";
+import { DRAFTABLE } from "@/lib/draft-kinds";
 import { NOW, byDays, daysLeft, isMine, isStale, type Task } from "./task";
+
+/** 下書きを何と呼ぶかの種類: 表（lib/draft-kinds.ts）を先に見る＝札の下のボタン（MilestoneActions）と同じ順。
+ *  Claude が表と違う種類で作った時も、「✓ …を下書きしました」の行とボタンが同じ名前で言う。表に無い事だけ、作った種類で言う */
+export function draftKindFor(id: string, made?: DraftKind | null): DraftKind {
+  return DRAFTABLE[id] ?? made ?? "記入メモ";
+}
 
 /** 見本の答えの札（lib/samples.ts の SAMPLE_MARK と同じ。あちらは server-only なので画面用に写す。同じかは試験で見る） */
 export const SAMPLE_MARK = "（見本の答え）";

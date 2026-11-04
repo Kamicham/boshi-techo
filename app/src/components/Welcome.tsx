@@ -54,7 +54,15 @@ export function Welcome({ onClose }: { onClose: () => void }) {
     <div role="dialog" aria-modal="true" aria-labelledby="welcome-title" className="fixed inset-0 z-50 overflow-y-auto bg-paper">
       <div className="mx-auto flex max-w-md flex-col gap-5 px-4 pt-[max(env(safe-area-inset-top),1.75rem)] pb-16">
         <header className="flex flex-col gap-2">
-          <p className="text-sm font-semibold text-rose">母子手帳を、再発明する</p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm font-semibold text-rose">母子手帳を、再発明する</p>
+            {/* 急ぎの時（UX の見直し C02④）: この1枚は画面いっぱいに出て上の帯の「急ぎの時」を隠すので、右上にも置く。
+                通信が無くても開けるよう、ふつうのリンクで開く（sw.js がこのページだけ取っておく）。赤は小さな点だけ */}
+            <a href="/emergency" className="flex min-h-11 shrink-0 items-center gap-1.5 px-1 text-sm font-semibold whitespace-nowrap text-ink underline-offset-2 hover:underline">
+              <span aria-hidden className="inline-block size-1.5 shrink-0 rounded-full bg-alert" />
+              急ぎの時
+            </a>
+          </div>
           <h1 id="welcome-title" className="font-display text-3xl leading-snug font-bold text-ink">
             読む手帳から、
             <br />
