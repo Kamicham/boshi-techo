@@ -65,7 +65,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <span className="truncate">
               見本の家族 ・ <b className="font-semibold">{clockAt(family, today).label.replace(/(\d+週)\d+日/, "$1")}</b>
             </span>
-            <span className="shrink-0 font-semibold whitespace-nowrap text-sky">時期を変える ▾</span>
+            <span className="shrink-0 font-semibold whitespace-nowrap text-sky">ほかの時期 ▾</span>
           </button>
         ) : (
         <div className={`flex min-w-0 shrink items-center gap-1 whitespace-nowrap ${recording ? "invisible" : ""}`}>
@@ -151,9 +151,9 @@ function AccountBar({ isDemo, signedIn, hasOwn, consentFor }: { isDemo: boolean;
   if (!signedIn || !hasOwn)
     return (
       <p className={`${row} bg-sky-soft`}>
-        <span>自分の手帳は、3つ答えるとすぐ動きます</span>
+        <span>自分の手帳は、3つの質問に答えると作れます</span>
         <Link href="/start" className="flex min-h-11 shrink-0 items-center font-semibold text-sky underline underline-offset-2">
-          始める
+          作る
         </Link>
       </p>
     );

@@ -1,8 +1,9 @@
 "use client";
 
 // 家族の形を聞く欄（母とパートナーの働き方・パートナーの育休・上の子・生まれる子の数・里帰り）。
-// どの問いも「わからない・答えない」を選べる。答えない欄は、今までどおりの予定が出る。
+// どの問いも「わからない・答えない」を選べる（小さな文字で列の最後）。答えない欄は、今までどおりの予定が出る。
 // 押す所は 44px 以上。iPhone の 390px で横にはみ出さないよう、選びは折り返す。
+import { useState } from "react";
 import { MAX_OLDER_KIDS, OLDER_CARES, RETURN_ATS, type Leave, type MotherWork, type OlderKid, type Situation, type Work } from "@/lib/situation";
 
 const MOTHER_WORKS: MotherWork[] = ["会社員・公務員", "パート・派遣", "自営・フリー", "仕事なし", "出産で辞める"];
@@ -200,18 +201,40 @@ function Ask({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-/** 選び（最後に「わからない」がいつも付く。わからない = undefined） */
+/**
+ * 選び（最後に「わからない・答えない」がいつも付く。保存する値は、わからない = 未回答 = undefined のまま）。
+ * 未回答と「わからない」は値で見分けられないので、この画面で押したかどうかで見分ける。
+ * まだ答えていない問いは、どれも同じ薄い色（答え済みに見せない）。押した物だけ濃くする。
+ */
 function Choice<T extends string>({ options, value, onPick, name }: { options: readonly T[]; value: T | undefined; onPick: (v: T | undefined) => void; name: string }) {
+  const [saidUnknown, setSaidUnknown] = useState(false);
   return (
-    <div className="flex flex-wrap gap-2" role="group">
+    <div className="flex flex-wrap items-center gap-2" role="group">
       {options.map((o) => (
-        <Chip key={o} on={value === o} onClick={() => onPick(o)} id={`${name}-${o}`}>
+        <Chip
+          key={o}
+          on={value === o}
+          onClick={() => {
+            setSaidUnknown(false);
+            onPick(o);
+          }}
+          id={`${name}-${o}`}
+        >
           {o}
         </Chip>
       ))}
-      <Chip on={value === undefined} onClick={() => onPick(undefined)} id={`${name}-unknown`} quiet>
+      <button
+        type="button"
+        id={`${name}-unknown`}
+        aria-pressed={value === undefined && saidUnknown}
+        onClick={() => {
+          setSaidUnknown(true);
+          onPick(undefined);
+        }}
+        className={`min-h-11 rounded-full px-3 text-sm ${value === undefined && saidUnknown ? "bg-rose font-semibold text-white" : "text-muted underline underline-offset-2"}`}
+      >
         わからない・答えない
-      </Chip>
+      </button>
     </div>
   );
 }

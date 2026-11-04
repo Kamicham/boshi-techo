@@ -31,7 +31,8 @@ export function LetterKeeper({ unavailable }: { unavailable?: boolean }) {
   );
 }
 
-function LetterSheet({ onClose }: { onClose: () => void }) {
+/** 手紙を書く画面（「話す・撮る」の LetterKeeper と、一冊の「未来へ手紙」から開く） */
+export function LetterSheet({ onClose }: { onClose: () => void }) {
   const { family, today, me } = useFamily();
   const quiet = family.situation?.quiet === "loss";
   const [to, setTo] = useState(family.childName ?? "");

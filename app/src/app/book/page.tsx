@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn, CopyButton, Fold, NextStep, Pill, ShareButton, Why } from "@/components/ui";
 import type { Book } from "@/lib/book";
+import { bookIntro, cameFromTecho } from "@/lib/book-intro";
 import { useMedia } from "@/components/album/useMedia";
 import { VoiceItem } from "@/components/album/VoiceItem";
 import { FutureLetters, MinnaChapter } from "@/components/album/Minna";
@@ -37,9 +38,6 @@ function pagesOf(book: Book): Page[] {
   return [{ kind: "cover" }, { kind: "dedication" }, ...book.chapters.map((_, index) => ({ kind: "chapter" as const, index })), { kind: "closing" }];
 }
 
-/** これより少ない記録（妊娠中）は、まず記録を足す方を主にする */
-const FEW_RECORDS = 10;
-
 const WAIT_STEPS = [
   "記録を日付順に並べています",
   "おなかにいた日々から、時期に分けています",
@@ -59,6 +57,9 @@ export default function BookPage() {
   const [seeding, setSeeding] = useState(false);
   const [error, setError] = useState("");
   const [page, setPage] = useState(0);
+  // 下のタブから開いた時は「‹ 手帳へ」を出さない。手帳のタブの「一冊を開く」から来た時（/book?from=techo）だけ出す
+  const [fromTecho, setFromTecho] = useState(false);
+  useEffect(() => setFromTecho(cameFromTecho(window.location.search)), []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -107,19 +108,20 @@ export default function BookPage() {
   };
 
   const child = family.childName ?? "赤ちゃん";
-  const n = count ?? 0;
-  // 妊娠中で記録がまだ少ない時は、本を作るより記録を足すのが先
+  // 妊娠中で記録がまだ少ない時は、本を作るより記録を足すのが先（言葉と分け方は lib/book-intro.ts）
   const born = !!family.birthDate && family.birthDate <= today;
-  const few = !born && n > 0 && n < FEW_RECORDS;
+  const intro = bookIntro({ childName: family.childName, count: count ?? 0, born, isDemo });
 
   if (making) return <Binding child={child} />;
 
   return (
     <main className="flex flex-col gap-4 px-4 pt-4">
       <h1 className="sr-only">{child}への一冊</h1>
-      <Link href="/techo" className="inline-flex min-h-11 items-center self-start text-sm text-muted underline-offset-2 hover:underline">
-        ‹ 手帳へ
-      </Link>
+      {fromTecho && (
+        <Link href="/techo" className="inline-flex min-h-11 items-center self-start text-sm text-muted underline-offset-2 hover:underline">
+          ‹ 手帳へ
+        </Link>
+      )}
 
       {loading ? (
         <p className="text-base text-muted">本棚を見ています…</p>
@@ -180,27 +182,25 @@ export default function BookPage() {
             </Btn>
           </Fold>
         </>
-      ) : few ? (
-        <NextStep eyebrow={`${child}への一冊`} title="話す・撮るで記録を足す" sub={`いまの記録 ${n} 件。胎動・健診の帰り道・エコーの写真が、そのまま本になります`}>
-          <Btn href="/capture">話す・撮るへ</Btn>
-          <Btn kind="quiet" onClick={() => void make()}>
-            いまの記録で一冊を作ってみる
-          </Btn>
-          <BookWhy />
-        </NextStep>
-      ) : n === 0 && !isDemo ? (
-        <NextStep eyebrow={`${child}への一冊`} title="まず話す・撮る" sub="ふだんの記録が、そのまま本になります">
-          <Btn href="/capture">話す・撮るへ</Btn>
+      ) : intro.kind === "gather" ? (
+        <NextStep title={intro.title} sub={intro.sub}>
+          <Btn href="/capture">{intro.cta}</Btn>
+          {intro.tryMake && (
+            <Btn kind="quiet" onClick={() => void make()}>
+              いまの記録でまとめてみる
+            </Btn>
+          )}
           <BookWhy />
         </NextStep>
       ) : (
-        <NextStep eyebrow={`${child}への一冊`} title="一冊を作る" sub={n > 0 ? `いまの記録 ${n} 件から` : "デモの記録を入れてから作れます"}>
-          {isDemo && n === 0 ? (
+        <NextStep eyebrow={intro.eyebrow} title={intro.title}>
+          <p className="w-full text-base">{intro.sub}</p>
+          {intro.kind === "seed" ? (
             <Btn onClick={() => void seed()} disabled={seeding}>
-              {seeding ? "入れています…" : "デモの記録を入れる"}
+              {seeding ? "入れています…" : intro.cta}
             </Btn>
           ) : (
-            <Btn onClick={() => void make()}>作る</Btn>
+            <Btn onClick={() => void make()}>{intro.cta}</Btn>
           )}
           <BookWhy />
         </NextStep>

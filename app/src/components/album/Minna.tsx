@@ -2,10 +2,13 @@
 
 // 一冊の後ろに付く2つ: みんなの章（祖父母など家族みんなが足した写真・声・一言）と、未来の手紙（封をした手紙の棚）。
 // どちらも Claude を通さず、足された物をそのまま並べる（一冊の本文を Claude が書く時にも、手紙の中身は渡さない）。
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useFamily } from "@/components/FamilyProvider";
+import { Btn } from "@/components/ui";
 import { useMedia } from "./useMedia";
 import { VoiceItem } from "./VoiceItem";
+import { LetterSheet } from "./LetterKeeper";
 import { openLine, type ClientLetter } from "@/lib/letters-shared";
 import type { ClientMedia } from "@/lib/media-shared";
 
@@ -16,11 +19,29 @@ function jpDay(s: string) {
 
 /** みんなの章: 足した人ごとに、写真と声と一言 */
 export function MinnaChapter() {
-  const { family } = useFamily();
+  const { family, households } = useFamily();
   const { media } = useMedia();
   const { media: voices } = useMedia({ kind: "audio" });
   const items = [...media, ...voices].filter((m) => m.from && !m.hidden);
-  if (!items.length) return null;
+  // 頼む入口は、今ある「家族を招く」（世帯の持ち主・共同の管理の人だけが招ける。招いた祖父母は写真・声・手紙を足せる）
+  const h = households.find((x) => x.id === family.id);
+  const canInvite = !!h && h.kind === "real" && (h.role === "owner" || h.role === "admin");
+  const inviteHref = `/invite/new?familyId=${encodeURIComponent(family.id)}`;
+  if (!items.length) {
+    // 赤ちゃんを亡くした家族には、ひと言を頼む入口を出さない
+    if (!canInvite || family.situation?.quiet === "loss") return null;
+    return (
+      <section aria-label="みんなの章" className="flex flex-col gap-2 rounded-2xl border border-line bg-card px-5 py-4">
+        <p className="text-xs tracking-[0.4em] text-rose">み ん な の 章</p>
+        <p className="text-base">ばあば・じいじ・パートナーに、{family.childName ?? "赤ちゃん"}へのひと言を頼めます。招いた人が足した写真・声・手紙が、ここに並びます。</p>
+        <div>
+          <Btn kind="secondary" href={inviteHref}>
+            家族に頼む（招く）
+          </Btn>
+        </div>
+      </section>
+    );
+  }
   const byName = new Map<string, ClientMedia[]>();
   for (const m of items.sort((a, b) => a.date.localeCompare(b.date))) byName.set(m.from!.name, [...(byName.get(m.from!.name) ?? []), m]);
   return (
@@ -38,7 +59,7 @@ export function MinnaChapter() {
           {xs.map((m) =>
             m.kind === "audio" ? (
               <ul key={m.id}>
-                <VoiceItem m={m} canWrite={!!m.mine} />
+                <VoiceItem m={m} canWrite={!!m.mine} minna />
               </ul>
             ) : (
               <figure key={m.id} className="flex flex-col gap-1">
@@ -53,6 +74,11 @@ export function MinnaChapter() {
           )}
         </div>
       ))}
+      {canInvite && (
+        <Link href={inviteHref} className="self-center text-sm text-muted underline-offset-2 hover:underline">
+          ほかの家族にも頼む ›
+        </Link>
+      )}
     </section>
   );
 }
@@ -62,6 +88,11 @@ export function FutureLetters() {
   const { family, today, me } = useFamily();
   const [letters, setLetters] = useState<ClientLetter[] | null>(null);
   const [error, setError] = useState("");
+  const [writing, setWriting] = useState(false);
+  // 書ける人（家族の記録を書ける人・みんなの章に足せる人）には、手紙が0通でも書く入口を出す（書く画面は「話す・撮る」と同じ LetterSheet）
+  const { canWrite, canContribute, unavailable, loading } = useMedia();
+  const canLetter = !loading && !unavailable && (canWrite || !!canContribute);
+  const quiet = family.situation?.quiet === "loss";
 
   const load = useCallback(() => {
     const qs = new URLSearchParams({ familyId: family.id, today, ...(me?.name ? { by: me.name } : {}) });
@@ -75,8 +106,35 @@ export function FutureLetters() {
   }, [family.id, today, me?.name]);
   useEffect(load, [load]);
 
-  if (error) return null;
-  if (!letters?.length) return null;
+  if (error || letters === null) return null;
+  const sheet = writing && (
+    <LetterSheet
+      onClose={() => {
+        setWriting(false);
+        load();
+      }}
+    />
+  );
+  const write = canLetter && (
+    <Btn kind="secondary" full onClick={() => setWriting(true)}>
+      ✉ 手紙を書く
+    </Btn>
+  );
+  if (!letters.length) {
+    if (!canLetter) return null;
+    return (
+      <section id="letters" aria-label="未来へ手紙" className="flex scroll-mt-4 flex-col gap-2 rounded-2xl border border-line bg-card px-5 py-4">
+        <p className="text-xs tracking-[0.4em] text-rose">未 来 へ 手 紙</p>
+        <p className="text-base">
+          {quiet
+            ? "伝えたい事がある時だけ、手紙にして残せます。封をせず、いつでも読める形にもできます。"
+            : `開く日を決めて封をする手紙です。例: ${family.childName ?? "赤ちゃん"}の1歳の誕生日に開く。開く日までは、書いた人も読めません。`}
+        </p>
+        {write}
+        {sheet}
+      </section>
+    );
+  }
   const sealed = letters.filter((l) => !l.opened);
   const opened = letters.filter((l) => l.opened);
   return (
@@ -92,6 +150,8 @@ export function FutureLetters() {
           <LetterRow key={l.id} l={l} onRemoved={load} />
         ))}
       </ul>
+      {write}
+      {sheet}
       <p className="text-xs text-muted">封をした手紙は、書いた人も開く日まで読めません。手紙の中身は AI（Claude）に渡していません。</p>
     </section>
   );
