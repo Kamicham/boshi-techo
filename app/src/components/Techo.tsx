@@ -329,7 +329,7 @@ export function Techo() {
         <VisitToday family={family} today={today} next={nextVisit} agendaCount={visit?.agenda ?? 0} keep={keep} />
       ) : null}
       {/* 途中から始めた家族: 始める前に目安が過ぎた事を、済んでいるか1回聞く */}
-      {!loading && <StartedLate family={family} today={today} onCount={setBeforeCount} onOpen={setLateOpen} lifted={lifted?.id} version={lateVer} />}
+      {!loading && <StartedLate family={family} today={today} onCount={setBeforeCount} onOpen={setLateOpen} lifted={lifted?.id} version={lateVer} forPartner={me?.role === "パートナー"} />}
       {!loading && staleFirst && <StaleBox key={`${family.id}:first`} tasks={stale} {...common} defaultOpen onDone={(ids) => void setManyDone(ids)} />}
       {!loading && trip && !(visitTop && nextVisit) && !focus && (
         <BirthTripCard
@@ -355,7 +355,7 @@ export function Techo() {
         // 今やる事が無く、妊婦健診の予約の目安が近い日は「今すぐやる事はありません」と言わず、予約を一番上に（UX 2026-11-04: 大きな箱の真下に「今日ごろ」が出て、言う事が食い違っていた）
         <NextStep
           tone="rose"
-          eyebrow="いま、いちばん先の事"
+          eyebrow={me?.role === "パートナー" ? "いま、いちばん先の事（ママの番）" : "いま、いちばん先の事"}
           title="次の妊婦健診を予約する"
           sub={`国の目安では${daysUntil(today, guess) === 0 ? "今ごろ" : `あと${daysUntil(today, guess)}日ごろ`}です。病院で日を言われていたら、そちらに合わせてください。`}
         >
@@ -377,7 +377,7 @@ export function Techo() {
             ) : r.kind === "prenatal" ? (
               <Link key="prenatal" href="/visit" className="flex min-h-12 items-center justify-between gap-3 border-b border-line py-2 last:border-b-0">
                 <span className="min-w-0">
-                  <span className="block text-base font-semibold">次の妊婦健診を予約する</span>
+                  <span className="block text-base font-semibold">次の妊婦健診を予約する{me?.role === "パートナー" && <span className="text-sm font-normal text-muted">（ママの番）</span>}</span>
                   <span className="block text-sm text-muted">国の目安では今ごろです。病院で日を言われていたら、そちらに合わせてください</span>
                 </span>
                 <span className="flex shrink-0 items-center gap-2">

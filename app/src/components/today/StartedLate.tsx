@@ -18,8 +18,9 @@ type Item = { id: string; open: boolean };
  * onCount: 聞く事とまだの事の数（「いま」の「大丈夫」の言い方を変える）
  * onOpen: 「まだ」と答えた事の id（「いま」が一番上の札に上げる。UX 2026-11-04: 小さな札だけで、先に動いていなかった）
  * lifted: 一番上の札に上げた事（ここの「まだの事」には重ねて出さない）。version: 変わったら読み直す
+ * forPartner: 見ているのがパートナーの時は、母の番の事を聞かない（母の手続きを、パートナーの一番先の事にしない。UX 2026-11-04）
  */
-export function StartedLate({ family, today, onCount, onOpen, lifted, version = 0 }: { family: Family; today: string; onCount?: (n: number) => void; onOpen?: (ids: string[]) => void; lifted?: string; version?: number }) {
+export function StartedLate({ family, today, onCount, onOpen, lifted, version = 0, forPartner = false }: { family: Family; today: string; onCount?: (n: number) => void; onOpen?: (ids: string[]) => void; lifted?: string; version?: number; forPartner?: boolean }) {
   const [items, setItems] = useState<Item[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const load = useCallback(() => {
@@ -33,9 +34,13 @@ export function StartedLate({ family, today, onCount, onOpen, lifted, version = 
   const { ask, open } = useMemo(() => {
     const byId = new Map(schedule.map((m) => [m.id, m]));
     const recent = new Set(recentlyPassed(schedule, family.startedOn ?? today).map((m) => m.id));
-    const pick = (f: (i: Item) => boolean) => (items ?? []).filter(f).map((i) => byId.get(i.id)).filter((m): m is Milestone => !!m);
+    const pick = (f: (i: Item) => boolean) =>
+      (items ?? [])
+        .filter(f)
+        .map((i) => byId.get(i.id))
+        .filter((m): m is Milestone => !!m && !(forPartner && m.who === "母"));
     return { ask: pick((i) => !i.open && recent.has(i.id)), open: pick((i) => i.open) };
-  }, [items, schedule, family.startedOn, today]);
+  }, [items, schedule, family.startedOn, today, forPartner]);
   const count = ask.length + open.length;
   useEffect(() => onCount?.(count), [count, onCount]);
   const openKey = open.map((m) => m.id).join(",");

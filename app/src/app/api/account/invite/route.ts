@@ -3,7 +3,11 @@
 // 役と範囲: admin＝共同の管理（パートナー）、member＝読むだけ（祖父母など）。母の記録のどの項目を見せるかは母が選ぶ（既定は子の記録だけ）。
 import { body, route } from "@/lib/api";
 import { authReady } from "@/lib/auth";
-import { requireAccount, withHousehold } from "@/lib/access";
+import { currentAccount, withHousehold } from "@/lib/access";
+import { ensureAccountSchema } from "@/lib/db";
+import { getFamily } from "@/lib/family";
+import { listSubjects } from "@/lib/households";
+import { inviteHeadline, maskEmail, periodWord } from "@/lib/invite-words";
 import { HttpError } from "@/lib/http-error";
 import { audit } from "@/lib/households";
 import { RELATIONS, SHARE_ITEMS, type Relation, type ShareItem } from "@/components/settings/consent-texts";
@@ -41,11 +45,35 @@ export const POST = route(async (req: Request) => {
   return { id: inv.id, link: `/invite/${inv.id}`, expiresAt: toIso(inv.expiresAt) };
 });
 
-/** 招かれた人が中身を見る（ログインが要る。招待先のメールと一致しないと Better Auth が断る） */
+/**
+ * 招待のリンクを開いた画面の、ログイン前に見せてよい最小の中身（何の招待か）。
+ * リンクは推測できない札で48時間で切れる。それでもメールそのもの・世帯の名前・記録の中身は出さない。
+ * 出すのは: 招いた人の呼び名（世帯の本人の名前。無ければ出さない）・時期の言葉（妊娠11週・生後3か月）・役・伏せたメール・期限。
+ */
+function invitePreview(id: string) {
+  const r = ensureAccountSchema()
+    .prepare(`SELECT id, email, inviterId, organizationId, role, status, expiresAt FROM invitation WHERE id = ?`)
+    .get(id) as { id: string; email: string; inviterId: string | null; organizationId: string; role: string; status: string; expiresAt: unknown } | undefined;
+  const expiresAt = r ? toIso(r.expiresAt) : "";
+  if (!r || r.status !== "pending" || !(Date.parse(expiresAt) > Date.now())) throw new HttpError(404, "招待が見つかりません。期限（48時間）が切れたか、取り消されました");
+  const inviterName = (r.inviterId && listSubjects(r.organizationId).find((s) => s.accountId === r.inviterId)?.name) || null;
+  const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
+  const period = periodWord(getFamily(r.organizationId), today);
+  const relation = inviteScope(r.id)?.relation ?? null;
+  return { id: r.id, headline: inviteHeadline(inviterName, period), role: r.role, relation, maskedEmail: maskEmail(r.email), expiresAt };
+}
+
+/**
+ * 招待の中身。ログイン前は invitePreview の最小の中身だけ。
+ * ログインした後は、招待先のメールと一致しないと Better Auth が断る。一致すれば、母が見せると選んだ項目も返す。
+ */
 export const GET = route(async (req: Request) => {
-  await requireAccount(req);
   const id = new URL(req.url).searchParams.get("id") ?? "";
   if (!id) throw new HttpError(404, "招待が見つかりません");
+  await authReady();
+  const preview = invitePreview(id);
+  const account = await currentAccount(req);
+  if (!account) return { ...preview, signedIn: false as const };
   const auth = await authReady();
   let inv: { id: string; organizationId: string; organizationName?: string; inviterEmail?: string; role: string; status: string; expiresAt: unknown };
   try {
@@ -55,7 +83,8 @@ export const GET = route(async (req: Request) => {
   }
   const scope = inviteScope(id);
   return {
-    id: inv.id,
+    ...preview,
+    signedIn: true as const,
     householdName: inv.organizationName ?? householdName(inv.organizationId) ?? "",
     inviterEmail: inv.inviterEmail ?? "",
     role: inv.role,

@@ -28,6 +28,8 @@ export function isLoginPath(pathname: string): boolean {
     pathname === "/login" ||
     pathname.startsWith("/invite/") ||
     pathname === "/api/account" ||
+    // 招待のリンクを開いた人が、入る前に「誰から・何の招待か」を読む（中身はログイン前は最小限。作る・取り消すはログインが要る）
+    pathname === "/api/account/invite" ||
     pathname.startsWith("/api/auth/")
   );
 }

@@ -9,6 +9,7 @@ import { Btn, CopyButton, ShareButton, Why } from "@/components/ui";
 import { Box, field, jpDateTime, Msg, useHouseholdDetail } from "@/components/settings/account-ui";
 import { useQuery } from "@/components/settings/ConsentScreen";
 import { RELATIONS, SHARE_ITEMS, type Relation, type ShareItem } from "@/components/settings/consent-texts";
+import { inviteShareText, lineShareUrl } from "@/lib/invite-words";
 
 export default function NewInvite() {
   const { family, households } = useFamily();
@@ -20,7 +21,7 @@ export default function NewInvite() {
   const [show, setShow] = useState<Set<ShareItem>>(new Set());
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const [made, setMade] = useState<{ link: string; expiresAt: string } | null>(null);
+  const [made, setMade] = useState<{ link: string; expiresAt: string; email: string } | null>(null);
 
   // パートナーは共同の管理（記録を足せる）、ほかは読むだけ
   const role = relation === "パートナー" ? "admin" : "member";
@@ -33,7 +34,7 @@ export default function NewInvite() {
       const r = await api<{ link: string; expiresAt: string }>("/api/account/invite", {
         body: { familyId, email, role, relation, showMother: role === "member" ? [...show] : [] },
       });
-      setMade({ link: `${window.location.origin}${r.link}`, expiresAt: r.expiresAt });
+      setMade({ link: `${window.location.origin}${r.link}`, expiresAt: r.expiresAt, email: email.trim() });
     } catch (e) {
       setMsg({ ok: false, text: (e as Error).message });
     } finally {
@@ -50,20 +51,26 @@ export default function NewInvite() {
 
       {made ? (
         <Box title="招待のリンクができました">
-          <p className="text-base">{jpDateTime(made.expiresAt)}まで（48時間）使えます。相手に手渡ししてください。</p>
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-semibold text-muted">招待のリンク</span>
-            <CopyButton text={made.link} />
-          </div>
-          <p id="invite-link" className="rounded-lg bg-paper px-3 py-2 text-base break-all">
-            {made.link}
+          <p className="text-base">この文を、そのまま相手に送ってください。{jpDateTime(made.expiresAt)}まで（48時間）使えます。</p>
+          <p id="invite-text" className="rounded-lg bg-paper px-3 py-2 text-base break-all whitespace-pre-line">
+            {inviteShareText(made.email, made.link)}
           </p>
-          <ShareButton title="母子手帳への招待" text="母子手帳の世帯への招待です。Safari で開いてください" url={made.link} label="LINE などで送る…" kind="primary" />
-          <ol className="flex list-decimal flex-col gap-1 pl-5 text-sm">
-            <li>相手は iPhone の Safari でリンクを開く</li>
-            <li>「ホーム画面に追加」をしてから、アプリを開く</li>
-            <li>招待したメールに届くコードで入ると、招待を受けられます</li>
-          </ol>
+          <Btn href={lineShareUrl(inviteShareText(made.email, made.link))} full>
+            LINE で送る
+          </Btn>
+          <div className="flex flex-wrap items-center gap-2">
+            <CopyButton text={inviteShareText(made.email, made.link)} label="文をコピー" />
+            <ShareButton title="母子手帳への招待" text={inviteShareText(made.email, made.link)} label="ほかのアプリで送る…" fallback={false} />
+          </div>
+          <Why label="リンクだけを送る時">
+            <div className="flex items-center justify-between gap-2">
+              <span>招待のリンク</span>
+              <CopyButton text={made.link} />
+            </div>
+            <p id="invite-link" className="break-all">
+              {made.link}
+            </p>
+          </Why>
           <Btn href={`/account?familyId=${encodeURIComponent(familyId)}`} kind="secondary">
             アカウントの画面へ
           </Btn>
