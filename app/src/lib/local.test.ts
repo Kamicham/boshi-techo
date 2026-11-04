@@ -57,3 +57,38 @@ describe("町の調べ物", () => {
     expect(researchCalls).toHaveLength(1);
   });
 });
+
+describe("6番目の問い（その事だけに聞く）", () => {
+  const home = { prefecture: "東京都", city: "江東区" };
+  it("今夜足した3つ（RS ウイルス・産後ケア・産婦健診）は、町の仕組みを聞く", async () => {
+    const { extraQuestion } = await import("./local");
+    const rsv = extraQuestion("rsv-maternal", "東川町", home);
+    for (const w of ["受けられる医療機関", "予診票", "費用"]) expect(rsv).toContain(w);
+    const care = extraQuestion("postpartum-care", "東川町", home);
+    for (const w of ["宿泊", "日帰り", "訪問", "妊娠中から申し込めるか", "費用"]) expect(care).toContain(w);
+    const check = extraQuestion("postpartum-checkup-2w", "東川町", home);
+    for (const w of ["受診票", "使える回数", "使える医療機関"]) expect(check).toContain(w);
+  });
+
+  it("前からの問いはそのまま・ほかの事には6番目を付けない", async () => {
+    const { extraQuestion } = await import("./local");
+    expect(extraQuestion("pregnancy-support-2", "東川町", home)).toMatch(/^2回目の面談の予約の仕方/);
+    expect(extraQuestion("satogaeri-local", "霧島市", home)).toContain("ほかの町（東京都江東区）に住む人が、霧島市に里帰りして産む時");
+    expect(extraQuestion("birth-registration", "東川町", home)).toBe("");
+  });
+
+  it("調べる問いに6番目が入り、家族の事（子の名前・予定日）は入らない（町×事で使い回すため）", async () => {
+    const { fetchLocal } = await import("./local");
+    const { DEMO_FAMILY } = await import("./demo-family");
+    const { MILESTONES } = await import("./milestones");
+    const m = MILESTONES.find((x) => x.id === "rsv-maternal")!;
+    expect(m).toBeTruthy();
+    const f = { ...DEMO_FAMILY, id: "local-test-rsv", prefecture: "北海道", city: "美瑛町" };
+    await fetchLocal(f, m);
+    const q = researchCalls[researchCalls.length - 1].question;
+    expect(q).toContain("6. RSウイルスの母子免疫ワクチン");
+    expect(q).toContain("美瑛町");
+    expect(q).not.toContain(DEMO_FAMILY.childName ?? "（子の名前なし）");
+    expect(q).not.toContain(DEMO_FAMILY.dueDate);
+  });
+});
