@@ -17,6 +17,7 @@ import { openForHousehold, sealForHousehold, sha256Hex } from "./crypto";
 import { forHousehold, type MediaRow } from "./db";
 import type { Family } from "./demo-family";
 import { HttpError } from "./http-error";
+import { checkTrialRoom } from "./trial-room";
 import { allConsented, audit } from "./households";
 import { mediaKey } from "./storage";
 import { listTecho } from "./techo-store";
@@ -171,6 +172,8 @@ export async function saveUpload(ctx: HouseholdCtx, input: UploadInput): Promise
     const date = photoDate(dup);
     return { media: dup, duplicate: true, candidates: techoChoices(hid, ctx.family, date, input.today) };
   }
+  // 体験の写しは、写真と声で20件・50MB まで（lib/trial-room.ts）
+  checkTrialRoom(ctx, raw.length, input.made);
 
   // 撮った日（GPS を消す前の原本から読む）
   // 作った家族（デモ・シミュレーション）は時計を進めて見るので、写真の日も画面の「今日」にする（本当の日付だと生まれる前に並ぶ）
@@ -315,6 +318,7 @@ export async function saveAudio(ctx: HouseholdCtx, input: VoiceInput): Promise<{
   const sha = sha256Hex(raw);
   const dup = ctx.db.media.findBySha<MediaData>(sha);
   if (dup) return { media: dup, duplicate: true };
+  checkTrialRoom(ctx, raw.length, input.made);
 
   const now = Date.now();
   const madeDay = ctx.household.kind !== "real" && input.today && /^\d{4}-\d{2}-\d{2}$/.test(input.today) ? input.today : null;

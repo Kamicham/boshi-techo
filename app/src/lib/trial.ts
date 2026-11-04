@@ -2,8 +2,9 @@
 // - 公開版（BOSHI_PUBLIC=1）で画面が見本の家族（demo-sato）を頼むと、サーバはその人の札（boshi_try）の写しに置き換える
 //   （lib/access.ts の withHousehold の入口）。共有の見本の家族には、公開版ではだれも書けない
 // - 写しは見本の家族と同じ設定・同じ作った記録（id だけ違う）。種類は demo（同意の関所の対象外。上限を超えた日は見本の答え）
-// - 写しは札の持ち主だけが開ける（ほかの人には 404）。7日たった写しは、次に写しを作る時にまとめて消す
-// - 1つの住所（IP）から作れる写しは1日10まで（使い過ぎ止め）
+// - 写しは札の持ち主だけが開ける（ほかの人には 404）。7日たった写しは、次に写しを作る時と、サーバが立った時・その後1日1回（src/instrumentation.ts）にまとめて消す
+// - 1つの住所（IP）から作れる写しは1日10まで（使い過ぎ止め。公開版は fly.toml の BOSHI_TRIALS_PER_IP_DAY＝会場や病院の Wi-Fi は大勢が同じ住所）
+// - 1つの写しに置ける写真と声は20件・50MB まで（lib/trial-room.ts）
 // - 本物の記録は置かない（画面の上に「作った家族です」と出す）
 import "server-only";
 import { ensureAccountSchema } from "./db";
@@ -49,7 +50,8 @@ export async function ensureTrial(id: string, ip: string): Promise<void> {
   const since = new Date(Date.now() - 86_400_000).toISOString();
   const n = (d.prepare(`SELECT COUNT(*) AS n FROM trials WHERE ip = ? AND created_at >= ?`).get(ip, since) as { n: number }).n;
   if (n >= TRIALS_PER_IP_DAY) throw new HttpError(429, "この住所から作れる体験の数（1日）を超えました。明日また試してください");
-  d.prepare(`INSERT INTO trials (id, ip, created_at) VALUES (?, ?, ?)`).run(id, ip, new Date().toISOString());
+  // 同じ札の最初の頼みが2つ同時に来ても落ちないように（2つ目は何もしない）
+  d.prepare(`INSERT OR IGNORE INTO trials (id, ip, created_at) VALUES (?, ?, ?)`).run(id, ip, new Date().toISOString());
   ensureHousehold(id, "demo");
 }
 

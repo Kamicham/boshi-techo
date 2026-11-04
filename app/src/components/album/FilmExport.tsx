@@ -4,6 +4,7 @@
 // 動画は家族の鍵で守って置き、開く時だけ解く。祖父母など読む人は見る・保存するだけ、作るのは記録を書ける人。
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useFamily } from "@/components/FamilyProvider";
+import { TRIAL_FILM_CLOSED } from "@/lib/trial-words";
 
 type Video = { id: string; url: string; download: string; bytes: number; durationSec: number | null; createdAt: string };
 
@@ -14,6 +15,8 @@ export function FilmExport({ bookKey }: { bookKey: string }) {
   const { family, today } = useFamily();
   const [video, setVideo] = useState<Video | null>(null);
   const [canMake, setCanMake] = useState(false);
+  // 体験版は書き出しを閉じている（api/book/film）。押せないボタンの代わりに一言
+  const [closed, setClosed] = useState(false);
   const [making, setMaking] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState("");
@@ -24,9 +27,10 @@ export function FilmExport({ bookKey }: { bookKey: string }) {
   const load = useCallback(async () => {
     const r = await fetch(`/api/book/film?${qs}`);
     if (!r.ok) return;
-    const j = (await r.json()) as { video: Video | null; canMake: boolean; making: boolean };
+    const j = (await r.json()) as { video: Video | null; canMake: boolean; making: boolean; closed?: boolean };
     setVideo(j.video);
     setCanMake(j.canMake);
+    setClosed(!!j.closed);
     if (j.making) setMaking(true);
   }, [qs]);
   useEffect(() => {
@@ -83,7 +87,7 @@ export function FilmExport({ bookKey }: { bookKey: string }) {
     }
   };
 
-  if (!video && !canMake) return null;
+  if (!video && !canMake) return closed ? <p className="text-sm text-muted">{TRIAL_FILM_CLOSED}</p> : null;
   return (
     <div className="flex flex-col gap-2 rounded-2xl border border-line bg-card px-4 py-3">
       {video ? (

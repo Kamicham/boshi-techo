@@ -101,6 +101,62 @@ describe("公開版の体験用の家族", () => {
     expect(j.draft?.body).not.toContain("鍵");
   });
 
+  it("同じ札の最初の頼みが2つ同時に来ても落ちない（写しは1つ）", async () => {
+    const { ensureTrial } = await import("./trial");
+    const F = `try-${"f".repeat(32)}`;
+    await expect(Promise.all([ensureTrial(F, "198.51.100.9"), ensureTrial(F, "198.51.100.9")])).resolves.toBeDefined();
+    const { getHousehold } = await import("./households");
+    expect(getHousehold(F)).not.toBeNull();
+  });
+
+  it("1つの写しに置ける写真と声は20件まで（作った見本の声は数えない）", async () => {
+    const { withHousehold } = await import("./access");
+    const { saveAudio } = await import("./media");
+    const E = `try-${"e".repeat(32)}`;
+    const ctx = await withHousehold(req("/api/capture?familyId=demo-sato", { trial: E }), "demo-sato", "media:write");
+    expect(ctx.household.id).toBe(E);
+    const ogg = (i: number) => Buffer.concat([Buffer.from("OggS"), Buffer.alloc(2000, i)]);
+    // 見本の声（made）は数えない
+    for (let i = 0; i < 3; i++) await saveAudio(ctx, { audio: ogg(200 + i), made: true, today: "2027-04-27" });
+    for (let i = 0; i < 20; i++) await saveAudio(ctx, { audio: ogg(i), today: "2027-04-27" });
+    await expect(saveAudio(ctx, { audio: ogg(99), today: "2027-04-27" })).rejects.toMatchObject({ status: 413 });
+    // 同じ中身（もう置いてある声）は、数を見ずにその行を返す
+    await expect(saveAudio(ctx, { audio: ogg(0), today: "2027-04-27" })).resolves.toMatchObject({ duplicate: true });
+  });
+
+  it("写しの上限は、体験の写しだけ・作った記録を除いて・声の手紙も合わせて数える（50MB）", async () => {
+    const { checkTrialRoom, TRIAL_MAX_BYTES } = await import("./trial-room");
+    const MB = 1024 * 1024;
+    const fake = (id: string, media: { bytes: number; made?: boolean; kind?: string }[], letters: { bytes?: number; made?: boolean }[] = []) =>
+      ({
+        household: { id },
+        db: {
+          media: { list: () => media.map((m) => ({ kind: m.kind ?? "photo", bytes: m.bytes, data: { made: m.made } })) },
+          list: () => letters.map((l) => ({ data: { made: l.made, voice: l.bytes ? { bytes: l.bytes } : undefined } })),
+        },
+      }) as unknown as Parameters<typeof checkTrialRoom>[0];
+    expect(() => checkTrialRoom(fake(A, [{ bytes: 40 * MB }], [{ bytes: 5 * MB }]), 4 * MB)).not.toThrow();
+    expect(() => checkTrialRoom(fake(A, [{ bytes: 40 * MB }], [{ bytes: 5 * MB }]), 6 * MB)).toThrow(/20件・50MB/);
+    // 作った記録・動画は数えない
+    expect(() => checkTrialRoom(fake(A, [{ bytes: 49 * MB, made: true }, { bytes: 49 * MB, kind: "video" }]), 10 * MB)).not.toThrow();
+    // 写しでない世帯・作った物を置く時・体験版でない置き場には効かない
+    expect(() => checkTrialRoom(fake("demo-sato", [{ bytes: TRIAL_MAX_BYTES }]), MB)).not.toThrow();
+    expect(() => checkTrialRoom(fake(A, [{ bytes: TRIAL_MAX_BYTES }]), MB, true)).not.toThrow();
+    process.env.BOSHI_PUBLIC = "0";
+    expect(() => checkTrialRoom(fake(A, [{ bytes: TRIAL_MAX_BYTES }]), MB)).not.toThrow();
+    process.env.BOSHI_PUBLIC = "1";
+  });
+
+  it("体験版では、映画の動画の書き出しを閉じる（画面には閉じている訳を返す）", async () => {
+    const film = await import("@/app/api/book/film/route");
+    const g = await film.GET(req("/api/book/film?familyId=demo-sato&today=2029-04-26", { trial: A }));
+    expect(g.status).toBe(200);
+    expect(await g.json()).toMatchObject({ video: null, canMake: false, closed: true });
+    const p = await film.POST(req("/api/book/film", { trial: A, body: { familyId: "demo-sato", today: "2029-04-26" } }));
+    expect(p.status).toBe(403);
+    expect(((await p.json()) as { error?: string }).error).toContain("体験版では、動画（mp4）の書き出しは閉じています");
+  });
+
   it("1つの住所から作れる写しは1日10まで。7日たった写しは消える", async () => {
     const { ensureTrial, purgeExpiredTrials } = await import("./trial");
     for (let i = 0; i < 10; i++) await ensureTrial(`try-${String(i).padStart(32, "c")}`, "198.51.100.7");

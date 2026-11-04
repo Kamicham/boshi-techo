@@ -10,6 +10,7 @@ import type { HouseholdCtx } from "./access";
 import { openForHousehold, sealForHousehold } from "./crypto";
 import { audit } from "./households";
 import { HttpError } from "./http-error";
+import { checkTrialRoom } from "./trial-room";
 import { MAX_VOICE_BYTES, sniffAudio } from "./media-shared";
 import { letterVoiceKey } from "./storage";
 import { isLetterOpen, letterOpenOn, MAX_LETTER_CHARS, MAX_LETTER_VOICE_SEC, type ClientLetter, type LetterOpen } from "./letters-shared";
@@ -112,6 +113,8 @@ export async function writeVoiceLetter(ctx: HouseholdCtx, input: LetterInput, vo
   if (sec && sec > MAX_LETTER_VOICE_SEC + 5) throw new HttpError(413, `声は${MAX_LETTER_VOICE_SEC / 60}分までです`);
   // 先に文字と開く日を確かめる（置いてから断ると、声だけが残る）
   checkLetter(ctx, input, true);
+  // 体験の写しは、写真と声で20件・50MB まで（lib/trial-room.ts）
+  checkTrialRoom(ctx, raw.length, input.made);
   const id = randomUUID();
   const key = letterVoiceKey(ctx.household.id, id);
   const s = sealForHousehold(ctx.household.id, raw, voiceAad(id));
