@@ -1,0 +1,18 @@
+#!/bin/sh
+# 母子手帳: コミットしたら、GitHub の作業のブランチと main まで上げる（2026-11-04 社長「基本メインだけチェックしてる」）。
+# 入れ方: scripts/install-git-hooks.sh（.git/hooks は全部の worktree で共通）。止める時だけ BOSHI_NO_AUTOPUSH=1。
+[ -n "$BOSHI_NO_AUTOPUSH" ] && exit 0
+branch=$(git symbolic-ref --short -q HEAD) || exit 0   # 取り込みや巻き戻しの途中（ブランチ無し）は何もしない
+if ! git fetch -q origin main 2>/dev/null; then
+  echo "[main へ上げる] GitHub に届きませんでした。つながったら git push origin HEAD:main" >&2; exit 0
+fi
+if git merge-base --is-ancestor origin/main HEAD; then
+  if git push -q origin "HEAD:refs/heads/$branch" "HEAD:refs/heads/main" >&2; then
+    echo "[main へ上げる] $branch と main に上げました（$(git rev-parse --short HEAD)）" >&2
+  else
+    echo "[main へ上げる] 上げられませんでした。git fetch origin && git merge origin/main の後に git push origin HEAD:main" >&2
+  fi
+else
+  echo "[main へ上げる] main が先に進んでいます（ほかの会話のコミット）。git merge origin/main（ぶつかったら直す）→ git push origin HEAD:main を、この会話のうちに" >&2
+fi
+exit 0
