@@ -1,9 +1,12 @@
 "use client";
 
 // 自分の手帳を始める（UI/UX 見直し「自分の手帳の入口」2026-11-04）。
-// 先に3つだけ聞いて（予定日か生まれた日・町・あなたは）、記録の無いまま「いま」をその場で出す。
+// 先に3つだけ聞いて（予定日か生まれた日・町・あなたと家族）、記録の無いまま「いま」をその場で出す。
 // 答えはこの端末の中だけ（localStorage）。「残す」を押した時に、メールのコードで入って家族の手帳を作る。
 // 公開版（体験）では本物の家族の登録を閉じているので、「残す」の手前まで。
+// 3つ目の「一緒に育てる人は？」（UX 見直し C04①）: 「いる」「今は答えない」の時は、相手を家族に足す（名前は仮の「パートナー」か「ママ」。
+// 設定で直せる。仮の名前は役割の言葉なので、下書きの名前の空欄には入れない＝lib/blanks.ts の isRoleWord）。ひとり親の家庭の手続き
+// （児童扶養手当など。milestones.ts の only: ["single"]）は、「いない」と答えた時だけ並べる（答えない人に、ひとり親の行を出さない）。
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
@@ -17,9 +20,10 @@ import { jpShort } from "@/components/today/dates";
 import { recentlyPassed } from "@/lib/started-late";
 import { beforeLead, prenatalBookDays, prenatalBookWhen } from "@/lib/start-preview";
 
-type Answers = { born: boolean; date: string; prefecture: string; city: string; me: "mother" | "partner" };
-/** 答えている途中（「あなたは」は最初は何も選ばない） */
-type Draft = Omit<Answers, "me"> & { me: Answers["me"] | "" };
+/** partner は「一緒に育てる人は？」（yes＝いる・no＝いない・skip＝今は答えない）。前の版で残した答えには無い（＝答えていない扱い） */
+type Answers = { born: boolean; date: string; prefecture: string; city: string; me: "mother" | "partner"; partner?: "yes" | "no" | "skip" };
+/** 答えている途中（「あなたは」「一緒に育てる人は」は最初は何も選ばない） */
+type Draft = Omit<Answers, "me" | "partner"> & { me: Answers["me"] | ""; partner: NonNullable<Answers["partner"]> | "" };
 const KEY = "boshi.start";
 const PUBLIC = process.env.NEXT_PUBLIC_BOSHI_PUBLIC === "1";
 
@@ -41,6 +45,16 @@ function store(a: Answers | null) {
   } catch {}
 }
 
+/**
+ * 家族の顔ぶれ（あなたが先頭）。一緒に育てる人が「いない」とはっきり答えた時だけ、相手を足さない（答えていない・今は答えない時は足す）。
+ * 相手の名前は仮の役割の言葉（あなたが母なら「パートナー」、パートナーなら「ママ」）。
+ */
+function membersOf(a: Answers, myName: string): Family["members"] {
+  const me = { id: "m0", name: myName, role: a.me === "mother" ? ("母" as const) : ("パートナー" as const) };
+  if (a.partner === "no") return [me];
+  return [me, a.me === "mother" ? { id: "m1", name: "パートナー", role: "パートナー" as const } : { id: "m1", name: "ママ", role: "母" as const }];
+}
+
 /** 3つの答えから、手帳の形（記録なし）を作る。生まれた後に始めた時は、生まれた日を予定日の代わりにも使う（近似） */
 function familyOf(a: Answers): Family {
   return {
@@ -49,13 +63,13 @@ function familyOf(a: Answers): Family {
     prefecture: a.prefecture.trim(),
     dueDate: a.date,
     ...(a.born ? { birthDate: a.date } : {}),
-    members: [a.me === "mother" ? { id: "me", name: "あなた", role: "母" } : { id: "me", name: "あなた", role: "パートナー" }],
+    members: membersOf(a, "あなた"),
   };
 }
 
 export default function Start() {
   const { account, accountsEnabled, reload, setFamilyId } = useFamily();
-  const [a, setA] = useState<Draft>({ born: false, date: "", prefecture: "", city: "", me: "" });
+  const [a, setA] = useState<Draft>({ born: false, date: "", prefecture: "", city: "", me: "", partner: "" });
   const [step, setStep] = useState<"ask" | "show">("ask");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -65,14 +79,15 @@ export default function Start() {
   useEffect(() => {
     const saved = load();
     if (!saved) return;
-    setA(saved);
+    // 前の版で残した答え（一緒に育てる人が無い）は、手帳は「答えていない」で出し、直す時は選んでもらう
+    setA({ ...saved, partner: saved.partner ?? "" });
     setStep("show");
     if (new URLSearchParams(window.location.search).get("save") === "1" && account) void keep(saved);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account]);
 
   const dateCityOk = /^\d{4}-\d{2}-\d{2}$/.test(a.date) && a.city.trim().length > 0;
-  const ready = dateCityOk && a.me !== "";
+  const ready = dateCityOk && a.me !== "" && a.partner !== "";
   const tooFar = dateCityOk && (a.born ? diffDays(today, a.date) > 731 || a.date > today : diffDays(a.date, today) > 300 || a.date < today);
 
   const keep = async (ans: Answers) => {
@@ -81,8 +96,9 @@ export default function Start() {
     try {
       const r = await api<{ householdId: string }>("/api/account/household", { body: { name: "わが家", me: ans.me } });
       const f = familyOf(ans);
+      // 残す家族の顔ぶれは、手帳の見え方（familyOf）と同じ。あなたの名前は仮の「ママ」「パートナー」（設定で直せる）
       await api("/api/account/profile", {
-        body: { familyId: r.householdId, dueDate: f.dueDate, birthDate: f.birthDate ?? "", city: f.city, prefecture: f.prefecture, members: [{ id: "m0", name: ans.me === "mother" ? "ママ" : "パートナー", role: f.members[0].role }] },
+        body: { familyId: r.householdId, dueDate: f.dueDate, birthDate: f.birthDate ?? "", city: f.city, prefecture: f.prefecture, members: membersOf(ans, ans.me === "mother" ? "ママ" : "パートナー") },
       });
       store(null);
       await reload();
@@ -139,28 +155,55 @@ export default function Start() {
               <input id="start-city" aria-label="市区町村" required className={field} value={a.city} onChange={(e) => setA({ ...a, city: e.target.value })} placeholder="市区町村（例: さいたま市）" />
             </div>
           </fieldset>
-          <fieldset className="flex flex-col gap-2">
-            <legend className="pb-2 font-display text-lg font-bold">3. あなたは</legend>
-            <div className="flex flex-wrap gap-2">
-              {(
-                [
-                  ["mother", "ママ（母）"],
-                  ["partner", "パパ・パートナー"],
-                ] as const
-              ).map(([v, l]) => (
-                <button key={v} type="button" aria-pressed={a.me === v} onClick={() => setA({ ...a, me: v })} className={`min-h-11 rounded-full px-5 text-base font-semibold ${a.me === v ? "bg-rose text-white" : "bg-rose-soft text-rose"}`}>
-                  {l}
-                </button>
-              ))}
+          <fieldset className="flex flex-col gap-3">
+            <legend className="pb-2 font-display text-lg font-bold">3. あなたと家族</legend>
+            <div role="group" aria-labelledby="start-me-q" className="flex flex-col gap-2">
+              <p id="start-me-q" className="text-base">
+                あなたは
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    ["mother", "ママ（母）"],
+                    ["partner", "パパ・パートナー"],
+                  ] as const
+                ).map(([v, l]) => (
+                  <button key={v} type="button" aria-pressed={a.me === v} onClick={() => setA({ ...a, me: v })} className={`min-h-11 rounded-full px-5 text-base font-semibold ${a.me === v ? "bg-rose text-white" : "bg-rose-soft text-rose"}`}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div role="group" aria-labelledby="start-partner-q" aria-describedby="start-partner-why" className="flex flex-col gap-2">
+              <p id="start-partner-q" className="text-base">
+                一緒に育てる人は？
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    ["yes", "いる"],
+                    ["no", "いない"],
+                    ["skip", "今は答えない"],
+                  ] as const
+                ).map(([v, l]) => (
+                  <button key={v} type="button" aria-pressed={a.partner === v} onClick={() => setA({ ...a, partner: v })} className={`min-h-11 rounded-full px-5 text-base font-semibold ${a.partner === v ? "bg-rose text-white" : "bg-rose-soft text-rose"}`}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              <p id="start-partner-why" className="text-sm text-muted">
+                {a.me === "partner" ? "家族のやる事を、誰の番かに分けて出すのに使います。" : "「いない」の時は、ひとり親の家庭の手当・助成の手続きも並べます。"}
+                あとから設定で直せます。
+              </p>
             </div>
           </fieldset>
           <div className="flex flex-col gap-1">
-            <button disabled={!ready || tooFar} aria-describedby={a.me === "" ? "start-me-why" : undefined} className="min-h-12 rounded-full bg-rose font-display text-lg font-bold text-white disabled:opacity-50">
+            <button disabled={!ready || tooFar} aria-describedby={a.me === "" || a.partner === "" ? "start-me-why" : undefined} className="min-h-12 rounded-full bg-rose font-display text-lg font-bold text-white disabled:opacity-50">
               手帳を開く
             </button>
-            {a.me === "" && (
+            {(a.me === "" || a.partner === "") && (
               <p id="start-me-why" className="text-center text-sm text-muted">
-                あなたは、を選んでください
+                3. を選ぶと開きます
               </p>
             )}
           </div>

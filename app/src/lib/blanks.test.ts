@@ -55,6 +55,8 @@ describe("findBlanks / applyBlanks", () => {
     expect(jpDate("2027-01-05")).toBe("2027年1月5日");
     expect(jpDate("2027-01-05T14:00")).toBe("1月5日 14:00");
     expect(isRoleWord("パパ")).toBe(true);
+    // /start で足した仮の名前（C04①）
+    expect(isRoleWord("パートナー")).toBe(true);
     expect(isRoleWord("翔太")).toBe(false);
   });
 });
@@ -100,6 +102,11 @@ describe("fillFamilyBlanks（家族の情報で分かる空欄）", () => {
     const { fillFamilyBlanks } = await import("./blanks");
     expect(fillFamilyBlanks("【パートナーの名前】", f)).toBe("【パートナーの名前】");
     expect(fillFamilyBlanks("【パートナーの名前】", f, { names: { b: "佐藤 翔太" } })).toBe("佐藤 翔太");
+  });
+  it("/start で足した仮の名前「パートナー」「ママ」は、名前の空欄に入れない（C04①）", async () => {
+    const { fillFamilyBlanks } = await import("./blanks");
+    const started = { ...f, members: [{ id: "m0", name: "ママ", role: "母" }, { id: "m1", name: "パートナー", role: "パートナー" }] };
+    expect(fillFamilyBlanks("【パートナーの名前】・【母の名前】", started)).toBe("【パートナーの名前】・【母の名前】");
   });
   it("書き手が分からなければ【名前】は残す", async () => {
     const { fillFamilyBlanks } = await import("./blanks");
