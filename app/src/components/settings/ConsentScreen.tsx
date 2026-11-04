@@ -37,7 +37,7 @@ export function ConsentScreen({
   /** 同意した後に出す物（次の画面への入口など） */
   after?: (next: string | null, familyId: string) => React.ReactNode;
 }) {
-  const { family } = useFamily();
+  const { family, reload } = useFamily();
   const q = useQuery();
   const familyId = q.familyId ?? family.id;
   const { data, error, load } = useHouseholdDetail(q.ready ? familyId : null);
@@ -58,6 +58,8 @@ export function ConsentScreen({
       await api("/api/account/consent", { body: { familyId, kind, subjectIds: [...picked] } });
       await load();
       setDone(true);
+      // 上の「同意してください」の帯を消す（世帯の一覧を読み直す）
+      void reload();
       setMsg({ ok: true, text: "同意しました。アカウントの画面から、いつでも撤回できます" });
     } catch (e) {
       setMsg({ ok: false, text: (e as Error).message });

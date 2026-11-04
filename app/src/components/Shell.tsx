@@ -22,7 +22,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const [welcomed, setWelcomed] = useState(() => (typeof window === "undefined" ? true : readWelcomed()));
   const [stageOpen, setStageOpen] = useState(false);
   // 合言葉・ログイン・招待の画面では、家族の切り替えもタブも出さない
-  if (path === "/unlock" || path === "/login" || (path.startsWith("/invite/") && path !== "/invite/new")) return <div className="mx-auto min-h-dvh max-w-md">{children}</div>;
+  if (path === "/unlock" || path === "/login" || path === "/start" || (path.startsWith("/invite/") && path !== "/invite/new")) return <div className="mx-auto min-h-dvh max-w-md">{children}</div>;
   // 映画は画面いっぱいに映す（タブも家族の切り替えも出さない）
   if (path === "/book/film") return <>{children}</>;
   const here = households.find((h) => h.id === family.id);
@@ -85,7 +85,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
       </div>
       {isDemo && !welcomed && <Welcome onClose={() => setWelcomed(true)} />}
       {isDemo && stageOpen && <StageSheet onClose={() => setStageOpen(false)} />}
-      {accountsEnabled && !recording && <AccountBar isDemo={isDemo} signedIn={!!account} hasOwn={households.length > 0} consentFor={here?.needsRecordConsent ? here.id : null} />}
+      {accountsEnabled && !recording && <AccountBar isDemo={isDemo} signedIn={!!account} hasOwn={households.length > 0} consentFor={here?.needsRecordConsent && !path.startsWith("/account/consent") ? here.id : null} />}
       {/* 家族を読み終えるまで中身を出さない（わが家の人に、デモの家族が一瞬見えないように） */}
       <div className="flex-1 pb-40">{ready ? children : <div className="mx-4 mt-4 h-40 rounded-2xl bg-rose-soft/60" aria-hidden />}</div>
       {/* 手帳に聞く（どの画面からも）。録音中・急ぎの時・家族の読み込み前は出さない */}
@@ -142,23 +142,14 @@ function AccountBar({ isDemo, signedIn, hasOwn, consentFor }: { isDemo: boolean;
         </Link>
       </p>
     );
-  // 公開版（体験）では、アカウント・世帯は作れない（本物の家族の登録はまだ開けていない）
-  if (!isDemo || process.env.NEXT_PUBLIC_BOSHI_PUBLIC === "1") return null;
-  if (!signedIn)
+  if (!isDemo) return null;
+  // 見本の家族を見ている人へ、自分の手帳の入口（3つ答えるとその場で動く /start。「世帯」という言葉は出さない）
+  if (!signedIn || !hasOwn)
     return (
       <p className={`${row} bg-sky-soft`}>
-        <span>アカウントを作ると、自分の世帯ができます</span>
-        <Link href="/login" className="flex min-h-11 shrink-0 items-center font-semibold text-sky underline underline-offset-2">
-          はじめる
-        </Link>
-      </p>
-    );
-  if (!hasOwn)
-    return (
-      <p className={`${row} bg-sky-soft`}>
-        <span>まだ自分の世帯がありません</span>
-        <Link href="/account/new" className="flex min-h-11 shrink-0 items-center font-semibold text-sky underline underline-offset-2">
-          世帯を作る
+        <span>自分の手帳は、3つ答えるとすぐ動きます</span>
+        <Link href="/start" className="flex min-h-11 shrink-0 items-center font-semibold text-sky underline underline-offset-2">
+          始める
         </Link>
       </p>
     );

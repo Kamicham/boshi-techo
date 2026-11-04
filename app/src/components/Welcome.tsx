@@ -90,6 +90,23 @@ export function Welcome({ onClose }: { onClose: () => void }) {
           )}
           <p className="text-sm text-muted">作った家族です。あなただけの写しで、7日で消えます。本物の記録は書かないでください。</p>
         </section>
+
+        {/* もう1つの扉: 自分の手帳（3つ答えるとその場で動く） */}
+        <section className="flex flex-col gap-2 border-t border-line pt-5">
+          <h2 className="font-display text-xl font-bold text-ink">自分の手帳を始める</h2>
+          <p className="text-sm text-muted">予定日（生まれた日）・町・あなたは、の3つで、あなたの手帳がその場で動きます。</p>
+          <a
+            href="/start"
+            onClick={() => {
+              try {
+                localStorage.setItem(WELCOMED_KEY, "1");
+              } catch {}
+            }}
+            className="flex min-h-12 items-center justify-center rounded-full border-2 border-rose font-display text-lg font-bold text-rose"
+          >
+            3つ答えて始める
+          </a>
+        </section>
       </div>
     </div>
   );

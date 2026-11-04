@@ -13,7 +13,7 @@ describe("画面の地図", () => {
   });
 
   // 入口の画面（合言葉・ログイン）は、手帳を開く前の画面なので地図の外
-  const ENTRY = new Set(["/unlock", "/login"]);
+  const ENTRY = new Set(["/unlock", "/login", "/start"]);
   it("画面のフォルダ（page.tsx がある所）はすべて地図にある（入口の画面を除く）", () => {
     const pages = fs
       .readdirSync(APP, { withFileTypes: true })

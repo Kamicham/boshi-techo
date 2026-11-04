@@ -20,7 +20,7 @@ async function goAfterLogin() {
   try {
     const r = await fetch("/api/account");
     const j = (await r.json()) as { households?: unknown[] };
-    window.location.href = j.households?.length ? "/" : "/account/new";
+    window.location.href = j.households?.length ? "/" : "/start";
   } catch {
     window.location.href = "/";
   }
@@ -64,7 +64,8 @@ export default function Login() {
     const { error } = await authClient.signIn.emailOtp({ email: email.trim(), otp: otp.trim() });
     setBusy(false);
     if (error) return setMsg({ ok: false, text: authMessage(error, "入れませんでした。コードを確かめてください") });
-    setStep("passkey");
+    // 入った直後にパスキーを聞かない（手帳に着くまでの1枚を減らす）。パスキーはアカウントの画面から登録できる（自分の手帳の入口 2026-11-04）
+    await goAfterLogin();
   };
 
   const addPasskey = async () => {
