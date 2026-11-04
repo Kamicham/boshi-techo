@@ -17,9 +17,9 @@
 - 応答・記録は日本語。README は日本語と英語。
 
 ## 30家族のシミュレーション（2026-11-03 本人指示「N=2 では全然試せていない」）
-- 作った30家族（`app/src/sim/families.ts`。すべて作った家族）で、修正のたびにアプリを通す。社長と妻の2人だけで確かめた事にしない。
+- 作った30家族（`app/src/sim/families.ts`。すべて作った家族）で、修正のたびに早送りの検査（①・Claude を呼ばない）を通す。
 - **① 早送りの検査（どんな修正でも毎回）**: `cd app && npm run sim`。30家族×1000日の節目で「今日」の画面と同じ関数を通し、決まりを確かめる。結果は `app/sim/out/fastforward.md`。
-- **② なりきり（画面や流れに関わる修正の後）**: `app/scripts/sim-server.sh`（3100番・DB は `app/sim-data/`）を立て、Workflow `simulate`（`.claude/workflows/simulate.js`）を回す。既定は6家族、直した画面に関わる家族を先に入れる。道具は `app/src/sim/drive.mjs`（Playwright・iPhone の大きさ）。
+- **② なりきり（社長が「回して」と言った時だけ。2026-11-04 本人「なりきりであって本当の人間ではないので、API がかかる割に止める」）**: 修正のたびには回さない・勧めない。回す時は `app/scripts/sim-server.sh`（3100番・DB は `app/sim-data/`）を立て、Workflow `simulate`（`.claude/workflows/simulate.js`）を回す。既定は6家族、直した画面に関わる家族を先に入れる。道具は `app/src/sim/drive.mjs`（Playwright・iPhone の大きさ）。
   - サーバは既定で組み立てた版（`.next-sim` に next build → next start。本番の `.next-prod` とは別）。next dev はなりきりの負荷で 500 を返すので使わない（`--dev` は手で画面を見る時だけ）。組み立てた版は直しが反映されないので、直した後は `app/scripts/sim-server.sh --replace`（3100番の next を止めて組み立て直す）。前の版をそのまま動かすなら `--no-build`。
   - 今回の直しで見てほしい事は、Workflow の `args.checks`（文字の配列）で全家族に渡す。
 - **ログインと世帯（2026-11-03・アカウントの仕組み）**: 作った家族の世帯は `households.kind` で表す（見本の家族＝demo・30家族と1000組＝sim・それ以外＝real）。id の形では決めず、コードの一覧で決める（`app/src/sim/kind.ts`・`lib/family.ts` の `madeFamilyKind`）。シミュレーションのサーバは既定で `BOSHI_SIM_LOGIN=1`（`--guest` で外す）で、`drive.mjs` の setup が `/api/sim/login`（BOSHI_SIM=1 の時だけ。本番では 404）から仮のアカウント `sim:<家族id>`（その世帯の owner）の札をもらう。なりきりの後に `node src/sim/cross.mjs A B` で、家族Aの札で家族Bの記録・済んだ事・手帳・写真の id を叩くとすべて 404 になるかを毎回見る（Workflow `simulate` が回す）。`npm run sim` には、世帯をまたぐ試験（`cross-household.test.ts`）と、すべての API の口が `withHousehold` か理由つきの公開の口を通るかを読む試験（`api-guard.test.ts`。visit は 11/5 の後）が入る。
@@ -27,5 +27,5 @@
 - シミュレーションは、わが家（`app/data/`）・本番（3210番）に触らない。
 - **API の鍵と上限（2026-11-04・上限の無い1本の鍵を4か所に写していて、30日で $777 使われ残高が尽きた後）**: 鍵は本番と検査でワークスペースを分け、月の上限を付けて作る。worktree の `.env.local` に鍵を写さない（検査は `ANTHROPIC_API_KEY=… scripts/sim-server.sh` のようにその時だけ渡す）。本番には `BOSHI_DAILY_USD`（全体の1日）と `BOSHI_HOUSEHOLD_DAILY_USD`（世帯の1日）を入れる。ふだんの仕事（撮る・下書き・聞く・調べ物）は Sonnet、Opus は一冊・見渡す・健診だけ。鍵が無い時、見本の家族は `lib/samples.ts` の見本の答えで動く。
 - **公開版（体験・2026-11-04 本人「誰でも実際に体験できるように」）**: `BOSHI_PUBLIC=1`（`app/Dockerfile`・`app/fly.toml`。Fly.io 東京）。開いた人ごとに見本の家族の写し（`try-`＋乱数・札＝クッキーの持ち主だけ・7日で消える。`lib/trial.ts`）。本物の家族の登録・招待・書き出しは閉じ、健診は読むだけ（`middleware.ts`）。上限は写しの1日・全体の1日・ワークスペースの月で、超えた日は見本の答え。公開版にわが家の記録（`app/data/`）や鍵を入れない（`.dockerignore`）。秘密は社長が `fly secrets set` で入れる。
-- **アンケート（`/survey`）は止めた**（2026-11-04 本人「作った1000人は本物の人間ではないので、意見が固まり、本物の声とも違う割にコストがかかる」）。社長が改めて「回して」と言うまで回さない・勧めない。使い勝手は、なりきり（画面を触る検査）と、作り手の家族が実際に使った声で見る。手順は `.claude/skills/survey/SKILL.md` に残してある（回す時は既定200組・回す前に見込みの額を見せて OK をもらう）。
+- **アンケート（`/survey`）は止めた**（2026-11-04 本人「作った1000人は本物の人間ではないので、意見が固まり、本物の声とも違う割にコストがかかる」）。社長が改めて「回して」と言うまで回さない・勧めない。使い勝手は、作り手の家族が実際に使った声で見る（なりきりも社長が言った時だけ）。手順は `.claude/skills/survey/SKILL.md` に残してある（回す時は既定200組・回す前に見込みの額を見せて OK をもらう）。
 - **検査・シミュレーションの後は毎回、Claude API のクレジットを出す**（2026-11-03 本人指示）: `node app/scripts/spend.mjs` の「今回・今日・残り」を報告の先頭に載せる。回す前に `date -u +%FT%TZ > app/sim-data/run-start` で区切る。1回の上限は `BOSHI_SIM_BUDGET_USD`（sim-server.sh の既定 $21＝7家族×$3）と、家族ごとの `BOSHI_SIM_HOUSEHOLD_USD`（既定 $3。7家族が $5 を分け合って途中で尽きた第29回から）。意地悪な検査などの台本の既定は $5 のまま。なりきり役の Claude（Claude Code）は Max プランの枠で、API の残高は減らない（使ったトークンは Workflow の結果から別の行で出す）。

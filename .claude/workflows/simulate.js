@@ -1,7 +1,7 @@
 export const meta = {
   name: 'simulate',
   description: '作った家族になりきった Claude が、シミュレーションのサーバの画面を iPhone の大きさで触り、詰まった所を集める（既定は1000組から6家族＋30家族から珍しい型1家族）',
-  whenToUse: '画面や流れに関わる修正の後。「シミュレーションを回して」と言われた時',
+  whenToUse: '作り手が「なりきりを回して」「シミュレーションを回して」とはっきり言った時だけ（2026-11-04 から、修正のたびには回さない）',
   phases: [{ title: 'なりきり' }, { title: '世帯をまたぐ' }],
 }
 // args: { pick?: PickRound, families?: string[], change?: string }
