@@ -36,6 +36,8 @@ export function NowCard(p: {
   const [draftState, setDraftState] = useState<Prep>("idle");
   // 用意が終わったら、中のボタン（MilestoneActions）を読み直させる
   const [ver, setVer] = useState(0);
+  // 「もう一度作る」を押した回数（押すと用意をやり直す）
+  const [tries, setTries] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -69,7 +71,7 @@ export function NowCard(p: {
     };
     // 今日が変わっても、同じ事の用意は作り直さない
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [family.id, t.id, canLocal, canDraft, me?.id]);
+  }, [family.id, t.id, canLocal, canDraft, me?.id, tries]);
 
   const preps = canLocal || canDraft;
   const busy = localState === "busy" || draftState === "busy";
@@ -92,10 +94,25 @@ export function NowCard(p: {
     });
   }
 
-  const eyebrow = !preps ? undefined : busy ? "手帳が用意しています" : lines.some((l) => l.state === "ok") ? "手帳が用意しておいた事" : undefined;
+  // 用意がすべてつまずいた時も、黙って「次にやる事」に戻さず、手帳が作れる事を1つのボタンで出す（最初の1分 2026-11-04）
+  const failed = preps && !busy && lines.length === 0 && (localState === "fail" || draftState === "fail");
+  const eyebrow = !preps ? undefined : busy ? "手帳が用意しています" : lines.some((l) => l.state === "ok") ? "手帳が用意しておいた事" : failed ? "手帳が用意できます" : undefined;
+  const failNoun = canDraft ? NOUN[DRAFTABLE[t.id]] : `${family.city}の窓口と持ち物`;
 
   return (
     <TopTask {...p} key={ver} eyebrowOverride={eyebrow}>
+      {failed && (
+        <div className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl bg-card/70 px-3 py-2">
+          <span className="text-base">{failNoun}を、手帳が作れます</span>
+          <button
+            type="button"
+            onClick={() => setTries((n) => n + 1)}
+            className="min-h-11 rounded-full bg-rose px-4 text-base font-semibold text-white"
+          >
+            作る
+          </button>
+        </div>
+      )}
       {lines.length > 0 && (
         <ul className="flex w-full flex-col gap-1 rounded-xl bg-card/70 px-3 py-2" aria-live="polite">
           {lines.map((l) => (

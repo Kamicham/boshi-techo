@@ -161,14 +161,25 @@ export async function structured<S extends z.ZodType>(
     if (s) return schema.parse(s) as z.infer<S>;
   }
   checkBudget();
-  const res = await claude().beta.messages.parse({
-    model,
-    max_tokens: opts.maxTokens ?? 16000,
-    system: [{ type: "text", text: `${CHARTER}\n\n${system}` }],
-    messages: [{ role: "user", content }],
-    output_config: { format: betaZodOutputFormat(schema), effort: opts.effort ?? "medium" },
-    ...(useFallback ? { betas: [FALLBACK_BETA], fallbacks: "default" as const } : {}),
-  });
+  const res = await claude()
+    .beta.messages.parse({
+      model,
+      max_tokens: opts.maxTokens ?? 16000,
+      system: [{ type: "text", text: `${CHARTER}\n\n${system}` }],
+      messages: [{ role: "user", content }],
+      output_config: { format: betaZodOutputFormat(schema), effort: opts.effort ?? "medium" },
+      ...(useFallback ? { betas: [FALLBACK_BETA], fallbacks: "default" as const } : {}),
+    })
+    .catch((e: unknown) => {
+      // 見本の家族は、鍵が通らない（401・403）時も見本の答えで動かす（初めて開いた人の画面を止めない）
+      const status = (e as { status?: number })?.status;
+      if (who?.kind === "demo" && (status === 401 || status === 403)) {
+        const s = sampleAnswer(opts.task, content as string | { type: string; text?: string }[]);
+        if (s) return { sample: schema.parse(s) as z.infer<S> };
+      }
+      throw e;
+    });
+  if ("sample" in res) return res.sample;
   recordSpend("structured", res.model ?? model, res.usage, spendWho(who));
   if (res.stop_reason === "refusal") throw new Error("Claude がこの依頼を断りました");
   if (res.parsed_output == null) throw new Error("答えの形が読めませんでした");

@@ -24,12 +24,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="ja">
       <body className={`${display.variable} ${body.variable} antialiased`}>
         {/* 急ぎの時（/emergency）だけは家族の読み込みを待たずに出す。ほかは FamilyProvider と Shell で包む */}
-        {/* 公開版（体験）: 作った家族だと分かるように、いつも上に1行（NEXT_PUBLIC_BOSHI_PUBLIC は組み立てる時に入れる） */}
-        {process.env.NEXT_PUBLIC_BOSHI_PUBLIC === "1" && (
-          <div role="note" className="bg-amber-100 px-4 pt-[max(env(safe-area-inset-top),0.25rem)] pb-1 text-center text-xs text-amber-900">
-            体験版です。作った家族の手帳を、あなただけの写しで触れます（7日で消えます）。本物の記録は書かないでください
-          </div>
-        )}
+        {/* 公開版（体験）の「作った家族です」は、入口の1枚と上の帯（見本の家族 ・ 時期を変える）で言う（最初の1分 2026-11-04。注意書きが自己紹介より先に出ていた） */}
         <AppFrame>{children}</AppFrame>
         {/* 急ぎの時のページを通信が無くても開けるように（本番だけ。sw.js は /emergency とその部品しか扱わない） */}
         <RegisterEmergencySW />

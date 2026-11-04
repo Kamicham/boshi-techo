@@ -12,7 +12,6 @@ import { api, useFamily } from "./FamilyProvider";
 import { Btn, Fold, NextStep, Notice, daysUntil } from "./ui";
 import { HelpPlaces } from "./today/HelpPlaces";
 import { jpShort } from "./today/dates";
-import { DemoClock } from "./today/DemoClock";
 import { TaskRow, isGuide, type ShownTask } from "./today/TaskCard";
 import { NowCard } from "./today/NowCard";
 import { StaleBox } from "./today/StaleBox";
@@ -29,7 +28,7 @@ const UNDO_MS = 20000;
 export { jpDate } from "./today/dates";
 
 export function Techo() {
-  const { family, today, setToday, isDemo, me } = useFamily();
+  const { family, today, isDemo, me } = useFamily();
   const [marked, setMarked] = useState<Set<string>>(new Set());
   const [lastDone, setLastDone] = useState<{ id: string; title: string; ids?: string[] } | null>(null);
   // 静かにする家族でも、いつもの今日の画面を見たい時に開ける
@@ -384,7 +383,7 @@ export function Techo() {
         急ぎの時 ›
       </a>
 
-      {isDemo && <DemoClock family={family} today={today} setToday={setToday} />}
+      {/* 見本の家族の時期は、上の帯の「時期を変える」から（最初の1分 2026-11-04） */}
     </main>
   );
 }

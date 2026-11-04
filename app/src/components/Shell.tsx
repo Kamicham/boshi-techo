@@ -4,18 +4,23 @@
 // タブの並びは lib/app-guide.ts（手帳に聞くが使い方を答える画面の地図）と共有する。
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
+import { clockAt } from "@/lib/clock";
 import { recordingBusy, recordingBusyServer, subscribeRecording } from "@/lib/recording-state";
 import { TABS } from "@/lib/app-guide";
 import { AskButton } from "./ask/AskSheet";
 import { useFamily } from "./FamilyProvider";
+import { readWelcomed, StageSheet, Welcome } from "./Welcome";
 
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
-  const { family, families, setFamilyId, isDemo, ready, accountsEnabled, account, households, me } = useFamily();
+  const { family, families, setFamilyId, isDemo, ready, accountsEnabled, account, households, me, today } = useFamily();
   // 録音中は別の画面へ移ると録音が止まるので、切り替えを止める
   const recording = useSyncExternalStore(subscribeRecording, recordingBusy, recordingBusyServer);
+  // 見本の家族を初めて開いた時だけ、入口の1枚（何のアプリか・時期を選ぶ）。Shell は家族を読み終えてから描くので、端末の記憶をそのまま読める
+  const [welcomed, setWelcomed] = useState(() => (typeof window === "undefined" ? true : readWelcomed()));
+  const [stageOpen, setStageOpen] = useState(false);
   // 合言葉・ログイン・招待の画面では、家族の切り替えもタブも出さない
   if (path === "/unlock" || path === "/login" || (path.startsWith("/invite/") && path !== "/invite/new")) return <div className="mx-auto min-h-dvh max-w-md">{children}</div>;
   const here = households.find((h) => h.id === family.id);
@@ -47,14 +52,28 @@ export function Shell({ children }: { children: React.ReactNode }) {
             </select>
           </label>
         ) : null}
+        {isDemo ? (
+          /* 見本の家族: 「デモ」「わたし: 美咲」を、何を見ているかの1本にまとめる（だれの手帳か・いつか・変える所） */
+          <button
+            type="button"
+            onClick={() => setStageOpen(true)}
+            disabled={recording}
+            className="flex min-h-11 min-w-0 shrink items-center gap-1.5 rounded-full bg-sky-soft px-3 text-left text-sm text-ink disabled:opacity-50"
+          >
+            <span className="truncate">
+              見本の家族 ・ <b className="font-semibold">{clockAt(family, today).label.replace(/(\d+週)\d+日/, "$1")}</b>
+            </span>
+            <span className="shrink-0 font-semibold whitespace-nowrap text-sky">時期を変える ▾</span>
+          </button>
+        ) : (
         <div className={`flex min-w-0 shrink items-center gap-1 whitespace-nowrap ${recording ? "invisible" : ""}`}>
-          {isDemo && <span className="rounded-full bg-sky-soft px-2 py-0.5 font-semibold text-sky">デモ</span>}
           {/* 「わたし」は誰の画面かと、設定（家族・町・使う人）の入口を兼ねる */}
           <Link href="/settings" className="flex min-h-11 min-w-0 items-center gap-1 px-1 text-sm text-ink underline-offset-2 hover:underline">
             <span className="truncate">{me ? `わたし: ${me.name}` : "わたしは？"}</span>
             <span className="text-muted" aria-hidden>▾</span>
           </Link>
         </div>
+        )}
         {/* 急ぎの案内は録音中でも隠さない（産院・119・#8000 への橋）。
             いつも見える所を赤で塗ると、夜中に開くたびに緊張させるので、文字は ink・赤は直径6pxの点だけ（赤は命の橋の印） */}
         <Link href="/emergency" className="flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2 font-semibold text-ink underline-offset-2 hover:underline">
@@ -62,6 +81,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
           急ぎの時
         </Link>
       </div>
+      {isDemo && !welcomed && <Welcome onClose={() => setWelcomed(true)} />}
+      {isDemo && stageOpen && <StageSheet onClose={() => setStageOpen(false)} />}
       {accountsEnabled && !recording && <AccountBar isDemo={isDemo} signedIn={!!account} hasOwn={households.length > 0} consentFor={here?.needsRecordConsent ? here.id : null} />}
       {/* 家族を読み終えるまで中身を出さない（わが家の人に、デモの家族が一瞬見えないように） */}
       <div className="flex-1 pb-40">{ready ? children : <div className="mx-4 mt-4 h-40 rounded-2xl bg-rose-soft/60" aria-hidden />}</div>
