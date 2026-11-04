@@ -460,7 +460,7 @@ function BabyCheckups({
   }, [familyId, today]);
   if (!done) return <div className="h-32 rounded-2xl bg-sky-soft/60" aria-hidden />;
   const items = scheduleFor(family)
-    .filter((m) => m.kind === "健診" && m.anchor === "birth")
+    .filter((m) => m.kind === "健診" && m.anchor === "birth" && !m.older)
     .map((m) => ({ m, st: statusOf(m, today, done) }))
     // 目安の日を30日より過ぎた物（1歳を過ぎた赤ちゃん訪問など）は「今」に並べず、時期を過ぎた物として畳む
     .map(({ m, st }) => ({ m, st: st === "期限切れ" && deadlineKindOf(m) === "目安" && m.deadlineDate && daysUntil(today, m.deadlineDate) < -30 ? ("過ぎた" as Status) : st }));

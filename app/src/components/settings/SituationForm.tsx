@@ -3,7 +3,7 @@
 // 家族の形を聞く欄（母とパートナーの働き方・パートナーの育休・上の子・生まれる子の数・里帰り）。
 // どの問いも「わからない・答えない」を選べる。答えない欄は、今までどおりの予定が出る。
 // 押す所は 44px 以上。iPhone の 390px で横にはみ出さないよう、選びは折り返す。
-import type { Leave, MotherWork, Situation, Work } from "@/lib/situation";
+import { MAX_OLDER_KIDS, OLDER_CARES, type Leave, type MotherWork, type OlderKid, type Situation, type Work } from "@/lib/situation";
 
 const MOTHER_WORKS: MotherWork[] = ["会社員・公務員", "パート・派遣", "自営・フリー", "仕事なし", "出産で辞める"];
 const WORKS: Work[] = ["会社員・公務員", "パート・派遣", "自営・フリー", "仕事なし"];
@@ -79,8 +79,9 @@ export function SituationForm({ value, onChange, hasPartner, disabled, born }: {
       </Ask>
 
       <Ask label="上の子は？">
-        <YesNo yes="いる" no="いない" value={value.olderChildren} onPick={(v) => set({ olderChildren: v })} name="older" />
+        <YesNo yes="いる" no="いない" value={value.olderChildren} onPick={(v) => set({ olderChildren: v, ...(v === true ? {} : { olderKids: undefined }) })} name="older" />
       </Ask>
+      {value.olderChildren === true && <OlderKids kids={value.olderKids ?? []} onChange={(k) => set({ olderKids: k.length ? k : undefined })} />}
 
       {born ? (
         <details className="group">
@@ -121,6 +122,61 @@ export function SituationForm({ value, onChange, hasPartner, disabled, born }: {
         </div>
       </details>
     </fieldset>
+  );
+}
+
+/**
+ * 上の子の一人ずつ（第2波①）。生まれた日から、上の子の健診・予防接種を赤ちゃんと同じ表に出す。
+ * 年月だけでもよい（1日と見なして近似）。呼び名は任意。
+ */
+function OlderKids({ kids, onChange }: { kids: OlderKid[]; onChange: (k: OlderKid[]) => void }) {
+  const put = (i: number, patch: Partial<OlderKid>) => onChange(kids.map((k, j) => (j === i ? { ...k, ...patch } : k)));
+  const list = kids.length ? kids : [];
+  return (
+    <div className="flex flex-col gap-4 rounded-xl border border-line p-3">
+      <p className="text-base text-muted">上の子の生まれた日を入れると、上の子の健診・予防接種も「いま」に一緒に出します。園に通っていれば、育休中も通い続けられるかの確かめも出します。</p>
+      {list.map((k, i) => (
+        <fieldset key={i} className="flex min-w-0 flex-col gap-2 border-t border-line pt-3 first:border-t-0 first:pt-0">
+          <legend className="pb-1 text-base font-bold">{list.length > 1 ? `上の子 ${i + 1}人目` : "上の子"}</legend>
+          <label className="flex flex-col gap-1 text-sm text-muted" htmlFor={`older-${i}-birth`}>
+            生まれた日{k.monthOnly ? "（年と月）" : ""}
+            <input
+              id={`older-${i}-birth`}
+              type={k.monthOnly ? "month" : "date"}
+              value={k.monthOnly ? k.birthDate.slice(0, 7) : k.birthDate}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (!v) return;
+                put(i, { birthDate: k.monthOnly ? `${v}-01` : v });
+              }}
+              className="min-h-11 rounded-lg border border-line bg-card px-2 text-base text-ink"
+            />
+          </label>
+          <label className="inline-flex min-h-11 items-center gap-2 text-sm text-muted">
+            <input type="checkbox" checked={!!k.monthOnly} onChange={(e) => put(i, { monthOnly: e.target.checked || undefined, birthDate: e.target.checked ? `${k.birthDate.slice(0, 7)}-01` : k.birthDate })} />
+            年と月だけで答える（日は1日として数えます）
+          </label>
+          <label className="flex flex-col gap-1 text-sm text-muted" htmlFor={`older-${i}-name`}>
+            呼び名（なくても大丈夫）
+            <input id={`older-${i}-name`} value={k.name ?? ""} maxLength={20} onChange={(e) => put(i, { name: e.target.value || undefined })} className="min-h-11 rounded-lg border border-line bg-card px-2 text-base text-ink" placeholder="例: はるくん" />
+          </label>
+          <p className="text-sm text-muted">日中は</p>
+          <Choice options={OLDER_CARES} value={k.care} onPick={(v) => put(i, { care: v })} name={`older-${i}-care`} />
+          <button type="button" onClick={() => onChange(kids.filter((_, j) => j !== i))} className="min-h-11 self-start text-sm text-muted underline underline-offset-2">
+            この子を外す
+          </button>
+        </fieldset>
+      ))}
+      {kids.length < MAX_OLDER_KIDS && (
+        <button
+          type="button"
+          onClick={() => onChange([...kids, { birthDate: "" }])}
+          className="min-h-11 self-start rounded-full bg-rose-soft px-4 text-base font-semibold text-rose"
+        >
+          {kids.length ? "上の子をもう1人足す" : "上の子の生まれた日を入れる"}
+        </button>
+      )}
+    </div>
   );
 }
 

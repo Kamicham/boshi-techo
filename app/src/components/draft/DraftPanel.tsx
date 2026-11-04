@@ -13,7 +13,7 @@ import { ErrorLine, Working } from "./Working";
 
 /** 家族が付ける印の言葉（status "ok" の見せ方。仕組みは「OK」のまま） */
 export function doneWord(kind: DraftKind): string {
-  return kind === "メール" ? "送った" : kind === "記入メモ" ? "書いた" : kind === "質問リスト" ? "聞いた" : "使った";
+  return kind === "メール" ? "送った" : kind === "記入メモ" ? "書いた" : kind === "質問リスト" ? "聞いた" : kind === "頼み文" ? "送った" : "使った";
 }
 
 function mdJst(iso: string): string {

@@ -142,7 +142,7 @@ async function fetchLocalOnce(family: Family, m: MilestoneDef, force: boolean): 
 2. 必要な物・書類
 3. オンライン申請ができるか（マイナポータル・電子申請など）とそのやり方
 4. 期限（参考: 全国共通の根拠は「${m.basis}」）
-5. ${family.city}独自の助成・上乗せ・配布物があれば${m.id === "pregnancy-support-2" ? "\n6. 2回目の面談の予約の仕方（電話・オンライン・予約なし）と、受け取り方（振込など）・申請の期限" : ""}
+5. ${family.city}独自の助成・上乗せ・配布物があれば${m.id === "pregnancy-support-2" ? "\n6. 2回目の面談の予約の仕方（電話・オンライン・予約なし）と、受け取り方（振込など）・申請の期限" : m.id === "older-daycare-continue" ? "\n6. 育休中に、上の子が保育園を続けて使えるか（続けられる期間・短い時間になるか・申請の書類と期限）" : ""}
 出典のページを示してください。`;
   // 町×手続きで1回だけ調べて、ほかの家族と使い回す（PUBLIC_ID に置く）。1回の重さも抑える: Sonnet・検索は4回まで
   const found = await research(RESEARCH_SYSTEM, question, { model: RESEARCH_MODEL, maxUses: 4 });

@@ -341,7 +341,7 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
     // e: 時期に合わない事
     for (const t of nowTasks) {
       if (isBorn && PREG_ONLY.has(t.id)) push("e", `after:${t.id}`, `生まれた後に「${t.plain}」が${t.status}`);
-      if (!isBorn && t.anchor === "birth") push("e", `before:${t.id}`, `まだ生まれていないのに「${t.plain}」が${t.status}`);
+      if (!isBorn && t.anchor === "birth" && !t.older) push("e", `before:${t.id}`, `まだ生まれていないのに「${t.plain}」が${t.status}`);
     }
     // i: 支援給付の2回目（予定日の8週前から。済んでいなければ今やるか期限の近い事として出る）
     if (!isBorn && diffDays(f.dueDate, day) <= 56) {
