@@ -3,7 +3,7 @@
 // 家族の形を聞く欄（母とパートナーの働き方・パートナーの育休・上の子・生まれる子の数・里帰り）。
 // どの問いも「わからない・答えない」を選べる。答えない欄は、今までどおりの予定が出る。
 // 押す所は 44px 以上。iPhone の 390px で横にはみ出さないよう、選びは折り返す。
-import { MAX_OLDER_KIDS, OLDER_CARES, type Leave, type MotherWork, type OlderKid, type Situation, type Work } from "@/lib/situation";
+import { MAX_OLDER_KIDS, OLDER_CARES, RETURN_ATS, type Leave, type MotherWork, type OlderKid, type Situation, type Work } from "@/lib/situation";
 
 const MOTHER_WORKS: MotherWork[] = ["会社員・公務員", "パート・派遣", "自営・フリー", "仕事なし", "出産で辞める"];
 const WORKS: Work[] = ["会社員・公務員", "パート・派遣", "自営・フリー", "仕事なし"];
@@ -34,6 +34,9 @@ export function SituationForm({ value, onChange, hasPartner, disabled, born }: {
       <Choice options={MOTHER_WORKS} value={value.motherWork} onPick={(v) => set({ motherWork: v })} name="mother-work" />
     </Ask>
   );
+  // 保育園の4月入園を逆算する（第2波④）。ママが働き続ける時だけ聞く（辞める・仕事なしは聞かない）
+  const mw = value.motherWork;
+  const askReturn = mw === undefined || mw === "会社員・公務員" || mw === "パート・派遣" || mw === "自営・フリー";
   const beforeBirth = (
     <>
       <Ask label="生まれる子は何人？">
@@ -54,6 +57,13 @@ export function SituationForm({ value, onChange, hasPartner, disabled, born }: {
   return (
     <fieldset disabled={disabled} className="flex min-w-0 flex-col gap-5 disabled:opacity-80">
       {!born && motherWork}
+
+      {askReturn && (
+        <Ask label="ママが仕事に戻りたい時期（保育園の申し込みの時期が決まります）">
+          <Choice options={RETURN_ATS.map((r) => (r === "1歳まで" ? "1歳になるまでに" : "1歳を過ぎてから")) as ("1歳になるまでに" | "1歳を過ぎてから")[]} value={value.returnAt === "1歳まで" ? "1歳になるまでに" : value.returnAt === "1歳を過ぎて" ? "1歳を過ぎてから" : undefined} onPick={(v) => set({ returnAt: v === "1歳になるまでに" ? "1歳まで" : v === "1歳を過ぎてから" ? "1歳を過ぎて" : undefined })} name="return-at" />
+          <p className="text-sm text-muted">育休は原則1歳まで。1歳を過ぎてからは、保育園に入れなかった時に延ばせます（育児・介護休業法）</p>
+        </Ask>
+      )}
 
       {hasPartner ? (
         <>
