@@ -208,6 +208,26 @@ describe("アカウントの仕組みが動いている時（BOSHI_DATA_DIR を�
     expect((await read()).doneBy).not.toHaveProperty("health-insurance");
   });
 
+  it("手帳が用意した物（/api/prep・UX の見直し C07）: 自分の世帯の下書きと残る空欄を返し、見本の答えは数えない。他人の世帯は 404、ログインなしは 401", async () => {
+    const { GET } = await import("@/app/api/prep/route");
+    const { put } = await import("./db");
+    const { draftId } = await import("./drafts");
+    const { SAMPLE_MARK } = await import("./samples");
+    const base = { milestoneTitle: "", status: "draft", usedLocal: false, checklist: [] };
+    put(hidA, "draft", { ...base, milestoneId: "tell-work", kind: "メール", title: "妊娠のご報告", to: "【上司の名前】様", body: "【上司の名前】様\nお疲れさまです。", today: "2027-01-05" }, { id: draftId(hidA, "tell-work"), date: "2027-01-05" });
+    // 鍵が無い時の見本の答え（本物の世帯には出ない形だが、混ざっても「用意した」とは数えない）
+    put(hidA, "draft", { ...base, milestoneId: "pregnancy-report", kind: "記入メモ", title: `${SAMPLE_MARK}妊娠の届出`, to: "【出す先】", body: "見本", today: "2027-01-05" }, { id: draftId(hidA, "pregnancy-report"), date: "2027-01-05" });
+    const r = await json(await GET(req(`/api/prep?familyId=${hidA}&ids=tell-work,pregnancy-report,no-such-thing`, { cookie: alice })));
+    expect(r.status).toBe(200);
+    const items = r.body.items as Record<string, { draft?: { kind: string; on: string; blanks: string[] } }>;
+    expect(items["tell-work"].draft).toMatchObject({ kind: "メール", on: "2027-01-05" });
+    expect(items["tell-work"].draft!.blanks).toContain("上司の名前");
+    expect(items).not.toHaveProperty("pregnancy-report");
+    expect(items).not.toHaveProperty("no-such-thing");
+    expect((await GET(req(`/api/prep?familyId=${hidA}&ids=tell-work`, { cookie: bob }))).status).toBe(404);
+    expect((await GET(req(`/api/prep?familyId=${hidA}&ids=tell-work`))).status).toBe(401);
+  });
+
   it("本物の世帯は、claude_us の同意が無いと Claude に送らない（分かる誤りを返す）", async () => {
     const cap = await import("@/app/api/capture/route");
     const r = await json(await cap.POST(req("/api/capture", { cookie: alice, body: { familyId: hidA, today: "2027-01-10", text: "健診に行った" } })));
