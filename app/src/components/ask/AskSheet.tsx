@@ -3,6 +3,7 @@
 // 手帳に聞く: どの画面からでも右下の「聞く」で開く窓。書いても、押して話しても聞ける。
 // 手帳はこの家族の今を見てから答え、返事の下に動き（画面へ行く・下書き・済みにする・健診で聞く・記録する・渡す文・電話）を添える。
 // 書き込む動きは、家族が押すまで何も変えない。体・心・栄養は判断せず、記録・健診で聞く事・連絡先への橋だけ（lib/ask/agent.ts）。
+import { ClaudeConsentLink } from "../settings/ClaudeConsentLink";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { telHref } from "@/lib/ask/bridge";
@@ -299,6 +300,7 @@ function AskSheet({ onClose }: { onClose: () => void }) {
             </p>
           )}
           {error && !(newTurns.length > 0 && newTurns[newTurns.length - 1].role === "user") && <p className="rounded-xl bg-alert/10 px-3 py-2 text-base text-alert">{error}</p>}
+          <ClaudeConsentLink error={error} back="/" />
         </div>
 
         <form

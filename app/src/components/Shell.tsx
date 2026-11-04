@@ -71,7 +71,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <div className={`flex min-w-0 shrink items-center gap-1 whitespace-nowrap ${recording ? "invisible" : ""}`}>
           {/* 「わたし」は誰の画面かと、設定（家族・町・使う人）の入口を兼ねる */}
           <Link href="/settings" className="flex min-h-11 min-w-0 items-center gap-1 px-1 text-sm text-ink underline-offset-2 hover:underline">
-            <span className="truncate">{me ? `わたし: ${me.name}` : "わたしは？"}</span>
+            {/* 何を見ているかを、見本の家族の帯とそろえる（だれの手帳か・いつか）。押すと設定（家族・町・あなたは） */}
+            <span className="truncate">
+              あなたの手帳 ・ <b className="font-semibold">{clockAt(family, today).label.replace(/(\d+週)\d+日/, "$1")}</b>
+              {me ? <span className="text-muted">（{me.name}）</span> : null}
+            </span>
             <span className="text-muted" aria-hidden>▾</span>
           </Link>
         </div>

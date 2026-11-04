@@ -2,6 +2,7 @@
 
 // ① 入力ゼロ: 話すだけ・撮るだけで、記録と予定になる。
 // 開いた瞬間に出すのは「話す」「撮る」の2つだけ。記録の一覧は下に畳む。
+import { ClaudeConsentLink } from "../settings/ClaudeConsentLink";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
@@ -348,6 +349,7 @@ export function CaptureScreen() {
         </p>
       )}
       {error && <Notice title={error.title} safe={error.safe} detail={error.detail} />}
+      <ClaudeConsentLink error={error?.detail} back="/capture" />
 
       {last && !busy && (
         <section aria-label="いま書いた事" className="flex flex-col gap-3 rounded-2xl bg-rose-soft p-5">

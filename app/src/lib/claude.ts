@@ -84,7 +84,7 @@ export interface SendWho {
 export class ConsentRequiredError extends HttpError {
   readonly code = "consent_required";
   constructor(public readonly missing: readonly string[]) {
-    super(403, "米国の Claude に送る同意が、まだの人がいます。わが家の設定 →「アカウントの画面へ」→「本人ごとの同意」で同意すると、文字にまとめられます");
+    super(403, "話した事・撮った紙を手帳の欄に分けるのに、米国の Claude に送る同意が要ります（まだの人がいます）。読んで決めると、そのまま続けられます");
   }
 }
 

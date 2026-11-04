@@ -73,6 +73,8 @@ export function ConsentScreen({
 
   return (
     <main className="flex flex-col gap-4 px-4 pt-4 pb-10">
+      {/* 押した後の次の一手は、押した所（画面の下）でなく一番上にも出す（長い画面の下に隠れないように） */}
+      {done && after?.(q.next, familyId)}
       <p className="text-sm font-semibold text-muted">同意: {CONSENT_NAME[kind]}</p>
       <h1 className="font-display text-2xl font-bold text-balance">{title}</h1>
       <p className="text-base">{lead}</p>
@@ -132,7 +134,7 @@ export function ConsentScreen({
         </Box>
       )}
       <Msg msg={msg} />
-      {(done || (data && open.length === 0)) && after?.(q.next, familyId)}
+      {!done && data && open.length === 0 && after?.(q.next, familyId)}
     </main>
   );
 }
