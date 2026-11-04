@@ -445,7 +445,7 @@ export function settleVoices(content: BookContent, photoKeysUsed: readonly Photo
 export async function draftBook(f: Family, today: string): Promise<{ raw: BookContent; keys: PhotoKey[]; vkeys: VoiceKey[]; entries: Entry[] }> {
   const entries = gather(f.id, today, f);
   if (entries.length === 0) {
-    throw new HttpError(422, "まだ一冊にする記録がありません。「話す・撮る」で記録をためると、ここで一冊になります");
+    throw new HttpError(422, "まだ一冊にする記録がありません。「話す・撮る・打つ」で記録をためると、ここで一冊になります");
   }
   // 作り直した時も、前の一冊に入れた写真を残す方へ寄せる
   const prev = latestBook(f.id);
