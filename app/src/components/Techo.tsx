@@ -37,6 +37,9 @@ export function Techo() {
   const [marked, setMarked] = useState<Set<string>>(new Set());
   // 「手帳を始める前の事」の数（StartedLate が数える。「大丈夫」の言い方を変える）
   const [beforeCount, setBeforeCount] = useState(0);
+  // 始める前の事で「まだ」と答えた事（一番上の札に上げる）と、済んだ後に読み直す印
+  const [lateOpen, setLateOpen] = useState<string[]>([]);
+  const [lateVer, setLateVer] = useState(0);
   const [lastDone, setLastDone] = useState<{ id: string; title: string; ids?: string[] } | null>(null);
   // 静かにする家族でも、いつもの今日の画面を見たい時に開ける
   const [showAll, setShowAll] = useState(false);
@@ -239,9 +242,13 @@ export function Techo() {
   const tripIds = new Set(trip?.items.map((i) => i.task.id) ?? []);
   const baseTop = trip ? trip.items[0].task : plan.top;
   const baseRest = trip ? [plan.top, ...plan.rest].filter((t): t is ShownTask => !!t && !tripIds.has(t.id)) : plan.rest;
-  const top = visitTop ? null : (focus ?? baseTop);
+  // 始める前の事で「まだ」と答えた事は、見本の家族の一番上と同じ札に上げる（どこへ行くか・書く事のメモ・カレンダー）。
+  // 目安は過ぎているので「今からでも」の形（期限切れ）で出す。届けの束・健診の日・押して来た事がある時は、そちらが先（UX 2026-11-04）
+  const lateTask = lateOpen.length && !visitTop && !trip && !focus ? tasks.find((t) => t.id === lateOpen[0]) : undefined;
+  const lifted: ShownTask | null = lateTask ? { ...lateTask, status: "期限切れ" } : null;
+  const top = visitTop ? null : (focus ?? lifted ?? baseTop);
   // 健診が一番上の日は、一番上に出すはずだった事も「このあと」へ（あと何日の順に入れ直す）
-  const pool = visitTop && baseTop ? [baseTop, ...baseRest] : focus && baseTop && baseTop.id !== focus.id ? [baseTop, ...baseRest] : baseRest;
+  const pool = (visitTop || lifted) && baseTop ? [baseTop, ...baseRest] : focus && baseTop && baseTop.id !== focus.id ? [baseTop, ...baseRest] : baseRest;
   const restTasks = byDays(pool.filter((t) => t.id !== focus?.id), (t) => daysLeft(t, today));
   const visitRow = nextVisit && !visitTop && diffDays(nextVisit.date, today) > 0 ? nextVisit : null;
   // 「このあと」は、あと何日の順だけ（次の健診の1行も同じ並びに入れる）
@@ -252,7 +259,8 @@ export function Techo() {
     [
       ...restTasks.map((task) => ({ kind: "task" as const, task })),
       ...(visitRow ? [{ kind: "visit" as const }] : []),
-      ...(guess ? [{ kind: "prenatal" as const }] : []),
+      // 一番上が空く日は、健診の予約を一番上に出すので、ここには重ねない
+      ...(guess && (top || visitTop) ? [{ kind: "prenatal" as const }] : []),
     ],
     (r) => (r.kind === "visit" ? daysUntil(today, visitRow!.date) : r.kind === "prenatal" ? daysUntil(today, guess!) : daysLeft(r.task, today)),
   );
@@ -310,7 +318,7 @@ export function Techo() {
         <VisitToday family={family} today={today} next={nextVisit} agendaCount={visit?.agenda ?? 0} keep={keep} />
       ) : null}
       {/* 途中から始めた家族: 始める前に目安が過ぎた事を、済んでいるか1回聞く */}
-      {!loading && <StartedLate family={family} today={today} onCount={setBeforeCount} />}
+      {!loading && <StartedLate family={family} today={today} onCount={setBeforeCount} onOpen={setLateOpen} lifted={lifted?.id} version={lateVer} />}
       {!loading && staleFirst && <StaleBox key={`${family.id}:first`} tasks={stale} {...common} defaultOpen onDone={(ids) => void setManyDone(ids)} />}
       {!loading && trip && !(visitTop && nextVisit) && !focus && (
         <BirthTripCard
@@ -325,7 +333,23 @@ export function Techo() {
         />
       )}
       {loading || (visitTop && nextVisit) ? null : top ? (
-        <NowCard key={`${family.id}:${top.id}`} task={top} soon={!focus && !trip && plan.topIsSoon} {...common} onDone={() => void setDone(top, true)} />
+        <NowCard
+          key={`${family.id}:${top.id}`}
+          task={top}
+          soon={!focus && !trip && !lifted && plan.topIsSoon}
+          {...common}
+          onDone={() => void setDone(top, true).then(() => lifted && setLateVer((v) => v + 1))}
+        />
+      ) : guess ? (
+        // 今やる事が無く、妊婦健診の予約の目安が近い日は「今すぐやる事はありません」と言わず、予約を一番上に（UX 2026-11-04: 大きな箱の真下に「今日ごろ」が出て、言う事が食い違っていた）
+        <NextStep
+          tone="rose"
+          eyebrow="いま、いちばん先の事"
+          title="次の妊婦健診を予約する"
+          sub={`国の目安では${daysUntil(today, guess) === 0 ? "今ごろ" : `あと${daysUntil(today, guess)}日ごろ`}です。病院で日を言われていたら、そちらに合わせてください。`}
+        >
+          <Btn href="/visit">予約した日を入れる</Btn>
+        </NextStep>
       ) : (
         <Calm upcoming={me ? upcoming.filter((t) => t.who === "家族" || t.who === me.role) : upcoming} today={today} others={rows.filter((r) => r.kind === "task").length} before={beforeCount} />
       )}

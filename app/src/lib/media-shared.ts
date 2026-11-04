@@ -518,7 +518,8 @@ export function periodOfDate(birthDate: string | undefined, date: string): Perio
   if (!birthDate || diffDays(date, birthDate) < 0) return "おなかにいた日々";
   const age = diffDays(date, birthDate);
   if (age <= 6) return "生まれた日";
-  if (age < 365) return "はじめての一年";
+  // 1歳の誕生日まで（365日で切ると、うるう年をまたぐ年は誕生日の前日が「二歳までの一年」に入る）
+  if (diffDays(date, addMonths(birthDate, 12)) < 0) return "はじめての一年";
   return "二歳までの一年";
 }
 
@@ -596,20 +597,40 @@ export function ageLabel(f: { dueDate: string; birthDate?: string }, date: strin
   return `妊娠${Math.floor(since / 28) + 1}か月`;
 }
 
-/** 月の見出し（「生後3か月（2027年8月）」）と並べる鍵 */
+/**
+ * 月の見出しと並べる鍵。見出しは月齢（妊娠の月・生後の月）でまとめ、（）にはその月齢の始まりの日を書く
+ * （「生後1か月（2027年5月26日〜）」）。暦の月を書くと、同じ暦の月が2つの見出しに出て重なって見えるため（11/4 初見の通し）。
+ * 生まれて1か月までは、一冊の「生まれた日」（7日目まで）と「はじめての一年」に分かれるので、「生まれて1週間」と「生まれて1か月まで」に分ける
+ */
 export function monthGroupOf(f: { dueDate: string; birthDate?: string }, date: string): { key: string; label: string } {
-  const [y, m] = date.split("-").map(Number);
   let key: string;
   let head: string;
+  let from: string;
   if (f.birthDate && diffDays(date, f.birthDate) >= 0) {
-    const months = diffDays(date, f.birthDate) < 28 ? 0 : monthsBetween(f.birthDate, date);
-    key = `c${String(months).padStart(3, "0")}`;
-    head = months === 0 ? "生まれて1か月まで" : ageLabel(f, date);
+    const days = diffDays(date, f.birthDate);
+    const months = days < 28 ? 0 : monthsBetween(f.birthDate, date);
+    if (months === 0 && days <= 6) {
+      key = "c000a";
+      head = "生まれて1週間";
+      from = f.birthDate;
+    } else if (months === 0) {
+      key = "c000b";
+      head = "生まれて1か月まで";
+      from = addDays(f.birthDate, 7);
+    } else {
+      key = `c${String(months).padStart(3, "0")}`;
+      head = ageLabel(f, addMonths(f.birthDate, months));
+      from = addMonths(f.birthDate, months);
+    }
   } else {
+    const lmp = lmpFromDue(f.dueDate);
+    const since = diffDays(date, lmp);
     head = ageLabel(f, date);
     key = `p${head}`;
+    from = since < 0 ? date : addDays(lmp, Math.floor(since / 28) * 28);
   }
-  return { key, label: `${head}（${y}年${m}月）` };
+  const [y, m, d] = from.split("-").map(Number);
+  return { key, label: `${head}（${y}年${m}月${d}日〜）` };
 }
 
 /** 写真の日付（YYYY-MM-DD）。撮った日、無ければ足した日（日本時間） */

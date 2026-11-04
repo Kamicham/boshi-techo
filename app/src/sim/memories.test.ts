@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { addDays, diffDays, lmpFromDue, secondBirthday } from "../lib/clock";
 import { letterOpenOn, recentlyOpened, schoolEntry } from "../lib/letters-shared";
-import { memoryNudgeFor, PHOTO_MILESTONES } from "../lib/media-shared";
+import { groupForAlbum, memoryNudgeFor, PHOTO_MILESTONES, type ClientMedia } from "../lib/media-shared";
 import type { Quiet } from "../lib/situation";
 import { SIM_FAMILIES } from "./families";
 
@@ -39,6 +39,23 @@ describe("思い出の一言（節目の写真）", () => {
       }
     });
   }
+});
+
+// アルバムの月の見出し: 30家族の1000日に毎日1枚ずつ写真があるとして、同じ見出しが2回出ない・見出しの始まりの日はその月の写真より前
+describe("アルバムの月の見出し（30家族）", () => {
+  it("1000日のどこでも、見出しが重ならず、（）の始まりの日がその月の写真の日より後にならない", () => {
+    for (const f of SIM_FAMILIES) {
+      const xs = days(f).map((d, i) => ({ id: String(i), date: d, createdAt: `${d}T00:00:00Z`, star: 0, techoIds: [], hidden: false, trashedAt: null }) as unknown as ClientMedia);
+      const months = groupForAlbum(f, xs).flatMap((p) => p.months);
+      const labels = months.map((m) => m.label);
+      expect(new Set(labels).size, `${f.id} 見出しが重なる ${labels.join("・")}`).toBe(labels.length);
+      for (const m of months) {
+        const [, y, mo, d] = /（(\d+)年(\d+)月(\d+)日〜）/.exec(m.label)!.map(Number);
+        const from = `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+        expect(m.items.every((x) => x.date >= from), `${f.id} ${m.label}`).toBe(true);
+      }
+    }
+  });
 });
 
 // 未来の手紙: 30家族それぞれで、開く日が筋の通った日になるか（生まれる前に開かない・小学校は6〜7歳の春・20歳の誕生日）。

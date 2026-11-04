@@ -15,8 +15,11 @@ import { deadlineKindOf, scheduleFor, statusOf } from "@/lib/milestones";
 import { planToday, withAssignee } from "@/components/today/task";
 import { jpShort } from "@/components/today/dates";
 import { recentlyPassed } from "@/lib/started-late";
+import { beforeLead, prenatalBookDays, prenatalBookWhen } from "@/lib/start-preview";
 
 type Answers = { born: boolean; date: string; prefecture: string; city: string; me: "mother" | "partner" };
+/** 答えている途中（「あなたは」は最初は何も選ばない） */
+type Draft = Omit<Answers, "me"> & { me: Answers["me"] | "" };
 const KEY = "boshi.start";
 const PUBLIC = process.env.NEXT_PUBLIC_BOSHI_PUBLIC === "1";
 
@@ -52,7 +55,7 @@ function familyOf(a: Answers): Family {
 
 export default function Start() {
   const { account, accountsEnabled, reload, setFamilyId } = useFamily();
-  const [a, setA] = useState<Answers>({ born: false, date: "", prefecture: "", city: "", me: "mother" });
+  const [a, setA] = useState<Draft>({ born: false, date: "", prefecture: "", city: "", me: "" });
   const [step, setStep] = useState<"ask" | "show">("ask");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -68,8 +71,9 @@ export default function Start() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account]);
 
-  const ready = /^\d{4}-\d{2}-\d{2}$/.test(a.date) && a.city.trim().length > 0;
-  const tooFar = ready && (a.born ? diffDays(today, a.date) > 731 || a.date > today : diffDays(a.date, today) > 300 || a.date < today);
+  const dateCityOk = /^\d{4}-\d{2}-\d{2}$/.test(a.date) && a.city.trim().length > 0;
+  const ready = dateCityOk && a.me !== "";
+  const tooFar = dateCityOk && (a.born ? diffDays(today, a.date) > 731 || a.date > today : diffDays(a.date, today) > 300 || a.date < today);
 
   const keep = async (ans: Answers) => {
     setBusy(true);
@@ -105,7 +109,7 @@ export default function Start() {
           onSubmit={(e) => {
             e.preventDefault();
             if (!ready || tooFar) return;
-            store(a);
+            store(a as Answers);
             setStep("show");
           }}
         >
@@ -131,8 +135,8 @@ export default function Start() {
             <legend className="pb-2 font-display text-lg font-bold">2. 住んでいる町</legend>
             <p className="text-sm text-muted">手続きの窓口と、町ごとの制度を出すのに使います</p>
             <div className="flex flex-col gap-2">
-              <input id="start-pref" aria-label="都道府県" className={field} value={a.prefecture} onChange={(e) => setA({ ...a, prefecture: e.target.value })} placeholder="埼玉県" />
-              <input id="start-city" aria-label="市区町村" required className={field} value={a.city} onChange={(e) => setA({ ...a, city: e.target.value })} placeholder="さいたま市" />
+              <input id="start-pref" aria-label="都道府県" className={field} value={a.prefecture} onChange={(e) => setA({ ...a, prefecture: e.target.value })} placeholder="都道府県（例: 埼玉県）" />
+              <input id="start-city" aria-label="市区町村" required className={field} value={a.city} onChange={(e) => setA({ ...a, city: e.target.value })} placeholder="市区町村（例: さいたま市）" />
             </div>
           </fieldset>
           <fieldset className="flex flex-col gap-2">
@@ -141,7 +145,7 @@ export default function Start() {
               {(
                 [
                   ["mother", "ママ（母）"],
-                  ["partner", "パートナー"],
+                  ["partner", "パパ・パートナー"],
                 ] as const
               ).map(([v, l]) => (
                 <button key={v} type="button" aria-pressed={a.me === v} onClick={() => setA({ ...a, me: v })} className={`min-h-11 rounded-full px-5 text-base font-semibold ${a.me === v ? "bg-rose text-white" : "bg-rose-soft text-rose"}`}>
@@ -150,15 +154,22 @@ export default function Start() {
               ))}
             </div>
           </fieldset>
-          <button disabled={!ready || tooFar} className="min-h-12 rounded-full bg-rose font-display text-lg font-bold text-white disabled:opacity-50">
-            手帳を開く
-          </button>
+          <div className="flex flex-col gap-1">
+            <button disabled={!ready || tooFar} aria-describedby={a.me === "" ? "start-me-why" : undefined} className="min-h-12 rounded-full bg-rose font-display text-lg font-bold text-white disabled:opacity-50">
+              手帳を開く
+            </button>
+            {a.me === "" && (
+              <p id="start-me-why" className="text-center text-sm text-muted">
+                あなたは、を選んでください
+              </p>
+            )}
+          </div>
           <p className="text-sm text-muted">答えはこの端末の中だけに置きます。まだどこにも送りません。</p>
         </form>
       </main>
     );
 
-  return <Preview a={a} today={today} busy={busy} msg={msg} onEdit={() => setStep("ask")} onKeep={() => (account ? void keep(a) : (window.location.href = "/login?next=" + encodeURIComponent("/start?save=1")))} canKeep={!PUBLIC && accountsEnabled} />;
+  return <Preview a={a as Answers} today={today} busy={busy} msg={msg} onEdit={() => setStep("ask")} onKeep={() => (account ? void keep(a as Answers) : (window.location.href = "/login?next=" + encodeURIComponent("/start?save=1")))} canKeep={!PUBLIC && accountsEnabled} />;
 }
 
 /** 記録なしの「いま」: 予定と町だけで、やる事の並びを出す */
@@ -172,6 +183,10 @@ function Preview({ a, today, busy, msg, onEdit, onKeep, canKeep }: { a: Answers;
     const tasks = schedule.map((m) => withAssignee({ ...m, status: statusOf(m, today, done) }, family, undefined));
     return { ...planToday(tasks, today, me), count: tasks.filter((t) => t.status !== "済み").length, before: recentlyPassed(schedule, today) };
   }, [family, today, me]);
+  // 始める前に目安が過ぎた事は、一番上に「まず、◯◯」で出す（「急ぐ事はありません」とは言わない）
+  const lead = beforeLead(plan.before, today);
+  // 予約がまだの妊婦健診の目安が7日以内なら、「いま」と同じ1行（記録が無いので予約もまだ）
+  const book = prenatalBookDays(family, today);
   const c = clockAt(family, today);
   const toDue = diffDays(family.dueDate, today);
   const top = plan.top;
@@ -198,8 +213,19 @@ function Preview({ a, today, busy, msg, onEdit, onKeep, canKeep }: { a: Answers;
         </span>
       </h1>
 
-      {top && (
+      {lead && (
         <section className="flex flex-col gap-2 rounded-3xl bg-rose-soft px-5 py-5">
+          <p className="text-sm font-semibold text-muted">始める前に目安が過ぎた事</p>
+          <h2 className="font-display text-2xl leading-snug font-bold">
+            {lead.head}
+            {lead.more && <span className="block text-base font-semibold text-muted">{lead.more}（下の一覧にあります）</span>}
+          </h2>
+          <p className="text-base">残すと、済んでいるかを手帳が聞きます。済んでいれば、押すだけで消えます。</p>
+        </section>
+      )}
+
+      {top && (
+        <section className={`flex flex-col gap-2 rounded-3xl px-5 py-5 ${lead ? "border border-line bg-card" : "bg-rose-soft"}`}>
           <p className="text-sm font-semibold text-muted">{plan.topIsSoon ? "もうすぐ" : "次にやる事"}</p>
           <h2 className="font-display text-2xl leading-snug font-bold">{top.plain}</h2>
           {top.hint && <p className="text-base">{top.hint}</p>}
@@ -216,19 +242,28 @@ function Preview({ a, today, busy, msg, onEdit, onKeep, canKeep }: { a: Answers;
         </section>
       )}
 
-      {!top && next[0] && (
+      {!top && !lead && next[0] && (
         <section className="flex flex-col gap-2 rounded-3xl border border-line bg-card px-5 py-5">
-          <h2 className="font-display text-2xl leading-snug font-bold">{plan.before.length > 0 ? "始める前の事のほかは、急ぐ事はありません" : "今週は、何もしなくて大丈夫"}</h2>
+          <h2 className="font-display text-2xl leading-snug font-bold">今週は、何もしなくて大丈夫</h2>
           <p className="text-base">
             次に動くのは「{next[0].plain}」（{when(next[0])}）。近づいたら、手帳が一番上に出します。
           </p>
         </section>
       )}
 
-      {next.length > 0 && (
+      {(next.length > 0 || book !== null) && (
         <section className="flex flex-col gap-1">
           <h2 className="text-sm font-semibold text-muted">このあと</h2>
           <ul className="flex flex-col divide-y divide-line">
+            {book !== null && (
+              <li className="flex items-baseline justify-between gap-3 py-2 text-base">
+                <span className="min-w-0">
+                  次の妊婦健診を予約する
+                  <span className="block text-sm text-muted">国の目安では今ごろです。病院で日を言われていたら、そちらに合わせてください</span>
+                </span>
+                <span className="shrink-0 text-sm text-muted">{prenatalBookWhen(book)}</span>
+              </li>
+            )}
             {next.map((t) => (
               <li key={t.id} className="flex items-baseline justify-between gap-3 py-2 text-base">
                 <span className="min-w-0">{t.plain}</span>

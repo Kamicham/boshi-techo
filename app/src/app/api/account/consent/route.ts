@@ -6,6 +6,8 @@ import { HttpError } from "@/lib/http-error";
 import { audit, grantConsent, revokeConsent } from "@/lib/households";
 import { CONSENT_VERSION, type ScreenConsentKind } from "@/components/settings/consent-texts";
 import { canConsentFor, ensureMadeSubjects, requireSubject } from "../_lib/server";
+import { assertConsent, ConsentRequiredError } from "@/lib/claude";
+import { householdFor } from "../../_lib/household";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +24,21 @@ async function prepare(req: Request) {
   for (const s of subjects) if (!canConsentFor(ctx, s)) throw new HttpError(403, `${s.name || "この本人"}の分は、本人が押してください`);
   return { ctx, kind: b.kind, subjects };
 }
+
+/**
+ * 米国の Claude に送ってよいかを読むだけ（GET ?familyId=）。話す・書く・撮る画面が、送る前に読む。
+ * 送る時の関所と同じ判断（lib/claude.ts の assertConsent）を使う。見本の家族・移る前のわが家は ok。
+ */
+export const GET = route(async (req: Request) => {
+  const h = await householdFor(req, new URL(req.url).searchParams.get("familyId"), "record:read");
+  try {
+    assertConsent(h.who);
+    return { claude: "ok" as const };
+  } catch (e) {
+    if (e instanceof ConsentRequiredError) return { claude: "needed" as const };
+    throw e;
+  }
+});
 
 /** 同意する（まとめて複数の本人も） */
 export const POST = route(async (req: Request) => {

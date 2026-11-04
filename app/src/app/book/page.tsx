@@ -11,6 +11,7 @@ import { useMedia } from "@/components/album/useMedia";
 import { VoiceItem } from "@/components/album/VoiceItem";
 import { FutureLetters, MinnaChapter } from "@/components/album/Minna";
 import { FilmExport } from "@/components/album/FilmExport";
+import { FilmLink } from "@/components/album/FilmLink";
 import type { ClientMedia } from "@/lib/media-shared";
 
 /** 一冊に描ける写真（ある・隠していない）。消した写真の id は飛ばして描く */
@@ -128,24 +129,10 @@ export default function BookPage() {
       ) : book ? (
         <>
           <Reader book={book} page={page} setPage={setPage} />
-          {book.film.length > 0 && (
-            <Link
-              href="/book/film"
-              className="flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-ink px-5 text-paper"
-            >
-              <span className="flex flex-col">
-                <span className="font-display text-lg font-bold">▶ 映画で見る</span>
-                <span className="text-xs opacity-80">
-                  写真 {book.film.length} 枚{book.film.some((x) => x.voiceId) ? `・家族の声 ${book.film.filter((x) => x.voiceId).length} 本` : ""}・約
-                  {Math.max(1, Math.round(book.film.reduce((n, x) => n + x.sec, 0) / 60))}分
-                </span>
-              </span>
-              <span aria-hidden>›</span>
-            </Link>
-          )}
+          {book.film.length > 0 && <FilmLink book={book} />}
           {book.film.length > 0 && <FilmExport bookKey={book.generatedAt} />}
           <div className="flex flex-wrap items-center gap-2">
-            <ShareButton title={book.title} text={bookText(book)} label="家族に渡す" />
+            <ShareButton title={book.title} text={bookText(book)} label="家族に渡す" fallback={false} />
             <CopyButton text={bookText(book)} label="全部コピー" />
             <Btn kind="secondary" href="/book/print">
               印刷用（A5・PDF）

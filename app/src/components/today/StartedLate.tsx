@@ -14,8 +14,12 @@ import { jpShort } from "./dates";
 
 type Item = { id: string; open: boolean };
 
-/** onCount: 聞く事とまだの事の数（「いま」の「大丈夫」の言い方を変える） */
-export function StartedLate({ family, today, onCount }: { family: Family; today: string; onCount?: (n: number) => void }) {
+/**
+ * onCount: 聞く事とまだの事の数（「いま」の「大丈夫」の言い方を変える）
+ * onOpen: 「まだ」と答えた事の id（「いま」が一番上の札に上げる。UX 2026-11-04: 小さな札だけで、先に動いていなかった）
+ * lifted: 一番上の札に上げた事（ここの「まだの事」には重ねて出さない）。version: 変わったら読み直す
+ */
+export function StartedLate({ family, today, onCount, onOpen, lifted, version = 0 }: { family: Family; today: string; onCount?: (n: number) => void; onOpen?: (ids: string[]) => void; lifted?: string; version?: number }) {
   const [items, setItems] = useState<Item[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const load = useCallback(() => {
@@ -23,7 +27,7 @@ export function StartedLate({ family, today, onCount }: { family: Family; today:
       .then((r) => setItems(r.startedLate ?? []))
       .catch(() => setItems([]));
   }, [family.id, today]);
-  useEffect(load, [load]);
+  useEffect(load, [load, version]);
 
   const schedule = useMemo(() => scheduleFor(family, today), [family, today]);
   const { ask, open } = useMemo(() => {
@@ -34,6 +38,10 @@ export function StartedLate({ family, today, onCount }: { family: Family; today:
   }, [items, schedule, family.startedOn, today]);
   const count = ask.length + open.length;
   useEffect(() => onCount?.(count), [count, onCount]);
+  const openKey = open.map((m) => m.id).join(",");
+  useEffect(() => onOpen?.(openKey ? openKey.split(",") : []), [openKey, onOpen]);
+  const shownOpen = open.filter((m) => m.id !== lifted);
+  if (!ask.length && !shownOpen.length) return null;
   if (!count) return null;
 
   const answer = async (id: string, done: boolean) => {
@@ -74,11 +82,11 @@ export function StartedLate({ family, today, onCount }: { family: Family; today:
           </ul>
         </>
       )}
-      {open.length > 0 && (
+      {shownOpen.length > 0 && (
         <>
           <h2 className="font-display text-lg font-bold">始める前の事で、まだの事</h2>
           <ul className="flex flex-col divide-y divide-line">
-            {open.map((m) => (
+            {shownOpen.map((m) => (
               <li key={m.id} className="flex flex-col gap-1 py-2">
                 <span className="text-base font-semibold">{m.plain}</span>
                 {m.hint && <span className="text-sm text-muted">{m.hint}</span>}
