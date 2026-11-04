@@ -25,9 +25,10 @@
 - **main を小まめに取り込む**: 会話を始めた時・再開した時に、`.claude/settings.json` の SessionStart が main とのずれを1行で出す（`scripts/git-sync-status.sh`）。遅れていたら作業の前に取り込む。1つ仕上げるごとにコミットする（溜めない。大きな書きかけは、ほかの会話の取り込みとぶつかる）。
 - **1つの会話に1つの作業場**: 作業の会話は自分の worktree（`~/boshi-<名前>`。例 boshi-first・boshi-film・boshi-polish）で作る。`~/boshi-techo` は本番の置き場と統括の場所で、ここで作業を始めない（すでにここで書きかけがある会話は、仕上げてコミットしてから移る）。
 - **自分のファイルだけを入れる**: `git add -A`・`git add .` を使わず、自分が触ったファイルを名前で入れる（同じ作業場にほかの会話の書きかけがあり得る）。ほかの会話の書きかけを消す・戻す（`git checkout -- …`・`git stash`・`git reset --hard`・`git clean`）はしない。
-- **取り合いのファイル**: `CLAUDE.md`・`lib/claude.ts`・`components/Shell.tsx`・`lib/family.ts` は複数の会話が触る。直したらすぐコミットして上げる。CLAUDE.md の方針（締切・公開・費用・凍結）は統括か作り手が決める。
+- **取り合いのファイル**: `CLAUDE.md`・`lib/claude.ts`・`components/Shell.tsx`・`lib/family.ts`・`src/sim/fastforward.test.ts`（早送りの決まりの文字。足す前に main を取り込み、次の空いた文字を使う）は複数の会話が触る。直したらすぐコミットして上げる。CLAUDE.md の方針（締切・公開・費用・凍結）は統括か作り手が決める。
 - **番号と組み立ての置き場**: 3210＝本番（触らない）・3100＝なりきり（`sim-server.sh`）。試しのサーバは会話ごとに別の番号（3101〜）と別の置き場（`NEXT_DIST_DIR=.next-<名前>`。`.gitignore` 済み）。ほかの会話のサーバを止めない。
 - **本物の記録を読まない**: `~/boshi-techo/app` で試しのサーバを立てる時は、必ず `BOSHI_DATA_DIR` を分ける（指定しないと、わが家の記録 `app/data/` を読む）。
+- **作業場で npm を打たない**（2026-11-05）: 作業場の `app/node_modules` は、本番の置き場 `~/boshi-techo/app/node_modules` への結び（symlink）。作業場で `npm ci`・`npm install` を打つと、動いている本番の部品が入れ替わる。部品を足す・替える時は、先に統括に聞く。自前の部品で確かめる時は、`[ -L app/node_modules ]` を確かめてから `unlink app/node_modules` で結びを外す（`rm -rf app/node_modules/` は結びの先＝本番の部品を消す）。部品の版を変えた直しは、新しい部品から組む GitHub の CI（`.github/workflows/check.yml`）を正とする。
 - **作り手の返事が要る時は、スマホに届く形で止まる**（2026-11-04 本人「返事待ちの時はスマホの Claude アプリに通知が来るように。今は数分おきに自分で見ている」）: 承認・選択・確認は AskUserQuestion で、プランの承認は ExitPlanMode で聞く（Claude アプリの「操作が要る時」の通知が届く）。本文の最後に質問を書いて終わるだけにしない。作り手の手が要る操作（鍵を入れる等）を頼む時も、AskUserQuestion で「済んだ」を聞く形にする。返事が要らない報告は、今までどおり本文で終える。
 - **本番の組み立ては統括だけ**: `deploy-local.sh` は統括の会話が、健診の外で流す。今の本番は `~/boshi-techo` の作業中の木から組み立てるため、ほかの会話の書きかけが混ざり得る。11/5 の後に、本番を main のきれいな写し（専用の worktree）から組み立てる形へ移す。
 
