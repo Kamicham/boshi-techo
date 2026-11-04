@@ -33,6 +33,9 @@ import { FamilyNews } from "./today/FamilyNews";
 import { doneWords, familyNewsFor, type Thanks } from "@/lib/done-words";
 import { byDays, daysLeft, planToday, whoLabel, withAssignee, type Task } from "./today/task";
 import { VisitToday, visitIsTop } from "./today/VisitToday";
+import { canLocalFor, prepAhead, type Prepared } from "./today/prep";
+import { PrepAhead, PrepNote } from "./today/PrepAhead";
+import { DRAFTABLE } from "./MilestoneActions";
 
 /** 「済んだにしました・もどす」を出しておく長さ */
 const UNDO_MS = 20000;
@@ -41,7 +44,7 @@ const UNDO_MS = 20000;
 export { jpDate } from "./today/dates";
 
 export function Techo() {
-  const { family, today, isDemo, me } = useFamily();
+  const { family, today, isDemo, me, timeTravel } = useFamily();
   const [marked, setMarked] = useState<Set<string>>(new Set());
   // 「手帳を始める前の事」の数（StartedLate が数える。「大丈夫」の言い方を変える）
   const [beforeCount, setBeforeCount] = useState(0);
@@ -70,6 +73,9 @@ export function Techo() {
   const [sentReady, setSentReady] = useState(false);
   // 気づいた事があるか（先に数だけ聞く。ある時は、読み込みの間も同じ高さの場所を取っておく）
   const [advisorOpen, setAdvisorOpen] = useState<number | null>(null);
+  // 手帳が前に用意した物（下書き・町の窓口。GET /api/prep）と、用意ができた時に読み直す印（UX の見直し C07）
+  const [prepared, setPrepared] = useState<Record<string, Prepared>>({});
+  const [prepVer, setPrepVer] = useState(0);
   // ほかの画面から「この事を今日の画面で開く」（/?focus=<id>）
   const [focusId, setFocusId] = useState<string | null>(null);
   useEffect(() => {
@@ -106,6 +112,7 @@ export function Techo() {
     setDoneError("");
     setKeep(null);
     setSent(new Set());
+    setPrepared({});
     setDoneReady(false);
     setSentReady(false);
     const fid = encodeURIComponent(family.id);
@@ -325,7 +332,7 @@ export function Techo() {
     });
     void api("/api/keep", { body: { familyId: family.id, keep: { assign: { [milestoneId]: who } } } }).catch(() => {});
   };
-  const common = { today, family, me, keep, onAssign };
+  const common = { today, family, me, keep, onAssign, prepared };
   const bday = birthdayFor(family, today);
   // 「生まれました」の儀式: 37週から「生まれたら、ここから」、生まれた日からお七夜の前の日まで「ようこそ」（components/today/WelcomeBaby.tsx）
   const bornPrompt = bornPromptFor(family, today);
@@ -339,12 +346,49 @@ export function Techo() {
   const loading = !(doneReady && sentReady && advisorOpen !== null);
   const quiet = family.situation?.quiet;
 
+  // 手帳が先に用意する事（UX の見直し C07）: 一番上の札が用意する1件を含めて3件まで。残りは裏で用意する（本物の家族だけ。PrepAhead）
+  const firstPrep = loading || (visitTop && nextVisit) ? null : top;
+  const ahead = loading ? [] : prepAhead(tasks, today, me, firstPrep, (t) => canLocalFor(t, family) || t.id in DRAFTABLE);
+  // 行の札と帯の下の1行のために、前に用意した物をまとめて読む（読むだけ。Claude は呼ばない）
+  const prepIds = loading
+    ? ""
+    : [
+        ...new Set([
+          ...(top ? [top.id] : []),
+          ...rows.flatMap((r) => (r.kind === "task" ? [r.task.id] : [])),
+          ...upcoming.slice(0, 3).map((t) => t.id),
+          ...(trip?.items.map((i) => i.task.id) ?? []),
+          ...ahead.map((t) => t.id),
+        ]),
+      ].join(",");
+  const meId = me?.id;
+  useEffect(() => {
+    if (!prepIds) return;
+    let alive = true;
+    const q = new URLSearchParams({ familyId: family.id, ids: prepIds, ...(meId ? { meId } : {}) });
+    api<{ items: Record<string, Prepared> }>(`/api/prep?${q}`)
+      .then((j) => alive && setPrepared(j.items ?? {}))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [family.id, meId, prepIds, prepVer]);
+  // 用意ができた時（一番上の札・束の1行目・裏の用意）に読み直す
+  useEffect(() => {
+    const bump = () => setPrepVer((v) => v + 1);
+    window.addEventListener("boshi:prep", bump);
+    return () => window.removeEventListener("boshi:prep", bump);
+  }, []);
+
 
   if (quiet && !showAll) return <QuietDay family={family} quiet={quiet} onShowAll={() => setShowAll(true)} />;
 
   return (
     <main className="flex flex-col gap-5 px-4 pt-4 pb-8">
       <WeekBand family={family} today={today} />
+      {/* 手帳がしておいた事（日付）: 窓口の調べと下書き。鍵の無い見本の答えは数えないので、見本では出ない */}
+      {!loading && <PrepNote tasks={ahead} prepared={prepared} today={today} />}
+      {!loading && <PrepAhead tasks={ahead.filter((t) => t.id !== firstPrep?.id)} family={family} me={me} today={today} enabled={!timeTravel} />}
 
       {!loading && bornPrompt && <BornPrompt key={`${family.id}:born`} family={family} today={today} />}
 

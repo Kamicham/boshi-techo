@@ -11,6 +11,7 @@ import { Btn, CopyButton, HandoffRow, NextStep, Pill, Why } from "../ui";
 import { callMemo } from "@/lib/vax-next";
 import { MilestoneActions } from "../MilestoneActions";
 import { jpShort } from "./dates";
+import type { Prepared } from "./prep";
 import { FAR_DAYS, daysLeft, isMine, whenDate, whoLabel, type Task } from "./task";
 
 /** 今日の画面に出す1件。shared = もとは家族みんなの事で、担当を選べる（together = 2人でと決めた） */
@@ -25,6 +26,8 @@ export interface Common {
   onDone: () => void;
   /** 家族みんなの事の担当を決める（家族の id か "together"。"" は決め直し） */
   onAssign?: (milestoneId: string, who: string) => void;
+  /** 手帳が前に用意した物（GET /api/prep）。行の札「下書きあり」「窓口 ✓」に使う */
+  prepared?: Record<string, Prepared>;
 }
 
 /** 期限が法で決まっていない（目安の）事か。「あと◯日」と急かさず「目安 ◯/◯」と言う */
@@ -89,6 +92,8 @@ export function TaskRow(p: Common & { muted?: boolean }) {
   // 担当の札は、担当名がある時だけ。家族みんなの事でまだ決めていない時は「誰がやる？」、2人でと決めた時は「2人で」
   const showPill = !!who && (!me || others);
   const sharedPill = !who && t.shared ? (t.together ? "2人で" : "誰がやる？") : null;
+  // 手帳が前に用意した物の札（開く前に分かるように。UX の見直し C07）
+  const ready = p.prepared?.[t.id];
   return (
     <details className="group border-b border-line last:border-b-0">
       <summary
@@ -97,14 +102,12 @@ export function TaskRow(p: Common & { muted?: boolean }) {
       >
         <span className="flex min-w-0 flex-col gap-0.5">
           <span className={`text-base leading-snug ${p.muted || others ? "text-muted" : "font-semibold"}`}>{t.plain}</span>
-          {showPill && (
-            <span>
-              <Pill tone={others ? "muted" : "rose"}>{who}の番</Pill>
-            </span>
-          )}
-          {sharedPill && (
-            <span>
-              <Pill tone="muted">{sharedPill}</Pill>
+          {(showPill || sharedPill || ready) && (
+            <span className="flex flex-wrap gap-1">
+              {showPill && <Pill tone={others ? "muted" : "rose"}>{who}の番</Pill>}
+              {sharedPill && <Pill tone="muted">{sharedPill}</Pill>}
+              {ready?.draft && <Pill tone="sky">下書きあり</Pill>}
+              {ready?.local && <Pill tone="sky">窓口 ✓</Pill>}
             </span>
           )}
         </span>

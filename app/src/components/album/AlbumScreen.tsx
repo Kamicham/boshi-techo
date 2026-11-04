@@ -49,7 +49,7 @@ export function AlbumScreen() {
       </div>
       <header className="flex flex-col gap-1">
         <h1 className="font-display text-2xl font-bold">{child}のアルバム</h1>
-        <p className="text-base text-muted">月ごとの「この1枚」は、アプリが仮に選んでおきます。★で選び直せます。残した声も、同じ月に並びます。</p>
+        <p className="text-base text-muted">月ごとの「この1枚」は、手帳が仮に選んでおきます。★で選び直せます。残した声も、同じ月に並びます。</p>
       </header>
 
       {loading ? (

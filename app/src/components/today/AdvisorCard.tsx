@@ -16,8 +16,8 @@ const BOX = "flex min-h-[15rem] flex-col gap-3 rounded-2xl border-2 border-sky b
 /** 読み込み中の場所取り（気づきの箱と同じ高さ） */
 export function AdvisorSpace() {
   return (
-    <section aria-label="気づいた事を見ています" aria-busy className={BOX}>
-      <p className="text-sm font-semibold text-sky">気づいた事</p>
+    <section aria-label="手帳が気づいた事を見ています" aria-busy className={BOX}>
+      <p className="text-sm font-semibold text-sky">手帳が気づいた事</p>
       <p className="text-base text-muted">この家族の今から、気づいた事をまとめています…</p>
     </section>
   );
@@ -79,8 +79,9 @@ export function AdvisorCard({ familyId, today, meId }: { familyId: string; today
     .map((x) => x.trim())
     .filter(Boolean);
   return (
-    <section aria-label="気づいた事" className={BOX}>
-      <p className="text-sm font-semibold text-sky">{a.kind === "look" ? "手帳を見渡して、気づいた事" : "気づいた事"}</p>
+    <section aria-label="手帳が気づいた事" className={BOX}>
+      {/* 主語は手帳（UX の見直し C07: 「気づいた事」だけでは、誰が気づいたのかが無かった） */}
+      <p className="text-sm font-semibold text-sky">{a.kind === "look" ? "手帳を見渡して、気づいた事" : "手帳が気づいた事"}</p>
       <h2 className="line-clamp-2 font-display text-2xl leading-snug font-bold text-balance">{a.title}</h2>
       {whyHead && <p className="line-clamp-1 text-base">{whyHead}</p>}
       <div className="mt-auto flex flex-wrap items-center gap-2">
