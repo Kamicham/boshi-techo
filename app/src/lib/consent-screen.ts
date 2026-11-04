@@ -26,6 +26,15 @@ export interface InviteView {
   account: { id: string } | null;
   members: { accountId: string; role: string }[];
   invitations: { role: string; relation: string | null }[];
+  /** 本人（母・パートナー）。パートナーが始めた手帳では、招く相手を「ママ」と言う */
+  subjects?: { kind: string; mine: boolean }[];
+}
+
+/** 招く相手の呼び方: パートナーが始めた手帳では「ママ」、ほかは「パートナー」 */
+export function inviteeWord(d: InviteView | null | undefined): "ママ" | "パートナー" {
+  const iAmPartner = !!d?.subjects?.some((s) => s.kind === "partner" && s.mine);
+  const iAmMother = !!d?.subjects?.some((s) => s.kind === "mother" && s.mine);
+  return iAmPartner && !iAmMother ? "ママ" : "パートナー";
 }
 
 /**
@@ -37,7 +46,7 @@ export function canInvitePartner(d: InviteView | null | undefined): boolean {
   const me = d.account?.id;
   const otherAdmin = d.members.some((m) => m.accountId !== me && m.role.split(",").some((r) => r === "admin" || r === "owner"));
   if (otherAdmin) return false;
-  const waiting = d.invitations.some((i) => i.relation === "パートナー" || (i.relation === null && i.role === "admin"));
+  const waiting = d.invitations.some((i) => i.relation === "パートナー" || i.relation === "ママ" || (i.relation === null && i.role === "admin"));
   return !waiting;
 }
 

@@ -70,5 +70,6 @@ export const SHARE_ITEMS = [
 
 export type ShareItem = (typeof SHARE_ITEMS)[number]["id"];
 
-export const RELATIONS = ["パートナー", "祖父母", "そのほかの家族"] as const;
+// 「ママ」は、パートナーが始めた手帳に母を招く時だけ出す（UX 2026-11-04）
+export const RELATIONS = ["ママ", "パートナー", "祖父母", "そのほかの家族"] as const;
 export type Relation = (typeof RELATIONS)[number];

@@ -62,3 +62,13 @@ describe("相談できる人の問いは、使い始めた日に聞かない", (
     expect(consultWaitsFirstDay({ id: "h-old" }, "2026-11-04")).toBe(false);
   });
 });
+
+describe("招く相手の呼び方", () => {
+  it("パートナーが始めた手帳では「ママ」、ほかは「パートナー」", async () => {
+    const { inviteeWord } = await import("./consent-screen");
+    const base = { role: "owner", perms: ["household:admin"], account: { id: "a" }, members: [], invitations: [] };
+    expect(inviteeWord({ ...base, subjects: [{ kind: "partner", mine: true }, { kind: "mother", mine: false }] })).toBe("ママ");
+    expect(inviteeWord({ ...base, subjects: [{ kind: "mother", mine: true }] })).toBe("パートナー");
+    expect(inviteeWord(null)).toBe("パートナー");
+  });
+});

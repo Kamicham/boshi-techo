@@ -23,8 +23,10 @@ export const POST = route(async (req: Request) => {
   if (ctx.household.kind !== "real" || !ctx.account) throw new HttpError(403, "作った家族（デモ）には招待できません");
   const email = String(b.email ?? "").trim().toLowerCase();
   if (!EMAIL.test(email)) throw new HttpError(400, "メールの形が違います");
-  const role = b.role === "admin" ? "admin" : "member";
   const relation: Relation = (RELATIONS as readonly string[]).includes(String(b.relation)) ? (b.relation as Relation) : "そのほかの家族";
+  // ママとパートナーは共同の管理。ママを招けるのは、母の本人にまだだれも結びついていない時だけ
+  const role = relation === "ママ" || b.role === "admin" ? "admin" : "member";
+  if (relation === "ママ" && ctx.subjects.some((s) => s.kind === "mother" && s.accountId)) throw new HttpError(400, "ママは、もうこの手帳に入っています");
   const allowed = new Set<string>(SHARE_ITEMS.map((x) => x.id));
   const showMother = (Array.isArray(b.showMother) ? b.showMother : []).filter((x): x is ShareItem => allowed.has(x));
   // 母の項目を見せる範囲は、母（本人）が選ぶ。母本人でない人が招待する時は、母の項目は見せない（子の記録だけ）

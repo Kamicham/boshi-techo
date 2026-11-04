@@ -42,9 +42,10 @@ function target(t: Task, today: string): When {
   const days = daysLeft(t, today);
   if (days == null) return null;
   // 30日より先は「あと377日」と数えず、日付で書く
+  // 形は近い行と同じ「2/25（木）ごろから」「12/10（木）まで」（UX 2026-11-04: 「11/19（木）ごろから」と「12月31日から」が混ざっていた）
   if (days > FAR_DAYS) {
-    const w = whenDate(t, today);
-    return w ? { far: w } : null;
+    if (!whenDate(t, today)) return null;
+    return { far: t.status === "まだ先" ? `${jpShort(t.startDate, today)}ごろから` : `${jpShort(t.deadlineDate!, today)}まで` };
   }
   return { days, label: t.status === "まだ先" ? `${jpShort(t.startDate, today)}から` : `${jpShort(t.deadlineDate!, today)}まで` };
 }

@@ -3,7 +3,7 @@
 // 家族を招く（世帯の持ち主・共同の管理の人）。役と見せる範囲を一緒に決める。
 // 母の記録のどの項目を見せるかは母（本人）が選ぶ。既定は「子の記録だけ」（何も選ばない）。
 // リンクは48時間で切れる。開発中はメールを送らないので、出たリンクをLINEなどで手渡しする。
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn, CopyButton, ShareButton, Why } from "@/components/ui";
 import { Box, field, jpDateTime, Msg, useHouseholdDetail } from "@/components/settings/account-ui";
@@ -23,9 +23,17 @@ export default function NewInvite() {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [made, setMade] = useState<{ link: string; expiresAt: string; email: string } | null>(null);
 
-  // パートナーは共同の管理（記録を足せる）、ほかは読むだけ
-  const role = relation === "パートナー" ? "admin" : "member";
+  // ママとパートナーは共同の管理（記録を足せる）、ほかは読むだけ
+  const role = relation === "パートナー" || relation === "ママ" ? "admin" : "member";
   const iAmMother = !!data?.subjects.some((s) => s.kind === "mother" && s.mine);
+  const iAmPartner = !!data?.subjects.some((s) => s.kind === "partner" && s.mine);
+  // 母の本人にまだだれも結びついていない手帳（パートナーが始めた）では「ママ」を招ける。自分の役は選び肢に出さない
+  const motherFree = !!data?.subjects.some((s) => s.kind === "mother" && !s.accountId);
+  const choices = RELATIONS.filter((r) => (r === "ママ" ? motherFree && !iAmMother : r === "パートナー" ? !iAmPartner : true));
+  const mamaFirst = choices[0] === "ママ";
+  useEffect(() => {
+    if (mamaFirst) setRelation("ママ");
+  }, [mamaFirst]);
 
   const send = async () => {
     setBusy(true);
@@ -79,7 +87,7 @@ export default function NewInvite() {
         <>
           <Box title="だれを">
             <div className="flex flex-wrap gap-2">
-              {RELATIONS.map((r) => (
+              {choices.map((r) => (
                 <button
                   key={r}
                   type="button"

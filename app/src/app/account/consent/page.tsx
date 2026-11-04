@@ -5,7 +5,7 @@ import { Btn, Fold, Why } from "@/components/ui";
 import { ConsentScreen } from "@/components/settings/ConsentScreen";
 import { Box } from "@/components/settings/account-ui";
 import { RECORD_HONEST, RECORD_PURPOSES } from "@/components/settings/consent-texts";
-import { canInvitePartner, invitePartnerHref, RECORD_PROMISES } from "@/lib/consent-screen";
+import { canInvitePartner, invitePartnerHref, inviteeWord, RECORD_PROMISES } from "@/lib/consent-screen";
 
 export default function RecordConsent() {
   return (
@@ -22,7 +22,7 @@ export default function RecordConsent() {
           <div className="flex flex-col gap-2">
             {canInvitePartner(detail) && (
               <Btn href={invitePartnerHref(familyId)} kind="secondary" full>
-                パートナーを手帳に入れる（招待のリンクを送る）
+                {inviteeWord(detail)}を手帳に入れる（招待のリンクを送る）
               </Btn>
             )}
             <Btn href="/capture" kind="secondary" full>

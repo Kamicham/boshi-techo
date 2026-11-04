@@ -73,7 +73,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <Link href="/settings" className="flex min-h-11 min-w-0 items-center gap-1 px-1 text-sm text-ink underline-offset-2 hover:underline">
             {/* 何を見ているかを、見本の家族の帯とそろえる（だれの手帳か・いつか）。押すと設定（家族・町・あなたは） */}
             <span className="truncate">
-              あなたの手帳 ・ <b className="font-semibold">{clockAt(family, today).label.replace(/(\d+週)\d+日/, "$1")}</b>
+              {/* 狭い電話でも「（パートナー）」まで切れずに出るよう、点の前後の空きを詰める（UX 2026-11-04） */}
+              あなたの手帳・<b className="font-semibold">{clockAt(family, today).label.replace(/(\d+週)\d+日/, "$1")}</b>
               {me ? <span className="text-muted">（{me.name}）</span> : null}
             </span>
             <span className="text-muted" aria-hidden>▾</span>
@@ -82,7 +83,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         )}
         {/* 急ぎの案内は録音中でも隠さない（産院・119・#8000 への橋）。
             いつも見える所を赤で塗ると、夜中に開くたびに緊張させるので、文字は ink・赤は直径6pxの点だけ（赤は命の橋の印） */}
-        <Link href="/emergency" className="flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2 font-semibold text-ink underline-offset-2 hover:underline">
+        <Link href="/emergency" className="flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-1 font-semibold text-ink underline-offset-2 hover:underline">
           <span aria-hidden className="inline-block size-1.5 shrink-0 rounded-full bg-alert" />
           急ぎの時
         </Link>

@@ -31,6 +31,11 @@ export const POST = route(async (req: Request) => {
   }
   const scope = inviteScope(b.invitationId);
   const subjects = listSubjects(hid);
+  // パートナーが始めた手帳に招かれたママは、母の本人に結びつける（空いている母がいる時）
+  if (scope?.relation === "ママ" && !subjects.some((s) => s.accountId === account.id)) {
+    const free = subjects.find((s) => s.kind === "mother" && !s.accountId);
+    if (free) updateSubject(hid, free.id, { accountId: account.id });
+  }
   if (scope?.relation === "パートナー" && !subjects.some((s) => s.accountId === account.id)) {
     const free = subjects.find((s) => s.kind === "partner" && !s.accountId);
     if (free) updateSubject(hid, free.id, { accountId: account.id });
@@ -38,12 +43,14 @@ export const POST = route(async (req: Request) => {
   }
   // 手帳の家族にもパートナーの人を足す（3つの問いで作った手帳には、母しかいない時がある。いないままだと、
   // 入ったパートナーが「ママ」として扱われ、母の手続きが一番先の事に出ていた。UX 2026-11-04）
-  if (scope?.relation === "パートナー") {
+  const joinRole = scope?.relation === "パートナー" ? "パートナー" : scope?.relation === "ママ" ? "母" : null;
+  if (joinRole) {
     const f = getFamily(hid);
-    if (f && !f.members.some((m) => m.role === "パートナー")) {
+    if (f && !f.members.some((m) => m.role === joinRole)) {
       // 生まれた時の体重・週数は読む時に足す値なので、保存しない
       const { id: _id, birthWeightG: _w, birthWeek: _k, ...rest } = f;
-      saveFamilyProfile(hid, { ...rest, members: [...f.members, { id: `partner-${account.id.slice(0, 8)}`, name: account.name || "パートナー", role: "パートナー" }] });
+      const member = joinRole === "母" ? { id: `mother-${account.id.slice(0, 8)}`, name: "ママ", role: "母" as const } : { id: `partner-${account.id.slice(0, 8)}`, name: account.name || "パートナー", role: "パートナー" as const };
+      saveFamilyProfile(hid, { ...rest, members: [...f.members, member] });
     }
   }
   if (scope?.showMother.length) {
