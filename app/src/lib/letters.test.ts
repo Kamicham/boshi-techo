@@ -85,6 +85,18 @@ function wav(tone = 0): Buffer {
   return b;
 }
 
+describe("開いた知らせの一言", () => {
+  it("生まれる前に書いた手紙は「おなかにいた頃」。生まれた後は満年（11か月・1年2か月を取り違えない）", () => {
+    const f = { birthDate: "2027-04-26" };
+    expect(LSH.openedNewsLine({ sealedOn: "2027-03-01", openOn: "2028-04-26" }, f)).toBe("おなかにいた頃の手紙が開きました");
+    expect(LSH.openedNewsLine({ sealedOn: "2027-12-31", openOn: "2028-11-30" }, f)).toBe("封をした手紙が開きました");
+    expect(LSH.openedNewsLine({ sealedOn: "2027-04-29", openOn: "2028-06-30" }, f)).toBe("1年前の手紙が開きました");
+    expect(LSH.openedNewsLine({ sealedOn: "2028-04-26", openOn: "2037-04-26" }, f)).toBe("9年前の手紙が開きました");
+    // 生まれる前の家族（日を選んだ手紙）は満年で
+    expect(LSH.openedNewsLine({ sealedOn: "2026-10-01", openOn: "2027-01-01" }, {})).toBe("封をした手紙が開きました");
+  });
+});
+
 describe("開く日の計算", () => {
   it("誕生日・小学校に入る春（早生まれは1年早い）・うるう日", () => {
     const f = { birthDate: "2027-04-20", dueDate: "2027-04-27" };

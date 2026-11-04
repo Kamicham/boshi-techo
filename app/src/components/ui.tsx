@@ -247,11 +247,11 @@ function highlightBlanks(text: string): React.ReactNode {
   return parts.map((p, i) => (p.startsWith("【") ? <mark key={i} className="rounded bg-warn/20 px-0.5 text-ink">{p}</mark> : p));
 }
 
-/** 共有シート（iPhone のメール・LINE・メモ・Slack などへ） */
-export function ShareButton({ title, text, url, label = "共有…", kind = "secondary" }: { title?: string; text: string; url?: string; label?: string; kind?: "primary" | "secondary" }) {
+/** 共有シート（iPhone のメール・LINE・メモ・Slack などへ）。共有できない機械では「全部コピー」に替える（隣に既にコピーがある所は fallback={false} で出さない） */
+export function ShareButton({ title, text, url, label = "共有…", kind = "secondary", fallback = true }: { title?: string; text: string; url?: string; label?: string; kind?: "primary" | "secondary"; fallback?: boolean }) {
   const [msg, setMsg] = useState("");
   const { share: can } = useDevice();
-  if (!can) return <CopyButton text={text} label="全部コピー" />;
+  if (!can) return fallback ? <CopyButton text={text} label="全部コピー" /> : null;
   const share = async () => {
     try {
       await navigator.share({ title, text, url });

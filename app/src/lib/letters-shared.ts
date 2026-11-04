@@ -1,6 +1,6 @@
 // 未来の手紙（画面とサーバの両方で使う）。開く日の選び方と、画面に渡す形。
 // 開く日は「誕生日から」の選び方なら、読むたびに今の家族の設定（生まれた日・予定日）から計算し直す（生まれる前に書いた手紙も、生まれた日に合う）。
-import { addDays } from "./clock";
+import { addDays, diffDays, monthsBetween } from "./clock";
 
 export const LETTER_OPENS = [
   { id: "1y", label: "1歳の誕生日", short: "1歳の誕生日に" },
@@ -83,4 +83,14 @@ export function openLine(l: Pick<ClientLetter, "open" | "openOn">): string {
 export const LETTER_NEWS_DAYS = 14;
 export function recentlyOpened(l: Pick<ClientLetter, "openOn" | "opened">, today: string): boolean {
   return !!l.opened && !!l.openOn && l.openOn <= today && addDays(l.openOn, LETTER_NEWS_DAYS) > today;
+}
+
+/**
+ * 開いた知らせの一言。生まれる前に書いた手紙は「おなかにいた頃の手紙」、生まれた後は書いた日から開いた日までの満年で数える
+ * （年の数字の差だけで数えると、1年2か月前を「1年前」、11か月前も年をまたげば「1年前」と言ってしまう）
+ */
+export function openedNewsLine(l: Pick<ClientLetter, "sealedOn" | "openOn">, f: { birthDate?: string } | null): string {
+  if (f?.birthDate && diffDays(l.sealedOn, f.birthDate) < 0) return "おなかにいた頃の手紙が開きました";
+  const years = l.openOn ? Math.floor(monthsBetween(l.sealedOn, l.openOn) / 12) : 0;
+  return years > 0 ? `${years}年前の手紙が開きました` : "封をした手紙が開きました";
 }
