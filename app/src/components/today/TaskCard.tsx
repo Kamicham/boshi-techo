@@ -3,6 +3,7 @@
 // 「今日」の画面の1件: 一番上の大きな1つ（TopTask）と、2つ目からの1行（TaskRow）。
 // 表に出すのは、やさしい題・あと◯日・主ボタン1つだけ。根拠と正式な名前は「なぜ？」の中。
 import { useEffect, useRef, useState } from "react";
+import { isPaidId } from "@/lib/money";
 import type { Family, Member } from "@/lib/demo-family";
 import type { Keep } from "@/lib/keep";
 import { deadlineKindOf } from "@/lib/milestones";
@@ -69,7 +70,7 @@ export function TopTask(p: Common & { soon?: boolean; eyebrowOverride?: string; 
       tone="rose"
     >
       <div className="flex w-full flex-col gap-2">
-        {guide && <GuideLine guide={guide.guide} past={guide.past} />}
+        {guide && <GuideLine guide={guide.guide} past={guide.past} wait={isPaidId(t.id)} />}
         {far && <span className="tabular text-sm text-muted">{far}</span>}
         {p.children}
         <TaskBody {...p} top />
@@ -115,7 +116,7 @@ export function TaskRow(p: Common & { muted?: boolean }) {
       </summary>
       <div className="flex flex-col gap-2 pb-4">
         {when && "days" in when && <span className="tabular text-sm text-muted">{when.label}</span>}
-        {when && "guide" in when && <GuideLine guide={when.guide} past={when.past} />}
+        {when && "guide" in when && <GuideLine guide={when.guide} past={when.past} wait={isPaidId(t.id)} />}
         <p className="text-base">{t.hint}</p>
         {others && who && <p className="text-sm text-muted">{who}の番です。代わりにやってもかまいません</p>}
         <TaskBody {...p} />
@@ -129,11 +130,12 @@ function RowGuide({ guide }: { guide: string }) {
   return <span className="tabular text-sm whitespace-nowrap text-muted">目安 {guide.replace(/（.）$/, "")}</span>;
 }
 
-function GuideLine({ guide, past }: { guide: string; past: boolean }) {
+/** wait: 届くのを待つ件（お金の1000日・lib/money.ts）。する事ではないので「今からできます」と言わない */
+function GuideLine({ guide, past, wait }: { guide: string; past: boolean; wait?: boolean }) {
   return (
     <p className="text-base text-muted">
       目安 <span className="tabular font-semibold text-ink">{guide}</span>
-      {past ? "（過ぎていても、今からできます）" : "ごろまでに"}
+      {wait ? (past ? "（届く時期を過ぎました）" : "ごろまでに届く見込み") : past ? "（過ぎていても、今からできます）" : "ごろまでに"}
     </p>
   );
 }
