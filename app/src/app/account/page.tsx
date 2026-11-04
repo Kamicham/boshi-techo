@@ -183,7 +183,7 @@ function Consents({ data, reload }: { data: HouseholdDetail; reload: () => Promi
         <div key={s.id} className="flex flex-col gap-2 border-t border-line pt-3 first:border-0 first:pt-0">
           <p className="font-semibold">
             {subjectLabel(s)}
-            {s.kind === "child" && <span className="ml-2 text-sm font-normal text-muted">親が法定代理人として</span>}
+            {s.kind === "child" && <span className="ml-2 text-sm font-normal text-muted">親が代わりに同意</span>}
           </p>
           {row(s, "record")}
           {row(s, "claude_us")}
