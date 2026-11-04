@@ -15,6 +15,7 @@ import { isDemoLike } from "@/lib/trial-cookie";
 import { fillBlanks } from "@/lib/keep";
 import { HttpError } from "@/lib/family";
 import { getKeep } from "@/lib/keep";
+import { workOf } from "@/lib/whose";
 import { sendingAs } from "@/lib/claude";
 import { familyFor } from "../_lib/household";
 import { lookAround, writeAdvice } from "./_lib/write";
@@ -93,11 +94,12 @@ export const GET = route(async (req: Request) => {
   }
   // 職場あてのメールは、覚えている上司のメールを宛先に入れる（DB の気づきには持たせない）
   const keep = getKeep(family.id);
-  const work = keep.work;
+  // 送る人の職場（見直し C09: 家族のほかの人の上司のメールを入れない）
+  const work = workOf(keep, family, t.from?.memberId);
   const mailTo = advice.message?.via === "mail" && /職場|上司|人事/.test(advice.message.to) ? (work?.email ?? work?.hrEmail) : undefined;
   // 送る人の名前・町名・会社名など、分かる【 】は埋めて返す（DB の気づきは書いたまま）
   const sender = t.from ? keep.names?.[t.from.memberId] || t.from.name : null;
-  const fill = (x: string) => fillFamilyBlanks(fillBlanks(x, keep, { writer: sender }), family, { writer: sender, names: keep.names });
+  const fill = (x: string) => fillFamilyBlanks(fillBlanks(x, keep, { writer: sender, work }), family, { writer: sender, names: keep.names });
   const shown: Advice = advice.message ? { ...advice, message: { ...advice.message, body: fill(advice.message.body), subject: advice.message.subject && fill(advice.message.subject) } } : advice;
   return { advice: shown, mailTo, from: sender ?? undefined, cached, waiting: open.length - 1 };
 });

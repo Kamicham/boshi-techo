@@ -13,6 +13,7 @@ import { clockAt } from "../clock";
 import { get, put } from "../db";
 import type { Family } from "../demo-family";
 import { getKeep } from "../keep";
+import { worksByMember } from "../whose";
 import { checkBudget, recordSpend } from "../spend";
 import { STOOL_NOTE, DEVELOPMENT_NOTE, GROWTH_NOTE } from "../techo";
 import { bridgeFor } from "./bridge";
@@ -82,7 +83,10 @@ function familySystem(family: Family): string {
     `出産予定日: ${family.dueDate}${family.birthDate ? `、生まれた日: ${family.birthDate}` : "（まだ生まれていない）"}`,
     ...situationFacts(family),
     keep.hospital?.name ? `通う病院: ${keep.hospital.name}${keep.hospital.phone ? `（電話 ${keep.hospital.phone}）` : ""}` : "通う病院: まだ入っていない",
-    keep.work?.company ? `職場: ${keep.work.company}${keep.work.boss ? `（上司 ${keep.work.boss}）` : ""}` : "",
+    // 職場は人ごと（見直し C09）。会社名の無い人は書かない
+    ...worksByMember(keep, family)
+      .filter(({ work }) => work.company)
+      .map(({ member, work }) => `${keep.names?.[member.id] || member.name}の職場: ${work.company}${work.boss ? `（上司 ${work.boss}）` : ""}`),
   ].filter(Boolean);
   return `この家族（作った家族のこともある）:\n${lines.join("\n")}`;
 }

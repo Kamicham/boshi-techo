@@ -6,7 +6,8 @@
 // 「✓ 送った」などの印を付けると、その事も済みになる（印を外すと済みも外れる）。
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
-import { applyBlanks, jpDate, type Blank, type BlankKey } from "@/lib/blanks";
+import { applyBlanks, isRoleWord, jpDate, type Blank, type BlankKey } from "@/lib/blanks";
+import { lineUrl } from "@/lib/handoff";
 import { draftConsentWaitKey, draftWaitValue, isClaudeConsentError, readConsentState, type ClaudeConsentState } from "@/lib/claude-consent-flow";
 import type { Draft, DraftKind, DraftView } from "@/lib/drafts";
 import { api } from "../FamilyProvider";
@@ -22,6 +23,20 @@ export function doneWord(kind: DraftKind): string {
 function mdJst(iso: string): string {
   const d = new Date(Date.parse(iso) + 9 * 3600_000);
   return `${d.getUTCMonth() + 1}月${d.getUTCDate()}日`;
+}
+
+/** 開いた人が担当でない時の1行（見直し C09）: 下書きは担当の人の名前と職場で書いてある。担当の人に LINE で頼める */
+function HandTo({ name, title }: { name: string; title: string }) {
+  const who = isRoleWord(name) ? name : `${name}さん`;
+  const text = `「${title}」の下書きを、手帳に用意したよ。手帳で開いて、確かめてから使ってね。`;
+  return (
+    <p className="text-sm">
+      {who}の番です。{who}の名前と職場で書いています。{" "}
+      <a className="font-bold underline underline-offset-2" href={lineUrl(text)} target="_blank" rel="noreferrer">
+        {who}に LINE で頼む ›
+      </a>
+    </p>
+  );
 }
 
 export type DraftBusy = "" | "load" | "make";
@@ -147,14 +162,18 @@ function DraftBody(p: Omit<PanelProps, "view" | "err" | "settled" | "onRetry"> &
     setErr("");
     setSaving("fill");
     const work: Partial<Record<BlankKey, string>> = {};
-    const keep: { work?: typeof work; hospital?: { name: string }; names?: Record<string, string> } = {};
+    const keep: { work?: typeof work; workBy?: Record<string, typeof work>; hospital?: { name: string }; names?: Record<string, string> } = {};
     for (const { blank, value } of values) {
       if (blank.key === "hospital") keep.hospital = { name: value };
       else if (blank.key === "myName") {
         if (view.writerId) keep.names = { [view.writerId]: value };
       } else if (blank.key) work[blank.key] = value;
     }
-    if (Object.keys(work).length) keep.work = work;
+    // 職場の欄は、書き手（その事の担当の人）の職場として覚える（見直し C09: 家族のほかの人の職場を上書きしない）
+    if (Object.keys(work).length) {
+      if (view.writerId) keep.workBy = { [view.writerId]: work };
+      else keep.work = work;
+    }
     try {
       // 入れた物だけを送る（空の値を送ると、覚えている値が消える）
       if (Object.keys(keep).length) await api("/api/keep", { body: { familyId: p.familyId, keep } });
@@ -186,6 +205,8 @@ function DraftBody(p: Omit<PanelProps, "view" | "err" | "settled" | "onRetry"> &
           </Pill>
         )}
       </div>
+
+      {view.handTo && <HandTo name={view.handTo.name} title={draft.milestoneTitle} />}
 
       {view.blanks.length > 0 && !editing && <BlankFields blanks={view.blanks} keepName={!!view.writerId} busy={saving === "fill"} onFill={(v) => void fillBlanks(v)} />}
 

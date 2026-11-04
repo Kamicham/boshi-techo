@@ -6,6 +6,7 @@ import { MODEL, research, sampleMode, structured } from "@/lib/claude";
 import { clockAt } from "@/lib/clock";
 import type { Family } from "@/lib/demo-family";
 import type { Keep } from "@/lib/keep";
+import { workOf, worksByMember } from "@/lib/whose";
 import { isOfficial } from "@/lib/local";
 import { AdviceSchema, LookSchema, situationFacts, trimAdvice, type Advice, type AdvisorInput, type Trigger } from "@/lib/advisor";
 import { notebookSnapshot, planSnapshot } from "@/lib/ask/tools";
@@ -53,7 +54,8 @@ export async function writeAdvice(t: Trigger, input: AdvisorInput, keep: Keep): 
   // 鍵の無い見本の家族では調べない（見本の答えで書く）
   if (t.research && !sampleMode()) found = await researchMove(t.research);
 
-  const work = keep.work;
+  // 文面を送る人の職場だけ（見直し C09）
+  const work = workOf(keep, f, t.from?.memberId);
   const content = [
     `今日: ${input.today}（${clockAt(f, input.today).label}）`,
     `住む町: ${f.prefecture}${f.city}`,
@@ -122,7 +124,7 @@ export async function lookAround(input: AdvisorInput, keep: Keep, key: string): 
     "家族:",
     ...f.members.map((m) => `- ${m.name}（${m.role}）`),
     ...(situationFacts(f).length ? ["", "家族の形:", ...situationFacts(f).map((x) => `- ${x}`)] : []),
-    keep.work?.company ? `\n職場（覚えている事）: ${[keep.work.company, keep.work.boss && `上司 ${keep.work.boss}`].filter(Boolean).join("・")}` : "",
+    ...worksByMember(keep, f).map(({ member, work: w }) => `\n${member.name}の職場（覚えている事）: ${[w.company, w.boss && `上司 ${w.boss}`].filter(Boolean).join("・")}`),
     "",
     "予定表（決まりの期限。ここに出ている事は繰り返さない）:",
     JSON.stringify(planSnapshot(f, input.today)),
