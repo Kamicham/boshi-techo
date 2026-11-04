@@ -16,7 +16,7 @@ description: 母子手帳の家族アンケート。現実の統計から作っ�
 2. **区切る**: `cd app && date -u +%FT%TZ > sim-data/run-start`
 3. **日記を作る**（無料・約30秒）: `npm run survey:diary`。1000組が1000日の間に今日の画面で見た物が `sim/out/diary.json` に出る（早送りの検査と同じ関数）。
 4. **画面を触った家族を集める**: 前回のアンケートより後に回したなりきり（Workflow `simulate`）の journal を探す。
-   `ls -t ~/.claude/projects/-Users-zhang-boshi-techo/*/subagents/workflows/*/journal.jsonl`
+   `ls -t ~/.claude/projects/*boshi-*/*/subagents/workflows/*/journal.jsonl`
    中身に `"findings"` と `pop-`/`sim-` の家族がある物だけを使う（前回の日付は `app/sim/out/survey/` の一番新しいフォルダ名）。
 5. **見込みの額を出して OK をもらう**: `npm run survey -- --touched <journal1> [--touched <journal2> …]` を `--yes` なしで流すと、見込みの額だけ出して止まる。その額を作り手に見せ、「OK」をもらう（2026-11-03 の決まり。1000組の2回で $58 かかり、API の残高が尽きたため）
    - 既定は200組（約 $6）。1000組（約 $29）は作り手が言った時だけ `--limit 1000`

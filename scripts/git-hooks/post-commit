@@ -1,5 +1,5 @@
 #!/bin/sh
-# 母子手帳: コミットしたら、GitHub の作業のブランチと main まで上げる（2026-11-04 社長「基本メインだけチェックしてる」）。
+# 母子手帳: コミットしたら、GitHub の作業のブランチと main まで上げる（2026-11-04 作り手「基本メインだけチェックしてる」）。
 # 入れ方: scripts/install-git-hooks.sh（.git/hooks は全部の worktree で共通）。止める時だけ BOSHI_NO_AUTOPUSH=1。
 [ -n "$BOSHI_NO_AUTOPUSH" ] && exit 0
 branch=$(git symbolic-ref --short -q HEAD) || exit 0   # 取り込みや巻き戻しの途中（ブランチ無し）は何もしない

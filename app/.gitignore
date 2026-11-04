@@ -50,3 +50,6 @@ next-env.d.ts
 /sim/out/
 /.next-polish/
 /.next-*/
+
+# 試す時の置き場（README の動かし方）
+/try-data/

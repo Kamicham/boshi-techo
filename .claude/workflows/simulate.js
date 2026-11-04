@@ -66,7 +66,7 @@ const SCHEMA = {
 
 const step1 = (id) => {
   const p = personaOf(id)
-  if (!p) return `1. まず /Users/zhang/boshi-techo/app/src/sim/families.ts から ${id} の家族と persona（label・who・literacy・goals・watch）を読む。読むのはこの家族の所だけ。アプリのソースコード（src/app・src/components・src/lib）は読まない。ふつうの使い手はコードを見られない。`
+  if (!p) return `1. まず、このリポの app/src/sim/families.ts から ${id} の家族と persona（label・who・literacy・goals・watch）を読む。読むのはこの家族の所だけ。アプリのソースコード（src/app・src/components・src/lib）は読まない。ふつうの使い手はコードを見られない。`
   return `1. この家族は、現実の割合（公的な統計）から作った1000組の1組（作った家族。実在の人物ではない）。persona は次のとおり（ファイルを読まなくてよい。アプリのソースコード（src/app・src/components・src/lib）は読まない。ふつうの使い手はコードを見られない）:
 ${JSON.stringify(p, null, 1)}`
 }
@@ -74,7 +74,7 @@ ${JSON.stringify(p, null, 1)}`
 const prompt = (id) => `あなたは、母子手帳アプリ（公開ハッカソン作品）を初めて使う家族の1人に、なりきります。家族の id は ${id} です。
 ${step1(id)}
 2. 画面は道具でだけ触る（Mac の Chrome は使わない）:
-   cd /Users/zhang/boshi-techo/app && node src/sim/drive.mjs ${id} setup <persona.meId> <goal の日付>
+   cd "$(git rev-parse --show-toplevel)/app" && node src/sim/drive.mjs ${id} setup <persona.meId> <goal の日付>
    そのあと see / click <番号> / type <番号> <文字> / scroll down / open </path> / tab <today|visit|capture|techo|emergency|settings> / shot。画面の文字と押せる物は see の出力だけで判断する。shot の画像は Read で見てよい（見た目が分からない時だけ）。
    see は欄の今の値（＝「…」）・選んでいる物・押せない物も出す。日付の欄は type <番号> YYYY-MM-DD で入れる。
    find <文字> でその文字の所まで動かす、all で画面の上から下までの文字（件数を数える時・長い手帳を見渡す時）、wait [秒] で待ってから見直す（撮る・話すの候補が出るのを待つ）。
@@ -110,7 +110,7 @@ const CROSS_SCHEMA = {
 }
 const cross = await agent(
   `次の命令を1回だけ実行し、出力をそのまま形に入れて返す。ファイルは直さない。ほかの命令は打たない。\n` +
-    `cd /Users/zhang/boshi-techo/app && node src/sim/cross.mjs ${pair[0]} ${pair[1]}; echo "exit=$?"\n` +
+    `cd "$(git rev-parse --show-toplevel)/app" && node src/sim/cross.mjs ${pair[0]} ${pair[1]}; echo "exit=$?"\n` +
     `lines には ○ × △ で始まる行と「止まりました」「サーバが」で始まる行を入れる。exit は最後の exit= の数。`,
   { label: `世帯をまたぐ:${pair.join('→')}`, phase: '世帯をまたぐ', schema: CROSS_SCHEMA, model: 'opus' },
 )

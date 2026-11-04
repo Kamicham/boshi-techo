@@ -45,7 +45,7 @@
 |---|---|---|---|---|
 | 国の電子版（PMH・2026年度末から順次） | 自治体 | 全国・転居も引き継ぐ | 記録の保管と閲覧 | 父などは代理人として |
 | 母子モ・ninaru・LINEヤフー「子育て」 | 自治体／民間 | 町ごと・全国一律 | 知らせる・やる事の一覧 | 閲覧の共有・別のアプリ |
-| この手帳 | 家族 | 子どもを考えた日から2歳まで・どの町でも | 下書きまで作り、家族は OK だけ | 同じ1冊に、自分の番と自分の名前の下書き |
+| この手帳 | 家族 | おなかに宿った日から2歳まで・どの町でも | 下書きまで作り、家族は OK だけ | 同じ1冊に、自分の番と自分の名前の下書き |
 
 国の電子版とは競わず、補い合います（記録が PMH に載れば、この手帳はそこから読む側になる）。出典と確認日: [docs/LANDSCAPE.md](docs/LANDSCAPE.md)
 
@@ -86,6 +86,7 @@
 cd app
 npm install
 cp .env.example .env.local   # ANTHROPIC_API_KEY と ASR_URL を書く
+echo 'BOSHI_DATA_DIR=./try-data' >> .env.local   # 試す時の置き場。書かないと app/data/ を本物の家族の置き場として守り、思い出・手紙・映画が止まる
 npm run dev                  # http://localhost:3000
 ```
 
@@ -194,7 +195,7 @@ Every change is fast-forwarded through 1,000 days with 1,000 synthetic families 
 
 ## Run
 
-See the Japanese section above (`cd app && npm install && npm run dev`, with `ANTHROPIC_API_KEY` and `ASR_URL` in `.env.local`). Without `ANTHROPIC_API_KEY`, the schedule, deadlines and emergency contacts still work, and the demo family shows clearly labeled sample answers for the Claude features. `BOSHI_DAILY_USD` and `BOSHI_HOUSEHOLD_DAILY_USD` cap daily Claude spend for the server and per household. Without `ASR_URL`, a bundled demo transcript is used so the whole visit flow still works without a GPU.
+See the Japanese section above (`cd app && npm install && npm run dev`, with `ANTHROPIC_API_KEY`, `ASR_URL` and `BOSHI_DATA_DIR=./try-data` in `.env.local`; without `BOSHI_DATA_DIR` the app treats `app/data/` as a real family's store and keeps memories, letters and films closed). Without `ANTHROPIC_API_KEY`, the schedule, deadlines and emergency contacts still work, and the demo family shows clearly labeled sample answers for the Claude features. `BOSHI_DAILY_USD` and `BOSHI_HOUSEHOLD_DAILY_USD` cap daily Claude spend for the server and per household. Without `ASR_URL`, a bundled demo transcript is used so the whole visit flow still works without a GPU.
 
 ## Public trial
 

@@ -1,0 +1,16 @@
+#!/bin/bash
+# 母子手帳: コミットの文に、作り手の呼び名・家の道・鍵・家のネットの住所が入っていないかを見る（公開リポの履歴に残るため。2026-11-04）。
+# 入れ方: scripts/install-git-hooks.sh。見張りが間違っている時だけ git commit --no-verify。
+me=$(basename "$HOME")
+boss=$(printf '\347\244\276\351\225\267')
+msg=$(LC_ALL=C grep -av '^#' "$1")
+bad=""
+printf '%s\n' "$msg" | LC_ALL=C grep -aq "$boss" && bad="$bad 作り手の呼び名（「作り手」に）"
+printf '%s\n' "$msg" | LC_ALL=C grep -aqE "/Users/$me([/\"' ]|$)|-Users-$me-" && bad="$bad 家の道"
+printf '%s\n' "$msg" | LC_ALL=C grep -aqE 'sk-ant-[A-Za-z0-9_-]{16,}' && bad="$bad 鍵の文字"
+printf '%s\n' "$msg" | LC_ALL=C grep -aqE '[A-Za-z0-9-]+\.ts\.net' && bad="$bad 家のネットの住所"
+if [ -n "$bad" ]; then
+  echo "[公開の見張り] コミットの文に入れられない物があります:${bad}。直して、もう一度 git commit を" >&2
+  exit 1
+fi
+exit 0

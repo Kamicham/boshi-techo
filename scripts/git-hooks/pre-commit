@@ -1,0 +1,44 @@
+#!/bin/bash
+# 母子手帳: 公開リポ（GitHub の main）に入れてはいけない物を、コミットの前に止める（2026-11-04）。
+# 止める物: 本物の記録と鍵の置き場・鍵の文字・家の道・家のネットの住所・決めた置き場の外の写真や声や動画・5MB を超えるファイル・作り手の呼び名。
+# 入れ方: scripts/install-git-hooks.sh（.git/hooks は全部の worktree で共通）。
+# 見張りが間違っている時だけ git commit --no-verify を使い、理由をコミットの文に書く。
+me=$(basename "$HOME")
+boss=$(printf '\347\244\276\351\225\267')   # 作り手の呼び名（字のまま書くと、この台本の見直しで止まるため）
+bad=0
+say() { printf '[公開の見張り] %s\n' "$1" >&2; bad=1; }
+
+while IFS= read -r -d '' f; do
+  # 置き場で止める（git add -f で入れた時も）
+  case "$f" in
+    .env.example|*/.env.example) ;;
+    .env|.env.*|*/.env|*/.env.*) say "$f: 鍵の置き場のファイルです（入れない）" ;;
+    data/*|*/data/*|app/sim-data/*|app/try-data/*) say "$f: 記録の置き場のファイルです（入れない）" ;;
+    .claude/settings.local.json) say "$f: 手元の設定です（入れない）" ;;
+  esac
+  # 写真・声・動画は決めた置き場だけ
+  case "$f" in
+    *.png|*.PNG|*.jpg|*.JPG|*.jpeg|*.JPEG|*.webp|*.gif|*.heic|*.HEIC|*.m4a|*.mp3|*.wav|*.aac|*.caf|*.mp4|*.MP4|*.mov|*.MOV|*.webm|*.pdf)
+      case "$f" in
+        app/demo-media/*|app/public/*) ;;
+        docs/images/*) printf '[公開の見張り] %s: 見本の家族の画面かを、もう一度確かめてください（本物の家族の画面は入れない）\n' "$f" >&2 ;;
+        *) say "$f: 写真・声・動画は app/demo-media/（見本）・docs/images/（README の絵）・app/public/ にだけ置けます" ;;
+      esac ;;
+  esac
+  size=$(git cat-file -s ":$f" 2>/dev/null || echo 0)
+  if [ "$size" -gt 5000000 ]; then say "$f: 5MB を超えています（約$((size / 1000000))MB）"; fi
+  # 足した行の中身（文字のファイルだけ。中身は表に出さず、どのファイルかだけ言う）
+  case "$(git diff --cached --numstat -- "$f" | cut -f1)" in -) continue ;; esac
+  added=$(git diff --cached -U0 --no-color -- "$f" | LC_ALL=C grep -a '^+' | LC_ALL=C grep -av '^+++')
+  [ -z "$added" ] && continue
+  printf '%s\n' "$added" | LC_ALL=C grep -aqE "/Users/$me([/\"' ]|$)|-Users-$me-" && say "$f: 家の道（Mac のホーム）があります。相対の道か git rev-parse --show-toplevel に"
+  printf '%s\n' "$added" | LC_ALL=C grep -aqE 'sk-ant-[A-Za-z0-9_-]{16,}' && say "$f: 鍵の文字があります（入れない。鍵は環境で渡す）"
+  printf '%s\n' "$added" | LC_ALL=C grep -aqE '[A-Za-z0-9-]+\.ts\.net' && say "$f: 家のネットの住所（Tailscale の名前）があります"
+  printf '%s\n' "$added" | LC_ALL=C grep -aq "$boss" && say "$f: 作り手の呼び名があります（「作り手」に）"
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+
+if [ "$bad" = 1 ]; then
+  echo "[公開の見張り] このコミットは止めました。直してから、もう一度 git commit を" >&2
+  exit 1
+fi
+exit 0
