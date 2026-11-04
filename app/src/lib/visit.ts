@@ -2,7 +2,8 @@
 // ここには DB・ファイル・Claude を呼ぶ処理を置かない（テストで直接読めるように）。
 // サーバの処理は app/api/visit/_lib/server.ts。
 import { z } from "zod";
-import { addDays, addMonths, clockAt, fromDay, toDay, type FamilyDates } from "./clock";
+import { addDays, addMonths, clockAt, diffDays, fromDay, toDay, type FamilyDates } from "./clock";
+import { motherEmployed, type Situation } from "./situation";
 
 // ───────── 記録の形（db の type = "visit"） ─────────
 
@@ -345,10 +346,14 @@ export function visitLabel(f: FamilyDates, date: string): string {
 }
 
 /** 持ち物（全国共通の物だけ。名前は町や病院によって違う事がある） */
-export function bringList(f: FamilyDates, date: string): string[] {
+export function bringList(f: FamilyDates & { situation?: Situation }, date: string): string[] {
   const c = clockAt(f, date);
   if (c.phase === "pregnant" || c.phase === "trying") return ["母子健康手帳", "マイナ保険証か資格確認書", "妊婦健診の受診券", "診察券"];
-  return ["母子健康手帳", "マイナ保険証か資格確認書", "子どもの医療証", "診察券"];
+  const base = ["母子健康手帳", "マイナ保険証か資格確認書", "子どもの医療証", "診察券"];
+  // 1か月健診のころ（生まれて20〜45日）、雇われて働く母は、出産手当金の申請書の医師の証明の欄を書いてもらえる（第2波⑤）
+  const days = f.birthDate ? diffDays(date, f.birthDate) : -1;
+  if (days >= 20 && days <= 45 && motherEmployed(f.situation)) base.push("出産手当金の申請書（医師の証明の欄がまだなら）");
+  return base;
 }
 
 /** 一覧に並べる新しい順（同じ日なら後に作った方を先） */
