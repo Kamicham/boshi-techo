@@ -3,8 +3,33 @@
 // 合言葉（BOSHI_PASSCODE）が空なら、今までどおり門は開いたまま。
 import { NextResponse, type NextRequest } from "next/server";
 import { GATE_COOKIE, gateToken, hasSessionCookie, isLoginPath, loginGateOn } from "@/lib/gate";
+import { newTrialId, publicOn, TRIAL_COOKIE, TRIAL_DAYS, trialIdFromCookie } from "@/lib/trial-cookie";
+
+// ───────── 公開版（BOSHI_PUBLIC=1・2026-11-04） ─────────
+// だれでも体験できる版。開いた人に体験の札（boshi_try）を配り、サーバはその人の写しだけを読み書きする（lib/trial.ts）。
+// 本物の家族の登録はまだ開けないので、アカウント・招待・書き出し・シミュレーションの口は閉じる。
+// 健診（visit）は 11/5 まで凍結の約束なので、公開版では読むだけ（共有の見本の家族に録音を書かせない）。
+const CLOSED_API = [/^\/api\/auth\/(?!get-session)/, /^\/api\/account\//, /^\/api\/household(\/|$)/, /^\/api\/export(\/|$)/, /^\/api\/sim\//, /^\/api\/unlock$/];
+const CLOSED_PAGE = [/^\/login(\/|$)/, /^\/account(\/|$)/, /^\/invite(\/|$)/, /^\/unlock$/];
+
+function publicGate(req: NextRequest): NextResponse {
+  const { pathname } = req.nextUrl;
+  if (CLOSED_API.some((r) => r.test(pathname))) return NextResponse.json({ error: "公開版（体験）では使えません" }, { status: 404 });
+  if (pathname.startsWith("/api/visit") && req.method !== "GET")
+    return NextResponse.json({ error: "体験版の健診の録音は準備中です。健診の日の流れは、録音の無い形で見られます" }, { status: 403 });
+  if (CLOSED_PAGE.some((r) => r.test(pathname))) return NextResponse.redirect(new URL("/", req.url));
+  if (trialIdFromCookie(req.headers.get("cookie"))) return NextResponse.next();
+  // 札が無ければ配る。この1回の頼みにも札を付けて通す（サーバが同じ頼みの中で写しを作れるように）
+  const id = newTrialId();
+  const headers = new Headers(req.headers);
+  headers.set("cookie", [req.headers.get("cookie"), `${TRIAL_COOKIE}=${id}`].filter(Boolean).join("; "));
+  const res = NextResponse.next({ request: { headers } });
+  res.cookies.set(TRIAL_COOKIE, id, { httpOnly: true, secure: req.nextUrl.protocol === "https:", sameSite: "lax", path: "/", maxAge: TRIAL_DAYS * 86_400 });
+  return res;
+}
 
 export async function middleware(req: NextRequest) {
+  if (publicOn()) return publicGate(req);
   const passcode = process.env.BOSHI_PASSCODE;
   if (!passcode) return NextResponse.next();
   const { pathname } = req.nextUrl;

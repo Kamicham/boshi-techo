@@ -102,6 +102,24 @@ npm test          # 時計・期限・健診の処理の単体テスト
 npm run typecheck
 ```
 
+## 公開版（体験）
+
+だれでも、作った家族の手帳を自分だけの写しで触れる版です（`BOSHI_PUBLIC=1`）。
+
+- 開いた人ごとに、見本の家族の写しを1つ作る（札＝クッキーの持ち主だけが開ける。7日で消える）。ほかの人の書き込みは見えない
+- 本物の家族の登録・招待・書き出しは閉じてある。健診の録音は、公開版ではまだ読むだけ
+- Claude は本物を使う。使い過ぎ止めは3段: 1つの写しの1日（`BOSHI_HOUSEHOLD_DAILY_USD`）・サーバ全体の1日（`BOSHI_DAILY_USD`）・Console のワークスペースの月の上限。上限に達した日は「見本の答え」に切り替わり、手帳は止まらない
+
+自分で立てる（Fly.io の東京・月 $3〜6 ほど）:
+
+```bash
+cd app
+fly launch --no-deploy --copy-config --name <好きな名前>   # fly.toml の app を書き換える
+fly volumes create boshi_data --region nrt --size 1
+fly secrets set BETTER_AUTH_SECRET=… BOSHI_KEK=… ANTHROPIC_API_KEY=…   # 鍵は月の上限を付けたワークスペースで作る
+fly deploy
+```
+
 ## しくみ
 
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
@@ -177,6 +195,10 @@ Every change is fast-forwarded through 1,000 days with 1,000 synthetic families 
 ## Run
 
 See the Japanese section above (`cd app && npm install && npm run dev`, with `ANTHROPIC_API_KEY` and `ASR_URL` in `.env.local`). Without `ANTHROPIC_API_KEY`, the schedule, deadlines and emergency contacts still work, and the demo family shows clearly labeled sample answers for the Claude features. `BOSHI_DAILY_USD` and `BOSHI_HOUSEHOLD_DAILY_USD` cap daily Claude spend for the server and per household. Without `ASR_URL`, a bundled demo transcript is used so the whole visit flow still works without a GPU.
+
+## Public trial
+
+`BOSHI_PUBLIC=1` runs a version anyone can try: each visitor gets a private copy of the demo family (bound to a cookie, deleted after 7 days). Sign-up, invites and export are closed. Claude runs for real, capped per copy per day, per server per day, and by the Console workspace limit; once a cap is hit the app falls back to clearly labeled sample answers instead of stopping. To host it yourself on Fly.io (Tokyo), see `app/Dockerfile` and `app/fly.toml` (`fly launch --no-deploy --copy-config`, create the `boshi_data` volume, set `BETTER_AUTH_SECRET`, `BOSHI_KEK` and `ANTHROPIC_API_KEY` as secrets, then `fly deploy`).
 
 ## License
 

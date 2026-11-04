@@ -20,6 +20,8 @@ import { HttpError } from "./http-error";
 import { getSession } from "./auth";
 import { ensureHousehold, getHousehold, listProxies, listSubjects, seedMadeSubjects, type Household, type Subject } from "./households";
 import { storage, type StorageDriver } from "./storage";
+import { ownsTrial, resolveFamilyId } from "./trial";
+import { isTrialId } from "./trial-cookie";
 
 export { forHousehold, type HouseholdDb } from "./db";
 
@@ -67,6 +69,7 @@ export interface HouseholdCtx {
 
 /** ログインなしで通す世帯なら、その種類（demo / sim）。本物の世帯は null */
 export function publicHouseholdKind(id: string): "demo" | "sim" | null {
+  if (isTrialId(id)) return null; // 体験の写しは札の持ち主だけ（withHousehold）
   const kind = madeFamilyKind(id);
   if (!kind) return null;
   if (kind === "sim" && process.env.BOSHI_SIM_LOGIN === "1") return null; // シミュレーションでもログインを求める（世帯をまたいだ 404 を試す時）
@@ -148,8 +151,10 @@ function makeCtx(household: Household, account: Account | null, role: Role): Hou
  * 関所。見たい世帯（familyId）と、要る権限を渡す。通れば、その世帯の中だけに触れる道具を返す。
  * 他人の世帯・無い世帯は 404、ログインしていなければ 401、権限が無ければ 403（HttpError。lib/api.ts の route が JSON にする）。
  */
-export async function withHousehold(req: Request, familyId: unknown, perm: Perm | readonly Perm[]): Promise<HouseholdCtx> {
+export async function withHousehold(req: Request, asked: unknown, perm: Perm | readonly Perm[]): Promise<HouseholdCtx> {
   const need = typeof perm === "string" ? [perm] : perm;
+  // 公開版: 見本の家族を頼まれたら、その人の体験の写しに置き換える（lib/trial.ts）
+  const familyId = await resolveFamilyId(req, asked);
   if (typeof familyId !== "string" || !familyId) throw new HttpError(404, "見つかりません");
 
   const pub = publicHouseholdKind(familyId);
@@ -159,10 +164,13 @@ export async function withHousehold(req: Request, familyId: unknown, perm: Perm 
   const role = account ? memberRole(account.id, familyId) : null;
   if (role) {
     ctx = makeCtx(getHousehold(familyId) ?? ensureHousehold(familyId, madeFamilyKind(familyId) ?? "real"), account, role);
+  } else if (isTrialId(familyId) && ownsTrial(req, familyId)) {
+    ctx = makeCtx(ensureHousehold(familyId, "demo"), account, "guest");
   } else if (pub) {
     ctx = makeCtx(ensureHousehold(familyId, pub), account, "guest");
   } else {
-    if (!account) throw new HttpError(401, "ログインしてください");
+    // 体験の写しは、札の持ち主でなければだれにでも 404（ある・無いを漏らさない）
+    if (!account && !isTrialId(familyId)) throw new HttpError(401, "ログインしてください");
     throw new HttpError(404, "見つかりません");
   }
   for (const p of need) if (!ctx.can(p)) throw new HttpError(403, "この操作はできません");

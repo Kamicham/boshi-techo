@@ -16,7 +16,7 @@ import type { z } from "zod";
 import { HttpError } from "./http-error";
 import { activeConsent, audit } from "./households";
 import { sampleAnswer } from "./samples";
-import { checkBudget, checkHouseholdBudget, checkSimHouseholdBudget, recordSpend } from "./spend";
+import { budgetReached, checkBudget, checkHouseholdBudget, checkSimHouseholdBudget, recordSpend } from "./spend";
 
 /** 深い仕事（一冊・見渡す・健診）。断られた時の呼び直し（fallbacks）はこのモデルの時だけ付ける */
 export const MODEL = "claude-opus-5-5";
@@ -45,11 +45,13 @@ export function claude(): Anthropic {
 }
 
 /**
- * 鍵が無く、見本の家族（demo）の記録として送る時（lib/samples.ts の「見本の答え」を返す床）。
- * 本物の世帯・シミュレーションの家族は、今までどおり「鍵がありません」
+ * 見本の家族（demo。公開版の体験の写しも）で、鍵が無い時か、今日の上限（全体・世帯）に達した時は、
+ * Claude を呼ばずに lib/samples.ts の「見本の答え」を返す（手帳は止めない）。
+ * 本物の世帯・シミュレーションの家族は、今までどおり「鍵がありません」・上限の 429
  */
 export function sampleMode(who: SendWho | null = currentSender()): boolean {
-  return !process.env.ANTHROPIC_API_KEY && who?.kind === "demo";
+  if (who?.kind !== "demo") return false;
+  return !process.env.ANTHROPIC_API_KEY || budgetReached(who.householdId);
 }
 
 /** この手帳の全員に共通の約束（体の判断をしない＝ビジョン⑤「橋」） */
@@ -127,7 +129,8 @@ export function guardSend(task: string, who: SendWho | null = currentSender()): 
   } catch (e) {
     console.error("[claude] 送った記録を残せませんでした", e);
   }
-  checkHouseholdBudget(who.householdId);
+  // 見本の家族と体験の写しは、上限に達したら見本の答えへ落とす（sampleMode）ので、ここでは止めない
+  if (who.kind !== "demo") checkHouseholdBudget(who.householdId);
   return who;
 }
 
@@ -194,7 +197,13 @@ export async function research(
   ];
   const who = guardSend(opts.task ?? "research", opts.who ?? currentSender());
   // 見本の家族でも、調べ物の見本は作らない（町×手続きの答えはほかの家族と使い回すので、見本を混ぜない）
-  if (sampleMode(who)) throw new HttpError(503, "見本の手帳では、公式のページを調べるのに Claude の鍵が要ります。app/.env.local に ANTHROPIC_API_KEY を入れると調べます");
+  if (sampleMode(who))
+    throw new HttpError(
+      503,
+      process.env.ANTHROPIC_API_KEY
+        ? "今日の体験で Claude を使える上限に達したので、公式のページは調べませんでした。明日また試してください"
+        : "見本の手帳では、公式のページを調べるのに Claude の鍵が要ります。app/.env.local に ANTHROPIC_API_KEY を入れると調べます",
+    );
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: question }];
   let res: Anthropic.Beta.BetaMessage | undefined;
   for (let i = 0; i < 4; i++) {

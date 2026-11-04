@@ -514,13 +514,13 @@ function seedItems(): SeedItem[] {
 }
 
 /** デモの家族に作った記録を入れる（同じ id で上書きするので、何度呼んでも増えない） */
-export function seedDemo(): CaptureRecord[] {
+export function seedDemo(familyId: string = DEMO_FAMILY.id): CaptureRecord[] {
   return seedItems().map((s, i) =>
     put<RecordData>(
-      DEMO_FAMILY.id,
+      familyId,
       "record",
       { kind: s.kind, title: s.title, detail: s.detail, who: s.who, source: s.source, seed: true },
-      { id: `record:${DEMO_FAMILY.id}:seed:${String(i + 1).padStart(2, "0")}`, date: s.at },
+      { id: `record:${familyId}:seed:${String(i + 1).padStart(2, "0")}`, date: s.at },
     ),
   );
 }

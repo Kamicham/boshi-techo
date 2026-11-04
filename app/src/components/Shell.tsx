@@ -103,7 +103,8 @@ function AccountBar({ isDemo, signedIn, hasOwn, consentFor }: { isDemo: boolean;
         </Link>
       </p>
     );
-  if (!isDemo) return null;
+  // 公開版（体験）では、アカウント・世帯は作れない（本物の家族の登録はまだ開けていない）
+  if (!isDemo || process.env.NEXT_PUBLIC_BOSHI_PUBLIC === "1") return null;
   if (!signedIn)
     return (
       <p className={`${row} bg-sky-soft`}>

@@ -1,0 +1,11 @@
+# 公開版の像（Docker）に入れない物。本物の家族の記録（data/）・鍵（.env.local）・シミュレーションの記録は、絶対に入れない
+data
+sim-data
+.env*
+!.env.example
+node_modules
+.next
+.next-*
+sim/out
+coverage
+*.log

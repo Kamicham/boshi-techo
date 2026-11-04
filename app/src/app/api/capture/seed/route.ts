@@ -8,6 +8,7 @@ import { familyFor } from "../../_lib/household";
 export const POST = route(async (req: Request) => {
   const b = await body<{ familyId?: string }>(req);
   if (b.familyId !== DEMO_FAMILY.id) throw new HttpError(403, "作った記録を入れられるのはデモの家族だけです");
-  await familyFor(req, b.familyId, "record:write");
-  return { records: seedDemo() };
+  // 公開版では、その人の体験の写しに入れる（h.id）
+  const h = await familyFor(req, b.familyId, "record:write");
+  return { records: seedDemo(h.id) };
 });

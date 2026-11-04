@@ -7,6 +7,7 @@ import { birthFacts, isMadeFamily } from "./techo-seed";
 import { listTecho } from "./techo-store";
 import { cleanQuiet, type Leave, type MotherWork, type Situation, type Work } from "./situation";
 import { HttpError } from "./http-error";
+import { isTrialId } from "./trial-cookie";
 
 export const MINE_ID = "mine";
 
@@ -57,6 +58,8 @@ function popFamily(id: string): Family | null {
  */
 export function madeFamilyKind(id: string): "demo" | "sim" | null {
   if (id === DEMO_FAMILY.id) return "demo";
+  // 公開版の体験の写し（開けるのは札の持ち主だけ。lib/access.ts）
+  if (isTrialId(id)) return "demo";
   if (process.env.BOSHI_SIM !== "1") return null;
   if (simFamilies().some((f) => f.id === id)) return "sim";
   if (popFamily(id)) return "sim";
@@ -70,6 +73,7 @@ export function getFamily(id: string): Family | null {
 
 function rawFamily(id: string): Family | null {
   if (id === DEMO_FAMILY.id) return DEMO_FAMILY;
+  if (isTrialId(id)) return { ...DEMO_FAMILY, id };
   if (id.startsWith("sim-")) return simFamilies().find((f) => f.id === id) ?? null;
   if (id.startsWith("pop-")) return popFamily(id);
   if (id === MINE_ID) {
@@ -127,7 +131,7 @@ export function saveMine(f: Omit<Family, "id">): Family {
 
 /** アカウントで作った世帯の家族の設定を保存する（id は世帯の id。権限は呼ぶ前に withHousehold で確かめる） */
 export function saveFamilyProfile(householdId: string, f: Omit<Family, "id">): Family {
-  if (householdId === DEMO_FAMILY.id) throw new HttpError(403, "見本の家族の設定は変えられません");
+  if (householdId === DEMO_FAMILY.id || isTrialId(householdId)) throw new HttpError(403, "見本の家族の設定は変えられません");
   const fam: Family = { ...f, id: householdId };
   put(householdId, "profile", fam, { id: `profile:${householdId}` });
   return fam;

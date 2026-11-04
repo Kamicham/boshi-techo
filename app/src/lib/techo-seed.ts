@@ -19,6 +19,7 @@
 // - できた日: 乳幼児身体発育調査（運動・言語の通過率）で、半数ができる月齢の近く（近似）。早く生まれた子は予定日から数える（修正月齢）
 // - 便色: 母子健康手帳の便色カード（7色）。作った記録は 5〜7番（よくある色）だけを使う
 // - 血液型: 日本人の ABO 型の割合（A 約38%・O 約31%・B 約22%・AB 約9%）の近似
+import { isDemoLike, isTrialId } from "./trial-cookie";
 import { addDays, addMonths, diffDays, lmpFromDue } from "./clock";
 import type { Family } from "./demo-family";
 import type { TechoEntry } from "./techo";
@@ -152,8 +153,11 @@ const round1 = (n: number) => Math.round(n * 10) / 10;
  * 誰が見てよいかの判定には使わない（それは lib/access.ts の publicHouseholdKind）。
  */
 export function isMadeFamily(id: string): boolean {
-  return id === "demo-sato" || /^sim-\d{2}$/.test(id) || /^pop-\d{4}$/.test(id);
+  return isDemoLike(id) || /^sim-\d{2}$/.test(id) || /^pop-\d{4}$/.test(id);
 }
+
+/** 作った記録の値を決める id（公開版の体験の写しは、見本の家族と同じ値にする） */
+const seedId = (id: string) => (isTrialId(id) ? "demo-sato" : id);
 
 /** 1000組の家族が持つ値（population.ts の profile。lib から sim を読まないよう、形だけここに書く） */
 interface PopLike {
@@ -170,7 +174,7 @@ export function birthFacts(family: Family): { gestDays: number; weightsG: number
   const babies = Math.max(1, Math.min(3, family.situation?.babies ?? 1));
   // 双子は中央値を1割下げる（population.ts と同じ近似）
   const med = birthWeightMedian(gestDays) * (babies > 1 ? 0.9 : 1);
-  const weightsG = Array.from({ length: babies }, (_, i) => Math.round((med * (1 + 0.06 * spread(family.id, `bw${i}`))) / 2) * 2);
+  const weightsG = Array.from({ length: babies }, (_, i) => Math.round((med * (1 + 0.06 * spread(seedId(family.id), `bw${i}`))) / 2) * 2);
   return { gestDays, weightsG };
 }
 
@@ -184,7 +188,7 @@ const weekText = (days: number) => `${Math.floor(days / 7)}週${days % 7 ? `${da
  */
 export function seedTecho(family: Family, today: string): TechoEntry[] {
   if (!isMadeFamily(family.id)) return [];
-  const fid = family.id;
+  const fid = seedId(family.id);
   const out: TechoEntry[] = [];
   const add = (e: Omit<TechoEntry, "source">) => {
     if (e.date <= today) out.push({ ...e, source: "seed", note: e.note ?? "作った記録（統計から作った家族）" });

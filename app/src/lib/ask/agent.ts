@@ -8,7 +8,7 @@ import { z } from "zod";
 import { guideText } from "../app-guide";
 import { situationFacts } from "../advisor";
 import { CHARTER, claude, currentSender, EVERYDAY_MODEL, guardSend, LIGHT_MODEL, sampleMode, spendWho, structured } from "../claude";
-import { SAMPLE_ASK_REPLY } from "../samples";
+import { sampleAskReply } from "../samples";
 import { clockAt } from "../clock";
 import { get, put } from "../db";
 import type { Family } from "../demo-family";
@@ -210,7 +210,7 @@ export async function ask(input: AskInput): Promise<AskResult> {
 
   // 鍵が無い見本の家族: 機械の床（急ぎ・心の危機の連絡先）はそのまま効かせ、返事は見本の言葉にする
   if (sampleMode()) {
-    const reply = bridge.lead ? `${bridge.lead}\n\n${SAMPLE_ASK_REPLY}` : SAMPLE_ASK_REPLY;
+    const reply = bridge.lead ? `${bridge.lead}\n\n${sampleAskReply()}` : sampleAskReply();
     const actions = dedupe([...bridge.actions]);
     const turn: ChatTurn = { role: "assistant", text: reply, today, at: new Date().toISOString(), ...(actions.length ? { actions } : {}) };
     return { turn, rewritten: false, tools: [] };

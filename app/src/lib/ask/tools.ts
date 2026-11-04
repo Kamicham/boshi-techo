@@ -1,12 +1,13 @@
 // 「手帳に聞く」の道具: 手帳がこの家族の今を見る・町の制度を取りに行く・返事の下に動きを添える。
 // 読む道具は既存の部品を包むだけ。動きの道具は何も書き込まず、画面に出すボタンを積むだけ（押すのは家族）。
+import { isDemoLike } from "../trial-cookie";
 import "server-only";
 import type Anthropic from "@anthropic-ai/sdk";
 import { isKnownHref } from "../app-guide";
 import { research } from "../claude";
 import { clockAt } from "../clock";
 import { listRecords } from "../capture";
-import { DEMO_FAMILY, type Family } from "../demo-family";
+import type { Family } from "../demo-family";
 import { fetchLocal, getLocal, isOfficial } from "../local";
 import { deadlineKindOf, MILESTONES, scheduleFor, statusOf, type Milestone } from "../milestones";
 import { TECHO_PAGES } from "../techo";
@@ -42,7 +43,7 @@ function whoName(family: Family, who: string): string {
 /** 今日の画面と同じ「済み」（デモの家族は通り過ぎた期限も済み） */
 function doneOf(family: Family, today: string, schedule: Milestone[]): Set<string> {
   const done = doneSetFor(family, today);
-  if (family.id === DEMO_FAMILY.id) for (const m of schedule) if (m.deadlineDate && m.deadlineDate < today) done.add(m.id);
+  if (isDemoLike(family.id)) for (const m of schedule) if (m.deadlineDate && m.deadlineDate < today) done.add(m.id);
   return done;
 }
 

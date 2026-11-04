@@ -95,7 +95,9 @@ export default function Settings() {
       )}
 
       {!askMine &&
-        (accountsEnabled && !account ? (
+        (process.env.NEXT_PUBLIC_BOSHI_PUBLIC === "1" ? (
+          <p className="text-sm text-muted">体験版では、自分の家族の手帳はまだ作れません（作った家族の写しを触れます）。</p>
+        ) : accountsEnabled && !account ? (
           <NextStep eyebrow="いま見ているのはデモの家族" title="アカウントを作ると、自分の世帯ができます" sub="メールに届く6桁のコードで入ります">
             <Btn href="/login?next=/settings">ログイン・アカウントを作る</Btn>
           </NextStep>

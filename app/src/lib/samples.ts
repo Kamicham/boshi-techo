@@ -8,7 +8,9 @@ import "server-only";
 
 /** 答えの頭に付ける札 */
 export const SAMPLE_MARK = "（見本の答え）";
-const NO_KEY = "Claude の鍵を入れると、ここを Claude が書きます。";
+/** 見本にした訳（鍵が無い／公開版で今日の上限に達した） */
+const noKey = () =>
+  process.env.ANTHROPIC_API_KEY ? "今日の体験で Claude を使える上限に達したので、見本の答えにしました。明日はここを Claude が書きます。" : "Claude の鍵を入れると、ここを Claude が書きます。";
 
 type Content = string | readonly { type: string; text?: string }[];
 
@@ -41,7 +43,7 @@ function capture(content: Content) {
     deadlines: [],
     techo: [],
     oneQuestion: null,
-    reply: `${SAMPLE_MARK}書いた文を、そのままメモに残しました。${NO_KEY}（いつ・誰の事・期限を読み分けます）`,
+    reply: `${SAMPLE_MARK}書いた文を、そのままメモに残しました。${noKey()}（いつ・誰の事・期限を読み分けます）`,
   };
 }
 
@@ -51,7 +53,7 @@ function capturePage() {
     page: "unknown",
     entries: [],
     unreadable: false,
-    reply: `${SAMPLE_MARK}写真は残しました。${NO_KEY}（紙の母子手帳のページを読んで、行ごとに写します）`,
+    reply: `${SAMPLE_MARK}写真は残しました。${noKey()}（紙の母子手帳のページを読んで、行ごとに写します）`,
   };
 }
 
@@ -63,7 +65,7 @@ function draft(content: Content) {
     kind: "記入メモ" as const,
     title: `${SAMPLE_MARK}${title}`,
     to: "【出す先】",
-    body: `${NO_KEY}\nこの家族の予定・町・「いつもの」（勤め先や連絡先）から、そのまま出せる文を書き、分からない所だけ【 】の空欄で残します。\n\n見本では、出す前に確かめる事だけを並べています。`,
+    body: `${noKey()}\nこの家族の予定・町・「いつもの」（勤め先や連絡先）から、そのまま出せる文を書き、分からない所だけ【 】の空欄で残します。\n\n見本では、出す前に確かめる事だけを並べています。`,
     checklist: ["出す先と締切を、町の窓口のページで確かめる", "持って行く物をそろえる", "書いた文を家族で読み合わせる"],
   };
 }
@@ -72,7 +74,7 @@ function draft(content: Content) {
 function advice() {
   return {
     title: `${SAMPLE_MARK}予定表に無い事に気づきました`,
-    why: `機械で確かめた事（下に出ています）から見つけました。${NO_KEY}`,
+    why: `機械で確かめた事（下に出ています）から見つけました。${noKey()}`,
     plan: ["下に出ている確かめた事を家族で見る", "必要なら町の窓口か職場に確かめる"],
   };
 }
@@ -86,7 +88,7 @@ function look() {
 function book() {
   return {
     title: "見本の一冊",
-    dedication: `${SAMPLE_MARK}${NO_KEY}今日までの記録と写真から、子どもに語りかける一冊を書きます。`,
+    dedication: `${SAMPLE_MARK}${noKey()}今日までの記録と写真から、子どもに語りかける一冊を書きます。`,
     chapters: [],
     closing: "記録が増えるほど、この本は厚くなります。",
     cover: "",
@@ -110,4 +112,4 @@ export function sampleAnswer(task: string | undefined, content: Content): unknow
 }
 
 /** 手帳に聞く: 見本の返事（急ぎの言葉への連絡先は、bridge.ts が鍵なしで頭に置く） */
-export const SAMPLE_ASK_REPLY = `${SAMPLE_MARK}${NO_KEY}この家族の予定・記録・町を道具で見てから答え、記録・健診で聞く事・その画面へ行くボタンを添えます。\n見本のあいだも、予定表・期限・急ぎの時の連絡先はそのまま使えます。`;
+export const sampleAskReply = () => `${SAMPLE_MARK}${noKey()}この家族の予定・記録・町を道具で見てから答え、記録・健診で聞く事・その画面へ行くボタンを添えます。\n見本のあいだも、予定表・期限・急ぎの時の連絡先はそのまま使えます。`;

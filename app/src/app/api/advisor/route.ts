@@ -11,7 +11,7 @@ import { listRecords } from "@/lib/capture";
 import { get, patch, put } from "@/lib/db";
 import { doneSetFor } from "@/app/api/done/_lib/done";
 import { fillFamilyBlanks } from "@/lib/blanks";
-import { DEMO_FAMILY } from "@/lib/demo-family";
+import { isDemoLike } from "@/lib/trial-cookie";
 import { fillBlanks } from "@/lib/keep";
 import { HttpError } from "@/lib/family";
 import { getKeep } from "@/lib/keep";
@@ -68,7 +68,7 @@ export const GET = route(async (req: Request) => {
     .filter((r) => !r.date || r.date.slice(0, 10) <= today)
     .slice(0, 5)
     .map((r) => ({ date: r.date, kind: r.data.kind, title: r.data.title, who: r.data.who }));
-  const input = { family, today, done, isDemo: family.id === DEMO_FAMILY.id, records };
+  const input = { family, today, done, isDemo: isDemoLike(family.id), records };
 
   const open = detectTriggers(input).filter((x) => !get<Advice>(adviceId(family.id, x.key))?.data.dismissedAt);
   // 決まりのきっかけが無い時だけ、見渡した気づきを足す

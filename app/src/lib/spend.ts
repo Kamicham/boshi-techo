@@ -160,3 +160,17 @@ export function checkHouseholdBudget(householdId: string): void {
   }
   if (used >= cap) throw new HttpError(429, `この家族が今日 Claude を使える上限（$${cap}）に達しました。明日また使えます`);
 }
+
+/**
+ * 今日の上限（全体 BOSHI_DAILY_USD・世帯 BOSHI_HOUSEHOLD_DAILY_USD）に達したか。
+ * 見本の家族と公開版の体験の写しは、達した日は止めずに見本の答えへ落とす（lib/claude.ts の sampleMode）
+ */
+export function budgetReached(householdId: string): boolean {
+  try {
+    checkDailyBudget();
+    checkHouseholdBudget(householdId);
+    return false;
+  } catch {
+    return true;
+  }
+}
