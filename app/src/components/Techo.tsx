@@ -37,6 +37,7 @@ import { canLocalFor, prepAhead, type Prepared } from "./today/prep";
 import { PrepAhead, PrepNote } from "./today/PrepAhead";
 import { urgentNear } from "./today/urgent";
 import { focusFor, useStageFocus } from "./today/stage-focus";
+import { calmWords } from "./today/calm";
 import { DRAFTABLE } from "./MilestoneActions";
 
 /** 「済んだにしました・もどす」を出しておく長さ */
@@ -509,7 +510,13 @@ export function Techo() {
           <Btn href="/visit">予約した日を入れる</Btn>
         </NextStep>
       ) : (
-        <Calm upcoming={me ? upcoming.filter((t) => t.who === "家族" || t.who === me.role) : upcoming} today={today} others={rows.filter((r) => r.kind === "task").length} before={beforeCount} />
+        <Calm
+          upcoming={me ? upcoming.filter((t) => t.who === "家族" || t.who === me.role) : upcoming}
+          today={today}
+          others={rows.filter((r) => r.kind === "task").length}
+          before={beforeCount}
+          advisor={advisorOpen! > 0 ? (advisorFirst ? "above" : "below") : undefined}
+        />
       )}
 
       {/* 産後8週（生まれた日から55日目）までは、急ぎの時の入口を一番上の札のすぐ下にも（UX の見直し C02④）。夜中に赤ちゃんの事で開く時期なので、下まで探さずに押せる所へ。
@@ -681,13 +688,11 @@ function WeekBand({ family, today }: { family: Family; today: string }) {
  * 「大丈夫」を一番大きく。日数は数えず日付で。見張っている近い3件を見せ、見落としの不安を減らす。
  * 町の予定まで確かめたとは書かない（期限表から決まる事だけ）。
  */
-function Calm({ upcoming, today, others = 0, before = 0 }: { upcoming: Task[]; today: string; others?: number; before?: number }) {
-  // 家族のほかの人の番で、期限のある事が「このあと」に残っている時は、家族全体が大丈夫とは言わない（なりきり sim-15・sim-14）
-  // 上に「手帳を始める前の事」（聞く事・まだの事）がある時も、何もしなくて大丈夫とは言わない（2026-11-04）
-  // UX 2026-11-04: 上の箱を受ける言い回し（「上の…のほかは」）は一度で読めなかったので、それだけで読める見出しに
-  const title = before > 0 ? "ほかに、今すぐやる事はありません" : others > 0 ? "あなたは今週、急ぐ事はありません" : "今週は、何もしなくて大丈夫";
+function Calm({ upcoming, today, others = 0, before = 0, advisor }: { upcoming: Task[]; today: string; others?: number; before?: number; advisor?: "above" | "below" }) {
+  // 見出しと一言の頭は calm.ts（手帳が気づいた事が出ている日は「急ぐ事はありません」と言わない。統括の足し 3）
+  const { title, lead } = calmWords({ before, others, advisor });
   const next = upcoming[0];
-  if (!next) return <NextStep tone="ok" title={title} sub={others > 0 ? "家族の番の事は、下の「このあと」に日付の順で並べています。" : undefined} />;
+  if (!next) return <NextStep tone="ok" title={title} sub={lead || undefined} />;
   // 日付は下の一覧と同じ「11/19（木）ごろから」の形。先の事の一覧は下の「近づいたら、ここに出します」1か所だけ
   // （UX 2026-11-04: ここの「見張っている事」と下の一覧に、同じ事が2回・2つの日付の形で出ていた）
   const when = (t: Task) => (t.awaitingPregnancy ? "授かったら" : t.awaitingBirth ? "生まれたら" : `${jpShort(t.startDate, today)}ごろから`);
@@ -695,7 +700,7 @@ function Calm({ upcoming, today, others = 0, before = 0 }: { upcoming: Task[]; t
     <NextStep
       tone="ok"
       title={title}
-      sub={`${others > 0 ? "家族の番の事は、下の「このあと」に日付の順で並べています。" : ""}次は ${when(next)}、「${next.plain}」。近づいたら、ここの一番上に出します。`}
+      sub={`${lead}次は ${when(next)}、「${next.plain}」。近づいたら、ここの一番上に出します。`}
     />
   );
 }
