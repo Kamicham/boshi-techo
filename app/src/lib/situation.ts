@@ -15,6 +15,11 @@ export interface Situation {
   partnerLeave?: Leave;
   /** 上の子。true = いる、false = いない（第1子）、undefined = わからない */
   olderChildren?: boolean;
+  /**
+   * 上の子の一人ずつ（第2波①。olderChildren が true の時だけ持つ・3人まで）。
+   * 生まれた日から、上の子の健診・予防接種を赤ちゃんの予定と同じ表に出す（lib/older.ts）。
+   */
+  olderKids?: OlderKid[];
   /** 生まれる子の数（双子なら2）。undefined = 1 */
   babies?: number;
   /** 里帰り出産。true = する、false = しない、undefined = わからない */
@@ -28,6 +33,21 @@ export interface Situation {
   publicServant?: boolean;
   /** 赤ちゃんが入る健康保険。勤め先 = 会社などの保険（扶養）、国保 = 国民健康保険。undefined = 働き方から近似（birth-trip.ts の babyInsuranceOf） */
   babyInsurance?: "勤め先" | "国保";
+}
+
+/** 上の子が日中いる所 */
+export type OlderCare = "保育園" | "幼稚園" | "家" | "小学校";
+export const OLDER_CARES: OlderCare[] = ["保育園", "幼稚園", "家", "小学校"];
+export const MAX_OLDER_KIDS = 3;
+
+export interface OlderKid {
+  /** 呼び名（任意。無ければ「上の子」） */
+  name?: string;
+  /** 生まれた日（YYYY-MM-DD）。年月だけ答えた時は1日にして monthOnly を立てる（近似） */
+  birthDate: string;
+  monthOnly?: boolean;
+  /** 日中いる所（わからない時は無し） */
+  care?: OlderCare;
 }
 
 export type Quiet = "loss" | "nicu";
