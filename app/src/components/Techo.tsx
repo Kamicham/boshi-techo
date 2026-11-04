@@ -35,6 +35,7 @@ import { byDays, daysLeft, planToday, whoLabel, withAssignee, type Task } from "
 import { VisitToday, visitIsTop } from "./today/VisitToday";
 import { canLocalFor, prepAhead, type Prepared } from "./today/prep";
 import { PrepAhead, PrepNote } from "./today/PrepAhead";
+import { urgentNear } from "./today/urgent";
 import { DRAFTABLE } from "./MilestoneActions";
 
 /** 「済んだにしました・もどす」を出しておく長さ */
@@ -502,6 +503,19 @@ export function Techo() {
         </NextStep>
       ) : (
         <Calm upcoming={me ? upcoming.filter((t) => t.who === "家族" || t.who === me.role) : upcoming} today={today} others={rows.filter((r) => r.kind === "task").length} before={beforeCount} />
+      )}
+
+      {/* 産後8週（生まれた日から55日目）までは、急ぎの時の入口を一番上の札のすぐ下にも（UX の見直し C02④）。夜中に赤ちゃんの事で開く時期なので、下まで探さずに押せる所へ。
+          母にもパートナーにも出す。体の判断はしない（行き先は手当の手順と 119・#8000 への橋）。赤は小さな点だけ・ふつうのリンク（通信が無くても開ける）。下のいつもの入口はそのまま */}
+      {!loading && urgentNear(family.birthDate, today) && (
+        <a href="/emergency" className="flex min-h-11 items-center gap-2 rounded-xl border border-line bg-card px-4 py-2 text-ink">
+          <span aria-hidden className="inline-block size-1.5 shrink-0 rounded-full bg-alert" />
+          <span className="shrink-0 text-base font-semibold">急ぎの時</span>
+          <span className="min-w-0 truncate text-sm text-muted">119・#8000・手当の手順</span>
+          <span aria-hidden className="ml-auto shrink-0 text-muted">
+            ›
+          </span>
+        </a>
       )}
 
       {/* 母の画面: パートナーの番に決めた生まれた届けは1行に（押すと束が開く。UX の見直し C08） */}

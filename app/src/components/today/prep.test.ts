@@ -1,11 +1,16 @@
 // 手帳が先回りした跡（UX の見直し C07・2026-11-05）: 一番上の札の「✓ …を下書きしました（あと◯だけ）」の言い方と、
 // 開いた時に手帳が先に用意する事の選び方（一番上を含めて3件まで・14日以内・自分か家族の番）を、30家族の1000日で確かめる。
 // Claude は呼ばない。
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
 import { addDays, diffDays } from "@/lib/clock";
+import { DRAFTABLE } from "@/lib/draft-kinds";
+import { DRAFT_KINDS } from "@/lib/drafts";
 import { scheduleFor, statusOf } from "@/lib/milestones";
 import { SIM_FAMILIES } from "@/sim/families";
-import { PREP_DAYS, PREP_MAX, SAMPLE_MARK, blankNote, canLocalFor, isSample, madeLine, prepAhead, prepNoteOf } from "./prep";
+import { PREP_DAYS, PREP_MAX, SAMPLE_MARK, blankNote, canLocalFor, draftKindFor, isSample, madeLine, prepAhead, prepNoteOf } from "./prep";
 import { NOW, isMine, isStale, planToday, withAssignee, type Task } from "./task";
 
 vi.mock("server-only", () => ({}));
@@ -17,6 +22,22 @@ describe("手帳が用意した事の言い方", () => {
     expect(isSample({ title: `${server}出生届の書く事` })).toBe(true);
     expect(isSample({ title: "出生届の書く事" })).toBe(false);
     expect(isSample(null)).toBe(false);
+  });
+
+  it("下書きを何と呼ぶかは、表（lib/draft-kinds）を先に見る＝札の下のボタンと同じ順。Claude が別の種類で作っても行とボタンの名前がずれない", () => {
+    for (const [id, kind] of Object.entries(DRAFTABLE)) {
+      for (const made of DRAFT_KINDS) expect(draftKindFor(id, made), `${id} ${made}`).toBe(kind);
+    }
+    // 表に無い事だけ、作った種類で言う
+    expect(draftKindFor("x-not-in-table", "頼み文")).toBe("頼み文");
+    expect(draftKindFor("x-not-in-table")).toBe("記入メモ");
+    // 一番上の札の「✓ …を下書きしました」（usePrep）と、帯の下の「手帳がしておいた事」（PrepAhead）は、この順を通す
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    for (const f of ["usePrep.ts", "PrepAhead.tsx"]) {
+      const src = fs.readFileSync(path.join(here, f), "utf8");
+      expect(src, f).toContain("draftKindFor(t.id,");
+      expect(src, f).not.toMatch(/kind \?\? DRAFTABLE/);
+    }
   });
 
   it("下書きの行: メールと頼み文は「下書きしました」、メモと一覧は「作りました」。残る空欄は1つなら名前、2つ以上は数で", () => {

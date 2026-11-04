@@ -9,7 +9,7 @@ import type { DraftView } from "@/lib/drafts";
 import type { Family, Member } from "@/lib/demo-family";
 import { api } from "../FamilyProvider";
 import { DRAFTABLE, nounFor } from "../MilestoneActions";
-import { canLocalFor, isSample, madeLine } from "./prep";
+import { canLocalFor, draftKindFor, isSample, madeLine } from "./prep";
 import type { Task } from "./task";
 
 export type PrepState = "idle" | "busy" | "ok" | "fail";
@@ -81,7 +81,8 @@ export function usePrep(t: Task, today: string, family: Family, me: Member | nul
   }
   // できた下書きは消さずに、手帳がした事として残す。残る空欄は下書きから数える（見本の答えは数えない）
   if (canDraft && draftState === "ok" && draft && !sample) {
-    lines.push({ key: "draft", state: "ok", text: madeLine(nounFor(draft.kind ?? DRAFTABLE[t.id], t), draft.kind ?? DRAFTABLE[t.id], (view?.blanks ?? []).map((b) => b.label)) });
+    const kind = draftKindFor(t.id, draft.kind);
+    lines.push({ key: "draft", state: "ok", text: madeLine(nounFor(kind, t), kind, (view?.blanks ?? []).map((b) => b.label)) });
   }
 
   /** 手帳が本当に用意した物がある（調べた窓口か、見本でない下書き） */

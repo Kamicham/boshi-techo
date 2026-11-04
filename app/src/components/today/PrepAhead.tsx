@@ -12,7 +12,7 @@ import type { Family, Member } from "@/lib/demo-family";
 import { ApiError, api } from "../FamilyProvider";
 import { DRAFTABLE, nounFor } from "../MilestoneActions";
 import { jpShort } from "./dates";
-import { canLocalFor, prepNoteOf, type Prepared } from "./prep";
+import { canLocalFor, draftKindFor, prepNoteOf, type Prepared } from "./prep";
 import { notifyPrep } from "./usePrep";
 import type { Task } from "./task";
 
@@ -101,7 +101,7 @@ export function PrepNote({ tasks, prepared, today }: { tasks: Task[]; prepared: 
       <ul className="flex flex-col gap-1 pb-1">
         {done.map((t) => {
           const p = prepared[t.id];
-          const what = [p.local && "窓口を調べた", p.draft && `${nounFor(p.draft.kind ?? DRAFTABLE[t.id], t)}を作った`].filter(Boolean).join("・");
+          const what = [p.local && "窓口を調べた", p.draft && `${nounFor(draftKindFor(t.id, p.draft.kind), t)}を作った`].filter(Boolean).join("・");
           return (
             <li key={t.id} className="flex items-baseline gap-2">
               <span aria-hidden className="w-4 shrink-0 text-center text-ok">
