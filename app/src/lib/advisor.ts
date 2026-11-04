@@ -100,7 +100,7 @@ function birthShift(input: AdvisorInput, schedule: Milestone[], done: Set<string
     if (!done.has("partner-leave")) facts.push("パートナーの育休の申し出は、まだ済みになっていない");
   }
   const due = schedule
-    .filter((m) => m.anchor === "birth" && m.deadlineDate && !done.has(m.id) && diffDays(m.deadlineDate, today) >= 0 && diffDays(m.deadlineDate, today) <= 31)
+    .filter((m) => m.anchor === "birth" && !m.older && m.deadlineDate && !done.has(m.id) && diffDays(m.deadlineDate, today) >= 0 && diffDays(m.deadlineDate, today) <= 31)
     .map((m) => `- ${m.title}（担当の目安: ${m.who}）: ${jp(m.deadlineDate!)}まで（あと${diffDays(m.deadlineDate!, today)}日）`);
   if (due.length) facts.push("生まれた日で数え直した期限:", ...due);
   return {
