@@ -23,6 +23,12 @@ export NEXT_DIST_DIR=.next-sim
 # 全体は既定7家族×$3、家族ごとに $3（第29回で、7家族が $5 を分け合って途中で尽きたため。「聞く」と町を調べる道具は1回 $0.2〜0.7）
 export BOSHI_SIM_BUDGET_USD="${BOSHI_SIM_BUDGET_USD:-21}"
 export BOSHI_SIM_HOUSEHOLD_USD="${BOSHI_SIM_HOUSEHOLD_USD:-3}"
+# 鍵: 検査のワークスペースの鍵（月の上限つき）を、この時だけ環境変数で渡す（ANTHROPIC_API_KEY=… scripts/sim-server.sh）。
+# worktree の .env.local に鍵を写さない（2026-11-04、4か所に写した1本の鍵で残高が尽きた）。鍵が無ければ、見本の家族は見本の答えで動く
+export BOSHI_DAILY_USD="${BOSHI_DAILY_USD:-$BOSHI_SIM_BUDGET_USD}"
+if [ -z "$ANTHROPIC_API_KEY" ] && ! grep -qE '^ANTHROPIC_API_KEY=.+' .env.local 2>/dev/null; then
+  echo "Claude の鍵がありません: 見本の家族は見本の答え、作った家族の Claude の仕事は 503 になります"
+fi
 PORT=3100
 
 mode=build

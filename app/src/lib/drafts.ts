@@ -5,7 +5,7 @@ import "server-only";
 import { z } from "zod";
 import { clearDoneFromDraft, markDoneFromDraft } from "@/app/api/done/_lib/done";
 import { fillFamilyBlanks, findBlanks, isRoleWord, type Blank } from "./blanks";
-import { structured } from "./claude";
+import { EVERYDAY_MODEL, structured } from "./claude";
 import { get, list, put } from "./db";
 import type { Family, Member } from "./demo-family";
 import { fillBlanks, getKeep, type Keep } from "./keep";
@@ -220,7 +220,7 @@ export async function makeDraft(family: Family, m: MilestoneDef, today: string, 
       `気をつける事: ${local.caution}`,
     );
   }
-  const out = await structured(DraftSchema, SYSTEM, lines.filter(Boolean).join("\n"), { effort: "low", maxTokens: 6000 });
+  const out = await structured(DraftSchema, SYSTEM, lines.filter(Boolean).join("\n"), { model: EVERYDAY_MODEL, effort: "low", maxTokens: 6000, task: "draft" });
   // 作り直したら、前の「送った」の印から付いた済みは外す（新しい下書きはまだ送っていない）
   clearDoneFromDraft(family.id, m.id);
   const draft = fillDraft({ ...out, milestoneId: m.id, milestoneTitle: m.title, status: "draft", usedLocal: !!local, today }, keep, undefined, family);

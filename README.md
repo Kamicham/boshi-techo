@@ -89,6 +89,8 @@ cp .env.example .env.local   # ANTHROPIC_API_KEY と ASR_URL を書く
 npm run dev                  # http://localhost:3000
 ```
 
+- **鍵が無くても動く**: `ANTHROPIC_API_KEY` が空の時、予定表・期限・急ぎの時の連絡先はそのまま動き、デモの家族は Claude の仕事（撮る・下書き・気づき・聞く・一冊）を「見本の答え」で一通り触れる。町の窓口を調べる所だけは鍵が要る
+- Claude の使い過ぎ止め: `BOSHI_DAILY_USD`（サーバ全体の1日）と `BOSHI_HOUSEHOLD_DAILY_USD`（1つの世帯の1日）。鍵は月の上限を付けたワークスペースで作る
 - 文字起こし（健診の録音）は [asr/](asr/) の小さなサーバ（faster-whisper large-v3）を GPU の機械で動かし、`ASR_URL` で指す。音声は家のネットワークの外に出ない
 - `ASR_URL` が無い時は、用意したデモの文字起こしに自動で切り替わる（画面に「デモの文字起こし」と出る）。GPU が無くても、健診の1日を最後まで試せる
 - スマホのマイクは https でないと使えない。家の機械で動かす時は Tailscale Serve などで https の住所を付ける
@@ -174,7 +176,7 @@ Every change is fast-forwarded through 1,000 days with 1,000 synthetic families 
 
 ## Run
 
-See the Japanese section above (`cd app && npm install && npm run dev`, with `ANTHROPIC_API_KEY` and `ASR_URL` in `.env.local`). Without `ASR_URL`, a bundled demo transcript is used so the whole visit flow still works without a GPU.
+See the Japanese section above (`cd app && npm install && npm run dev`, with `ANTHROPIC_API_KEY` and `ASR_URL` in `.env.local`). Without `ANTHROPIC_API_KEY`, the schedule, deadlines and emergency contacts still work, and the demo family shows clearly labeled sample answers for the Claude features. `BOSHI_DAILY_USD` and `BOSHI_HOUSEHOLD_DAILY_USD` cap daily Claude spend for the server and per household. Without `ASR_URL`, a bundled demo transcript is used so the whole visit flow still works without a GPU.
 
 ## License
 

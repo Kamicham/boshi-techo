@@ -7,7 +7,8 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { guideText } from "../app-guide";
 import { situationFacts } from "../advisor";
-import { CHARTER, claude, guardSend, LIGHT_MODEL, MODEL, structured } from "../claude";
+import { CHARTER, claude, currentSender, EVERYDAY_MODEL, guardSend, LIGHT_MODEL, sampleMode, spendWho, structured } from "../claude";
+import { SAMPLE_ASK_REPLY } from "../samples";
 import { clockAt } from "../clock";
 import { get, put } from "../db";
 import type { Family } from "../demo-family";
@@ -18,7 +19,6 @@ import { bridgeFor } from "./bridge";
 import { runTool, TOOLS, type ToolCtx } from "./tools";
 import type { AskAction, ChatTurn } from "./types";
 
-const FALLBACK_BETA = "server-side-fallback-2026-07-01";
 /** 道具を使う手の上限（無限に回らないように） */
 const MAX_STEPS = 8;
 /** Claude に渡す前の会話の数 */
@@ -153,7 +153,7 @@ async function guard(question: string, reply: string): Promise<z.infer<typeof Gu
 async function rewrite(reply: string, problems: string[]): Promise<string> {
   checkBudget();
   const res = await claude().beta.messages.create({
-    model: MODEL,
+    model: EVERYDAY_MODEL,
     max_tokens: 3000,
     system: [{ type: "text", text: `${CHARTER}\n\n${ASK_RULES}` }],
     messages: [
@@ -163,10 +163,8 @@ async function rewrite(reply: string, problems: string[]): Promise<string> {
       },
     ],
     output_config: { effort: "low" },
-    betas: [FALLBACK_BETA],
-    fallbacks: "default",
   });
-  recordSpend("ask-rewrite", res.model ?? MODEL, res.usage);
+  recordSpend("ask-rewrite", res.model ?? EVERYDAY_MODEL, res.usage, spendWho(currentSender()));
   return textOf(res) || reply;
 }
 
@@ -210,6 +208,14 @@ export async function ask(input: AskInput): Promise<AskResult> {
   const c = clockAt(family, today);
   const bridge = bridgeFor(text, c.phase === "pregnant" ? "pregnant" : c.phase === "child" ? "child" : "other");
 
+  // 鍵が無い見本の家族: 機械の床（急ぎ・心の危機の連絡先）はそのまま効かせ、返事は見本の言葉にする
+  if (sampleMode()) {
+    const reply = bridge.lead ? `${bridge.lead}\n\n${SAMPLE_ASK_REPLY}` : SAMPLE_ASK_REPLY;
+    const actions = dedupe([...bridge.actions]);
+    const turn: ChatTurn = { role: "assistant", text: reply, today, at: new Date().toISOString(), ...(actions.length ? { actions } : {}) };
+    return { turn, rewritten: false, tools: [] };
+  }
+
   // 30日より前の話は渡さない（妊娠中の話が、生まれた後の答えに混ざらないように）
   const history = (input.history ?? getChat(family.id)).filter((t) => !t.today || Math.abs(Date.parse(today) - Date.parse(t.today)) <= 30 * 86_400_000).slice(-HISTORY_TURNS);
   const messages: Anthropic.Beta.BetaMessageParam[] = [];
@@ -247,17 +253,15 @@ export async function ask(input: AskInput): Promise<AskResult> {
     checkBudget();
     const last = step === MAX_STEPS - 1;
     const res = await claude().beta.messages.create({
-      model: MODEL,
+      model: EVERYDAY_MODEL,
       max_tokens: 6000,
       system,
       messages,
       tools: TOOLS,
       ...(last ? { tool_choice: { type: "none" as const } } : {}),
       output_config: { effort: "medium" },
-      betas: [FALLBACK_BETA],
-      fallbacks: "default",
     });
-    recordSpend("ask", res.model ?? MODEL, res.usage);
+    recordSpend("ask", res.model ?? EVERYDAY_MODEL, res.usage, spendWho(currentSender()));
     if (res.stop_reason === "refusal") {
       reply = "ごめんなさい、この問いにはお答えできません。手続きや予定のこと、アプリの使い方なら聞いてください。";
       break;

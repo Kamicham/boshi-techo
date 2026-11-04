@@ -65,8 +65,33 @@ export function recordSpend(kind: string, model: string, u: Usage, who?: SpendWh
   }
 }
 
-/** シミュレーションの上限（BOSHI_SIM_BUDGET_USD）。DATA_DIR/run-start の時刻から使った額が上限を超えたら止める */
+const jstDay = (iso: string) => new Date(Date.parse(iso) + 9 * 3600e3).toISOString().slice(0, 10);
+
+/**
+ * サーバ全体の1日の上限（BOSHI_DAILY_USD。入れた時だけ効く）。日本時間の今日、このサーバが使った額の合計で見る。
+ * 2026-11-03 に、上限の無い1本の鍵で API の残高が尽きた（Console で30日 $777）。世帯ごとの上限だけでは、
+ * 世帯の数だけ使えてしまうので、全体にも天井を置く（2026-11-04）
+ */
+export function checkDailyBudget(): void {
+  const cap = Number(process.env.BOSHI_DAILY_USD ?? "");
+  if (!cap) return;
+  const today = jstDay(new Date().toISOString());
+  let used = 0;
+  try {
+    for (const line of fs.readFileSync(file(), "utf8").split("\n")) {
+      if (!line) continue;
+      const r = JSON.parse(line) as { at: string; usd: number };
+      if (jstDay(r.at) === today) used += r.usd;
+    }
+  } catch {
+    return;
+  }
+  if (used >= cap) throw new HttpError(429, `この手帳が今日 Claude を使える上限（$${cap}）に達しました。予定表・期限・急ぎの時は今までどおり使えます。Claude の仕事は明日また使えます`);
+}
+
+/** Claude を呼ぶ前に毎回通す: サーバ全体の1日の上限と、シミュレーションの上限（BOSHI_SIM_BUDGET_USD。DATA_DIR/run-start の時刻から使った額） */
 export function checkBudget(): void {
+  checkDailyBudget();
   const cap = Number(process.env.BOSHI_SIM_BUDGET_USD ?? "");
   if (!cap) return;
   let since = "";
@@ -121,7 +146,7 @@ export function checkSimHouseholdBudget(householdId: string): void {
 export function checkHouseholdBudget(householdId: string): void {
   const cap = Number(process.env.BOSHI_HOUSEHOLD_DAILY_USD ?? "");
   if (!cap) return;
-  const day = (iso: string) => new Date(Date.parse(iso) + 9 * 3600e3).toISOString().slice(0, 10);
+  const day = jstDay;
   const today = day(new Date().toISOString());
   let used = 0;
   try {

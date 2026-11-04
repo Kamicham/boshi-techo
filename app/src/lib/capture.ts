@@ -4,7 +4,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type Anthropic from "@anthropic-ai/sdk";
-import { structured } from "./claude";
+import { EVERYDAY_MODEL, structured } from "./claude";
 import { addDays, addMonths, clockAt, conceptionDate, lmpFromDue } from "./clock";
 import { list, put, remove, type Doc } from "./db";
 import { DEMO_FAMILY, type Family } from "./demo-family";
@@ -178,7 +178,7 @@ export async function capture(input: CaptureInput, replaceCaptureId?: string): P
   }
   parts.push({ type: "text", text: prompt });
 
-  const out = await structured(Schema, SYSTEM, parts, { maxTokens: 6000 });
+  const out = await structured(Schema, SYSTEM, parts, { model: EVERYDAY_MODEL, maxTokens: 6000, task: "capture" });
 
   // 聞き返しの後は、前回の記録を作り直した物で置き換える
   if (replaceCaptureId) {
@@ -465,7 +465,7 @@ export async function captureTechoPage(input: { family: Family; today: string; i
     input.image,
     { type: "text", text: `${context(family, today)}\n\n紙の母子健康手帳のページの写真です。${input.note?.trim() ? `添え書き: ${input.note.trim()}` : ""}` },
   ];
-  const out = await structured(PageSchema, PAGE_SYSTEM, parts, { maxTokens: 8000 });
+  const out = await structured(PageSchema, PAGE_SYSTEM, parts, { model: EVERYDAY_MODEL, maxTokens: 8000, task: "capture-page" });
   const captureId = randomUUID();
   const src: TechoSource = "photo";
   const techo =
@@ -524,3 +524,6 @@ export function seedDemo(): CaptureRecord[] {
     ),
   );
 }
+
+/** 答えの形（試験と、鍵の無い時の見本の答え lib/samples.ts の確かめに使う） */
+export { Schema as CaptureSchema, PageSchema };

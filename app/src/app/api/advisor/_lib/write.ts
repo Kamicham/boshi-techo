@@ -2,7 +2,7 @@
 // 町が変わった時だけ、旧と新の町の公式ページを調べてから書く（出典つき）。
 // lookAround: きっかけが無い時、時期ごとに1回、家族の今（形・予定・記録・健診）を見渡して、決まりに無い事を Claude が自分で見つける。
 import "server-only";
-import { MODEL, research, structured } from "@/lib/claude";
+import { MODEL, research, sampleMode, structured } from "@/lib/claude";
 import { clockAt } from "@/lib/clock";
 import type { Family } from "@/lib/demo-family";
 import type { Keep } from "@/lib/keep";
@@ -50,7 +50,8 @@ async function researchMove(t: NonNullable<Trigger["research"]>) {
 export async function writeAdvice(t: Trigger, input: AdvisorInput, keep: Keep): Promise<Advice> {
   const f: Family = input.family;
   let found: { text: string; sources: { title: string; url: string }[] } | null = null;
-  if (t.research) found = await researchMove(t.research);
+  // 鍵の無い見本の家族では調べない（見本の答えで書く）
+  if (t.research && !sampleMode()) found = await researchMove(t.research);
 
   const work = keep.work;
   const content = [
@@ -80,7 +81,7 @@ export async function writeAdvice(t: Trigger, input: AdvisorInput, keep: Keep): 
     .filter((x) => x !== "")
     .join("\n");
 
-  const out = trimAdvice(await structured(AdviceSchema, SYSTEM, content, { model: MODEL, effort: "medium", maxTokens: 6000 }));
+  const out = trimAdvice(await structured(AdviceSchema, SYSTEM, content, { model: MODEL, effort: "medium", maxTokens: 6000, task: "advice" }));
   const sources = found ? [...found.sources].sort((a, b) => Number(isOfficial(b.url)) - Number(isOfficial(a.url))).slice(0, 6) : undefined;
   return {
     ...out,
@@ -131,7 +132,7 @@ export async function lookAround(input: AdvisorInput, keep: Keep, key: string): 
   ]
     .filter((x) => x !== "")
     .join("\n");
-  const out = await structured(LookSchema, LOOK_SYSTEM, content, { model: MODEL, effort: "medium", maxTokens: 6000 });
+  const out = await structured(LookSchema, LOOK_SYSTEM, content, { model: MODEL, effort: "medium", maxTokens: 6000, task: "look" });
   if (!out.found || !out.advice) return { ...base, title: "", why: "", plan: [], facts: [], none: true };
   return { ...trimAdvice(out.advice), ...base, facts: out.basis.slice(0, 3) };
 }

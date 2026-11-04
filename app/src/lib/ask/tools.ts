@@ -261,7 +261,7 @@ export async function runTool(name: string, input: Record<string, unknown>, ctx:
       if (ctx.searched) return "公式のページはこの問いでもう1回調べました。ここまでに分かった事で答え、言い切れない所は「窓口に確かめる」と書いてください";
       ctx.searched = true;
       ctx.onStatus("公式のページを調べています（20〜40秒）");
-      const r = await research(SEARCH_SYSTEM, `${family.prefecture}${family.city}に住む家族からの質問です。\n${q}`, { maxTokens: 6000 });
+      const r = await research(SEARCH_SYSTEM, `${family.prefecture}${family.city}に住む家族からの質問です。\n${q}`, { maxTokens: 6000, maxUses: 3 });
       ctx.sources.push(...pickSources(family, r.sources).slice(0, 3));
       return JSON.stringify({ 調べた事: r.text, 出典: r.sources.slice(0, 5).map((s) => `${s.title} ${s.url}${isOfficial(s.url) ? "（公式）" : ""}`) });
     }

@@ -342,7 +342,7 @@ export async function makeBook(f: Family, today: string): Promise<Book> {
   const body = bookInput(f, today, entries, keys);
 
   // Claude に渡すのは文字だけ（画像は渡さない）
-  const raw = await structured(BookSchema, SYSTEM, body, { effort: "high" });
+  const raw = await structured(BookSchema, SYSTEM, body, { effort: "high", task: "book" });
   const content = settlePhotos(raw, keys);
   const book: Book = {
     ...content,

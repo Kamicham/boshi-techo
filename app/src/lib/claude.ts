@@ -15,9 +15,16 @@ import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import type { z } from "zod";
 import { HttpError } from "./http-error";
 import { activeConsent, audit } from "./households";
+import { sampleAnswer } from "./samples";
 import { checkBudget, checkHouseholdBudget, checkSimHouseholdBudget, recordSpend } from "./spend";
 
+/** 深い仕事（一冊・見渡す・健診）。断られた時の呼び直し（fallbacks）はこのモデルの時だけ付ける */
 export const MODEL = "claude-opus-5-5";
+/**
+ * ふだんの仕事（撮る・下書き・手帳に聞く・町の調べ物）。2026-11-04、API の残高が尽きた後に既定を Sonnet にした
+ * （作り手の決まり「答える役は Sonnet 以上」は守る。単価は Opus の半分）
+ */
+export const EVERYDAY_MODEL = "claude-sonnet-5-5";
 /** 言い換え・整形など軽い仕事 */
 export const LIGHT_MODEL = "claude-haiku-5-5";
 /**
@@ -35,6 +42,14 @@ export function claude(): Anthropic {
   if (!process.env.ANTHROPIC_API_KEY) throw new HttpError(503, "Claude の鍵がありません。app/.env.local に ANTHROPIC_API_KEY を入れて、サーバを起動し直してください（鍵は Claude Console で作れます）");
   client ??= new Anthropic();
   return client;
+}
+
+/**
+ * 鍵が無く、見本の家族（demo）の記録として送る時（lib/samples.ts の「見本の答え」を返す床）。
+ * 本物の世帯・シミュレーションの家族は、今までどおり「鍵がありません」
+ */
+export function sampleMode(who: SendWho | null = currentSender()): boolean {
+  return !process.env.ANTHROPIC_API_KEY && who?.kind === "demo";
 }
 
 /** この手帳の全員に共通の約束（体の判断をしない＝ビジョン⑤「橋」） */
@@ -126,7 +141,7 @@ export interface AskOptions {
   task?: string;
 }
 
-const spendWho = (who: SendWho | null) => (who ? { household: who.householdId, account: who.accountId } : undefined);
+export const spendWho = (who: SendWho | null) => (who ? { household: who.householdId, account: who.accountId } : undefined);
 
 /** 決まった形（zod）で答えを受け取る */
 export async function structured<S extends z.ZodType>(
@@ -138,6 +153,10 @@ export async function structured<S extends z.ZodType>(
   const model = opts.model ?? MODEL;
   const useFallback = model === MODEL;
   const who = guardSend(opts.task ?? "structured", opts.who ?? currentSender());
+  if (sampleMode(who)) {
+    const s = sampleAnswer(opts.task, content as string | { type: string; text?: string }[]);
+    if (s) return schema.parse(s) as z.infer<S>;
+  }
   checkBudget();
   const res = await claude().beta.messages.parse({
     model,
@@ -158,7 +177,7 @@ export interface SearchResult {
   sources: { title: string; url: string }[];
 }
 
-/** web 検索を使って調べ、文章と出典を返す（自治体の制度など） */
+/** web 検索を使って調べ、文章と出典を返す（自治体の制度など）。既定は Sonnet・呼び直し（fallbacks）なし */
 export async function research(
   system: string,
   question: string,
@@ -174,21 +193,21 @@ export async function research(
     },
   ];
   const who = guardSend(opts.task ?? "research", opts.who ?? currentSender());
+  // 見本の家族でも、調べ物の見本は作らない（町×手続きの答えはほかの家族と使い回すので、見本を混ぜない）
+  if (sampleMode(who)) throw new HttpError(503, "見本の手帳では、公式のページを調べるのに Claude の鍵が要ります。app/.env.local に ANTHROPIC_API_KEY を入れると調べます");
   const messages: Anthropic.Beta.BetaMessageParam[] = [{ role: "user", content: question }];
   let res: Anthropic.Beta.BetaMessage | undefined;
   for (let i = 0; i < 4; i++) {
     checkBudget();
     res = await claude().beta.messages.create({
-      model: opts.model ?? MODEL,
+      model: opts.model ?? RESEARCH_MODEL,
       max_tokens: opts.maxTokens ?? 16000,
       system: [{ type: "text", text: `${CHARTER}\n\n${system}` }],
       messages,
       tools,
       output_config: { effort: opts.effort ?? "medium" },
-      betas: [FALLBACK_BETA],
-      fallbacks: "default",
     });
-    recordSpend("research", res.model ?? opts.model ?? MODEL, res.usage, spendWho(who));
+    recordSpend("research", res.model ?? opts.model ?? RESEARCH_MODEL, res.usage, spendWho(who));
     if (res.stop_reason !== "pause_turn") break;
     messages.push({ role: "assistant", content: res.content });
   }
