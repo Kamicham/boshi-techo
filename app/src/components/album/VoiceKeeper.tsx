@@ -129,8 +129,10 @@ function VoiceSheet({ moment, onClose }: { moment: Moment; onClose: () => void }
               残しました（<span className="tabular">{Math.round(saved.durationSec ?? secs)}</span>秒）。アルバムの{saved.date.slice(5, 7).replace(/^0/, "")}月に並びます。
             </p>
             {saved.transcript && <p className="rounded-xl bg-paper px-3 py-2 text-sm text-muted">「{saved.transcript}」</p>}
+            <Btn full href={`/album?voice=${encodeURIComponent(saved.id)}`}>
+              アルバムで聞く
+            </Btn>
             <div className="flex gap-2">
-              <Btn href={`/album?voice=${encodeURIComponent(saved.id)}`}>アルバムで聞く</Btn>
               <Btn kind="secondary" onClick={() => { setSaved(null); setPhase("idle"); setSecs(0); }}>
                 もう1つ
               </Btn>
