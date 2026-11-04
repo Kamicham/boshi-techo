@@ -17,6 +17,8 @@ import { SituationForm, tidySituation } from "@/components/settings/SituationFor
 import type { Situation } from "@/lib/situation";
 import type { Keep } from "@/lib/keep";
 import { legacyWorkOwner, workOf, type Work } from "@/lib/whose";
+import { NOT_MOVED, townChanged } from "@/lib/move";
+import { addDays } from "@/lib/clock";
 import type { Family, Member } from "@/lib/demo-family";
 
 const ROLES: Member["role"][] = ["母", "パートナー"];
@@ -47,9 +49,14 @@ export default function Settings() {
   const [form, setForm] = useState({ prefecture: "", city: "", dueDate: "", birthDate: "", childName: "" });
   const [members, setMembers] = useState<Member[]>(ROLES.map((role, i) => ({ id: `m${i}`, name: "", role })));
   const [situation, setSituation] = useState<Situation>({});
+  // 町を変えた時に聞く「引っ越した日」（空なら今日）と「町の名前を直しただけ」（見直し C10①）
+  const [movedOn, setMovedOn] = useState("");
+  const [notMoved, setNotMoved] = useState(false);
   const [msg, setMsg] = useFlash();
   const [saving, setSaving] = useState(false);
   const hasPartner = members.some((m) => m.role === "パートナー" && m.name.trim());
+  // 保存した町から変えたか（サーバの「町を変えた」と同じ見方＝lib/move.ts の townChanged）
+  const townEdited = !!shown && townChanged(shown, form);
   // 生まれた後か（保存した生まれた日で決める。入れている途中で問いの並びが動かないように）
   const born = !!shown?.birthDate && shown.birthDate <= today;
   // 保存した家族にパートナーがいない（ひとり親など）。空のパートナーの欄は「家族を足す」に畳む
@@ -59,6 +66,8 @@ export default function Settings() {
     if (!shown) return;
     setSituation(shown.situation ?? {});
     setForm({ prefecture: shown.prefecture, city: shown.city, dueDate: shown.dueDate, birthDate: shown.birthDate ?? "", childName: shown.childName ?? "" });
+    setMovedOn("");
+    setNotMoved(false);
     // 入れていない役（例: パートナー）も欄は残す
     const have = new Set(shown.members.map((m) => m.role));
     setMembers([...shown.members, ...ROLES.filter((r) => !have.has(r)).map((role, i) => ({ id: `m-new${i}`, name: "", role }))]);
@@ -68,7 +77,12 @@ export default function Settings() {
     setSaving(true);
     setMsg(null);
     try {
-      const payload = { ...form, members, situation: tidySituation(situation, hasPartner) };
+      const payload = {
+        ...form,
+        members,
+        situation: tidySituation(situation, hasPartner),
+        ...(townEdited ? { movedOn: notMoved ? NOT_MOVED : movedOn || today } : {}),
+      };
       if (accountsEnabled) await api<{ family: Family }>("/api/account/profile", { body: { ...payload, familyId: targetId } });
       else await api<{ family: Family }>("/api/family", { body: payload });
       await reload();
@@ -172,6 +186,27 @@ export default function Settings() {
                 <input id="city" required aria-required aria-label="市区町村" className={field} value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="上牧町" />
               </div>
               <p className="text-sm text-muted">町の制度を、その町の物で調べます</p>
+              {townEdited && (
+                <div className="flex flex-col gap-2 rounded-xl bg-paper p-3">
+                  <label className="flex flex-col gap-1 text-base">
+                    <span className="text-sm font-semibold text-muted">引っ越した日（転入届などの期限を、この日から数えます）</span>
+                    <input
+                      type="date"
+                      aria-label="引っ越した日"
+                      className={field}
+                      value={movedOn || today}
+                      min={addDays(today, -366)}
+                      max={today}
+                      disabled={notMoved}
+                      onChange={(e) => setMovedOn(e.target.value)}
+                    />
+                  </label>
+                  <label className="flex min-h-11 items-center gap-2 text-base">
+                    <input type="checkbox" className="h-5 w-5" checked={notMoved} onChange={(e) => setNotMoved(e.target.checked)} />
+                    町の名前を直しただけ（引っ越していない）
+                  </label>
+                </div>
+              )}
             </Question>
 
             <Question q="家族は？" n={3}>
@@ -242,7 +277,7 @@ export default function Settings() {
             </p>
           )}
 
-          {shown ? <KeepForm key={shown.id} familyId={shown.id} members={shown.members} /> :<p className="text-sm text-muted">保存すると「いつもの場所と人」を入れられます</p>}
+          {shown ? <KeepForm key={`${shown.id}:${shown.prefecture}${shown.city}`} familyId={shown.id} members={shown.members} /> : <p className="text-sm text-muted">保存すると「いつもの場所と人」を入れられます</p>}
         </>
       )}
 
@@ -418,6 +453,11 @@ function KeepForm({ familyId, members }: { familyId: string; members: Member[] }
       })}
 
       <h3 className="pt-2 text-base font-bold">役所の窓口</h3>
+      {keep?.office?.staleFrom && (
+        <p className="text-sm text-muted">
+          前の町（{keep.office.staleFrom}）の窓口です。下書きと予定の場所には使いません。新しい町の窓口に直すか、手続きの「どこへ行くか見る」で覚え直します
+        </p>
+      )}
       <input aria-label="窓口の名前" className={field} value={office.name} onChange={(e) => setOffice({ ...office, name: e.target.value })} placeholder="例: 町役場 こども課" />
       <input aria-label="窓口の場所" className={field} value={office.address} onChange={(e) => setOffice({ ...office, address: e.target.value })} placeholder="場所（カレンダーに入れるため）" />
 

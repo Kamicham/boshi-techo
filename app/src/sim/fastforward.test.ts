@@ -33,7 +33,7 @@ import { olderOf } from "../lib/older";
 import { benefitFirst } from "../lib/leave-money";
 import type { Family, Member } from "../lib/demo-family";
 import { PARENT_FILINGS, PREGNANCY_ONLY, scheduleFor, statusOf } from "../lib/milestones";
-import { motherEmployed, partnerEmployed } from "../lib/situation";
+import { hasOlderChildren, motherEmployed, partnerEmployed, partnerTakesLeave } from "../lib/situation";
 import { detectTriggers, BIRTH_SHIFT_DAYS, BIRTH_WINDOW_DAYS, MOVED_WINDOW_DAYS, type TriggerKind } from "../lib/advisor";
 import { briefingDay } from "../lib/visit";
 import { NOW, planToday, shownDays, whenDate, whoLabel, type Task } from "../components/today/task";
@@ -78,7 +78,9 @@ const RULES = {
   p: "お金の1000日: 児童手当の最初の振込は偶数月で申請の後・届いたか確かめる件は申請が済んだ物だけで額を出さない・自営や仕事なしの母に出産手当金が出ない（辞める母には出す＝健康保険法第104条）",
   n: "産休・育休のお金: 育休の給付の初回の期限は育休の4か月目の月末で、自営・仕事なし・辞める母には育休の給付が出ず、パートナーの14日の1件は14日以上の家族に出ない（第2波⑤）",
   q: "呼び名と担当: 短い題・一言に「パパ」が出ず、正式な題は法の呼び名「産後パパ育休」の中だけ。法律上の親が出す届け（出生届・児童手当・保険証・医療費助成）の担当がパートナーに決め打ちにならない（2026-11-04 見直し L2-2・同性の家族 sim-03・未婚の父 sim-05）",
-  r: "気をつける事の札（lib/cautions.ts）: 1日に1枚まで。静かにする家族・生まれた日・母の画面の生後14日まで・お祝いや届けの束や手帳の気づきの日には出ず、読んだ札は同じ端末に二度出ない。引用ごとに出典があり、出生届出済証明の念押しはパートナーの画面で出生届がまだの時だけ、労基法の引用は働く母の家族だけ（2026-11-05 総点検の札）",
+  r: "引っ越しの行: 町を変えた家族だけに、引っ越した日から出る。転入届の期限は引っ越した日の14日後（住民基本台帳法第22条）・児童手当は15日後（児童手当法第8条第3項）で、児童手当と医療証は引っ越した時に子がいた家族だけ、受診券は妊娠中に引っ越した家族だけ（見直し C10①）",
+  s: "早く生まれた時: 予定日より7日以上早く生まれ、育休を取るかもしれないパートナーがいる家族だけに「育休の始まりを早める」が、生まれた日から予定日の前日まで出る（遅く生まれた時・6日以内は出さない。見直し C10②）",
+  t: "気をつける事の札（lib/cautions.ts）: 1日に1枚まで。静かにする家族・生まれた日・母の画面の生後14日まで・お祝いや届けの束や手帳の気づきの日には出ず、読んだ札は同じ端末に二度出ない。引用ごとに出典があり、出生届出済証明の念押しはパートナーの画面で出生届がまだの時だけ、労基法の引用は働く母の家族だけ（2026-11-05 総点検の札）",
 } as const;
 type Rule = keyof typeof RULES;
 const RULE_IDS = Object.keys(RULES) as Rule[];
@@ -326,7 +328,7 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
   const checkpoints: CheckpointRow[] = [];
   const triggersSeen: Partial<Record<TriggerKind, string>> = {};
   const toCheck = sampled ? checkDays(f, start, end, cps) : null;
-  // r: 気をつける事の札。「読んだ」は使う人の端末ごと（components/today/CautionCard.tsx と同じ）。筋書きは、出た日に読む。
+  // t: 気をつける事の札。「読んだ」は使う人の端末ごと（components/today/CautionCard.tsx と同じ）。筋書きは、出た日に読む。
   // 手帳のできた日（寝返り・はいはい・つかまり立ち・ひとり歩き）は、作った家族の記録（techo-seed）から。画面と同じく生後3か月〜1歳2か月だけ渡す
   const cautionSeen = new Map<string, CautionSeen>();
   const cautions: CautionShown[] = [];
@@ -492,6 +494,34 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
         if (PARENT_FILINGS.has(t.id) && t.who === "パートナー") push("q", `who:${t.id}`, `${t.id} の担当がパートナーに決め打ち`);
       }
     }
+    // r: 引っ越しの行（見直し C10①）
+    {
+      const mv = tasks.filter((t) => t.anchor === "moved");
+      const moved = !!fv.movedOn && !!fv.previousCity && (fv.previousCity !== fv.city || (fv.previousPrefecture ?? fv.prefecture) !== fv.prefecture);
+      if (!moved && mv.length) push("r", "stray", `引っ越していないのに「${mv[0].plain}」`);
+      if (moved) {
+        const on = fv.movedOn!;
+        const tennyu = mv.find((t) => t.id === "moved-tennyu");
+        if (!tennyu) push("r", "missing", "引っ越したのに、転入届の行が無い");
+        else if (tennyu.startDate !== on || tennyu.deadlineDate !== addDays(on, 14)) push("r", "tennyu-date", `転入届が ${tennyu.startDate}〜${tennyu.deadlineDate}（引っ越した日 ${on} から14日後まで、でない）`);
+        const kid = (!!f.birthDate && f.birthDate <= on) || hasOlderChildren(fv.situation);
+        const ca = mv.find((t) => t.id === "moved-child-allowance");
+        if (kid !== !!ca) push("r", "allowance", kid ? "引っ越した時に子がいたのに、児童手当の行が無い" : "引っ越した時に子がいないのに、児童手当の行が出る");
+        if (ca && ca.deadlineDate !== addDays(on, 15)) push("r", "allowance-date", `児童手当の期限が ${ca.deadlineDate}（引っ越した日の15日後でない）`);
+        if (kid !== mv.some((t) => t.id === "moved-medical-card")) push("r", "medical", kid ? "引っ越した時に子がいたのに、医療証の行が無い" : "引っ越した時に子がいないのに、医療証の行が出る");
+        const pregMove = on >= lmpFromDue(f.dueDate) && (!f.birthDate || on < f.birthDate);
+        if (pregMove !== mv.some((t) => t.id === "moved-checkup-tickets")) push("r", "tickets", pregMove ? "妊娠中に引っ越したのに、受診券の行が無い" : "妊娠中でない引っ越しに、受診券の行が出る");
+      }
+    }
+    // s: 早く生まれた時のパートナーの育休（見直し C10②）
+    {
+      const t = tasks.find((x) => x.id === "partner-leave-earlier");
+      const early = isBorn && diffDays(f.dueDate, f.birthDate!) >= BIRTH_SHIFT_DAYS;
+      const want = early && fv.members.some((m) => m.role === "パートナー") && partnerTakesLeave(fv.situation);
+      if (!want && t) push("s", "stray", "早く生まれていない・育休を取らない家族に、育休を早める行が出る");
+      if (want && !t) push("s", "missing", "早く生まれたのに、パートナーの育休を早める行が無い");
+      if (t && (t.startDate !== f.birthDate || t.deadlineDate !== addDays(f.dueDate, -1))) push("s", "date", `育休を早める行が ${t.startDate}〜${t.deadlineDate}（生まれた日〜予定日の前日、でない）`);
+    }
     // o: 里帰りの2つの町
     if (fv.situation?.satogaeri) {
       const reach = satogaeriReach(fv, fv.situation);
@@ -528,7 +558,7 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
 
     // 予定表の最後の事まで来たか（まだ先の事が1つも無い。「一冊を作る」を消したので、1歳半健診の後は2歳まで何も無い）
     const scheduleEnded = !tasks.some((t) => t.status === "まだ先");
-    // r: 画面が札を出さない日（Techo.tsx の cautionBusy）: お祝いの日・手帳の気づきが開いている日（届けの束は使う人ごとに下で）
+    // t: 画面が札を出さない日（Techo.tsx の cautionBusy）: お祝いの日・手帳の気づきが開いている日（届けの束は使う人ごとに下で）
     const festive = !!birthdayFor(fv, day) || welcomeFor(fv, day) !== null || !!celebrationFor(fv, day);
     // ── 使う人ごとの決まり（家族の一人ずつが me） ──
     for (const me of f.members) {
@@ -566,7 +596,7 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
       }
       // g
       if (!s.visitTop && !s.top && !s.calmNext && day <= lastDay && !scheduleEnded) push("g", "nothing-next", `${me.name}の画面に、今やる事も次に来る事も無い`, me.id);
-      // r: 気をつける事の札（画面と同じ入力: 役・出さない日・出生届が済んだか・手帳のできた日）
+      // t: 気をつける事の札（画面と同じ入力: 役・出さない日・出生届が済んだか・手帳のできた日）
       {
         const role = me.role === "パートナー" ? "パートナー" : "母";
         const seen = cautionSeen.get(me.id) ?? { ids: [] };
@@ -578,15 +608,15 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
         if (c) {
           const since = b ? diffDays(day, b) : null;
           const was = `${me.name}の画面に「${c.title}」`;
-          if (busy) push("r", `busy:${c.id}`, `お祝い・届けの束・手帳の気づきの日に、${was}`, me.id);
-          if (fv.situation?.quiet) push("r", `quiet:${c.id}`, `静かにする家族（${fv.situation.quiet}）の${was}`, me.id);
-          if (since === 0) push("r", `birthday:${c.id}`, `生まれた日に、${was}`, me.id);
-          if (role === "母" && since !== null && since <= 14) push("r", `mother14:${c.id}`, `生後${since}日の${was}`, me.id);
-          if (seen.ids.includes(c.id)) push("r", `again:${c.id}`, `読んだ札がまた出た: ${was}`, me.id);
+          if (busy) push("t", `busy:${c.id}`, `お祝い・届けの束・手帳の気づきの日に、${was}`, me.id);
+          if (fv.situation?.quiet) push("t", `quiet:${c.id}`, `静かにする家族（${fv.situation.quiet}）の${was}`, me.id);
+          if (since === 0) push("t", `birthday:${c.id}`, `生まれた日に、${was}`, me.id);
+          if (role === "母" && since !== null && since <= 14) push("t", `mother14:${c.id}`, `生後${since}日の${was}`, me.id);
+          if (seen.ids.includes(c.id)) push("t", `again:${c.id}`, `読んだ札がまた出た: ${was}`, me.id);
           if (!c.quotes.length || c.quotes.some((q) => !q.from) || !c.sources.length || c.sources.some((x) => !x.href.startsWith("https://")))
-            push("r", `source:${c.id}`, `引用か出典が欠けている: ${was}`, me.id);
-          if (c.id === "birth-proof-again" && (role !== "パートナー" || filed)) push("r", `proof:${me.id}`, `出生届出済証明の念押しが、${role !== "パートナー" ? "パートナーでない人" : "出生届の済んだ後"}に出た`, me.id);
-          if (c.quotes.some((q) => q.from.includes("労働基準法")) && !motherEmployed(fv.situation)) push("r", `labor:${c.id}`, `働いていない母の家族に、労基法の引用: ${was}`, me.id);
+            push("t", `source:${c.id}`, `引用か出典が欠けている: ${was}`, me.id);
+          if (c.id === "birth-proof-again" && (role !== "パートナー" || filed)) push("t", `proof:${me.id}`, `出生届出済証明の念押しが、${role !== "パートナー" ? "パートナーでない人" : "出生届の済んだ後"}に出た`, me.id);
+          if (c.quotes.some((q) => q.from.includes("労働基準法")) && !motherEmployed(fv.situation)) push("t", `labor:${c.id}`, `働いていない母の家族に、労基法の引用: ${was}`, me.id);
           cautionSeen.set(me.id, { ids: [...seen.ids, c.id], day });
           cautions.push({ id: c.id, title: c.title, kind: c.kind, meId: me.id, date: day, at });
         }
@@ -752,7 +782,7 @@ const UNREPRESENTABLE: { label: string; why: string; hit: (f: PopFamily) => bool
   { label: "離島に住む", why: "島外の産院へ移る（出産前の滞在）・船の時刻を表せない", hit: (f) => f.profile.placeType === "離島" },
 ];
 
-/** 決まり r の報告: 気をつける事の札が、どの家族に・いつ出たか（家族ごとに、使う人の誰かに最初に出た時。妊娠中の時期は週にまとめる） */
+/** 決まり t の報告: 気をつける事の札が、どの家族に・いつ出たか（家族ごとに、使う人の誰かに最初に出た時。妊娠中の時期は週にまとめる） */
 function cautionLines(rs: Result[], heading: string, sampled: boolean): string[] {
   const week = (at: string) => at.replace(/^(妊娠\d+週)\d+日$/, "$1");
   const keyOf = (id: string) => id.replace(/-\d{4}$/, "");
@@ -795,7 +825,7 @@ function cautionLines(rs: Result[], heading: string, sampled: boolean): string[]
   const sorted = [...perFamily].sort((a, b) => a - b);
   const median = sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0;
   const quietNone = none.filter((x) => x.f.situation?.quiet).length;
-  const L: string[] = [`### 気をつける事の札（決まり r・${heading}）`, ""];
+  const L: string[] = [`### 気をつける事の札（決まり t・${heading}）`, ""];
   L.push(
     `札が出た家族 ${rs.length - none.length}/${rs.length}（出なかった ${none.length}・うち静かにする家族 ${quietNone}）。1家族に出た札の種類は中央値 ${median}。筋書きは、出た日に「読んだ」を押す（1日に1枚・端末ごと）。${sampled ? "確かめる日（1週おき＋節目）だけ見るので、出た日は最大6日遅れる。" : ""}`,
     "",
@@ -1213,7 +1243,7 @@ describe("静かにする間の気づきと数", () => {
     }
   });
 
-  it("30家族の loss・nicu の写し: 1000日の毎日、母にもパートナーにも気をつける事の札が出ない（決まり r）", () => {
+  it("30家族の loss・nicu の写し: 1000日の毎日、母にもパートナーにも気をつける事の札が出ない（決まり t）", () => {
     for (const quiet of ["loss", "nicu"] as const) {
       for (const f0 of SIM_FAMILIES) {
         const f = { ...f0, situation: { ...f0.situation, quiet } };

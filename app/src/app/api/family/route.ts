@@ -10,6 +10,8 @@ import { scheduleFor } from "@/lib/milestones";
 import { DEMO_FAMILY, type Family } from "@/lib/demo-family";
 import { callNameField } from "@/lib/call-name";
 import { accountsOn, householdFor, LEGACY_MINE_ID } from "../_lib/household";
+import { birthKnownField, moveFields } from "@/lib/move";
+import { markOfficeMoved } from "@/lib/keep";
 
 /** シミュレーションのサーバだけ: 1000組の家族（pop-）は一覧に入れず、開いている家族だけを足す */
 function withOpened(families: Family[], id: string): Family[] {
@@ -66,11 +68,8 @@ export const POST = route(async (req: Request) => {
   // 日本時間の今日
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
   const restart = !prior?.startedOn || prior.dueDate !== b.dueDate;
-  // 町を変えた時は前の町と引っ越した日を覚える（参謀の気づき「町が変わった」が、引き継がれない制度の差を調べる）
-  const movedNow = !!prior?.city && (prior.city !== b.city || (prior.prefecture ?? "") !== (b.prefecture ?? ""));
-  const move = movedNow
-    ? { previousCity: prior!.city, previousPrefecture: prior!.prefecture || undefined, movedOn: today }
-    : { previousCity: prior?.previousCity, previousPrefecture: prior?.previousPrefecture, movedOn: prior?.movedOn };
+  // 町を変えた時は前の町と引っ越した日（家族が答えた日。既定は今日）を覚える（参謀の気づき「町が変わった」・引っ越しの行＝lib/move.ts）
+  const { moved, ...move } = moveFields(prior, { city: b.city, prefecture: b.prefecture, movedOn: b.movedOn }, today);
   // 家族の人は母とパートナーだけ（ほかの役・前の形の欄は捨てる）
   const members = (b.members ?? [])
     .filter((m) => m?.name?.trim() && (m.role === "母" || m.role === "パートナー"))
@@ -86,11 +85,15 @@ export const POST = route(async (req: Request) => {
     prefecture: b.prefecture ?? "",
     dueDate: b.dueDate,
     birthDate: b.birthDate || undefined,
+    // 生まれた日を入れた日（参謀の「早く生まれた」の窓の起点）
+    ...birthKnownField(prior, b.birthDate || undefined, today),
     childName: b.childName || undefined,
     members,
     ...(situation ? { situation } : {}),
   };
   const fam = fid === LEGACY_MINE_ID ? saveMine(profile) : saveFamilyProfile(fid, profile);
+  // 前の町の役所の窓口は、下書きと予定の場所に使わない（新しい町の調べで覚え直す）
+  if (moved) markOfficeMoved(fid, prior!.city);
   const full = withBirthFacts(fam);
   // 途中から使い始めた家族: 使い始める前に期限が過ぎた事（妊娠の届出など）は、もう済んでいるものとして扱う
   if (restart) {

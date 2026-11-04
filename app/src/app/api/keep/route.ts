@@ -27,7 +27,14 @@ export const POST = route(async (req: Request) => {
     const names = Object.fromEntries(Object.entries(k.names).filter(([id]) => ids.has(id)).map(([id, v]) => [id, str(v, 60)]));
     if (Object.keys(names).length) patch.names = names as Record<string, string>;
   }
-  if (k.office) patch.office = { name: str(k.office.name), address: str(k.office.address) };
+  if (k.office) {
+    // 窓口を直した時は「前の町の窓口」の印を外す（同じ値のまま保存しただけの時は、印を残す）
+    const cur = getKeep(fam.id).office;
+    const name = str(k.office.name);
+    const address = str(k.office.address);
+    const changed = (name !== undefined && name !== (cur?.name ?? "")) || (address !== undefined && address !== (cur?.address ?? ""));
+    patch.office = { name, address, ...(changed ? { staleFrom: "" } : {}) };
+  }
   // 家族みんなの事の担当（その家族にいる人か "together"。空の文字は決め直し＝消す）
   if (k.assign && typeof k.assign === "object") {
     const ids = new Set([...fam.members.map((m) => m.id), "together"]);

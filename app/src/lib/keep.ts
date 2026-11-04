@@ -5,6 +5,7 @@ import { get, put } from "./db";
 import type { GuideStep } from "./visit";
 import { blankKey, type BlankKey } from "./blanks";
 import type { Work } from "./whose";
+import type { Office } from "./move";
 
 export interface Keep {
   /** 通う病院 */
@@ -23,8 +24,12 @@ export interface Keep {
   workBy?: Record<string, Work>;
   /** 手紙に書く名前（家族の id ごと。呼び名が「パパ」などの時に、空欄へ入れた名前を覚える） */
   names?: Record<string, string>;
-  /** 役所の窓口（町の調べ・行ってみた話から） */
-  office?: { name?: string; address?: string };
+  /**
+   * 役所の窓口（町の調べ・行ってみた話から）。
+   * staleFrom: 町を変えた時に付ける「前の町の窓口」の印（前の町の名前）。印のある窓口は下書きと予定の場所に使わない（lib/move.ts の officeOf）。
+   * 新しい町の調べで覚え直す時・家族が設定で窓口を直した時に外す（見直し C10①）
+   */
+  office?: Office;
   /** 家族へ送る時に選んだアプリ（次から先頭に出す） */
   shareVia?: "line" | "mail" | "share";
   /** 子の性別（発育曲線の帯を男女どちらで描くか。帯を選ぶためだけに使う。一度選べば次から聞かない） */
@@ -86,6 +91,13 @@ export function remember(familyId: string, patch: Partial<Keep>): Keep {
   }
   put<Keep>(familyId, "profile", next, { id: keepId(familyId) });
   return next;
+}
+
+/** 町を変えた時: 覚えていた役所の窓口に「前の町の窓口」の印を付ける（窓口を覚えていなければ何もしない） */
+export function markOfficeMoved(familyId: string, fromTown: string): void {
+  const o = getKeep(familyId).office;
+  if (!o?.name && !o?.address) return;
+  remember(familyId, { office: { staleFrom: fromTown || "前の町" } });
 }
 
 /**

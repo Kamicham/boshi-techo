@@ -54,7 +54,11 @@ describe("見本の時期の札", () => {
   it("28週の札の一言の頭は、その日の美咲さんの一番上（産休・育休のお金の手続き）", () => {
     const w28 = demoStages(DEMO_FAMILY).find((s) => s.key === "w28")!;
     const me = DEMO_FAMILY.members.find((m) => m.role === "母")!;
-    const tasks = scheduleFor(DEMO_FAMILY, w28.date).map((m) => withAssignee({ ...m, status: statusOf(m, w28.date, new Set()) }, DEMO_FAMILY, undefined));
+    // 見本の家族は、通り過ぎた期限の事を済ませた前提にする（Techo.tsx の「デモの早送り」と同じ。24週の引っ越しの転入届は 2/1 まで）
+    const schedule = scheduleFor(DEMO_FAMILY, w28.date);
+    const passed = new Set(schedule.filter((m) => m.deadlineDate && m.deadlineDate < w28.date).map((m) => m.id));
+    expect(passed.has("moved-tennyu")).toBe(true);
+    const tasks = schedule.map((m) => withAssignee({ ...m, status: statusOf(m, w28.date, passed) }, DEMO_FAMILY, undefined));
     expect(planToday(tasks, w28.date, me).top?.id).toBe("leave-money-request");
     expect(w28.what.startsWith("産休・育休のお金の手続き")).toBe(true);
   });

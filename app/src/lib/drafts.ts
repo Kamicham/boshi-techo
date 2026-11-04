@@ -13,6 +13,7 @@ import { fillBlanks, getKeep, type Keep } from "./keep";
 import { findMilestone, getLocal } from "./local";
 import { MILESTONES, scheduleFor, type MilestoneDef } from "./milestones";
 import { assigneeOf, workOf, type Work } from "./whose";
+import { officeOf } from "./move";
 
 export const DRAFT_KINDS = ["メール", "記入メモ", "質問リスト", "頼み文"] as const;
 export type DraftKind = (typeof DRAFT_KINDS)[number];
@@ -228,13 +229,15 @@ export async function makeDraft(family: Family, m: MilestoneDef, today: string, 
   const born = family.birthDate && family.birthDate <= today;
   // 職場は書き手の職場だけ（ほかの家族の会社・上司を渡さない＝見直し C09）
   const w: Work = workOf(keep, family, writer?.id) ?? {};
+  const office = officeOf(keep.office);
   const known = [
     w.company && `会社名: ${w.company}`,
     w.dept && `部署名: ${w.dept}`,
     w.boss && `上司の名前: ${w.boss}`,
     w.hr && `人事の担当: ${w.hr}`,
     keep.hospital?.name && `通う病院: ${keep.hospital.name}`,
-    keep.office?.name && `役所: ${keep.office.name}${keep.office.address ? `（${keep.office.address}）` : ""}`,
+    // 前の町の窓口（町を変えた時の印つき）は渡さない
+    office?.name && `役所: ${office.name}${office.address ? `（${office.address}）` : ""}`,
   ].filter(Boolean);
   const lines = [
     `事: ${m.title}（${m.kind}）`,
@@ -283,6 +286,12 @@ export async function makeDraft(family: Family, m: MilestoneDef, today: string, 
       ? [
           "",
           "下書きの向き: パートナーの勤め先（上司か人事）へのメール。子が生まれて8週の間に、育休（産後パパ育休を含む）を通算14日以上取りたい事を相談する。予定日を書き、休む日は【育休を始める日】【育休を終える日】の空欄（分けて取るなら2回分）。2025年4月からの出生後休業支援給付の条件（14日以上）を伝え、手続きを頼む。額は書かない",
+        ]
+      : []),
+    ...(m.id === "partner-leave-earlier"
+      ? [
+          "",
+          `下書きの向き: パートナーの勤め先（上司か人事）へのメール。子が予定日（${jpDay(family.dueDate)}）より早く${born ? `、${jpDay(family.birthDate!)}に` : ""}生まれた事を伝え、予定日から休む申し出をしていた育休（産後パパ育休）の始まりを早めたい事を申し出る。早めた始まりの日は【育休を始める日】の空欄。予定日より早く生まれた時は、始まりを1回だけ早められる事（育児・介護休業法第7条）と、早める日の1週間前より後の申し出になる時は、始まりの日を相談したい事を書く。体の様子は書かない。額は書かない`,
         ]
       : []),
     ...(m.id === "childcare-benefit-first"

@@ -23,6 +23,7 @@ import { applyRetime, type Retime } from "@/lib/vax-next";
 import { StaleBox } from "./today/StaleBox";
 import { StartedLate } from "./today/StartedLate";
 import { AdvisorCard } from "./today/AdvisorCard";
+import { ClosedAdvice } from "./today/ClosedAdvice";
 import { ConsultAsk } from "./today/ConsultAsk";
 import { MilestoneDay } from "./today/MilestoneDay";
 import { BumpMoment } from "./today/BumpMoment";
@@ -656,6 +657,9 @@ export function Techo() {
           </ul>
         </Fold>
       )}
+
+      {/* 「わかった」で閉じた気づきを、文面ごともう一度開ける（見直し C10③。閉じた物が無ければ出ない） */}
+      {!loading && <ClosedAdvice familyId={family.id} />}
 
       {/* 健診のタブを無くしたので、健診の予定と記録への入口はここ（前の日と当日は一番上の1枚になる） */}
       <Link href="/visit" className="inline-flex min-h-11 items-center gap-1 self-start text-base text-ink underline-offset-2 hover:underline">

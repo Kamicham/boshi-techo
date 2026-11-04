@@ -3,7 +3,7 @@
 // その家族の町についてエージェントが取りに行く（needsLocal = true の物）。
 // 家族の形（lib/situation.ts）で、出す・出さない・言い方を変える（only と scheduleFor）。わからない欄は今までどおり出す。
 
-import { addDays, addMonths, lmpFromDue, type FamilyDates } from "./clock";
+import { addDays, addMonths, diffDays, lmpFromDue, type FamilyDates } from "./clock";
 import { babyInsuranceOf } from "./birth-trip";
 import { benefitDrop, benefitFirst, papaBenefit } from "./leave-money";
 import { olderDefs, olderSchedule } from "./older";
@@ -37,7 +37,11 @@ export type Only =
   | "satogaeri-place" // 里帰りの実家が住む市の外で、里帰り先の町を答えた時だけ
   | "daycare" // 保育園に預けて働く家族: 母が働き続け（雇われて・自営。辞める・仕事なしは除く）、パートナーがいれば働いている（わからない欄は当てはまる側）
   | "low-birth-weight" // 出生体重が 2500g 未満（手帳の出産の記録でわかった時だけ）
-  | "preterm-care"; // 出生体重が 2000g 以下（未熟児養育医療の対象の目安。わかった時だけ）
+  | "preterm-care" // 出生体重が 2000g 以下（未熟児養育医療の対象の目安。わかった時だけ）
+  | "moved" // 町を変えた（前の町と引っ越した日を覚えている家族だけ。見直し C10①）
+  | "moved-pregnant" // 妊娠中に引っ越した（引っ越した日が最終月経の日から生まれた日の前まで）
+  | "moved-with-child" // 引っ越した時に子がいた（その日までに生まれていた・上の子がいる）
+  | "born-early"; // 予定日より7日以上早く生まれた（生まれた日を入れた家族だけ。見直し C10②）
 
 export interface MilestoneDef {
   id: string;
@@ -49,8 +53,8 @@ export interface MilestoneDef {
   hint: string;
   kind: Kind;
   who: Who;
-  /** 何を起点に数えるか（lmp = 最終月経・due = 出産予定日・birth = 生まれた日） */
-  anchor: "lmp" | "due" | "birth";
+  /** 何を起点に数えるか（lmp = 最終月経・due = 出産予定日・birth = 生まれた日・moved = 引っ越した日＝印 "moved" の行だけ） */
+  anchor: "lmp" | "due" | "birth" | "moved";
   /** 起点から何日目（または何か月目）に「起きる」か */
   start: { days?: number; months?: number };
   /** 期限（ある物だけ） */
@@ -230,6 +234,16 @@ export const MILESTONES: MilestoneDef[] = [
   { id: "checkup-18m", title: "1歳6か月健診", plain: "1歳半健診", hint: "町から案内が届きます", kind: "健診", who: "家族", anchor: "birth", start: { months: 18 }, deadline: { months: 24 }, basis: "母子保健法第12条", needsLocal: true },
   { id: "vaccines-18m", title: "水ぼうそう（水痘）の予防接種（2回目）", plain: "水ぼうそう（水痘）の2回目を受ける", hint: "1回目から6〜12か月あけて", kind: "健診", who: "家族", anchor: "birth", start: { months: 18 }, deadline: { months: 36, days: -1 }, basis: `予防接種法施行令（水ぼうそう（水痘）は1歳から3歳になるまでに2回。2回目は1回目から3か月以上、標準は6〜12か月あける）。${VAX_WHERE}`, needsLocal: true },
 
+  // ── 早く生まれた時（見直し C10②）: 予定日から休む申し出をしていたパートナーは、始まりを1回だけ早められる ──
+  // 起点は予定日（始まりは生まれた日に寄る＝scheduleFor の「予定日から数える事」）。期限は予定日の前日（もとの始まりの日の前日まで＝目安）
+  { id: "partner-leave-earlier", title: "パートナーの育休（産後パパ育休）の始まりを早める申し出をする（予定日より早く生まれた時）", plain: "パートナーの育休の始まりを早める", hint: "1回だけ早められます。申し出は早める日の1週間前までが原則", kind: "仕事", who: "パートナー", anchor: "due", start: { days: -1 }, deadline: { days: -1 }, deadlineKind: "目安", basis: "育児・介護休業法第7条第1項（予定日より早く生まれた時は、育休の始まりの日を1回だけ早められる＝同法施行規則第10条第1号）・第7条第2項と施行規則第14条（早める日の1週間前より後の申し出は、もとの始まりの日までの間で会社が始まりの日を決められる）。産後パパ育休も同じ（同法第9条の4・施行規則第21条の8・第21条の9）。期限の日は、予定日から休む申し出をしていた時の目安（もとの始まりの日の前日まで）。職場に確かめる", needsLocal: false, only: ["partner-leave", "born-early"] },
+
+  // ── 町を変えた時（見直し C10①）: 起点は引っ越した日。期限は初日を数えない（引っ越した日の翌日を1日目とする） ──
+  { id: "moved-tennyu", title: "新しい町に転入届を出す", plain: "転入届を出す", hint: "引っ越した日から14日以内に。新しい町の役所へ", kind: "手続き", who: "家族", anchor: "moved", start: { days: 0 }, deadline: { days: 14 }, basis: "住民基本台帳法第22条（転入をした日から14日以内に、新しい町の市町村長に届け出る）。前の町には、引っ越す前に転出届を出す（同法第24条）", needsLocal: true, only: ["moved"] },
+  { id: "moved-child-allowance", title: "児童手当を、新しい町に申し込む（認定の請求）", plain: "児童手当を新しい町に申し込む", hint: "引っ越した日の翌日から15日以内に", kind: "手続き", who: "家族", anchor: "moved", start: { days: 0 }, deadline: { days: 15 }, basis: "児童手当法第8条第3項（住所を変えた後15日以内に請求すれば、引っ越した月の翌月分から途切れずに受け取れる）・同法第7条第1項（認定は住む町の市町村長が行う）。公務員の人が受け取っている時は、勤め先に申し出る（同法第17条）", needsLocal: true, only: ["moved", "moved-with-child"] },
+  { id: "moved-checkup-tickets", title: "妊婦健診の受診券（補助券）を、新しい町で受け取る", plain: "妊婦健診の券を新しい町で受け取る", hint: "次の健診の前に。替え方は町ごとに違います", kind: "手続き", who: "母", anchor: "moved", start: { days: 0 }, basis: "町の運用（妊婦健診の券は住む町が出している。前の町の券の扱いと、新しい町での受け取り方・持ち物は町ごとに違う）。新しい町に確かめる", needsLocal: true, pregnancyOnly: true, only: ["moved", "moved-pregnant"] },
+  { id: "moved-medical-card", title: "子どもの医療費の受給者証（医療証）を、新しい町で申し込む", plain: "子どもの医療証を新しい町で申し込む", hint: "医療証は住む町が出します。1か月を目安に", kind: "手続き", who: "家族", anchor: "moved", start: { days: 0 }, deadline: { months: 1 }, deadlineKind: "目安", basis: "町の制度（子どもの医療費の助成は、住む町が決めて出している。申し込みの期限・さかのぼって払い戻せるか・持ち物は町ごとに違う）。新しい町に確かめる", needsLocal: true, only: ["moved", "moved-with-child"] },
+
   // ── 1000日の先（2歳を過ぎてから） ──
   { id: "checkup-3y", title: "3歳児健診", plain: "3歳児健診", hint: "町から案内が届きます。目や耳の検査もあります", kind: "健診", who: "家族", anchor: "birth", start: { months: 36 }, deadline: { months: 48, days: -1 }, basis: "母子保健法第12条（満3歳を超え満4歳に達しない子に、町が行う。日と場所は町ごとに違い、3歳〜3歳6か月ごろが多い。町の案内で確かめる）", needsLocal: true },
   { id: "je-vaccine-1", title: "日本脳炎の予防接種（1期の初回2回）", plain: "日本脳炎の予防接種を受ける", hint: "標準は3歳で2回。6〜28日あけて", kind: "健診", who: "家族", anchor: "birth", start: { months: 36 }, deadline: { months: 48 }, deadlineKind: "目安", basis: `予防接種法施行令（日本脳炎の1期は生後6か月から7歳6か月になるまで。標準は3歳で初回2回）。生後6か月から受けるよう勧める町もある。${VAX_WHERE}`, needsLocal: true },
@@ -271,6 +285,10 @@ export interface ScheduleInput extends FamilyDates {
   /** 住む町（里帰り先と同じ市かを見る。第2波⑦） */
   city?: string;
   prefecture?: string;
+  /** 前に住んでいた町と、引っ越した日（町を変えた家族。引っ越しの行の起点＝見直し C10①） */
+  previousCity?: string;
+  previousPrefecture?: string;
+  movedOn?: string;
   members?: { role: string; name?: string }[];
   /** 生まれた時の体重 g（手帳の出産の記録から。双子などは一番小さい子）。わからなければ無し */
   birthWeightG?: number;
@@ -337,14 +355,31 @@ export function applies(only: Only, f: ScheduleInput): boolean {
       return typeof f.birthWeightG === "number" && f.birthWeightG > 0 && f.birthWeightG < 2500;
     case "preterm-care":
       return typeof f.birthWeightG === "number" && f.birthWeightG > 0 && f.birthWeightG <= 2000;
+    case "moved":
+      return movedTown(f);
+    case "moved-pregnant":
+      return movedTown(f) && f.movedOn! >= lmpFromDue(f.dueDate) && (!f.birthDate || f.movedOn! < f.birthDate);
+    case "moved-with-child":
+      return movedTown(f) && ((!!f.birthDate && f.birthDate <= f.movedOn!) || hasOlderChildren(s));
+    case "born-early":
+      return !!f.birthDate && diffDays(f.dueDate, f.birthDate) >= EARLY_BIRTH_DAYS;
   }
+}
+
+/** 予定日より何日以上早く生まれたら「早く生まれた」とするか（参謀の気づき BIRTH_SHIFT_DAYS と同じ） */
+export const EARLY_BIRTH_DAYS = 7;
+
+/** 町を変えた家族か（前の町と引っ越した日を覚えていて、今の町と違う） */
+function movedTown(f: ScheduleInput): boolean {
+  if (!f.movedOn || !f.previousCity) return false;
+  return f.previousCity !== f.city || (f.previousPrefecture ?? f.prefecture) !== f.prefecture;
 }
 
 /**
  * 法律上の親（父母）が出す届け。担当は「家族」にして、誰が窓口へ行くかを家族で選ぶ（今日の画面の「誰がやる？」）。
  * パートナーに決め打ちすると、同性の家族・結婚していない父母（出生届は母）に合わない（2026-11-04 見直し L2-2）
  */
-export const PARENT_FILINGS = new Set(["birth-registration", "child-allowance", "child-allowance-change", "health-insurance", "medical-subsidy"]);
+export const PARENT_FILINGS = new Set(["birth-registration", "child-allowance", "child-allowance-change", "health-insurance", "medical-subsidy", "moved-child-allowance", "moved-medical-card"]);
 
 /** 短い題に入れる呼び名の長さの上限（これより長い呼び名は「パートナー」のまま） */
 const PARTNER_NAME_MAX = 6;
@@ -442,14 +477,21 @@ function adjust(m: MilestoneDef, f: ScheduleInput): MilestoneDef {
 export function scheduleFor(input: ScheduleInput, today?: string): Milestone[] {
   // 今日より先の生まれた日は、まだ生まれていない（作った家族は先の生まれた日を持っている。予定がその日で組まれ、
   // 「授かる前」「予定日を過ぎた」日に、生まれる日を知っているような日付が出ていた＝なりきり 2026-11-03）
-  const f = input.birthDate && today && input.birthDate > today ? { ...input, birthDate: undefined } : input;
+  const b = input.birthDate && today && input.birthDate > today ? { ...input, birthDate: undefined } : input;
+  // 今日より先の引っ越しも、まだ引っ越していない（前の町に住んでいる）。見本の家族は24週で引っ越すので、8週の画面に転入届が出ていた
+  // （本物の家族の引っ越した日は今日まで＝設定の欄。早送りの検査の viewAt と同じ見方）
+  const f =
+    b.movedOn && today && b.movedOn > today
+      ? { ...b, city: b.previousCity ?? b.city, prefecture: b.previousPrefecture ?? b.prefecture, previousCity: undefined, previousPrefecture: undefined, movedOn: undefined }
+      : b;
   const lmp = lmpFromDue(f.dueDate);
   const birth = f.birthDate ?? f.dueDate;
   const trying = !!today && today < lmp && !f.birthDate;
   const own = MILESTONES.filter((m) => !m.only || m.only.every((o) => applies(o, f)))
     .map((def) => {
       const m = adjust(def, f);
-      const base = m.anchor === "lmp" ? lmp : m.anchor === "due" ? f.dueDate : birth;
+      // 引っ越しの行（anchor "moved"）は印 "moved" で、引っ越した日を持つ家族だけに残っている
+      const base = m.anchor === "lmp" ? lmp : m.anchor === "due" ? f.dueDate : m.anchor === "moved" ? f.movedOn! : birth;
       const fixed = m.dates?.(base);
       const start = fixed ? fixed.start : resolve(base, m.start);
       return {

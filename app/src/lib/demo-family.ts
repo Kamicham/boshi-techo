@@ -29,6 +29,8 @@ export interface Family extends FamilyDates {
   previousCity?: string;
   previousPrefecture?: string;
   movedOn?: string;
+  /** 生まれた日を入れた日（参謀の「早く生まれた」を出す窓の起点。2026-11-05 から。見本の家族と作った家族は持たない＝生まれた日から数える） */
+  birthKnownOn?: string;
   /** 家族の形（働き方・育休・上の子・双子・里帰り）。わからない欄は空のまま（今までどおりの予定が出る） */
   situation?: Situation;
   /** 生まれた時の体重 g と在胎週数。保存はせず、サーバ（lib/family.ts）が手帳の出産の記録から埋めて返す。双子などは一番小さい子の体重 */
