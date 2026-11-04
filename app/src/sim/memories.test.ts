@@ -5,7 +5,9 @@
 import { describe, expect, it } from "vitest";
 import { addDays, addMonths, diffDays, lmpFromDue, secondBirthday } from "../lib/clock";
 import { letterOpenOn, recentlyOpened, schoolEntry } from "../lib/letters-shared";
-import { birthdayFor, groupForAlbum, memoryNudgeFor, PHOTO_MILESTONES, type ClientMedia } from "../lib/media-shared";
+import { birthdayFor, birthNewsText, bornPromptFor, groupForAlbum, memoryNudgeFor, PHOTO_MILESTONES, welcomeFor, type ClientMedia } from "../lib/media-shared";
+import { scheduleFor } from "../lib/milestones";
+import { registrationLine } from "../components/today/welcome";
 import type { Quiet } from "../lib/situation";
 import { SIM_FAMILIES } from "./families";
 
@@ -105,5 +107,86 @@ describe("未来の手紙（30家族）", () => {
       expect(shown.length, f.id).toBe(14);
       expect(shown[0]).toBe(on);
     }
+  });
+});
+
+describe("「生まれました」の儀式（BornPrompt・WelcomeBaby と同じ bornPromptFor・welcomeFor）", () => {
+  it("30家族: 「生まれたら、ここから」は37週0日から生まれた日の前の日まで。「ようこそ」は生まれた日から生後5日まで。2つとお七夜の一言は同じ日に出ない", () => {
+    let prompts = 0;
+    let welcomes = 0;
+    for (const f of SIM_FAMILIES) {
+      const lmp = lmpFromDue(f.dueDate);
+      for (const d of days(f)) {
+        const p = bornPromptFor(f, d);
+        const w = welcomeFor(f, d);
+        if (p) {
+          prompts++;
+          expect(diffDays(d, lmp) >= 37 * 7, `${f.id} ${d} 37週より前に出た`).toBe(true);
+          expect(!f.birthDate || d < f.birthDate, `${f.id} ${d} 生まれた後に出た`).toBe(true);
+        }
+        if (w !== null) {
+          welcomes++;
+          expect(f.birthDate && diffDays(d, f.birthDate)).toBe(w);
+          expect(w >= 0 && w <= 5, `${f.id} ${d}`).toBe(true);
+          expect(p).toBe(false);
+          expect(memoryNudgeFor(f, d)?.id, `${f.id} ${d}`).not.toBe("oshichiya");
+        }
+      }
+      if (f.birthDate) expect(days(f).filter((d) => welcomeFor(f, d) !== null), f.id).toHaveLength(6);
+    }
+    expect(prompts).toBeGreaterThan(0);
+    expect(welcomes).toBeGreaterThan(0);
+  });
+
+  for (const quiet of ["loss", "nicu"] as Quiet[]) {
+    it(`静かにする（${quiet}）を選んだ30家族の写し: どちらも1日も出ない`, () => {
+      for (const f0 of SIM_FAMILIES) {
+        const f = { ...f0, situation: { ...f0.situation, quiet } };
+        for (const d of days(f)) {
+          expect(bornPromptFor(f, d), `${f.id} ${d}`).toBe(false);
+          expect(welcomeFor(f, d), `${f.id} ${d}`).toBeNull();
+        }
+      }
+    });
+  }
+
+  it("家族に知らせる文は、名前と生まれた日だけ（体重・時刻・体の様子を書かない）", () => {
+    for (const f of SIM_FAMILIES.filter((x) => x.birthDate)) {
+      const t = birthNewsText({ birthDate: f.birthDate!, childName: f.childName });
+      const [, m, d] = f.birthDate!.split("-").map(Number);
+      expect(t).toContain(`${m}月${d}日`);
+      expect(t).toContain(f.childName ?? "赤ちゃん");
+      expect(t).not.toMatch(/\d+\s*(g|グラム|kg|cm|時|分)|体重|身長|元気|母子ともに/);
+    }
+  });
+
+  it("出生届の一言: 役の呼び名（ママ・パパ）を使わず期限の日を言い、産んだ人には休む事を先に。ひとりの家族には「ほかの家族でも」", () => {
+    let pairs = 0;
+    for (const f of SIM_FAMILIES.filter((x) => x.birthDate)) {
+      const m = scheduleFor(f, f.birthDate!).find((x) => x.id === "birth-registration");
+      expect(m, f.id).toBeTruthy();
+      const mother = f.members.find((x) => x.role === "母") ?? null;
+      const partner = f.members.find((x) => x.role === "パートナー") ?? null;
+      const base = { ...m!, status: "今やる" as const };
+      const lines = [registrationLine(f, mother, base), registrationLine(f, partner, base), registrationLine(f, mother, { ...base, together: true })];
+      if (f.members.length < 2) expect(lines[0], f.id).toContain("ほかの家族でもできます");
+      if (mother && partner) {
+        pairs++;
+        const toPartner = { ...base, who: "パートナー" as const };
+        const a = registrationLine(f, mother, toPartner);
+        const b = registrationLine(f, partner, toPartner);
+        expect(a).toContain(`${partner.name}の番`);
+        expect(a).toContain("あなたは、休む事を一番に");
+        expect(b).toContain("あなたの番");
+        expect(b).toContain(`${mother.name}が休めるように`);
+        lines.push(a, b);
+      }
+      for (const line of lines) {
+        expect(line, f.id).not.toMatch(/ママ|パパ/);
+        expect(line, f.id).toMatch(/まで/);
+      }
+      expect(registrationLine(f, mother, { ...base, status: "済み" })).toBe("出生届は済みました。");
+    }
+    expect(pairs).toBeGreaterThan(0);
   });
 });

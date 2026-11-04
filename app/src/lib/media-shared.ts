@@ -594,6 +594,36 @@ export function birthdayFor(f: { birthDate?: string; situation?: { quiet?: strin
   return null;
 }
 
+/**
+ * 「生まれたら、ここから」（components/today/WelcomeBaby.tsx の BornPrompt）を出し始める週。
+ * 正期産の始まり（37週0日。日本産科婦人科学会 産科婦人科用語集）。37週より前に生まれる子は1割に満たない（人口動態統計で約5〜6%）ので、
+ * その家族は設定の「生まれた日」から入れる（どちらも同じ保存）
+ */
+export const BORN_PROMPT_WEEK = 37;
+
+/** 今日の画面の上に「生まれたら、ここから」を出すか。37週0日から、生まれた日を入れるまで。静かにする（つらい別れ・入院）間は出さない */
+export function bornPromptFor(f: { dueDate: string; birthDate?: string; situation?: { quiet?: string } }, today: string): boolean {
+  if (f.situation?.quiet) return false;
+  if (f.birthDate && diffDays(today, f.birthDate) >= 0) return false;
+  return diffDays(today, lmpFromDue(f.dueDate)) >= BORN_PROMPT_WEEK * 7;
+}
+
+/** 「ようこそ」の1枚を出す日数。生まれた日からお七夜の前の日まで（生後0〜5日）。お七夜（生まれた日から数えて7日目）からは節目の1枚 */
+export const WELCOME_DAYS = 6;
+
+/** 今日が「ようこそ」の1枚の日なら、生まれてからの日数（0＝生まれた日）。静かにする間は出さない（「いつもの今日の画面を見る」を押した後も） */
+export function welcomeFor(f: { birthDate?: string; situation?: { quiet?: string } }, today: string): number | null {
+  if (f.situation?.quiet || !f.birthDate) return null;
+  const d = diffDays(today, f.birthDate);
+  return d >= 0 && d < WELCOME_DAYS ? d : null;
+}
+
+/** 家族に知らせる文。名前と生まれた日だけ（体重・時刻・体の事は書かない。送る前に家族が直せる） */
+export function birthNewsText(f: { birthDate: string; childName?: string }): string {
+  const [, m, d] = f.birthDate.split("-").map(Number);
+  return `うれしいお知らせです。${m}月${d}日に、${f.childName ?? "赤ちゃん"}が生まれました。`;
+}
+
 /** 写真の見出しの月齢（「生後3か月」「生後12日」「妊娠7か月」「1歳2か月」） */
 export function ageLabel(f: { dueDate: string; birthDate?: string }, date: string): string {
   if (f.birthDate && diffDays(date, f.birthDate) >= 0) {

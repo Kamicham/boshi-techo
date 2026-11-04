@@ -38,6 +38,8 @@ interface Ctx {
   /** 家族の一覧が届いたか（届くまでは一瞬デモの家族に見えるので、録音などは押せなくする） */
   ready: boolean;
   today: string;
+  /** 作った家族（見本・シミュレーション・体験の写し）か。時計を進められ、家族の設定は保存しない */
+  timeTravel: boolean;
   setToday: (d: string) => void;
   setFamilyId: (id: string) => void;
   reload: () => Promise<void>;
@@ -247,6 +249,7 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
     isDemo,
     ready,
     today,
+    timeTravel,
     setToday: (d) => {
       if (!timeTravel) return;
       setDemoToday(d);

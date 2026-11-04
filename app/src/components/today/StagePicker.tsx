@@ -17,6 +17,7 @@ export function demoStages(family: Family): Stage[] {
     { key: "w8", label: "妊娠8週", what: "母子手帳をもらう・最初の届け出", date: addDays(lmp, 8 * 7) },
     { key: "w28", label: "妊娠28週", what: "手帳が気づいた事・次の健診の予約", date: addDays(lmp, 28 * 7) },
     { key: "w30", label: "妊娠30週", what: "産休・出産のお金・入院の準備", date: addDays(lmp, 30 * 7) },
+    { key: "w37", label: "妊娠37週", what: "生まれたら、ここから（押すと生まれた日へ）", date: addDays(lmp, 37 * 7) },
     { key: "born", label: "生まれた翌日", what: "出生届・14日以内の手続き", date: addDays(birth, 1) },
     { key: "m2", label: "生後2か月", what: "初めての予防接種と健診", date: addDays(birth, 61) },
     { key: "y1", label: "1歳の誕生日", what: "おなかにいた頃の手紙が開く・この1年の一冊", date: addMonths(birth, 12) },

@@ -25,7 +25,8 @@ import { ConsultAsk } from "./today/ConsultAsk";
 import { PhotoNudge } from "./today/PhotoNudge";
 import { LetterNews } from "./today/LetterNews";
 import { BirthdayCard } from "./today/BirthdayCard";
-import { birthdayFor } from "@/lib/media-shared";
+import { birthdayFor, bornPromptFor, welcomeFor } from "@/lib/media-shared";
+import { BornPrompt, WelcomeBaby } from "./today/WelcomeBaby";
 import { hideCounts } from "@/lib/situation";
 import { byDays, daysLeft, planToday, withAssignee, type Task } from "./today/task";
 import { VisitToday, visitIsTop } from "./today/VisitToday";
@@ -298,12 +299,18 @@ export function Techo() {
   const quiet = family.situation?.quiet;
 
   const bday = birthdayFor(family, today);
+  // 「生まれました」の儀式: 37週から「生まれたら、ここから」、生まれた日からお七夜の前の日まで「ようこそ」（components/today/WelcomeBaby.tsx）
+  const bornPrompt = bornPromptFor(family, today);
+  const welcome = welcomeFor(family, today);
+  const tripShown = !!trip && !(visitTop && nextVisit) && !focus;
 
   if (quiet && !showAll) return <QuietDay family={family} quiet={quiet} onShowAll={() => setShowAll(true)} />;
 
   return (
     <main className="flex flex-col gap-5 px-4 pt-4 pb-8">
       <WeekBand family={family} today={today} />
+
+      {!loading && bornPrompt && <BornPrompt key={`${family.id}:born`} family={family} today={today} />}
 
       {doneError && (
         <Notice title="済んだの印を、まだ保存できていません" safe="押した印は元に戻しました。電波のある所で、もう一度押してください。" detail={doneError} />
@@ -330,6 +337,10 @@ export function Techo() {
         </div>
       )}
 
+      {/* 生まれた日からお七夜の前の日までは、一番上に「ようこそ」の1枚（はじめましての写真・声・家族へ知らせる・届けの一言） */}
+      {!loading && welcome !== null && (
+        <WelcomeBaby key={`${family.id}:welcome`} family={family} today={today} me={me} reg={tasks.find((t) => t.id === "birth-registration")} by={me?.name} tripBelow={tripShown} />
+      )}
       {/* 1歳・2歳の誕生日から2週間は、一番上に誕生日の1枚（開いた手紙・一冊・映画） */}
       {!loading && bday && <BirthdayCard key={`${family.id}:bday${bday}`} family={family} today={today} by={me?.name} age={bday} />}
       {loading ? (
@@ -340,7 +351,7 @@ export function Techo() {
       {/* 途中から始めた家族: 始める前に目安が過ぎた事を、済んでいるか1回聞く */}
       {!loading && <StartedLate family={family} today={today} onCount={setBeforeCount} onOpen={setLateOpen} lifted={lifted?.id} version={lateVer} forPartner={me?.role === "パートナー"} />}
       {!loading && staleFirst && <StaleBox key={`${family.id}:first`} tasks={stale} {...common} defaultOpen onDone={(ids) => void setManyDone(ids)} />}
-      {!loading && trip && !(visitTop && nextVisit) && !focus && (
+      {!loading && tripShown && trip && (
         <BirthTripCard
           key={`${family.id}:trip`}
           trip={trip}
