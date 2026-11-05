@@ -1,5 +1,18 @@
-import { describe, expect, it } from "vitest";
-import { inviteCanLines, inviteHeadline, inviteMotherItemsLine, inviteSeeLine, inviteShareText, lineShareUrl, maskEmail, periodWord } from "./invite-words";
+import { describe, expect, it, vi } from "vitest";
+import { setLocale } from "./i18n";
+import { DICTS } from "./i18n/dicts";
+import {
+  inviteCanLines,
+  inviteHeadline,
+  inviteHeadlineShown,
+  inviteMotherItemsLine,
+  inviterWord,
+  inviteSeeLine,
+  inviteShareText,
+  lineShareUrl,
+  maskEmail,
+  periodWord,
+} from "./invite-words";
 
 const BODY = /大丈夫|正常|異常|心配(ない|いらない)/;
 
@@ -18,6 +31,45 @@ describe("招待の言葉", () => {
     expect(inviteHeadline(null, null)).toBe("ご家族から、母子手帳への招待です");
     expect(inviteHeadline("  ", "生後3か月")).toBe("ご家族から、生後3か月の母子手帳への招待です");
     expect(inviteHeadline("翔太", null)).toBe("翔太から、母子手帳への招待です");
+  });
+
+  // 受ける画面は、サーバが分けて返す呼び名（inviterWord）と時期（periodWord）から、画面の言葉で組む（11/5 UX。日本語の見出しを読み直さない）
+  const CASES: [string | null, string | null][] = [
+    ["美咲", "妊娠11週"],
+    [null, null],
+    ["  ", "生後3か月"],
+    ["翔太", null],
+    ["母", "生後0日"],
+    ["パートナー", "1歳2か月"],
+  ];
+  it("見出しを画面の言葉で組む: 日本語はサーバの見出しと同じ字", () => {
+    expect(inviterWord("母")).toBe("ママ");
+    expect(inviterWord(" ")).toBe("ご家族");
+    for (const [name, period] of CASES) expect(inviteHeadlineShown(inviterWord(name), period)).toBe(inviteHeadline(name, period));
+    // サーバの返しが古い（呼び名が無い）時は「ご家族から」
+    expect(inviteHeadlineShown(undefined, undefined)).toBe("ご家族から、母子手帳への招待です");
+  });
+
+  it("見出しを画面の言葉で組む: 中文・English に日本語が残らない（見本の家族の名前は English でローマ字）", () => {
+    // 画面の言葉はブラウザでだけ決まる（lib/i18n の setLocale）ので、この試験の間だけ window を置く
+    vi.stubGlobal("window", {});
+    try {
+      for (const lang of ["zh", "en"] as const) {
+        setLocale(lang, DICTS[lang]);
+        for (const [name, period] of CASES) {
+          const s = inviteHeadlineShown(inviterWord(name), period);
+          // 中文は名前（美咲・翔太）を日本語の字のまま出すので、名前を外してから見る
+          const rest = lang === "zh" ? s.replace(/美咲|翔太/g, "") : s;
+          expect(rest, s).not.toMatch(lang === "en" ? /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u : /[\p{Script=Hiragana}\p{Script=Katakana}]/u);
+          // 時期の数がそろう（生後0日は「出生当天」「birth day」のように数を使わない言い方）
+          if (period && period !== "生後0日") expect(s, s).toMatch(/\d/);
+        }
+        expect(inviteHeadlineShown("美咲", "妊娠11週")).toContain(lang === "en" ? "Misaki" : "美咲");
+      }
+    } finally {
+      setLocale("ja", {});
+      vi.unstubAllGlobals();
+    }
   });
 
   it("メールは一部を伏せ、全体を出さない", () => {

@@ -7,7 +7,7 @@ import { currentAccount, withHousehold } from "@/lib/access";
 import { ensureAccountSchema } from "@/lib/db";
 import { getFamily } from "@/lib/family";
 import { listSubjects } from "@/lib/households";
-import { inviteHeadline, maskEmail, periodWord } from "@/lib/invite-words";
+import { inviteHeadline, inviterWord, maskEmail, periodWord } from "@/lib/invite-words";
 import { HttpError } from "@/lib/http-error";
 import { audit } from "@/lib/households";
 import { RELATIONS, SHARE_ITEMS, type Relation, type ShareItem } from "@/components/settings/consent-texts";
@@ -62,7 +62,8 @@ function invitePreview(id: string) {
   const today = new Date(Date.now() + 9 * 3600_000).toISOString().slice(0, 10);
   const period = periodWord(getFamily(r.organizationId), today);
   const relation = inviteScope(r.id)?.relation ?? null;
-  return { id: r.id, headline: inviteHeadline(inviterName, period), role: r.role, relation, maskedEmail: maskEmail(r.email), expiresAt };
+  // who・period: 見出しの呼び名と時期の言葉（日本語）を分けても返す。中文・English の画面が、日本語の見出しを読み直さずに組めるように（11/5 UX）
+  return { id: r.id, headline: inviteHeadline(inviterName, period), who: inviterWord(inviterName), period, role: r.role, relation, maskedEmail: maskEmail(r.email), expiresAt };
 }
 
 /**

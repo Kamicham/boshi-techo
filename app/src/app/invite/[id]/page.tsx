@@ -9,28 +9,22 @@ import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn, Why } from "@/components/ui";
 import { Box, jpDateTime, Msg } from "@/components/settings/account-ui";
 import { SHARE_ITEMS } from "@/components/settings/consent-texts";
-import { relabel } from "@/lib/clock";
 import { currentLang, listOf, t } from "@/lib/i18n";
-import { nameIn } from "@/lib/i18n/names";
-import { inviteCanLines, inviteHeadline, inviteMotherItemsLine, inviteSeeLine } from "@/lib/invite-words";
+import { inviteCanLines, inviteHeadlineShown, inviteMotherItemsLine, inviteSeeLine } from "@/lib/invite-words";
 
-type Inv = { id: string; headline: string; role: string; relation: string | null; maskedEmail: string; expiresAt: string; signedIn: boolean; showMother?: string[] };
-
-/**
- * 見出し（サーバが日本語で組んだ inviteHeadline の文）を、今の言葉に直す。呼び名と時期に分けて組み直す。
- * 形が読めない時は、そのまま日本語で出す。日本語の画面では何もしない
- */
-function headlineIn(ja: string): string {
-  if (currentLang() === "ja") return ja;
-  const m = /^(.+)から、(?:(妊娠\d+週|生後\d+日|生後\d+か月|\d+歳(?:\d+か月)?)の)?母子手帳への招待です$/.exec(ja);
-  if (!m) return ja;
-  // 呼び名が無い・役の名前のままの時の言葉（inviteHeadline）は訳し、家族が入れた呼び名は nameIn に通す
-  const who = ["ご家族", "ママ", "パートナー"].includes(m[1]) ? t(m[1]) : nameIn(m[1]);
-  if (!m[2]) return t("{who}から、母子手帳への招待です", { who });
-  const week = /^妊娠(\d+)週$/.exec(m[2]);
-  const period = week ? t("妊娠{w}週", { w: Number(week[1]) }) : relabel(m[2]);
-  return t("{who}から、{period}の母子手帳への招待です", { who, period });
-}
+/** who・period: 見出しの呼び名と時期の言葉（日本語。api/account/invite の GET が headline と分けて返す。画面は inviteHeadlineShown で組む） */
+type Inv = {
+  id: string;
+  headline: string;
+  who?: string;
+  period?: string | null;
+  role: string;
+  relation: string | null;
+  maskedEmail: string;
+  expiresAt: string;
+  signedIn: boolean;
+  showMother?: string[];
+};
 
 export default function AcceptInvite({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -85,7 +79,7 @@ export default function AcceptInvite({ params }: { params: Promise<{ id: string 
     <main className="flex flex-col gap-4 px-4 pt-10 pb-10">
       <div className="flex flex-col gap-1">
         <h1 className="font-display text-2xl font-bold">{t("母子手帳への招待")}</h1>
-        {(preview || full || (previewFailed && !account)) && <p className="text-base">{headlineIn(inv?.headline ?? inviteHeadline(null, null))}</p>}
+        {(preview || full || (previewFailed && !account)) && <p className="text-base">{inviteHeadlineShown(inv?.who, inv?.period)}</p>}
       </div>
       {!accountsEnabled && ready && <p className="rounded-xl bg-rose-soft px-4 py-3 text-base">{t("このサーバでは、アカウントの仕組みをまだ動かしていません。")}</p>}
 

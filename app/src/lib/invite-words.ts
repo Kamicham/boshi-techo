@@ -1,7 +1,9 @@
 // 招待の言葉の決まり（招待のリンクを開いた画面・受ける画面・母が送る文）。
 // 画面（.tsx）は vitest で読めないので、文を組む関数はここに置いて試験する（invite-words.test.ts）。
 // 体の判断の言葉は使わない。招待の決まり（48時間・メールのコード・役と見せる範囲）は変えない。
-import { clockAt, type FamilyDates } from "./clock";
+import { clockAt, relabel, type FamilyDates } from "./clock";
+import { t } from "./i18n";
+import { nameIn } from "./i18n/names";
 
 /** 手帳の時期の言葉（例: 妊娠11週・生後3か月・1歳2か月）。予定日が無い・授かる前・2歳を過ぎた時は null（作らない） */
 export function periodWord(f: FamilyDates | null | undefined, today: string): string | null {
@@ -12,12 +14,32 @@ export function periodWord(f: FamilyDates | null | undefined, today: string): st
   return null;
 }
 
+/**
+ * 見出しで招いた人を呼ぶ言葉。本人の名前が役の名前のまま（3つの問いで作った手帳は「母」）の時は家族の言葉（ママ・パートナー）、
+ * 名前が無ければ「ご家族」。中文・English の画面は、この言葉と時期を分けて受け取り、画面の言葉で組む（app/invite/[id]/page.tsx）
+ */
+export function inviterWord(inviterName: string | null | undefined): string {
+  const name = inviterName?.trim();
+  return name === "母" ? "ママ" : name === "パートナー" ? "パートナー" : name || "ご家族";
+}
+
 /** 「（呼び名）から、（時期）の母子手帳への招待です」。呼び名が無ければ「ご家族」、時期が無ければ時期を言わない */
 export function inviteHeadline(inviterName: string | null | undefined, period: string | null | undefined): string {
-  // 本人の名前が役の名前のまま（3つの問いで作った手帳は「母」）の時は、家族の言葉で呼ぶ
-  const name = inviterName?.trim();
-  const who = name === "母" ? "ママ" : name === "パートナー" ? "パートナー" : name || "ご家族";
-  return `${who}から、${period ? `${period}の` : ""}母子手帳への招待です`;
+  return `${inviterWord(inviterName)}から、${period ? `${period}の` : ""}母子手帳への招待です`;
+}
+
+/**
+ * 招待を受ける画面の見出しを、画面の言葉で組む。who（inviterWord の言葉）と period（periodWord の言葉）は、
+ * api/account/invite の GET が headline と分けて返す日本語（日本語の見出しを画面で読み直さない＝11/5 UX）。
+ * 日本語の時は inviteHeadline と同じ字。役の名前のままの時と「ご家族」は訳し、家族が入れた呼び名は nameIn に通す（見本の家族の名前だけローマ字）
+ */
+export function inviteHeadlineShown(who: string | null | undefined, period: string | null | undefined): string {
+  const whoJa = who?.trim() || inviterWord(null);
+  const w = ["ご家族", "ママ", "パートナー"].includes(whoJa) ? t(whoJa) : nameIn(whoJa);
+  if (!period) return t("{who}から、母子手帳への招待です", { who: w });
+  const week = /^妊娠(\d+)週$/.exec(period);
+  const p = week ? t("妊娠{w}週", { w: Number(week[1]) }) : relabel(period);
+  return t("{who}から、{period}の母子手帳への招待です", { who: w, period: p });
 }
 
 /** メールの一部を伏せる（例: papa@example.com → p…@e…） */
