@@ -50,9 +50,9 @@ export default {
   "本人にこの画面を見せて、本人が決めてから押してください": { zh: "请把这个页面给本人看，由本人决定后再点", en: "Please show this screen to the person and let them decide before you tap" },
   "ママが手帳に入った時に、ママ本人が押します": { zh: "妈妈加入手册后，由妈妈本人来点", en: "Mom taps this herself when she joins the handbook" },
   本人がログインして押します: { zh: "由本人登录后来点", en: "The person signs in and taps this themselves" },
-  "{who}の分は、本人（子は管理の人）が押すまで、その人の記録は残しません。": {
-    zh: "{who}：在本人（孩子则由管理的人）点同意之前，不会保存其记录。",
-    en: "For {who}, their records aren't kept until each person (or, for a child, a household manager) agrees.",
+  "{who}の分は、本人（子は管理の人）が押すまで、手帳の上に同意の案内が出ます。同意のない本人の記録を、サーバの側で止める仕組みは準備中です。": {
+    zh: "{who}：在本人（孩子则由管理的人）点同意之前，手册上方会显示同意的提示。在服务器一侧停止保存未同意者记录的功能还在准备中。",
+    en: "For {who}, a notice about consent appears at the top of the handbook until each person (or, for a child, a household manager) agrees. A way for the server to stop keeping the records of people who haven't agreed is still in preparation.",
   },
   "読んだうえで、同意する": { zh: "已阅读，同意", en: "I've read this and agree" },
   "押せる本人の分は、もう同意しています。": { zh: "你能点的人都已经同意了。", en: "Everyone you can agree for has already agreed." },
@@ -77,9 +77,9 @@ export default {
     zh: "照片和录音文件，会先用每个家庭各自的密钥加密，然后再保存",
     en: "Photo and audio files are encrypted with a separate key for each household before they are stored",
   },
-  "世帯に招いた家族には、見せると決めた範囲だけを見せます": {
-    zh: "对于邀请加入这个家庭的家人，只给他们看决定给他们看的范围",
-    en: "Family members invited to the household are shown only what was chosen to be shown to them",
+  "世帯に招いた家族も、記録を見られます（招いた祖父母などには、手帳のママの頁と健診の記録を見せません。ただし今は、話した記録や一冊などには母の記録も入ります。見せる範囲を選ぶ仕組みは準備中です）": {
+    zh: "邀请加入这个家庭的家人也能看到记录（不会给受邀的祖父母等看手册里妈妈的页面和健康检查的记录。不过目前，说话留下的记录和成长书等里面也包含妈妈的记录。选择给对方看哪些内容的功能还在准备中）",
+    en: "Family members invited to the household can also see the records (invited grandparents and others aren't shown Mom's pages in the handbook or the checkup records. For now, though, things like records made by talking and the Book also include the mother's records. A way to choose what to show is still in preparation)",
   },
   "体の判断はしません。気になる事は、産院・小児科・#8000 につなぎます": {
     zh: "手册不对身体状况做判断。有担心的事，会引导你联系分娩医院、儿科或儿童医疗咨询热线（#8000）",
@@ -266,9 +266,9 @@ export default {
   "見られる本人がいません。": { zh: "没有你能查看的人。", en: "There's no one here you can view." },
   親が代わりに同意: { zh: "由父母代为同意", en: "A parent agrees for them" },
   "撤回すると？": { zh: "撤回后会怎样？", en: "What happens if you withdraw?" },
-  "「記録を残す」を撤回すると、その本人の新しい記録は残しません。今までの記録を消したい時は、下の「消す」から本人の分を消してください。": {
-    zh: "撤回“保存记录”后，就不再保存这个人的新记录。想删除以往的记录时，请在下面的“删除”里删除这个人的部分。",
-    en: "If you withdraw “Keep records”, no new records are kept for that person. To delete past records, delete that person's data under “Delete” below.",
+  "「記録を残す」を撤回すると、手帳の上に同意の案内がまた出ます。同意のない本人の記録を、サーバの側で止める仕組みは準備中です。撤回の前に残した写真と声は、下の「消す」から本人の分を消せます（文字の記録を本人の分だけ消す仕組みは準備中です）。": {
+    zh: "撤回“保存记录”后，手册上方会再次显示同意的提示。在服务器一侧停止保存未同意者记录的功能还在准备中。撤回之前保存的照片和声音，可以在下面的“删除”里删除这个人的部分（只删除本人那部分文字记录的功能还在准备中）。",
+    en: "If you withdraw “Keep records”, the notice about consent appears at the top of the handbook again. A way for the server to stop keeping the records of people who haven't agreed is still in preparation. Photos and voices kept before withdrawing can be deleted for that person under “Delete” below (a way to delete only one person's text records is still in preparation).",
   },
   "「米国の Claude に送る」を撤回すると、その本人の分は Claude に送りません。送った分の Anthropic の側の写しは、30日以内に消えます。": {
     zh: "撤回“发送给美国的 Claude”后，这个人的部分就不再发送给 Claude。已经发送的部分在 Anthropic 那边的副本，会在30天内删除。",

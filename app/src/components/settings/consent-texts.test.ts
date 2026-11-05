@@ -1,10 +1,10 @@
 // 「米国の Claude に送る同意」の「何を送るか」は、実際に送っている物と同じにする（2026-11-05 UX・見直しの C12）。
 // それまでの文は「送るのは文字だけ」「氏名・住所は送りません」で、撮った紙の写真・家族の呼び名・病院と職場を送っている事実と違っていた。
-// 版（CONSENT_VERSION）を上げて取り直す日は統括が決める（ここでは版を見ない）。
+// 版（CONSENT_VERSION）は 2026-11-05 に record・claude_us とも上げた（統括）。ここでは、文を本当の事にそろえた版より前へ戻らない事を見る。
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { CLAUDE_US } from "./consent-texts";
+import { CLAUDE_US, CONSENT_VERSION, RECORD_PURPOSES } from "./consent-texts";
 
 const what = CLAUDE_US.what.join("\n");
 
@@ -53,5 +53,28 @@ describe("同意の案内の文（画面）に、事実と違う約束が無い"
     expect(src).toContain("止まる物:");
     expect(src).toContain("そのまま使える物:");
     expect(src).toContain("1人でも同意していない");
+  });
+});
+
+describe("記録の同意の文が、今のコードでできる事を越えない（UX の訳で見つかった食い違い・統括）", () => {
+  const root = path.resolve(import.meta.dirname, "../..");
+
+  it("使い方の要点に「見せると決めた範囲だけを見せる」と書かない（見せる範囲は、まだ選べない）", () => {
+    const all = RECORD_PURPOSES.join("\n");
+    expect(all).not.toMatch(/見せると決めた範囲|選んだ範囲だけ/);
+    expect(all).toContain("見せる範囲を選ぶ仕組みは準備中です");
+  });
+
+  it.each(["components/settings/ConsentScreen.tsx", "app/account/page.tsx", "app/account/consent/page.tsx"])(
+    "%s に、押すまで・撤回の後は「記録を残さない」と書かない（同意のない本人の記録を、サーバで止める所はまだ無い）",
+    (f) => {
+      const text = fs.readFileSync(path.join(root, f), "utf8");
+      expect(text).not.toMatch(/記録は残しません/);
+    },
+  );
+
+  it("文を本当の事にそろえた版（2026-11-05）より前へ、版を戻さない", () => {
+    expect(CONSENT_VERSION.record >= "2026-11-05").toBe(true);
+    expect(CONSENT_VERSION.claude_us >= "2026-11-05").toBe(true);
   });
 });

@@ -3,7 +3,9 @@
 // 送る前の関所（家族ごとのアカウントの設計 ⑥）:
 // - だれの記録を送るか（世帯・本人・送った人）を、呼ぶ口の opts.who か、route が sendingAs() で包んだ範囲から受け取る
 // - 本物の世帯（kind = real）は、送る本人の全員に「米国の Claude に送る同意（claude_us）」が有効な時だけ送る。
-//   1人でも無ければ送らず、分かる言葉の誤り（ConsentRequiredError・403）を返す
+//   1人でも無ければ送らず、分かる言葉の誤り（ConsentRequiredError・403）を返す。
+//   有効なのは今の版（CONSENT_VERSION.claude_us）以降の同意だけ。前の版の同意しか無い本人には、画面がもう一度聞く
+//   （2026-11-05 統括。前の版は、送る物の説明が実際と違っていた）
 // - 作った家族（demo・sim）は守る本人がいないので、同意は見ない
 // - 送った日時・本人・何の仕事かを audit に残す。使った額の行（spend.jsonl）にも世帯と送った人を書く
 // - アカウントの仕組みを動かす前（わが家の置き場・BOSHI_ACCOUNTS なし）は、今までどおり送る（同意の表がまだ無い）
@@ -13,6 +15,7 @@ import { AsyncLocalStorage } from "node:async_hooks";
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import type { z } from "zod";
+import { CONSENT_VERSION } from "@/components/settings/consent-texts";
 import { HttpError } from "./http-error";
 import { CONSENT_REQUIRED_TEXT } from "./claude-consent-flow";
 import { activeConsent, audit } from "./households";
@@ -115,12 +118,12 @@ export function currentSender(): SendWho | null {
 
 /**
  * 同意だけを確かめる（記録は残さない）。送る前に時間のかかる仕事（文字起こしなど）をする route が、先に呼ぶ。
- * 本物の世帯で、送る本人の全員に claude_us の同意が無ければ ConsentRequiredError
+ * 本物の世帯で、送る本人の全員に今の版の claude_us の同意が無ければ ConsentRequiredError（前の版の同意は無い扱い）
  */
 export function assertConsent(who: SendWho): void {
   if (who.legacy || who.kind !== "real" || who.noPersonal) return;
   // 同意の表は、関所（withHousehold）を通った後なら必ずある
-  const missing = who.subjectIds.filter((s) => !activeConsent(who.householdId, s, "claude_us"));
+  const missing = who.subjectIds.filter((s) => !activeConsent(who.householdId, s, "claude_us", CONSENT_VERSION.claude_us));
   if (!who.subjectIds.length || missing.length) throw new ConsentRequiredError(missing);
 }
 

@@ -6,6 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { CONSENT_VERSION } from "@/components/settings/consent-texts";
 
 vi.mock("server-only", () => ({}));
 
@@ -296,10 +297,38 @@ describe("アカウントの仕組みが動いている時（BOSHI_DATA_DIR を�
     expect(list.body.records).toEqual([]);
   });
 
+  it("米国の Claude に送る同意は、今の版でなければ送らない（前の版は、送る物の説明が実際と違っていた）。今の版で押し直すと送れる", () => {
+    const subjects = H.listSubjects(hidA);
+    const who = { householdId: hidA, kind: "real" as const, accountId: "acc-a", subjectIds: subjects.map((s) => s.id) };
+    expect("2026-11-03" < CONSENT_VERSION.claude_us).toBe(true);
+    for (const s of subjects) H.grantConsent(hidA, s.id, "claude_us", "2026-11-03", "acc-a");
+    expect(() => CL.assertConsent(who)).toThrow(CL.ConsentRequiredError);
+    expect(() => CL.guardSend("old-version", who)).toThrow(CL.ConsentRequiredError);
+    expect(H.listAudit(hidA).some((a) => a.action === "claude.send" && a.target === "old-version")).toBe(false);
+    for (const s of subjects) H.grantConsent(hidA, s.id, "claude_us", CONSENT_VERSION.claude_us, "acc-a");
+    expect(() => CL.assertConsent(who)).not.toThrow();
+    expect(CL.guardSend("new-version", who)?.householdId).toBe(hidA);
+  });
+
+  it("写真を1枚 Claude に見せる時（mediaForClaude）も、今の版の同意でなければ渡さない", async () => {
+    const A = await import("./access");
+    const M = await import("./media");
+    const ctx = await A.withHousehold(req(`/api/media?familyId=${hidA}`, { cookie: alice }), hidA, ["media:write", "media:read", "claude:send"]);
+    // 作ったバイト列だけの小さな JPEG（30×40・位置の情報なし）
+    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xc0, 0, 17, 8, 0, 30, 0, 40, 3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1, 0xff, 0xda, 0, 8, 1, 1, 0, 0, 0x3f, 0, 0x56, 9, 0xff, 0xd9]);
+    const { media } = await M.saveUpload(ctx, { orig: jpeg, view: jpeg, thumb: jpeg });
+    ctx.db.media.patch(media.id, { data: { shareWithClaude: { at: "2027-01-10T00:00:00.000Z", by: "test" } } });
+    const subjects = H.listSubjects(hidA);
+    for (const s of subjects) H.grantConsent(hidA, s.id, "claude_us", "2026-11-03", "acc-a");
+    await expect(M.mediaForClaude(ctx, media.id)).rejects.toMatchObject({ status: 403 });
+    for (const s of subjects) H.grantConsent(hidA, s.id, "claude_us", CONSENT_VERSION.claude_us, "acc-a");
+    await expect(M.mediaForClaude(ctx, media.id)).resolves.toMatchObject({ type: "image" });
+  });
+
   it("送る前の関所: 全員が同意すると通り、送った記録が残る。1人でも撤回すると止まる", async () => {
     const subjects = H.listSubjects(hidA);
     const who = { householdId: hidA, kind: "real" as const, accountId: "acc-a", subjectIds: subjects.map((s) => s.id) };
-    for (const s of subjects) H.grantConsent(hidA, s.id, "claude_us", "2026-11-03", "acc-a");
+    for (const s of subjects) H.grantConsent(hidA, s.id, "claude_us", CONSENT_VERSION.claude_us, "acc-a");
     await CL.sendingAs(who, async () => {
       expect(CL.guardSend("test")?.householdId).toBe(hidA);
     });
@@ -313,9 +342,14 @@ describe("アカウントの仕組みが動いている時（BOSHI_DATA_DIR を�
     expect(() => CL.guardSend("test", { ...who, subjectIds: [] })).toThrow(CL.ConsentRequiredError);
   });
 
-  it("作った家族（見本）と、移る前の通し方は、同意を見ずに送る", () => {
-    expect(CL.guardSend("demo", { householdId: "demo-sato", kind: "demo", accountId: null, subjectIds: [] })?.kind).toBe("demo");
-    expect(CL.guardSend("legacy", { householdId: "mine", kind: "real", accountId: null, subjectIds: [], legacy: true })?.legacy).toBe(true);
+  it("作った家族（見本・シミュレーション）と、移る前の通し方（legacy）は、同意の版を見るようにした後も、今までどおり同意を見ずに送る", () => {
+    const demo = { householdId: "demo-sato", kind: "demo" as const, accountId: null, subjectIds: [] };
+    const sim = { householdId: "sim-seed-1", kind: "sim" as const, accountId: null, subjectIds: [] };
+    const legacy = { householdId: "mine", kind: "real" as const, accountId: null, subjectIds: [], legacy: true };
+    for (const w of [demo, sim, legacy]) expect(() => CL.assertConsent(w)).not.toThrow();
+    expect(CL.guardSend("demo", demo)?.kind).toBe("demo");
+    expect(CL.guardSend("sim", sim)?.kind).toBe("sim");
+    expect(CL.guardSend("legacy", legacy)?.legacy).toBe(true);
   });
 
   it("使った額の行に、世帯と送った人を書く（前の形の行と一緒に読める）", async () => {
