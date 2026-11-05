@@ -29,7 +29,7 @@ export const POST = route(async (req: Request) => {
   const text = t.text.trim();
   if (!text) throw new HttpError(422, "声が聞き取れませんでした。もう一度話してみてください");
   try {
-    const result = await sendingAs(h.who, () => capture({ family, today, source: "voice", text }));
+    const result = await sendingAs(h.who, () => capture({ family, today, source: "voice", text, lang: langOf(req) }));
     return { ...result, transcript: text, ...(t.demo ? { demo: true, note: publicOn() ? TRIAL_VOICE : "文字起こしの機械が無いので、デモの文を使いました" } : {}) };
   } catch (e) {
     // 文字起こしは済んでいるので捨てない。画面は書く欄に入れて送り直せる

@@ -16,6 +16,8 @@ import { HttpError } from "./http-error";
 import { cleanManual, temperatureRecord, type ManualInput } from "./manual-entry";
 import { addTecho, removePendingByCapture, toNumber, VALUE_KEYS, type TechoDoc } from "./techo-store";
 import { concernSide, type VisitData, type VisitPlan } from "./visit";
+import type { Lang } from "./i18n";
+import { captureLangNote } from "./i18n/claude-lang";
 
 export const RECORD_KINDS = ["気がかり", "できごと", "予定", "書類", "メモ"] as const;
 export type RecordKind = (typeof RECORD_KINDS)[number];
@@ -158,6 +160,8 @@ export interface CaptureInput {
   image?: Anthropic.Beta.BetaImageBlockParam;
   /** 聞き返しへの答え（前回の材料と質問つき） */
   followUp?: { basis: string; question: string; answer: string };
+  /** 画面の言葉（頼みの言葉＝langOf）。返事をこの言葉で書く頼みは、lib/i18n/claude-lang.ts の切り替えの印が on の時だけ足す */
+  lang?: Lang;
 }
 
 export interface CaptureResult {
@@ -172,19 +176,30 @@ export interface CaptureResult {
   techo: TechoDoc[];
 }
 
-/** 1回の入力を Claude で記録と予定にし、保存する */
-export async function capture(input: CaptureInput, replaceCaptureId?: string): Promise<CaptureResult> {
+const labelOf = (source: RecordSource) => (source === "voice" ? "話した事（文字起こし）" : source === "photo" ? "撮った写真" : "書いた事");
+
+/**
+ * Claude への頼みの文（試験も読む＝capture-lang.test.ts）。日本語の画面と、切り替えの印（CLAUDE_LANG.capture）が off の時は、前と1字も同じ。
+ * 画面の言葉の段（作り手 11/5 夕の決め事①）は、家族の時計などの段のすぐ後に置く（家族の文は最後の段のまま＝見本の答え lib/samples.ts が読む形）
+ */
+export function capturePromptText(input: CaptureInput, langOn?: boolean): string {
   const { family, today, source } = input;
-  const label = source === "voice" ? "話した事（文字起こし）" : source === "photo" ? "撮った写真" : "書いた事";
-  const parts: Anthropic.Beta.BetaContentBlockParam[] = [];
-  if (input.image) parts.push(input.image);
-  let prompt = `${context(family, today)}\n\n`;
+  let prompt = `${context(family, today)}${captureLangNote(input.lang, langOn)}\n\n`;
   if (input.followUp) {
     prompt += `前回の材料:\n${input.followUp.basis}\n\n手帳からの質問: ${input.followUp.question}\n家族の答え: ${input.followUp.answer}\n\n前回の材料と答えを合わせて、記録と予定を作り直してください。もう質問はしない（oneQuestion は null）。`;
   } else {
-    prompt += `${label}:\n${input.text?.trim() || "（文字なし）"}`;
+    prompt += `${labelOf(source)}:\n${input.text?.trim() || "（文字なし）"}`;
   }
-  parts.push({ type: "text", text: prompt });
+  return prompt;
+}
+
+/** 1回の入力を Claude で記録と予定にし、保存する */
+export async function capture(input: CaptureInput, replaceCaptureId?: string): Promise<CaptureResult> {
+  const { family, today, source } = input;
+  const label = labelOf(source);
+  const parts: Anthropic.Beta.BetaContentBlockParam[] = [];
+  if (input.image) parts.push(input.image);
+  parts.push({ type: "text", text: capturePromptText(input) });
 
   const out = await structured(Schema, CAPTURE_SYSTEM, parts, { model: EVERYDAY_MODEL, maxTokens: 6000, task: "capture" });
 

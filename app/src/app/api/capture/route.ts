@@ -24,7 +24,7 @@ export const POST = route(async (req: Request) => {
   if (!text) throw new HttpError(400, "書いた事が空です");
   if (text.length > 4000) throw new HttpError(400, "長すぎます（4000字まで）");
   const today = todayOf(b.today);
-  return sendingAs(h.who, () => capture({ family: h.family, today, source: "text", text }));
+  return sendingAs(h.who, () => capture({ family: h.family, today, source: "text", text, lang: langOf(req) }));
 });
 
 export const DELETE = route(async (req: Request) => {

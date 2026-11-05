@@ -33,7 +33,7 @@ export const POST = route(async (req: Request) => {
   markActionUsed(family.id, turn.at, b.index, true);
   try {
     if (a.type === "record") {
-      const r = await sendingAs(h.who, () => capture({ family, today: turn.today, source: "text", text: a.text }));
+      const r = await sendingAs(h.who, () => capture({ family, today: turn.today, source: "text", text: a.text, lang: langOf(req) }));
       const techo = r.techo?.length ?? 0;
       // 記録した後の文は、Claude の言い換えを出さず決まった文にする（第30回で「今すぐ産院へ」が「今日のうちに」に弱まった）
       return {

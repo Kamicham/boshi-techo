@@ -3,6 +3,7 @@ import { body, route } from "@/lib/api";
 import { capture, clearAsk, hasAsk, listRecords, type RecordSource } from "@/lib/capture";
 import { sendingAs } from "@/lib/claude";
 import { HttpError } from "@/lib/family";
+import { langOf } from "@/lib/i18n/dicts";
 import { familyFor, WRITE_AND_SEND } from "../../_lib/household";
 import { todayOf } from "../shared";
 
@@ -22,7 +23,7 @@ export const POST = route(async (req: Request) => {
   const question = b.question.slice(0, 500);
   const result = await sendingAs(h.who, () =>
     capture(
-      { family, today, source, followUp: { basis, question, answer: answer.slice(0, 1000) } },
+      { family, today, source, followUp: { basis, question, answer: answer.slice(0, 1000) }, lang: langOf(req) },
       owned ? b.captureId : undefined,
     ),
   );

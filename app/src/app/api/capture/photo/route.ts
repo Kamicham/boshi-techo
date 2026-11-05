@@ -4,6 +4,7 @@ import { capture } from "@/lib/capture";
 import { imageBlock } from "@/lib/claude";
 import { sendingAs } from "@/lib/claude";
 import { HttpError } from "@/lib/family";
+import { langOf } from "@/lib/i18n/dicts";
 import { familyFor, WRITE_AND_SEND } from "../../_lib/household";
 import { todayOf } from "../shared";
 
@@ -20,5 +21,5 @@ export const POST = route(async (req: Request) => {
     throw new HttpError(400, (e as Error).message);
   }
   const today = todayOf(b.today);
-  return sendingAs(h.who, () => capture({ family, today, source: "photo", image, text: b.note?.slice(0, 1000) }));
+  return sendingAs(h.who, () => capture({ family, today, source: "photo", image, text: b.note?.slice(0, 1000), lang: langOf(req) }));
 });
