@@ -208,3 +208,27 @@ describe("予定の言葉（msWords）", () => {
     expect(withLang("ja", () => msWords("翔太の育休を職場に伝える"))).toBe("翔太の育休を職場に伝える");
   });
 });
+
+describe("お金が届いたか確かめる（lib/money.ts の paidDef）", () => {
+  it("7つの手続きの見出し・一言・ヒントを、中文・English の形で引く（日本語は1字も変えない）", async () => {
+    const { MONEY, paidDef } = await import("../money");
+    const { withLang } = await import(".");
+    const { DICTS } = await import("./dicts");
+    for (const id of Object.keys(MONEY)) {
+      const d = paidDef(id)!;
+      for (const s of [d.title, d.plain, d.hint!]) {
+        expect(withLang("ja", () => msWords(s), DICTS.ja)).toBe(s);
+        for (const l of ["zh", "en"] as const) {
+          const out = withLang(l, () => msWords(s), DICTS[l]);
+          // 括弧の中の日本語（窓口の言葉）と「児童手当」（いまの辞書の訳）のほかに、日本語の文が残らない
+          expect(out.replace(/（[^）]*）|\([^)]*\)/g, "").replace("児童手当", ""), `${l}: ${s}`).not.toMatch(/[ぁ-んァ-ヶ]/);
+        }
+      }
+    }
+    const child = paidDef("child-allowance")!;
+    expect(withLang("en", () => msWords(child.title), DICTS.en)).toBe(
+      "Check whether the first child allowance payment (児童手当) has arrived (if it's past the expected time, check with your city office)",
+    );
+    expect(withLang("zh", () => msWords(child.hint!), DICTS.zh)).toBe("到账了就点“完成了”。还没到的话，问市区町村的窗口");
+  });
+});

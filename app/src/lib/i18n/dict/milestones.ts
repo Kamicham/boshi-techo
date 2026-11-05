@@ -673,4 +673,26 @@ export default {
     zh: "预计会超过可以公费接种的年龄（到{date}为止）。请向儿科或保健中心确认",
     en: "Likely to pass the age for publicly funded shots (until {date}). Check with a pediatrician or the health center",
   },
+
+  // ── お金が届いたか確かめる（lib/money.ts の paidDef。lib/i18n/milestone-words.ts の形で引く）。「児童手当」は「いま」の辞書（today.ts）の訳を使う ──
+  "{what}が届いたか確かめる（届く時期を過ぎたら{ask}に確かめる）": {
+    zh: "确认{what}是否到账（过了应到的时间还没到，就向{ask}确认）",
+    en: "Check whether {what} has arrived (if it's past the expected time, check with {ask})",
+  },
+  "{what}が届いたか見る": { zh: "看看{what}到账了没有", en: "See whether {what} has arrived" },
+  "届いたら「済んだ」。まだなら{ask}に": { zh: "到账了就点“完成了”。还没到的话，问{ask}", en: "Once it arrives, tap “Done”. If not, ask {ask}" },
+  支援給付の2回目: { zh: "第2次孕妇支援给付（妊婦のための支援給付）", en: "the 2nd support benefit for pregnant women (妊婦のための支援給付)" },
+  出産手当金: { zh: "分娩补贴（出産手当金）", en: "the maternity allowance (出産手当金)" },
+  育休の給付の初回: { zh: "第一笔育儿休假补贴（育児休業給付）", en: "the first childcare leave benefit (育児休業給付)" },
+  育休の給付: { zh: "育儿休假补贴（育児休業給付）", en: "the childcare leave benefit (育児休業給付)" },
+  パートナーの育休の給付: { zh: "伴侣的育儿休假补贴（育児休業給付）", en: "your partner's childcare leave benefit (育児休業給付)" },
+  児童手当の最初の振込: { zh: "第一笔儿童补贴（児童手当）", en: "the first child allowance payment (児童手当)" },
+  一時金の差額: { zh: "分娩育儿一次性补贴（出産育児一時金）的差额", en: "the difference from the lump-sum grant (出産育児一時金)" },
+  医療費控除の還付: { zh: "医疗费扣除（医療費控除）的退税", en: "the refund from the medical expense deduction (医療費控除)" },
+  町の窓口: { zh: "市区町村的窗口", en: "your city office" },
+  勤め先か健康保険: { zh: "工作单位或健康保险", en: "your employer or health insurance" },
+  勤め先かハローワーク: { zh: "工作单位或公共职业安定所（ハローワーク）", en: "your employer or Hello Work (ハローワーク)" },
+  パートナーの勤め先: { zh: "伴侣的工作单位", en: "your partner's employer" },
+  健康保険: { zh: "健康保险", en: "your health insurance" },
+  税務署: { zh: "税务署（税務署）", en: "the tax office (税務署)" },
 } satisfies Entries;
