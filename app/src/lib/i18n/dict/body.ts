@@ -85,4 +85,23 @@ export default {
     zh: "上面是表格所附注释的原文，意思是：“增加量需要严格指导的依据未必充分，应认识到这一点，考虑个人差异，进行宽松的指导。”（産婦人科診療ガイドライン産科編 2020 CQ 010。厚生労働省 子母発0331第5号〈2021年3月31日〉の表8）",
     en: "The line above is the original wording of the note on the table. It means: “The evidence for strictly guiding how much weight is gained is not necessarily sufficient; recognizing this, guide gently, taking individual differences into account.” (産婦人科診療ガイドライン産科編 2020 CQ 010; Ministry of Health, Labour and Welfare notice 子母発0331第5号, March 31, 2021, Table 8)",
   },
+  // ── 健診で見せる記録（/techo/share・プランの C）。下の1枚は病院あてなので日本語のまま（訳すのは上の段だけ）──
+  健診で見せる記録: { zh: "体检时出示的记录", en: "Record to show at checkups" },
+  "健診の時に、この1枚を見せたり、印刷して渡したりできます。下の1枚は、病院で読めるように日本語で作っています。": {
+    zh: "体检时，可以出示这一页，或打印出来交给医院。下面这一页用日语制作，方便医院阅读。",
+    en: "At a checkup, you can show this page or print it and hand it over. The page below is in Japanese so the clinic can read it.",
+  },
+  "1枚に入れる物": { zh: "放进这一页的内容", en: "What to put on the page" },
+  "ママの体重・血圧など（妊婦健診と家で測った物）": { zh: "妈妈的体重、血压等（孕妇健康检查和在家测量的）", en: "Mom's weight, blood pressure, etc. (prenatal checkups and home measurements)" },
+  "子の身長・体重・頭囲": { zh: "孩子的身高、体重、头围", en: "Child's height, weight, and head size" },
+  予防接種: { zh: "预防接种", en: "Vaccinations" },
+  次の予約: { zh: "下次预约", en: "Next appointment" },
+  健診で聞きたい事: { zh: "体检时想问的事", en: "Questions for the checkup" },
+  "妊婦の健康状態（これまでの病気・アレルギー・薬など）": { zh: "孕妇的健康状况（既往病史、过敏、用药等）", en: "Mother's health (past illnesses, allergies, medicines, etc.)" },
+  画面でそのまま見せる: { zh: "直接在画面上出示", en: "Show on screen" },
+  "A4 で印刷する": { zh: "用 A4 打印", en: "Print on A4" },
+  共有シートで送る: { zh: "通过分享发送", en: "Send with the share sheet" },
+  "送る文に、表の全部を入れる（入れない時は要約の1行）": { zh: "发送的文字里放入整张表（不放时只发一行摘要）", en: "Put the full tables in the text (otherwise a one-line summary)" },
+  "渡した紙と送った文は、取り消せません。": { zh: "交出去的纸和发出的文字，无法收回。", en: "Paper you hand over and text you send can't be taken back." },
+  "この画面を、そのまま見せてください。": { zh: "请直接出示这个画面。", en: "Show this screen as it is." },
 } satisfies Entries;

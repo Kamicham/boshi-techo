@@ -25,6 +25,15 @@ export function LocaleProvider({ lang, dict, children }: { lang: Lang; dict: Dic
   return <LocaleCtx.Provider value={value}>{children}</LocaleCtx.Provider>;
 }
 
+/**
+ * 囲んだ所だけ、決まった言葉で描く（useT()・useLang() が読む言葉を替える。setLocale は呼ばず、画面の言葉は変えない）。
+ * 病院あての1枚（健診で見せる記録・/techo/share）は、画面が中文・English でも日本語で描く: <LocaleScope lang="ja" dict={{}}>
+ */
+export function LocaleScope({ lang, dict, children }: { lang: Lang; dict: Dict; children: React.ReactNode }) {
+  const value = useMemo(() => ({ lang, dict }), [lang, dict]);
+  return <LocaleCtx.Provider value={value}>{children}</LocaleCtx.Provider>;
+}
+
 export function useLang(): Lang {
   return useContext(LocaleCtx).lang;
 }

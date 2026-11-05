@@ -6,7 +6,7 @@
 // 点の位置で良し悪しを言わない。注意書き（GROWTH_NOTE）は使う側が出す。
 import { useMemo } from "react";
 import { bandAt, GROWTH_LABELS, GROWTH_UNITS, type GrowthMeasure, type GrowthPoint, type GrowthSex } from "@/lib/growth";
-import { t } from "@/lib/i18n";
+import { useT } from "@/components/LocaleProvider";
 
 /** 1人ぶんの線（label は子の呼び名か「1人目」。1人の時は使わない） */
 export type GrowthLine = { label: string; points: GrowthPoint[] };
@@ -43,6 +43,8 @@ export function GrowthLines({
   corrected: boolean;
   showMid: boolean;
 }) {
+  // 言葉は useT()（健診で見せる1枚は LocaleScope で日本語に囲む。手帳の画面では画面の言葉）
+  const tt = useT();
   const xMax = growthXMax(lines);
   const shown = useMemo(() => lines.map((l) => ({ ...l, points: l.points.filter((p) => p.month >= 0 && p.month <= xMax) })), [lines, xMax]);
   const count = shown.reduce((n, l) => n + l.points.length, 0);
@@ -71,12 +73,12 @@ export function GrowthLines({
   const yStep = measure === "weight" ? (yMax - yMin <= 6 ? 1 : 2) : 5;
   const yTicks: number[] = [];
   for (let v = Math.ceil(yMin / yStep) * yStep; v <= yMax; v += yStep) yTicks.push(v);
-  const label = t(GROWTH_LABELS[measure]);
+  const label = tt(GROWTH_LABELS[measure]);
   const aria = !sex
-    ? t("{label}の発育曲線（帯なし）。点は記録（{n}件）", { label, n: count })
+    ? tt("{label}の発育曲線（帯なし）。点は記録（{n}件）", { label, n: count })
     : showMid
-      ? t("{label}の発育曲線。帯は国の調査の3から97パーセンタイル、線は50パーセンタイル。点は記録（{n}件）", { label, n: count })
-      : t("{label}の発育曲線。帯は国の調査の3から97パーセンタイル。点は記録（{n}件）", { label, n: count });
+      ? tt("{label}の発育曲線。帯は国の調査の3から97パーセンタイル、線は50パーセンタイル。点は記録（{n}件）", { label, n: count })
+      : tt("{label}の発育曲線。帯は国の調査の3から97パーセンタイル。点は記録（{n}件）", { label, n: count });
 
   return (
     <figure className="flex flex-col gap-1">
@@ -95,7 +97,7 @@ export function GrowthLines({
           </text>
         ))}
         <text x={W - PAD.r} y={H - 4} textAnchor="end" fontSize={9} fill="currentColor" className="text-muted">
-          {corrected ? t("修正月齢（か月）") : t("生後（か月）")}
+          {corrected ? tt("修正月齢（か月）") : tt("生後（か月）")}
         </text>
         <text x={4} y={PAD.t + 2} fontSize={9} fill="currentColor" className="text-muted">
           {GROWTH_UNITS[measure]}
@@ -124,14 +126,14 @@ export function GrowthLines({
         ))}
       </svg>
       <figcaption className="flex flex-wrap gap-x-3 text-sm text-muted">
-        {sex ? <span>{t("帯: 同じ月齢の子の94%が入る幅（3〜97）")}</span> : null}
-        {sex && showMid ? <span>{t("線: 50")}</span> : null}
+        {sex ? <span>{tt("帯: 同じ月齢の子の94%が入る幅（3〜97）")}</span> : null}
+        {sex && showMid ? <span>{tt("線: 50")}</span> : null}
         {shown.length > 1 ? (
-          shown.map((l, i) => <span key={l.label || i}>{i === 0 ? `● ${l.label}` : t("■ {name}（点線）", { name: l.label })}</span>)
+          shown.map((l, i) => <span key={l.label || i}>{i === 0 ? `● ${l.label}` : tt("■ {name}（点線）", { name: l.label })}</span>)
         ) : (
           <span>
-            {t("点: わが家の記録")}
-            {count === 0 ? t("（まだありません）") : ""}
+            {tt("点: わが家の記録")}
+            {count === 0 ? tt("（まだありません）") : ""}
           </span>
         )}
       </figcaption>

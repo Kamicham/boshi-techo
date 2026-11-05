@@ -88,6 +88,7 @@ const DONE: readonly string[] = [
   // 手帳のタブ（多言語化④・エージェントが訳し、成長曲線は思い出の会話の書き換えの後に UX が訳した）
   "app/techo/page.tsx",
   "components/techo/",
+  "app/techo/share/", // 健診で見せる記録（上の段は画面の言葉・下の1枚は病院あてなので日本語＝「訳さない」の注。プランの C）
 ];
 
 /** 体験の筋（③）。I18N_LEFT=1 で残りを数える */
