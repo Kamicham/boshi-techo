@@ -96,10 +96,18 @@ function sentenceAt(text: string, at: number): string {
 }
 
 /**
+ * iPhone などが打つまるいアポストロフィ（’ ‘ ʼ）と全角の＇を ' にそろえる。英語の表は can't・don't の形で書いてあり、
+ * iPhone の打ち方（スマート句読点）の "can’t breathe"・"don’t want to live" に当たっていなかった（2026-11-05 監査）。
+ * 1字を1字に替えるだけなので、当たった所の位置は変わらない
+ */
+const plainQuotes = (s: string) => s.replace(/[‘’ʼ＇]/g, "'");
+
+/**
  * 話す・撮るの床: 確度の高い急ぎの言葉（URGENT_SURE）が、打ち消し・もしも・軽い所でない形で入っているか。
  * 体の判断ではない（当たったら、連絡先の案内を付けるだけ）。
  */
-export function sureUrgent(text: string): boolean {
+export function sureUrgent(raw: string): boolean {
+  const text = plainQuotes(raw);
   for (const m of text.matchAll(new RegExp(URGENT_SURE.source, "g"))) {
     const before = text.slice(Math.max(0, m.index - 8), m.index);
     const after = text.slice(m.index + m[0].length, m.index + m[0].length + 10);
@@ -254,7 +262,8 @@ export interface Bridge {
   note: string | null;
 }
 
-export function bridgeFor(text: string, phase: "pregnant" | "child" | "other"): Bridge {
+export function bridgeFor(raw: string, phase: "pregnant" | "child" | "other"): Bridge {
+  const text = plainQuotes(raw);
   const urgent = URGENT.test(text) || URGENT_INTL.test(text);
   const violence = VIOLENCE.test(text);
   const crisis = CRISIS.test(text) || CRISIS_INTL.test(text) || violence;
