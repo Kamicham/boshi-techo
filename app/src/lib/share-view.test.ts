@@ -50,6 +50,8 @@ const PLAN: VisitPlan = {
 
 const FAMILY: ShareInput["family"] = { dueDate: "2026-06-01", birthDate: "2026-05-25", childName: "あおい" };
 const INPUT: ShareInput = { entries: ENTRIES, plan: PLAN, family: FAMILY, today: TODAY };
+/** 次の予約を本人が入れた（source "manual"）家族。1枚の「次の予約」に出るのは、この形だけ */
+const MANUAL: ShareInput = { ...INPUT, plan: { ...PLAN, next: { date: "2026-11-20", time: "10:30", source: "manual" } } };
 
 /** どの束にも出てはいけない字（名前・題・元の言葉・メモ・施設名・ロット・医師・外した頁・お金・id・候補・未来の記録） */
 const NEVER = [
@@ -126,7 +128,8 @@ describe("健診で見せる1枚の決まり（lib/share-view.ts）", () => {
       { date: "2026-03-24", vaccine: "RSウイルス（母子免疫）", dose: "妊娠30週2日", mother: true },
       { date: "2026-07-25", vaccine: "ヒブ", dose: "1回目" },
     ]);
-    expect(sheet.next).toEqual({ date: "2026-11-20", time: "10:30" });
+    // 録音から聞こえた日（source "visit"）は出さない（下の「次の予約」の試験）
+    expect(sheet.next).toBeNull();
     expect(sheet.questions).toEqual([
       { forChild: false, text: "ママの気がかりの字" },
       { forChild: true, text: "子の気がかりの字" },
@@ -151,10 +154,18 @@ describe("健診で見せる1枚の決まり（lib/share-view.ts）", () => {
   });
 
   it("選んだ束だけが入る（選ばない束の欄は1枚に無い）", () => {
-    const sheet = shareView(INPUT, { viewer: "mother", bundles: ["next"] });
+    const sheet = shareView(MANUAL, { viewer: "mother", bundles: ["next"] });
     expect(sheet).toEqual({ bundles: ["next"], hideCounts: false, next: { date: "2026-11-20", time: "10:30" } });
     // 過ぎた予定は出さない
-    expect(shareView({ ...INPUT, today: "2026-11-21" }, { viewer: "mother", bundles: ["next"] }).next).toBeNull();
+    expect(shareView({ ...MANUAL, today: "2026-11-21" }, { viewer: "mother", bundles: ["next"] }).next).toBeNull();
+  });
+
+  it("次の予約は、本人が入れた日（manual）だけ。録音から聞こえた日（visit）は、だれが作る1枚にも出さない（聞き違いの件・手帳の外へは本人の［大丈夫］の後だけ）", () => {
+    for (const viewer of ["mother", "writer", "reader"] as const) {
+      expect(shareView(INPUT, { viewer, bundles: ["next"] }).next, viewer).toBeNull();
+      expect(shareView(MANUAL, { viewer, bundles: ["next"] }).next, viewer).toEqual({ date: "2026-11-20", time: "10:30" });
+    }
+    expect(JSON.stringify(shareView(INPUT, { viewer: "mother", bundles: ALL }))).not.toContain("2026-11-20");
   });
 
   it("つらい別れの家族には、週数を出さない（体の図の束は空・RS の回の妊娠週数も出さない）", () => {

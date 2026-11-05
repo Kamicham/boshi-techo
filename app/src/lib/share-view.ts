@@ -261,8 +261,11 @@ export function shareView(input: ShareInput, opts: { viewer: ShareViewer; bundle
   }
 
   if (want.has("next")) {
+    // 次の予約は、本人が入れた日（source "manual"）だけ。録音から聞こえた日（"visit"）は聞き違えがあり得るので、
+    // 手帳の外（1枚・印刷・共有の文）へは出さない（2026-11-05 聞き違いの件・プラン第4版「手帳の外へは、本人の［大丈夫］の後だけ」）
     const n = input.plan?.next;
-    sheet.next = n && typeof n.date === "string" && DATE.test(n.date) && n.date >= today ? compact({ date: n.date, time: text(n.time, 10) }) : null;
+    sheet.next =
+      n && n.source === "manual" && typeof n.date === "string" && DATE.test(n.date) && n.date >= today ? compact({ date: n.date, time: text(n.time, 10) }) : null;
   }
 
   if (want.has("questions")) {
