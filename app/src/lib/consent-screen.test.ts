@@ -26,7 +26,8 @@ describe("同意の画面の守っている事", () => {
   it("まだ効いていない約束（母の記録の見せる範囲・本人の分の文字の記録を消す）は「準備中」と書き、「選べます」と言わない", () => {
     // 文字の記録に本人が付かないので、招いた祖父母などにも母の記録が見え、本人の分を消しても文字の記録は残る（2026-11-05 に確かめ直した）
     expect(RECORD_PROMISES[0]).toContain("見せる範囲を選ぶ仕組みは準備中");
-    expect(RECORD_PROMISES[0]).toContain("母の記録を含む文字の記録が見えます");
+    expect(RECORD_PROMISES[0]).toContain("手帳のママの頁を見せません");
+    expect(RECORD_PROMISES[0]).toContain("話した記録や一冊などには母の記録も入ります");
     expect(RECORD_PROMISES[0]).not.toContain("選べます");
     expect(RECORD_PROMISES[2]).toContain("文字の記録を本人の分だけ消す仕組みは準備中");
     expect(RECORD_PROMISES[2]).not.toMatch(/あなたの分は、いつでも消せます/);
