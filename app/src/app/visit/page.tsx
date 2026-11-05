@@ -14,7 +14,10 @@ import { addDays, lmpFromDue } from "@/lib/clock";
 import { deadlineKindOf, scheduleFor, statusOf, type Milestone, type Status } from "@/lib/milestones";
 import type { PrenatalState } from "@/lib/prenatal";
 import { t } from "@/lib/i18n";
-import { briefingDay, concernSide, visitLabel, type AgendaItem, type VisitPlan, type VisitStatus } from "@/lib/visit";
+import { msWords } from "@/lib/i18n/milestone-words";
+import { nameIn } from "@/lib/i18n/names";
+import { tr } from "@/lib/i18n/rich";
+import { briefingDay, concernSide, relabelVisit, visitLabelIn, type AgendaItem, type VisitPlan, type VisitStatus } from "@/lib/visit";
 
 interface Row {
   id: string;
@@ -97,21 +100,22 @@ export default function VisitList() {
   const notMom = !!me && me.role !== "母";
   const born = !!family.birthDate && family.birthDate <= today;
   // 「ママの健診」は1回だけ: 生まれた後は下の見出しが言うので、箱の上には繰り返さない
-  const whose = notMom && !born ? "ママの健診" : undefined;
+  const whose = notMom && !born ? t("ママの健診") : undefined;
   // 今日録った健診（整理中・できた）は、まとめを読むのが次の一手。母以外は3日以内の健診も
   const recent = data?.visits.find(
     (v) => !v.demo && v.status !== "ready" && v.status !== "recording" && (v.date === today || (notMom && v.status === "done" && daysUntil(v.date, today) <= 3)),
   );
   // 前回の健診（家族が録った物。デモは除く）。次の予約が無い時は、これを先に見せる
   const last = data?.visits.find((v) => !v.demo && v.status === "done");
-  const startLabel = busy === "start" ? "準備しています…" : "今日の健診を始める";
+  const startLabel = busy === "start" ? t("準備しています…") : t("今日の健診を始める");
   const agendaCount = data?.agenda.length ?? 0;
   const daysToNext = next ? daysUntil(today, next.date) : null;
   // 3日前〜前日は「聞きたい事を書く」が今やる1つ（前日は持ち物も一緒に）
   const soon = daysToNext != null && daysToNext >= 1 && daysToNext <= 3;
   // 録音から聞こえただけで、まだ本人が確かめていない日（heard）: 手帳の中では添え書きをして出し、カレンダーへは確かめた後だけ（2026-11-05 作り手の方針）
   const heard = !!next?.heard;
-  const calendar = next && !heard ? { title: `健診（${visitLabel(family, next.date)}）`, date: next.date, time: next.time ?? null, minutes: 60 } : null;
+  // カレンダーへ渡す題も画面の言葉で組む（TaskCard の期限と同じ）
+  const calendar = next && !heard ? { title: t("健診（{label}）", { label: visitLabelIn(family, next.date) }), date: next.date, time: next.time ?? null, minutes: 60 } : null;
   const heardSub = heard ? t("録音から聞こえた日・まだ確かめていません") : undefined;
   const checkBtn =
     heard && next?.visitId ? (
@@ -127,23 +131,28 @@ export default function VisitList() {
   );
   const startQuiet = (
     <Btn kind="quiet" onClick={() => void start()} disabled={!!busy || !ready}>
-      {busy === "start" ? "準備しています…" : "今日が健診の日なら、先生の話を録る"}
+      {busy === "start" ? t("準備しています…") : t("今日が健診の日なら、先生の話を録る")}
     </Btn>
   );
 
   let top: React.ReactNode;
   if (!data) {
-    top = err ? null : <p className="text-base text-muted">読み込んでいます…</p>;
+    top = err ? null : <p className="text-base text-muted">{t("読み込んでいます…")}</p>;
   } else if (ongoing) {
     top = (
-      <NextStep eyebrow={`今日・${ongoing.label}`} title="今日の健診を続ける">
-        <Btn href={`/visit/${ongoing.id}`}>続ける</Btn>
+      <NextStep eyebrow={t("今日・{label}", { label: relabelVisit(ongoing.label) })} title={t("今日の健診を続ける")}>
+        <Btn href={`/visit/${ongoing.id}`}>{t("続ける")}</Btn>
       </NextStep>
     );
   } else if (recent) {
+    const label = relabelVisit(recent.label);
     top = (
-      <NextStep eyebrow={`${recent.date === today ? "今日" : jpDate(recent.date)}・${recent.label}`} title="健診のまとめを読む" sub={recent.summary ?? undefined}>
-        <Btn href={`/visit/${recent.id}`}>{recent.status === "done" ? "読む" : "見る"}</Btn>
+      <NextStep
+        eyebrow={recent.date === today ? t("今日・{label}", { label }) : t("{date}・{label}", { date: jpDate(recent.date), label })}
+        title={t("健診のまとめを読む")}
+        sub={recent.summary ?? undefined}
+      >
+        <Btn href={`/visit/${recent.id}`}>{recent.status === "done" ? t("読む") : t("見る")}</Btn>
       </NextStep>
     );
   } else if (when && next) {
@@ -162,8 +171,8 @@ export default function VisitList() {
   } else if (next && soon) {
     top = (
       <NextStep
-        eyebrow={whose ?? "次の健診"}
-        title={`${visitLabel(family, next.date)}の健診`}
+        eyebrow={whose ?? t("次の健診")}
+        title={t("{label}の健診", { label: visitLabelIn(family, next.date) })}
         days={daysToNext}
         dateLabel={`${jpDate(next.date)}${next.time ? ` ${next.time}` : ""}`}
         sub={heardSub}
@@ -175,8 +184,8 @@ export default function VisitList() {
   } else if (next) {
     top = (
       <NextStep
-        eyebrow={whose ?? "次の健診"}
-        title={`${visitLabel(family, next.date)}の健診`}
+        eyebrow={whose ?? t("次の健診")}
+        title={t("{label}の健診", { label: visitLabelIn(family, next.date) })}
         days={daysToNext}
         dateLabel={`${jpDate(next.date)}${next.time ? ` ${next.time}` : ""}`}
         sub={heardSub}
@@ -188,9 +197,14 @@ export default function VisitList() {
   } else if (last) {
     // 記録がある時は、空の「次の健診の日を入れる」より前回の健診を先に（次の日は下の折りたたみで入れる）
     top = (
-      <NextStep eyebrow={`前回の健診・${jpDate(last.date)}・${last.label}`} title="前回の健診のまとめ" sub={last.summary ?? undefined} tone="sky">
+      <NextStep
+        eyebrow={t("前回の健診・{date}・{label}", { date: jpDate(last.date), label: relabelVisit(last.label) })}
+        title={t("前回の健診のまとめ")}
+        sub={last.summary ?? undefined}
+        tone="sky"
+      >
         <Btn href={`/visit/${last.id}`} kind="secondary">
-          読む
+          {t("読む")}
         </Btn>
       </NextStep>
     );
@@ -198,12 +212,12 @@ export default function VisitList() {
     // パートナー・祖父母には、入力を求めない（ママが入れた日がここに出る）
     top = (
       <p className="rounded-2xl bg-card px-4 py-3 text-base text-muted">
-        {whose ? `${whose}の` : ""}次の日は、まだ入っていません。入ると、ここに出ます
+        {whose ? t("{whose}の次の日は、まだ入っていません。入ると、ここに出ます", { whose }) : t("次の日は、まだ入っていません。入ると、ここに出ます")}
       </p>
     );
   } else {
     top = (
-      <NextStep eyebrow={whose ?? "次の健診"} title="次の健診の日を入れる">
+      <NextStep eyebrow={whose ?? t("次の健診")} title={t("次の健診の日を入れる")}>
         <NextAppointment next={null} onSave={(n) => void savePlan({ next: n })} />
         {startQuiet}
       </NextStep>
@@ -216,7 +230,7 @@ export default function VisitList() {
   const nextFold = data && !next && !ongoing && !recent && (!!last || notMom);
   return (
     <main className="flex flex-col gap-4 px-4 pt-4 pb-6">
-      <h1 className="font-display text-xl font-bold">健診</h1>
+      <h1 className="font-display text-xl font-bold">{t("健診")}</h1>
 
       {err && (
         <p role="alert" className="rounded-lg bg-alert/10 px-3 py-2 text-base text-alert">
@@ -227,14 +241,14 @@ export default function VisitList() {
       {/* デモの家族を見ている時は、小さな札1行だけ（健診の流れはそのまま見せる） */}
       {isDemo && (
         <p className="flex min-h-11 flex-wrap items-center justify-between gap-x-2 rounded-lg bg-sky-soft px-3 text-sm text-muted">
-          <span>デモの家族を見ています</span>
+          <span>{t("デモの家族を見ています")}</span>
           {mine ? (
             <button type="button" onClick={() => setFamilyId(mine.id)} className="min-h-11 font-semibold text-sky underline underline-offset-2">
-              わが家に切り替える
+              {t("わが家に切り替える")}
             </button>
           ) : (
             <Link href="/settings" className="inline-flex min-h-11 items-center font-semibold text-sky underline underline-offset-2">
-              わが家を作る
+              {t("わが家を作る")}
             </Link>
           )}
         </p>
@@ -250,46 +264,46 @@ export default function VisitList() {
         />
       )}
 
-      {born && <h2 className="pt-2 text-sm font-semibold text-muted">ママの健診</h2>}
+      {born && <h2 className="pt-2 text-sm font-semibold text-muted">{t("ママの健診")}</h2>}
       {top}
 
       {!born && data?.prenatal && <PrenatalBox s={data.prenatal} today={today} paid={data.plan.paid ?? []} hasNext={!!next} onSave={(b) => void savePlan(b)} />}
 
       {isDemo && data && (
         <Btn kind="quiet" onClick={() => void demo()} disabled={!!busy}>
-          {busy === "demo" ? "作っています…（30秒ほど）" : `デモの健診のまとめを見る（${DEMO_VISIT_WEEKS}週）`}
+          {busy === "demo" ? t("作っています…（30秒ほど）") : t("デモの健診のまとめを見る（{n}週）", { n: DEMO_VISIT_WEEKS })}
         </Btn>
       )}
 
       {data && next && (
-        <Fold title="次の健診の日">
+        <Fold title={t("次の健診の日")}>
           <NextAppointment next={next} onSave={(n) => void savePlan({ next: n })} />
         </Fold>
       )}
 
       {nextFold && (
-        <Fold title="次の健診の日を入れる">
+        <Fold title={t("次の健診の日を入れる")}>
           <NextAppointment next={null} onSave={(n) => void savePlan({ next: n })} />
           {startQuiet}
         </Fold>
       )}
 
       {data && (
-        <Fold title={data.agendaFor === "today" ? "今日、先生に聞く事" : "先生に聞く事"} count={agenda.length}>
+        <Fold title={data.agendaFor === "today" ? t("今日、先生に聞く事") : t("先生に聞く事")} count={agenda.length}>
           <AskList agenda={agenda} onAdd={(text) => void savePlan({ concern: text })} onRemove={(id) => void savePlan({ removeConcern: id })} />
         </Fold>
       )}
 
       {/* 妊娠中に足した聞く事は、生まれた後はママの「聞く事」に出さず、ふり返りに畳む（第31回: 産後の健診に妊娠中の気がかりが残った） */}
       {born && pastAsks.length > 0 && (
-        <Fold title="妊娠中に気になっていた事" count={pastAsks.length}>
-          <p className="text-sm text-muted">生まれる前に足した物です。今も聞きたい事は、上の「聞く事」に書き直してください。</p>
+        <Fold title={t("妊娠中に気になっていた事")} count={pastAsks.length}>
+          <p className="text-sm text-muted">{t("生まれる前に足した物です。今も聞きたい事は、上の「聞く事」に書き直してください。")}</p>
           <ul className="flex flex-col">
             {pastAsks.map((c) => (
               <li key={c.id} className="flex items-start justify-between gap-2 border-b border-line py-1 last:border-b-0">
                 <span className="min-w-0 text-base">{c.text}</span>
                 <button type="button" onClick={() => void savePlan({ removeConcern: c.id })} className="min-h-11 shrink-0 px-2 text-sm text-muted underline underline-offset-2">
-                  消す
+                  {t("消す")}
                 </button>
               </li>
             ))}
@@ -298,14 +312,14 @@ export default function VisitList() {
       )}
 
       {data && data.visits.length > 0 && (
-        <Fold title="これまでの健診" count={data.visits.length}>
+        <Fold title={t("これまでの健診")} count={data.visits.length}>
           {data.visits.map((v) => (
             <Link key={v.id} href={`/visit/${v.id}`} className="flex min-h-11 flex-col gap-1 rounded-xl border border-line bg-card p-3 hover:border-rose">
               <span className="flex flex-wrap items-center gap-2">
                 <span className="tabular text-base font-semibold">{jpDate(v.date)}</span>
-                <span className="text-sm text-sky">{v.label}</span>
+                <span className="text-sm text-sky">{relabelVisit(v.label)}</span>
                 <StatusChip status={v.status} />
-                {v.demo && <Pill tone="sky">デモ</Pill>}
+                {v.demo && <Pill tone="sky">{t("デモ")}</Pill>}
               </span>
               {v.summary && <span className="line-clamp-2 text-base">{v.summary}</span>}
             </Link>
@@ -339,7 +353,7 @@ function NextAppointment({ next, onSave }: { next: VisitPlan["next"]; onSave: (n
           next.source === "visit" && next.said && <Pill tone="sky">{t("聞こえた「{said}」", { said: next.said })}</Pill>
         )}
         <Btn kind="quiet" onClick={() => setEditing(true)}>
-          直す
+          {t("直す")}
         </Btn>
       </div>
     );
@@ -347,11 +361,11 @@ function NextAppointment({ next, onSave }: { next: VisitPlan["next"]; onSave: (n
   return (
     <div className="flex w-full flex-wrap items-end gap-2">
       <label className="flex flex-col gap-1 text-sm text-muted">
-        日付
+        {t("日付")}
         <input id="next-date" type="date" className={field} value={date} onChange={(e) => setDate(e.target.value)} />
       </label>
       <label className="flex flex-col gap-1 text-sm text-muted">
-        時刻
+        {t("時刻")}
         <input id="next-time" type="time" className={field} value={time} onChange={(e) => setTime(e.target.value)} />
       </label>
       <Btn
@@ -361,18 +375,18 @@ function NextAppointment({ next, onSave }: { next: VisitPlan["next"]; onSave: (n
           if (next) setEditing(false);
         }}
       >
-        入れる
+        {t("入れる")}
       </Btn>
       {next && (
         <Btn kind="quiet" onClick={() => setEditing(false)}>
-          やめる
+          {t("やめる")}
         </Btn>
       )}
     </div>
   );
 }
 
-function AskList({ agenda, onAdd, onRemove }: { agenda: AgendaItem[]; onAdd: (t: string) => void; onRemove: (id: string) => void }) {
+function AskList({ agenda, onAdd, onRemove }: { agenda: AgendaItem[]; onAdd: (text: string) => void; onRemove: (id: string) => void }) {
   const [text, setText] = useState("");
   return (
     <>
@@ -380,11 +394,12 @@ function AskList({ agenda, onAdd, onRemove }: { agenda: AgendaItem[]; onAdd: (t:
         <ul className="flex flex-col gap-2">
           {agenda.map((a) => (
             <li key={a.id} className="flex items-center gap-2 rounded-lg border border-line bg-card px-3 py-2 text-base">
-              <Pill tone={a.from === "前回の質問" ? "sky" : "rose"}>{a.from === "前回の質問" ? "前回" : "気がかり"}</Pill>
+              <Pill tone={a.from === "前回の質問" ? "sky" : "rose"}>{a.from === "前回の質問" ? t("前回") : t("気がかり")}</Pill>
+              {/* 聞く事の文は家族が書いた言葉・前回の整理で Claude が書いた質問なので、訳さずにそのまま出す */}
               <span className="min-w-0 flex-1">{a.text}</span>
               {a.from === "気がかり" && (
-                <button type="button" onClick={() => onRemove(a.id)} className="min-h-11 shrink-0 px-2 text-sm text-muted" aria-label={`「${a.text}」を消す`}>
-                  消す
+                <button type="button" onClick={() => onRemove(a.id)} className="min-h-11 shrink-0 px-2 text-sm text-muted" aria-label={t("「{text}」を消す", { text: a.text })}>
+                  {t("消す")}
                 </button>
               )}
             </li>
@@ -404,21 +419,21 @@ function AskList({ agenda, onAdd, onRemove }: { agenda: AgendaItem[]; onAdd: (t:
           id="concern"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="例: 夜に足がつって目が覚める"
+          placeholder={t("例: 夜に足がつって目が覚める")}
           className="min-h-11 min-w-0 flex-1 rounded-lg border border-line bg-card px-3 text-base"
         />
-        <button className="min-h-11 shrink-0 rounded-full bg-ink px-5 text-base font-semibold text-paper">足す</button>
+        <button className="min-h-11 shrink-0 rounded-full bg-ink px-5 text-base font-semibold text-paper">{t("足す")}</button>
       </form>
     </>
   );
 }
 
 /** 3日前〜前日の主ボタン: 押すとその場で書ける。足したあとも続けて書ける */
-function AskQuick({ count, onAdd }: { count: number; onAdd: (t: string) => void }) {
+function AskQuick({ count, onAdd }: { count: number; onAdd: (text: string) => void }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
   const [added, setAdded] = useState(false);
-  if (!open) return <Btn onClick={() => setOpen(true)}>聞きたい事を書く</Btn>;
+  if (!open) return <Btn onClick={() => setOpen(true)}>{t("聞きたい事を書く")}</Btn>;
   return (
     <div className="flex w-full flex-col gap-1">
       <form
@@ -436,13 +451,13 @@ function AskQuick({ count, onAdd }: { count: number; onAdd: (t: string) => void 
           autoFocus
           value={text}
           onChange={(e) => setText(e.target.value)}
-          aria-label="先生に聞きたい事"
-          placeholder="例: 夜に足がつって目が覚める"
+          aria-label={t("先生に聞きたい事")}
+          placeholder={t("例: 夜に足がつって目が覚める")}
           className="min-h-11 min-w-0 flex-1 rounded-lg border border-line bg-card px-3 text-base"
         />
-        <button className="min-h-11 shrink-0 rounded-full bg-rose px-5 text-base font-semibold text-white">足す</button>
+        <button className="min-h-11 shrink-0 rounded-full bg-rose px-5 text-base font-semibold text-white">{t("足す")}</button>
       </form>
-      {added && <p className="text-sm text-muted">足しました（先生に聞く事 {count}件）。続けて書けます</p>}
+      {added && <p className="text-sm text-muted">{t("足しました（先生に聞く事 {n}件）。続けて書けます", { n: count })}</p>}
     </div>
   );
 }
@@ -481,6 +496,7 @@ function BabyCheckups({
     .filter((m) => m.kind === "健診" && m.anchor === "birth" && !m.older)
     .map((m) => ({ m, st: statusOf(m, today, done) }))
     // 目安の日を30日より過ぎた物（1歳を過ぎた赤ちゃん訪問など）は「今」に並べず、時期を過ぎた物として畳む
+    // 訳さない: 状態の値（比べに使う。札の言葉は BabyRow で訳す）
     .map(({ m, st }) => ({ m, st: st === "期限切れ" && deadlineKindOf(m) === "目安" && m.deadlineDate && daysUntil(today, m.deadlineDate) < -30 ? ("過ぎた" as Status) : st }));
   const now = items.filter((x) => x.st === "今やる" || x.st === "期限が近い" || x.st === "期限切れ");
   const next = items.filter((x) => x.st === "まだ先");
@@ -488,16 +504,18 @@ function BabyCheckups({
   const shownIds = new Set(shown.map((x) => x.m.id));
   const rest = items.filter((x) => !shownIds.has(x.m.id));
   return (
-    <section aria-label="赤ちゃんの健診・予防接種" className="flex flex-col gap-2 rounded-2xl bg-sky-soft p-4">
-      <h2 className="font-display text-lg font-bold">{family.childName ? `${family.childName}の` : "赤ちゃんの"}健診・予防接種</h2>
-      {shown.length === 0 && <p className="text-base text-muted">1000日の間の健診と予防接種は、ひととおり過ぎました</p>}
+    <section aria-label={t("赤ちゃんの健診・予防接種")} className="flex flex-col gap-2 rounded-2xl bg-sky-soft p-4">
+      <h2 className="font-display text-lg font-bold">
+        {family.childName ? t("{name}の健診・予防接種", { name: nameIn(family.childName) }) : t("赤ちゃんの健診・予防接種")}
+      </h2>
+      {shown.length === 0 && <p className="text-base text-muted">{t("1000日の間の健診と予防接種は、ひととおり過ぎました")}</p>}
       <ul className="flex flex-col">
         {shown.map(({ m, st }) => (
           <BabyRow key={m.id} m={m} st={st} today={today} />
         ))}
       </ul>
       {rest.length > 0 && (
-        <Fold title="ほかの健診・予防接種" count={rest.length}>
+        <Fold title={t("ほかの健診・予防接種")} count={rest.length}>
           <ul className="flex flex-col">
             {rest.map(({ m, st }) => (
               <BabyRow key={m.id} m={m} st={st} today={today} />
@@ -507,20 +525,20 @@ function BabyCheckups({
       )}
       {asks.length > 0 && (
         <div className="flex flex-col gap-1 rounded-xl bg-card p-3">
-          <p className="text-sm font-semibold">次の健診で聞く事（{asks.length}）</p>
+          <p className="text-sm font-semibold">{t("次の健診で聞く事（{n}）", { n: asks.length })}</p>
           <ul className="flex flex-col">
             {asks.map((c) => (
               <li key={c.id} className="flex items-start justify-between gap-2 border-b border-line py-1 last:border-b-0">
                 <span className="min-w-0 text-base">{c.text}</span>
                 <button type="button" onClick={() => onRemove(c.id)} className="min-h-11 shrink-0 px-2 text-sm text-muted underline underline-offset-2">
-                  消す
+                  {t("消す")}
                 </button>
               </li>
             ))}
           </ul>
         </div>
       )}
-      <p className="text-sm text-muted">受ける所は、町が決めた小児科など。日と場所は町の案内で確かめてください</p>
+      <p className="text-sm text-muted">{t("受ける所は、町が決めた小児科など。日と場所は町の案内で確かめてください")}</p>
     </section>
   );
 }
@@ -529,24 +547,41 @@ function BabyRow({ m, st, today }: { m: Milestone; st: Status; today: string }) 
   const tone = st === "済み" ? "ok" : st === "まだ先" ? "muted" : st === "過ぎた" ? "muted" : "rose";
   // まだ先の札は、始まりまでの日数（近い物は「あと◯日」。遠い物だけ「まだ先」）
   const toStart = daysUntil(today, m.startDate);
-  const word = st === "まだ先" ? (toStart <= 60 ? `あと${toStart}日` : "まだ先") : st === "済み" ? "済み" : st === "過ぎた" ? "時期を過ぎた" : st === "期限切れ" ? "まだなら" : "受ける時期";
+  // 始まりまでの「あと◯日」は、期限までの「あと◯日」と訳を分ける（空の {start} を付けた鍵。日本語は同じ）
+  const word =
+    st === "まだ先"
+      ? toStart <= 60
+        ? t("あと{n}日{start}", { n: toStart, start: "" })
+        : t("まだ先")
+      : st === "済み"
+        ? t("済み")
+        : st === "過ぎた"
+          ? t("時期を過ぎた")
+          : st === "期限切れ"
+            ? t("まだなら")
+            : t("受ける時期");
   // 日の言い方: まだ先は「◯から」、今の物は「◯まで」（法の期限でない物は「◯ごろまでに」）。
   // 11/04 に「目安 12/20 今」と「11/20から まだ先」が並び、遅い日が今・早い日がまだ先に見えた（目安の日を受ける日と読まれた）ため、
   // 今の物は終わりの日だと分かる言い方にする。今日と年が違う日は年も書く（去年か来年か迷わせない）
   const day = (s: string) => jpDate(s, today);
+  const rough = deadlineKindOf(m) === "目安";
   const when =
     st === "まだ先"
-      ? `${day(m.startDate)}から受けられます`
+      ? t("{date}から受けられます", { date: day(m.startDate) })
       : m.deadlineDate && st !== "済み"
         ? st === "期限切れ"
-          ? `${day(m.deadlineDate)}${deadlineKindOf(m) === "目安" ? "ごろ" : "まで"}の時期を過ぎています`
-          : `今受けられます・${day(m.deadlineDate)}${deadlineKindOf(m) === "目安" ? "ごろまでに" : "まで"}`
+          ? rough
+            ? t("{date}ごろの時期を過ぎています", { date: day(m.deadlineDate) })
+            : t("{date}までの時期を過ぎています", { date: day(m.deadlineDate) })
+          : rough
+            ? t("今受けられます・{date}ごろまでに", { date: day(m.deadlineDate) })
+            : t("今受けられます・{date}まで", { date: day(m.deadlineDate) })
         : "";
   return (
     <li className="border-b border-line last:border-b-0">
       <Link href={`/?focus=${encodeURIComponent(m.id)}`} className="flex min-h-12 items-center justify-between gap-3 py-2">
         <span className="flex min-w-0 flex-col gap-0.5">
-          <span className={`text-base leading-snug ${st === "済み" || st === "過ぎた" ? "text-muted" : "font-semibold"}`}>{m.plain}</span>
+          <span className={`text-base leading-snug ${st === "済み" || st === "過ぎた" ? "text-muted" : "font-semibold"}`}>{msWords(m.plain)}</span>
           {when && <span className="tabular text-sm text-muted">{when}</span>}
         </span>
         <span className="flex shrink-0 items-center gap-2">
@@ -580,24 +615,29 @@ function PrenatalBox({
   const [yen, setYen] = useState("");
   const [tickets, setTickets] = useState("");
   return (
-    <section aria-label="受診券と次の健診の目安" className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4">
-      <h2 className="font-display text-lg font-bold">受診券と次の健診</h2>
+    <section aria-label={t("受診券と次の健診の目安")} className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4">
+      <h2 className="font-display text-lg font-bold">{t("受診券と次の健診")}</h2>
       {!hasNext && s.next && (
         <p className="text-base">
-          次の健診の目安 <b className="tabular">{jpDate(s.next, today)}</b>ごろ
-          <span className="block text-sm text-muted">今は国の標準で{s.interval}。病院が言った日が正です（予約が決まったら上で入れてください）</span>
+          {tr("次の健診の目安 {date}ごろ", { date: <b className="tabular">{jpDate(s.next, today)}</b> })}
+          {/* 間隔（s.interval）はサーバが日本語で返す「4週ごと」など。出す時に訳す */}
+          <span className="block text-sm text-muted">{t("今は国の標準で{interval}。病院が言った日が正です（予約が決まったら上で入れてください）", { interval: t(s.interval) })}</span>
         </p>
       )}
       <p className="text-base">
-        受診券 <b className="tabular">{s.total}</b> 回中 <b className="tabular">{s.used}</b> 回・あと <b className="tabular">{s.remaining}</b> 回
+        {tr("受診券 {total} 回中 {used} 回・あと {remaining} 回", {
+          total: <b className="tabular">{s.total}</b>,
+          used: <b className="tabular">{s.used}</b>,
+          remaining: <b className="tabular">{s.remaining}</b>,
+        })}
         <span className="block text-sm text-muted">
-          {s.totalSource === "国の標準" ? "回数は国の標準（14回）。町で違う時は直せます" : "家族が直した回数"}
-          {s.over && "。券の数を超えた分は自分で払う事が多いので、町で確かめてください"}
+          {s.totalSource === "国の標準" ? t("回数は国の標準（14回）。町で違う時は直せます") : t("家族が直した回数")}
+          {s.over && t("。券の数を超えた分は自分で払う事が多いので、町で確かめてください")}
         </span>
       </p>
       <div className="flex flex-wrap items-end gap-2">
         <label className="flex flex-col text-sm text-muted">
-          券の数を直す
+          {t("券の数を直す")}
           <input inputMode="numeric" value={tickets} onChange={(e) => setTickets(e.target.value.replace(/\D/g, ""))} className="min-h-11 w-24 rounded-lg border border-line bg-card px-2 text-base" placeholder="14" />
         </label>
         <Btn
@@ -608,13 +648,20 @@ function PrenatalBox({
             setTickets("");
           }}
         >
-          直す
+          {t("直す")}
         </Btn>
       </div>
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-semibold text-muted">今日払った額（領収書から。医療費控除や、里帰りの払い戻しに使えます）</p>
+        <p className="text-sm font-semibold text-muted">{t("今日払った額（領収書から。医療費控除や、里帰りの払い戻しに使えます）")}</p>
         <div className="flex flex-wrap items-end gap-2">
-          <input inputMode="numeric" value={yen} onChange={(e) => setYen(e.target.value.replace(/\D/g, ""))} className="min-h-11 w-32 rounded-lg border border-line bg-card px-2 text-base" placeholder="例: 3000" aria-label="払った額（円）" />
+          <input
+            inputMode="numeric"
+            value={yen}
+            onChange={(e) => setYen(e.target.value.replace(/\D/g, ""))}
+            className="min-h-11 w-32 rounded-lg border border-line bg-card px-2 text-base"
+            placeholder={t("例: 3000")}
+            aria-label={t("払った額（円）")}
+          />
           <Btn
             kind="secondary"
             disabled={!yen}
@@ -623,22 +670,25 @@ function PrenatalBox({
               setYen("");
             }}
           >
-            残す
+            {t("残す")}
           </Btn>
         </div>
         {paid.length > 0 && (
           <>
             <p className="text-base">
-              これまでに払った額 <b className="tabular">{s.paidYen.toLocaleString("ja-JP")}</b> 円（{paid.length}回分）
+              {tr("これまでに払った額 {yen} 円{count}", {
+                yen: <b className="tabular">{s.paidYen.toLocaleString("ja-JP")}</b>,
+                count: t("（{n}回分）", { n: paid.length }),
+              })}
             </p>
             <ul className="flex flex-col text-sm text-muted">
               {paid.slice(-5).map((p) => (
                 <li key={p.id} className="flex items-center justify-between gap-2">
                   <span className="tabular">
-                    {jpDate(p.date, today)} {p.yen.toLocaleString("ja-JP")} 円
+                    {jpDate(p.date, today)} {t("{yen} 円", { yen: p.yen.toLocaleString("ja-JP") })}
                   </span>
                   <button type="button" onClick={() => onSave({ removePaid: p.id })} className="min-h-11 px-2 underline underline-offset-2">
-                    消す
+                    {t("消す")}
                   </button>
                 </li>
               ))}

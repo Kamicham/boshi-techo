@@ -1,4 +1,6 @@
 // 言葉の切り替え（lib/i18n）の試験: 選び方・辞書のそろい・日付と週数の書き分け（日本語は前と1字も変えない）
+import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { jpDay } from "@/components/techo/labels";
 import { jpDate, jpShort } from "@/components/today/dates";
@@ -82,6 +84,19 @@ describe("辞書", () => {
       seen.set(key, area);
     }
     expect(dup).toEqual([]);
+  });
+
+  it("引用符の無い鍵は、字と数だけ（「・」などは tsc が通しても、Next の組み立て＝SWC が読めずに止まる。11/5 夜）", () => {
+    const dir = path.join(__dirname, "dict");
+    const bad: string[] = [];
+    for (const f of fs.readdirSync(dir).filter((x) => x.endsWith(".ts")))
+      fs.readFileSync(path.join(dir, f), "utf8")
+        .split("\n")
+        .forEach((line, i) => {
+          const m = /^\s+([^"'\s/{}*[`][^:"'`]*?)\s*:\s*\{/.exec(line);
+          if (m && !/^[\p{L}\p{N}_$]+$/u.test(m[1])) bad.push(`${f}:${i + 1} ${m[1]}`);
+        });
+    expect(bad).toEqual([]);
   });
 
   it("訳の差し込みの名前が日本語の鍵とそろう・空の訳が無い・訳にかなが残らない（括弧で並べた日本語は除く）", () => {

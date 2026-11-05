@@ -2,16 +2,19 @@
 
 // 帰り道に読む: 3行のまとめ → 次の健診の日の1問（録音から聞こえた日を本人が確かめる。NextCheck.tsx） → 残りは3つの箱に畳む（先生の話／聞いた事と答え／次までに）。
 // 体の判断はしない。言い換えは必ず元の言葉（引用）と並べる。機械が聞き取った言葉を「先生の言葉」と書かない（録音から聞こえた言葉）。
+// 字は画面の言葉で出す（t()。辞書は lib/i18n/dict/visit-results.ts）。Claude がまとめた中身と引用は、訳さずにそのまま出す
 import { jpDate } from "@/components/Techo";
 import { Btn, Fold, Why } from "@/components/ui";
 import { NextCheck } from "@/components/visit/NextCheck";
 import { t } from "@/lib/i18n";
 import { SUMMARY_LINE, clip, formatClock, summaryTooLong, type VisitView } from "@/lib/visit";
 
-function Quote({ children, at }: { children: React.ReactNode; at?: string | null }) {
+/** 録音から聞こえた言葉の引用（中身は訳さない。括弧だけ画面の言葉で） */
+function Quote({ text, at }: { text: string; at?: string | null }) {
   return (
     <blockquote className="border-l-2 border-line pl-2 text-sm leading-relaxed text-muted">
-      {at && <span className="tabular mr-1 text-sky">{at}</span>}「{children}」
+      {at && <span className="tabular mr-1 text-sky">{at}</span>}
+      {t("「{text}」", { text })}
     </blockquote>
   );
 }
@@ -39,11 +42,11 @@ export function Results({
   return (
     <div className="flex flex-col gap-3">
       <section className="flex flex-col gap-3 rounded-2xl bg-rose-soft p-5">
-        <p className="text-sm font-semibold text-muted">{visit.date === today ? "今日のまとめ" : `${jpDate(visit.date)}のまとめ`}</p>
+        <p className="text-sm font-semibold text-muted">{visit.date === today ? t("今日のまとめ") : t("{date}のまとめ", { date: jpDate(visit.date) })}</p>
         {long ? (
           <>
             <p className="text-base leading-relaxed">{clip(summary[0] ?? "", SUMMARY_LINE * 2)}</p>
-            <Why label="全部読む">
+            <Why label={t("全部読む")}>
               <ul className="flex flex-col gap-2 text-base leading-relaxed text-ink">
                 {r.summary.map((s, i) => (
                   <li key={i}>{s}</li>
@@ -59,20 +62,20 @@ export function Results({
           </ul>
         )}
         <div className="flex flex-wrap gap-2 pt-1">
-          <Btn onClick={onSend}>家族に送る</Btn>
+          <Btn onClick={onSend}>{t("家族に送る")}</Btn>
         </div>
-        {visit.warning && <Why label="録れていない所">{visit.warning}</Why>}
+        {visit.warning && <Why label={t("録れていない所")}>{visit.warning}</Why>}
       </section>
 
       <NextCheck visit={visit} today={today} family={family} onChange={onChange} />
 
       {/* 畳んだ箱は3つ: 先生の話 / 聞いた事と答え / 次までに（題が重ならないように） */}
       {(r.said.length > 0 || r.numbers.length > 0 || r.terms.length > 0 || tr) && (
-        <Fold title="先生の話" count={r.said.length || undefined}>
+        <Fold title={t("先生の話")} count={r.said.length || undefined}>
           {r.said.map((x, i) => (
             <div key={i} className="flex flex-col gap-1">
               <p className="text-base">{x.point}</p>
-              <Quote at={x.at}>{x.quote}</Quote>
+              <Quote at={x.at} text={x.quote} />
             </div>
           ))}
           {r.numbers.length > 0 && (
@@ -86,7 +89,7 @@ export function Results({
                     </th>
                     <td className="py-2">
                       <span className="tabular font-semibold">{n.value}</span>
-                      {n.quote && <span className="block text-sm text-muted">「{n.quote}」</span>}
+                      {n.quote && <span className="block text-sm text-muted">{t("「{text}」", { text: n.quote })}</span>}
                     </td>
                   </tr>
                 ))}
@@ -96,9 +99,9 @@ export function Results({
           {r.terms.length > 0 && (
             <div className="flex flex-wrap gap-x-4">
               {r.terms.map((x, i) => (
-                <Why key={i} label={`「${x.term}」って？`}>
+                <Why key={i} label={t("「{term}」って？", { term: x.term })}>
                   <p className="text-base text-ink">{x.plain}</p>
-                  <Quote>{x.quote}</Quote>
+                  <Quote text={x.quote} />
                 </Why>
               ))}
             </div>
@@ -107,8 +110,8 @@ export function Results({
             <p>{t("録音から聞こえた言葉と並べています。数字は機械が聞き取った物で、紙の手帳（先生が書いた欄）が正です。良い・悪いは書きません。気になる時は先生に聞いてください。")}</p>
           </Why>
           {tr && (
-            <Why label={`録音の文字${tr.duration ? `（${formatClock(tr.duration)}）` : ""}`}>
-              <p>{tr.source === "asr" ? "機械が聞き取った文です。聞き間違いが含まれることがあります。" : "文字で渡された会話です。"}</p>
+            <Why label={tr.duration ? t("録音の文字（{time}）", { time: formatClock(tr.duration) }) : t("録音の文字")}>
+              <p>{tr.source === "asr" ? t("機械が聞き取った文です。聞き間違いが含まれることがあります。") : t("文字で渡された会話です。")}</p>
               <ol className="flex flex-col gap-2 text-base leading-relaxed text-ink">
                 {tr.segments.map((s, i) => (
                   <li key={i} className="flex gap-2">
@@ -123,17 +126,17 @@ export function Results({
       )}
 
       {r.answered.length > 0 && (
-        <Fold title="聞いた事と答え" count={r.answered.length}>
+        <Fold title={t("聞いた事と答え")} count={r.answered.length}>
           {r.answered.map((a, i) => (
             <div key={i} className="flex flex-col gap-1">
               <p className="text-sm text-muted">{a.ask}</p>
               {a.answer ? (
                 <>
                   <p className="text-base">{a.answer}</p>
-                  {a.quote && <Quote>{a.quote}</Quote>}
+                  {a.quote && <Quote text={a.quote} />}
                 </>
               ) : (
-                <p className="text-base text-warn">答えは録れていません。次に聞けます</p>
+                <p className="text-base text-warn">{t("答えは録れていません。次に聞けます")}</p>
               )}
             </div>
           ))}
@@ -141,19 +144,19 @@ export function Results({
       )}
 
       {(r.todo.length > 0 || nextAsk > 0) && (
-        <Fold title="次までに" count={r.todo.length + nextAsk}>
+        <Fold title={t("次までに")} count={r.todo.length + nextAsk}>
           {r.todo.map((x, i) => (
             <div key={i} className="flex flex-col gap-1">
               <p className="text-base font-semibold">
                 {x.what}
-                {x.when && <span className="ml-1 font-normal text-sky">（{x.when}）</span>}
+                {x.when && <span className="ml-1 font-normal text-sky">{t("（{x}）", { x: x.when })}</span>}
               </p>
-              <Quote>{x.quote}</Quote>
+              <Quote text={x.quote} />
             </div>
           ))}
           {nextAsk > 0 && (
             <div className="flex flex-col gap-2">
-              <p className="text-sm font-semibold text-muted">次に聞く事</p>
+              <p className="text-sm font-semibold text-muted">{t("次に聞く事")}</p>
               {r.questions.map((q, i) => (
                 <div key={i} className="flex flex-col gap-1">
                   <p className="text-base">{q.question}</p>
@@ -161,7 +164,7 @@ export function Results({
                 </div>
               ))}
               <Why>
-                <p>意味が残った所です。次の健診の「聞く事」に自動で入ります。</p>
+                <p>{t("意味が残った所です。次の健診の「聞く事」に自動で入ります。")}</p>
               </Why>
             </div>
           )}

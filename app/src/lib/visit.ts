@@ -1,8 +1,11 @@
 // ⑤ 健診の1日: 型と、画面・サーバの両方で使う純粋な処理。
 // ここには DB・ファイル・Claude を呼ぶ処理を置かない（テストで直接読めるように）。
 // サーバの処理は app/api/visit/_lib/server.ts。
+// 画面に出す言葉（状態の札・段の名前・持ち物・呼び名）は日本語のまま返し、描く所で t() で訳す（鍵は lib/i18n/dict/visit-home.ts・visit-record.ts）。
+// 保存する値（label など）と比べに使う値は日本語のまま。訳した呼び名は visitLabelIn・relabelVisit（描く時だけ）。家族へ送る文（familyMessage・lineMessage）は日本語のまま
 import { z } from "zod";
-import { addDays, addMonths, clockAt, diffDays, fromDay, toDay, type FamilyDates } from "./clock";
+import { addDays, addMonths, clockAt, clockShort, diffDays, fromDay, relabel, toDay, type FamilyDates } from "./clock";
+import { currentLang, t } from "./i18n";
 import { motherEmployed, type Situation } from "./situation";
 
 // ───────── 記録の形（db の type = "visit"） ─────────
@@ -10,6 +13,7 @@ import { motherEmployed, type Situation } from "./situation";
 /** 録音から結果までの状態 */
 export type VisitStatus = "ready" | "recording" | "transcribing" | "organizing" | "done" | "failed";
 
+/** 状態の札（出す時に t() で訳す＝components/visit/StatusChip.tsx） */
 export const STATUS_LABEL: Record<VisitStatus, string> = {
   ready: "これから",
   recording: "録音中",
@@ -359,7 +363,7 @@ export function briefingDay(today: string, next: string | null | undefined): "ev
   return null;
 }
 
-/** 健診の日の呼び名（妊娠中は「妊娠28週」、生まれた後は「生後1か月」など） */
+/** 健診の日の呼び名（妊娠中は「妊娠28週」、生まれた後は「生後1か月」など）。サーバが健診の記録に残す（label） */
 export function visitLabel(f: FamilyDates, date: string): string {
   const c = clockAt(f, date);
   if (c.phase === "pregnant") return `妊娠${c.pregnancyWeek}週`;
@@ -367,7 +371,30 @@ export function visitLabel(f: FamilyDates, date: string): string {
   return c.label;
 }
 
-/** 持ち物（全国共通の物だけ。名前は町や病院によって違う事がある） */
+/**
+ * 健診の日の呼び名を画面の言葉で（描く時だけ。保存には visitLabel）。日本語は visitLabel と1字も変えない。
+ * ほかの言葉は週数・月齢の言い方（lib/clock の clockShort。今日の画面の VisitToday と同じ）
+ */
+export function visitLabelIn(f: FamilyDates, date: string): string {
+  return currentLang() === "ja" ? visitLabel(f, date) : clockShort(clockAt(f, date));
+}
+
+/**
+ * 残した呼び名（健診を作った時に visitLabel が日本語で書いた「妊娠28週」「妊娠の前」「生後1か月」「1歳3か月」など）を、画面の言葉にする（描く時だけ）。
+ * 日本語の時と、読めない形はそのまま返す。妊娠中は visitLabelIn と同じ言い方（妊娠28周・28 weeks pregnant）
+ */
+export function relabelVisit(label: string): string {
+  if (currentLang() === "ja") return label;
+  const w = /^妊娠(\d+)週$/.exec(label);
+  if (w) return t("妊娠{w}週", { w: Number(w[1]) });
+  if (label === "妊娠の前") return t("妊娠の前");
+  return relabel(label);
+}
+
+/**
+ * 持ち物（全国共通の物だけ。名前は町や病院によって違う事がある）。名前は日本語のまま返し、画面は t(名前) で訳す
+ * （窓口で見せる物なので、訳にも日本語を括弧で並べる。鍵は lib/i18n/dict/visit-record.ts）
+ */
 export function bringList(f: FamilyDates & { situation?: Situation }, date: string): string[] {
   const c = clockAt(f, date);
   if (c.phase === "pregnant" || c.phase === "trying") return ["母子健康手帳", "マイナ保険証か資格確認書", "妊婦健診の受診券", "診察券"];
@@ -427,6 +454,7 @@ export function looksStuck(v: Pick<VisitData, "status" | "processingSince">, now
 /** 健診の日の流れ: 着く → 受付・道案内 → 診察で録音 → 帰り道に読む → 家族に送る */
 export type VisitStage = "arrive" | "guide" | "record" | "read" | "send";
 
+/** 段の名前（出す時に t(s.label) で訳す） */
 export const STAGES: { key: VisitStage; label: string }[] = [
   { key: "arrive", label: "着く" },
   { key: "guide", label: "案内" },
@@ -464,6 +492,7 @@ export function nextOfVisit(v: Pick<VisitData, "nextDate" | "nextCheck" | "resul
 /**
  * 家族へ送る短い文（3行のまとめ＋次の予約）。評価は足さない。
  * 次の予約は、本人が確かめた日だけ入れる（録音から聞こえただけの日を家族へ広げない。2026-11-05 作り手の方針）
+ * 送る文は日本語のまま（まとめの3行が Claude の日本語なので、枠だけ訳すと言葉が混ざる。2026-11-05 統括）。jp も日本語の書き方を渡す
  */
 export function familyMessage(v: Pick<VisitData, "date" | "label" | "result" | "nextDate" | "nextCheck">, jp: (d: string) => string): string {
   const r = v.result;
@@ -485,7 +514,10 @@ export function clip(s: string, n: number): string {
   return t.length > n ? `${t.slice(0, n - 1)}…` : t;
 }
 
-/** LINE に渡す、さらに短い文: 「6/10 健診（妊娠28週）」＋まとめ2行（40字まで）＋次の健診（本人が確かめた日だけ） */
+/**
+ * LINE に渡す、さらに短い文: 「6/10 健診（妊娠28週）」＋まとめ2行（40字まで）＋次の健診（本人が確かめた日だけ）。
+ * 送る文は日本語のまま（familyMessage と同じ）
+ */
 export function lineMessage(v: Pick<VisitData, "date" | "label" | "result" | "nextDate" | "nextCheck">): string {
   const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
   const r = v.result;

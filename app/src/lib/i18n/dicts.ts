@@ -24,9 +24,12 @@ import start from "./dict/start";
 import techo from "./dict/techo";
 import today from "./dict/today";
 import visit from "./dict/visit";
+import visitHome from "./dict/visit-home";
+import visitRecord from "./dict/visit-record";
+import visitResults from "./dict/visit-results";
 import welcome from "./dict/welcome";
 
-export const AREAS: Readonly<Record<string, Entries>> = { core, shell, welcome, start, stages, now, today, draft, milestones, ask, answers, album, book, memories, emergency, capture, techo, basis, body, settings, account, inviteShare, visit };
+export const AREAS: Readonly<Record<string, Entries>> = { core, shell, welcome, start, stages, now, today, draft, milestones, ask, answers, album, book, memories, emergency, capture, techo, basis, body, settings, account, inviteShare, visit, visitHome, visitRecord, visitResults };
 
 function build(lang: "zh" | "en"): Dict {
   const out: Record<string, string> = {};

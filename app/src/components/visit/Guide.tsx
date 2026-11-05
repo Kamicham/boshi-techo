@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/components/FamilyProvider";
 import { Btn, Fold, NextStep, Pill, Why } from "@/components/ui";
+import { t } from "@/lib/i18n";
 import type { GuideStep, VisitView } from "@/lib/visit";
 
 type GuideData = NonNullable<VisitView["guide"]>;
@@ -60,14 +61,14 @@ export function Guide({ visit, onChange, onDone }: { visit: VisitView; onChange:
     if (!files?.length) return;
     setErr("");
     try {
-      setBusy("写真を小さくしています…");
+      setBusy(t("写真を小さくしています…"));
       const images = await Promise.all([...files].slice(0, 6).map((f) => shrink(f)));
-      setBusy("順番を作っています…（30秒ほど）");
+      setBusy(t("順番を作っています…（30秒ほど）"));
       const r = await api<{ guide: GuideData }>(`/api/visit/${visit.id}/guide`, { body: { images } });
       onChange(r.guide);
       setKept((k) => ({ ...k, guide: { steps: r.guide.steps, unsure: r.guide.unsure, at: r.guide.at, fromVisit: visit.id } }));
     } catch (e) {
-      setErr((e as Error).message || "写真を読めませんでした");
+      setErr((e as Error).message || t("写真を読めませんでした"));
     } finally {
       setBusy("");
     }
@@ -105,42 +106,47 @@ export function Guide({ visit, onChange, onDone }: { visit: VisitView; onChange:
   const next = g && nextIdx >= 0 ? g.steps[nextIdx] : null;
   const hospitalName = kept?.name;
 
+  // 場所・階・する事・確かめる事（next.place・s.what・g.unsure など）は写真から読んだ日本語のまま出す（病院の表示と見比べるため）
   return (
-    <section aria-label="院内の道案内" className="flex flex-col gap-3">
+    <section aria-label={t("院内の道案内")} className="flex flex-col gap-3">
       {busy ? (
-        <NextStep eyebrow="院内の道案内" title={busy} tone="sky" />
+        <NextStep eyebrow={t("院内の道案内")} title={busy} tone="sky" />
       ) : !g ? (
         kept === null ? (
-          <p className="text-base text-muted">読み込んでいます…</p>
+          <p className="text-base text-muted">{t("読み込んでいます…")}</p>
         ) : (
-          <NextStep eyebrow="受付・院内の道案内" title="案内図か受付票を撮る" sub="回る順番を作ります。次からは撮らずに出します。">
-            {pick("撮る", true)}
-            {pick("写真から選ぶ", false)}
+          <NextStep eyebrow={t("受付・院内の道案内")} title={t("案内図か受付票を撮る")} sub={t("回る順番を作ります。次からは撮らずに出します。")}>
+            {pick(t("撮る"), true)}
+            {pick(t("写真から選ぶ"), false)}
             <Btn kind="quiet" onClick={onDone}>
-              とばす
+              {t("とばす")}
             </Btn>
           </NextStep>
         )
       ) : next ? (
-        <NextStep eyebrow={`次はここ（${nextIdx + 1}/${g.steps.length}）`} title={`${next.place}${next.floor ? `（${next.floor}）` : ""}`} sub={next.what}>
-          <Btn onClick={() => void toggle(nextIdx)}>済んだ</Btn>
+        <NextStep
+          eyebrow={t("次はここ（{i}/{n}）", { i: nextIdx + 1, n: g.steps.length })}
+          title={`${next.place}${next.floor ? t("（{x}）", { x: next.floor }) : ""}`}
+          sub={next.what}
+        >
+          <Btn onClick={() => void toggle(nextIdx)}>{t("済んだ")}</Btn>
           <Btn kind="quiet" onClick={onDone}>
-            診察に呼ばれた
+            {t("診察に呼ばれた")}
           </Btn>
         </NextStep>
       ) : (
-        <NextStep eyebrow="受付・院内の道案内" title="順番は全部済みました" tone="ok">
-          <Btn onClick={onDone}>録音へ</Btn>
+        <NextStep eyebrow={t("受付・院内の道案内")} title={t("順番は全部済みました")} tone="ok">
+          <Btn onClick={onDone}>{t("録音へ")}</Btn>
         </NextStep>
       )}
 
       {next?.note && <p className="text-base text-muted">{next.note}</p>}
 
       {g && (
-        <Fold title={isUsual ? "いつもの順番" : "今日の順番"} count={g.steps.length}>
+        <Fold title={isUsual ? t("いつもの順番") : t("今日の順番")} count={g.steps.length}>
           {(isUsual || hospitalName) && (
             <div className="flex flex-wrap gap-2">
-              {isUsual && <Pill tone="sky">いつもの病院</Pill>}
+              {isUsual && <Pill tone="sky">{t("いつもの病院")}</Pill>}
               {hospitalName && <Pill>{hospitalName}</Pill>}
             </div>
           )}
@@ -177,12 +183,12 @@ export function Guide({ visit, onChange, onDone }: { visit: VisitView; onChange:
               );
             })}
           </ol>
-          {!busy && <div className="flex flex-wrap gap-2">{pick("撮り直す", true)}</div>}
+          {!busy && <div className="flex flex-wrap gap-2">{pick(t("撮り直す"), true)}</div>}
         </Fold>
       )}
 
       {g?.unsure && (
-        <Why label="受付で確かめる事">
+        <Why label={t("受付で確かめる事")}>
           <p>{g.unsure}</p>
         </Why>
       )}

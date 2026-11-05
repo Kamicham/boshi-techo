@@ -90,8 +90,10 @@ const DONE: readonly string[] = [
   "app/techo/page.tsx",
   "components/techo/",
   "app/techo/share/", // 健診で見せる記録（上の段は画面の言葉・下の1枚は病院あてなので日本語＝「訳さない」の注。プランの C）
-  // 健診の結果の画面の1問（次の健診の日の確かめ・2026-11-05 夕）。最初から t() で書いた。健診の画面のほかの所は UX が訳す
-  "components/visit/NextCheck.tsx",
+  // 健診（2026-11-05 夜。タブ・1日の画面・録音・道案内・結果は UX が訳した。結果の画面の1問＝NextCheck.tsx は全体監査が最初から t() で書いた）
+  // 先生の話・録音から聞こえた言葉・写真から読んだ道案内・家族に送る文（まとめの3行が Claude の日本語）は日本語のまま＝「訳さない」の注
+  "app/visit/",
+  "components/visit/",
   // 設定（多言語化④・11/6 の分を前倒し。エージェントが訳した）
   "app/settings/page.tsx", // わが家の設定（町の名前の例「奈良県」「上牧町」は日本語のまま＝「訳さない」の注）
   "components/settings/SituationForm.tsx", // 家族の形の問い（選びの言葉は保存する値のまま持ち、描く所で訳す）
@@ -114,7 +116,8 @@ const PATH: readonly string[] = [
   "components/Techo.tsx", // いま（手帳の読み込み）
   "components/today/", // いま
   "components/ask/", // 手帳に聞く
-  // 健診（components/visit/・app/visit/）は、健診の凍結が解ける 11/5 15:00 の後に足す
+  "app/visit/", // 健診（11/5 夜に訳した）
+  "components/visit/",
 ];
 
 type Dict = Readonly<Record<string, { zh?: string; en?: string }>>;
