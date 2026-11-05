@@ -36,7 +36,7 @@ export default {
     en: "Maternal and Child Health Act (母子保健法), Article 15 (there is no set deadline; by week 11 is the guideline). At the interview when you file the notification, you can apply for the 1st support benefit for pregnant women (about 50,000 yen per pregnant woman) (amendment to the Act on Child and Childcare Support (子ども・子育て支援法), from April 2025; after the heartbeat has been confirmed; the application deadline is set by each city, often 2 years; check with your city how you receive it)",
   },
   "目安（予約の締め切りと、何週までに帰るかは産院ごとに違う。里帰り先の産院に確かめる）": {
-    zh: "参考标准（预约截止日期，以及要在妊娠几周之前回去，各分娩医院不同。请向回乡分娩地的分娩医院确认）",
+    zh: "参考标准（预约截止日期，以及要在妊娠几周之前回去，各产科医院不同。请向回乡分娩地的产科医院确认）",
     en: "Guideline (the booking deadline and by which week of pregnancy you should go back vary by maternity clinic; check with the maternity clinic in your hometown)",
   },
   "目安（安定期のころ）": { zh: "参考标准（稳定期前后）", en: "Guideline (around the stable period of pregnancy)" },
@@ -81,7 +81,7 @@ export default {
     en: "Amendment to the Act on Child and Childcare Support (子ども・子育て支援法) (support benefit for pregnant women, from April 2025). The 2nd payment can be applied for from the day 8 weeks before the due date, about 50,000 yen per baby you're expecting. Many cities have you apply after the city interview (comprehensive consultation support for pregnant women and others (妊婦等包括相談支援)). The application deadline is 2 years from the day 8 weeks before the due date (checked in guides from Akita City, Hiroshima City, and others, 2026). Check with your city about booking the interview and how you receive it. Miscarriage and stillbirth are also covered",
   },
   "予防接種法の定期接種（2026年度から。接種の時に妊娠28週0日〜36週6日の妊婦に1回。厚生労働省「RSウイルスワクチン」）。母子健康手帳の予防接種の記録にも、妊娠週数を書くRSウイルスの欄がある（府令様式 2026年4月施行版 p.52）。費用・予診票・受けられる医療機関は町ごと。受けるかどうかは産院で相談する": {
-    zh: "《预防接种法》（予防接種法）规定的定期接种（定期接種）（2026年度起。对接种时妊娠28周0天～36周6天的孕妇接种1次。厚生劳动省（厚生労働省）“RS病毒疫苗（RSウイルスワクチン）”）。母子健康手册的预防接种记录中，也有填写妊娠周数的RS病毒栏（府令规定的格式，2026年4月施行版，第52页）。费用、预诊单（予診票）、可以接种的医疗机构，各市区町村不同。是否接种，请在分娩医院商量",
+    zh: "《预防接种法》（予防接種法）规定的定期接种（定期接種）（2026年度起。对接种时妊娠28周0天～36周6天的孕妇接种1次。厚生劳动省（厚生労働省）“RS病毒疫苗（RSウイルスワクチン）”）。母子健康手册的预防接种记录中，也有填写妊娠周数的RS病毒栏（府令规定的格式，2026年4月施行版，第52页）。费用、预诊单（予診票）、可以接种的医疗机构，各市区町村不同。是否接种，请在产科医院商量",
     en: "Routine immunization (定期接種) under the Immunization Act (予防接種法) (from fiscal 2026; 1 dose for pregnant women who are 28 weeks 0 days to 36 weeks 6 days pregnant at the time of vaccination; Ministry of Health, Labour and Welfare (厚生労働省), “RSV vaccine (RSウイルスワクチン)”). The immunization records in the Maternal and Child Health Handbook also have an RSV section for writing the weeks of pregnancy (Cabinet Office Order form, version effective April 2026, p.52). Costs, the pre-vaccination questionnaire (予診票), and which medical institutions offer it vary by city. Talk with your maternity clinic about whether to get it",
   },
   "母子保健法第17条の2（産後ケア事業。出産後1年を経過しない母と子に、市区町村が行うよう努める。泊まり・通い・家に来てもらう形がある）。使える人・料金・申し込みの時期は町ごと（こども家庭庁「産後ケア事業ガイドライン」2026年3月）。祖父母に頼れない時・ひとりで育てる時は、町の家事・育児の手伝い（子育て世帯訪問支援事業など。児童福祉法の改正で2024年4月から）も同じ窓口で聞ける": {
@@ -223,7 +223,7 @@ export default {
     en: "Employment Insurance Act (雇用保険法), Article 61-12 (short-hours childcare benefit (育児時短就業給付), from April 2025: when you work shorter hours while raising a child under 2, up to 10% of the wages paid during the shorter hours). Check with your employer whether you'll return on shorter hours and whether you can receive it",
   },
   "出産育児一時金（健康保険法第101条）。直接支払で産院に払われた額が一時金より少なければ、差額を健康保険に申請する（健康保険から案内が届く所もある）。時効は2年（同法第193条）なので、ここは早めの目安。差額があるかは退院の時の明細書（直接支払の合意文書）で見る": {
-    zh: "分娩育儿一次性补贴（《健康保险法》（健康保険法）第101条）。通过直接支付付给分娩医院的金额如果低于一次性补贴，就向健康保险申请差额（也有健康保险会寄来通知）。时效是2年（同法第193条），所以这里是较早的参考时间。有没有差额，请看出院时的明细单（直接支付的协议文件）",
+    zh: "分娩育儿一次性补贴（《健康保险法》（健康保険法）第101条）。通过直接支付付给产科医院的金额如果低于一次性补贴，就向健康保险申请差额（也有健康保险会寄来通知）。时效是2年（同法第193条），所以这里是较早的参考时间。有没有差额，请看出院时的明细单（直接支付的协议文件）",
     en: "Childbirth and Childcare lump-sum grant (Health Insurance Act (健康保険法), Article 101). If the amount paid to the maternity clinic under direct payment was less than the grant, apply to your health insurance for the difference (some health insurers send a notice). The time limit is 2 years (Article 193 of the same Act), so this is an early guideline. To see whether there's a difference, look at the itemized statement from discharge (the direct payment agreement document)",
   },
   "医療費控除（所得税法第73条）。家族の1年（1月〜12月）の医療費が10万円（所得が少なければ所得の5%）を超えた分。出産の費用は出産育児一時金を引いて数える。妊婦健診の自己負担・通院の交通費も入る（国税庁 No.1124・2025年）。確定申告は翌年2月16日〜3月15日、会社員の還付の申告は1月から5年までできる。控除になるかは税務署の案内で確かめる": {

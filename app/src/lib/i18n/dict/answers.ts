@@ -65,7 +65,7 @@ export default {
   この動きはここでは行いません: { zh: "这个操作不在这里进行", en: "This action isn't done here" },
   // 急ぎの時、通う産院の電話のボタン（Claude を使う家族）
   "{name}に電話（夜間も）": { zh: "打电话给{name}（夜间也可以）", en: "Call {name} (even at night)" },
-  通う産院: { zh: "常去的分娩医院", en: "your maternity hospital" },
+  通う産院: { zh: "常去的产科医院", en: "your maternity clinic" },
 
   // ── 決まりの答え（lib/ask/rule-answer.ts）。日付は予定表の写しの字を画面の言葉に直して差し込む ──
   "（手帳の予定表から。Claude は使っていません）": {
@@ -145,12 +145,12 @@ export default {
 
   // ── 急ぎの橋（lib/ask/bridge.ts）。言い換えずに ──
   "今すぐ、かかりつけの産院へ電話してください（夜間も）。命が危ないと思ったら、迷わず119。": {
-    zh: "请现在就打电话给你常去的分娩医院（夜间也可以）。如果觉得有生命危险，请毫不犹豫地拨打119。",
-    en: "Call your maternity hospital right now (even at night). If you think a life is in danger, call 119 without hesitation.",
+    zh: "请现在就打电话给你常去的产科医院（夜间也可以）。如果觉得有生命危险，请毫不犹豫地拨打119。",
+    en: "Call your maternity clinic right now (even at night). If you think a life is in danger, call 119 without hesitation.",
   },
   "今すぐ電話してください。命が危ないと思ったら、迷わず119。救急車を呼ぶか迷う時は、子どもの事はかかりつけか #8000、ママの体はかかりつけの産院へ（夜間も）。": {
-    zh: "请现在就打电话。如果觉得有生命危险，请毫不犹豫地拨打119。拿不准要不要叫救护车时，孩子的事请找常看的医生或拨打 #8000，妈妈的身体请找常去的分娩医院（夜间也可以）。",
-    en: "Call right now. If you think a life is in danger, call 119 without hesitation. If you're not sure whether to call an ambulance, call your child's regular doctor or #8000 about your child, or the maternity hospital about Mom's body (even at night).",
+    zh: "请现在就打电话。如果觉得有生命危险，请毫不犹豫地拨打119。拿不准要不要叫救护车时，孩子的事请找常看的医生或拨打 #8000，妈妈的身体请找常去的产科医院（夜间也可以）。",
+    en: "Call right now. If you think a life is in danger, call 119 without hesitation. If you're not sure whether to call an ambulance, call your child's regular doctor or #8000 about your child, or the maternity clinic about Mom's body (even at night).",
   },
   "#8000 につながらない時の県の番号は、急ぎの時の画面にあります。": {
     zh: "如果打不通 #8000，各县的号码在“紧急情况”页面上。",
@@ -302,8 +302,8 @@ export default {
     en: "Enter your usual places and people (your hospital and its phone number, your workplace and your boss's email, the city office counter), and they're used automatically in drafts and guidance",
   },
   "命が危ないと思ったら、迷わず119。救急車を呼ぶか迷う時は、子どもは #8000、ママの体は産院": {
-    zh: "如果觉得有生命危险，请毫不犹豫地拨打119。拿不准要不要叫救护车时，孩子的事打 #8000，妈妈的身体找分娩医院",
-    en: "If you think a life is in danger, call 119 without hesitation. If you're not sure whether to call an ambulance: #8000 for your child, the maternity hospital for Mom's body",
+    zh: "如果觉得有生命危险，请毫不犹豫地拨打119。拿不准要不要叫救护车时，孩子的事打 #8000，妈妈的身体找产科医院",
+    en: "If you think a life is in danger, call 119 without hesitation. If you're not sure whether to call an ambulance: #8000 for your child, the maternity clinic for Mom's body",
   },
   "のどに物が詰まった時（窒息）・反応が無い時（心肺蘇生）の手当の順番": {
     zh: "喉咙卡住东西时（窒息）、没有反应时（心肺复苏）的急救步骤",

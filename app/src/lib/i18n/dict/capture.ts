@@ -282,16 +282,16 @@ export default {
   "話すか撮ると、ここに日付つきで並びます": { zh: "说或拍之后，会带着日期排在这里", en: "Talk or snap, and things will be listed here with dates" },
   // 急ぎに見えた記録に添える電話先（urgent-note.ts。言い換えずに訳す）
   "急ぎの時はかかりつけの産院へ電話（夜間も）。命が危ないと思ったら、迷わず119": {
-    zh: "紧急时请打电话给你常去的分娩医院（夜间也可以）。如果觉得有生命危险，请毫不犹豫地拨打119",
-    en: "If it's urgent, call your maternity hospital (even at night). If you think a life is in danger, call 119 without hesitation",
+    zh: "紧急时请打电话给你常去的产科医院（夜间也可以）。如果觉得有生命危险，请毫不犹豫地拨打119",
+    en: "If it's urgent, call your maternity clinic (even at night). If you think a life is in danger, call 119 without hesitation",
   },
   "かかりつけの小児科へ。夜や休みは #8000。命が危ないと思ったら、迷わず119": {
     zh: "请联系常看的儿科。夜间和休息日请拨打 #8000。如果觉得有生命危险，请毫不犹豫地拨打119",
     en: "Call your child's regular pediatrician. At night or on holidays, call #8000. If you think a life is in danger, call 119 without hesitation",
   },
   "子どもはかかりつけの小児科・夜や休みは #8000。母の体はかかっている産院（夜間も）。命が危ないと思ったら、迷わず119": {
-    zh: "孩子的事请联系常看的儿科，夜间和休息日请拨打 #8000。妈妈的身体请联系正在就诊的分娩医院（夜间也可以）。如果觉得有生命危险，请毫不犹豫地拨打119",
-    en: "For your child: their regular pediatrician, or #8000 at night or on holidays. For Mom's body: the maternity hospital she goes to (even at night). If you think a life is in danger, call 119 without hesitation",
+    zh: "孩子的事请联系常看的儿科，夜间和休息日请拨打 #8000。妈妈的身体请联系正在就诊的产科医院（夜间也可以）。如果觉得有生命危险，请毫不犹豫地拨打119",
+    en: "For your child: their regular pediatrician, or #8000 at night or on holidays. For Mom's body: the maternity clinic she goes to (even at night). If you think a life is in danger, call 119 without hesitation",
   },
 
   // ── 打つ（TypeSheet。打った物は Claude を通さず手帳に入る）──

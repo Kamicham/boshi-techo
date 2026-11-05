@@ -32,7 +32,7 @@ export default {
     en: "This is a trial version. Every family here is fictional. It isn't calling the AI (Claude) right now; it runs on a book Claude wrote earlier and on sample answers",
   },
   "体の判断はしません。気になる事は、産院・小児科・#8000（子どもの医療電話相談）へ。": {
-    zh: "本应用不对身体状况做判断。有担心的事，请联系分娩医院、儿科，或儿童医疗咨询热线（#8000）。",
+    zh: "本应用不对身体状况做判断。有担心的事，请联系产科医院、儿科，或儿童医疗咨询热线（#8000）。",
     en: "This app doesn't judge anything about your body. If something worries you, contact your maternity clinic, a pediatrician, or the Children's Medical Hotline (#8000).",
   },
   // サーバの断り（route() が頼みの言葉で訳す）: Claude を呼ぶ所（lib/claude.ts）・写しを作れず読むだけで開いた時（lib/access.ts）

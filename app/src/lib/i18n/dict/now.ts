@@ -28,8 +28,8 @@ export default {
     en: "The Maternal and Child Health Handbook is now {c}'s very first belonging",
   },
   "出産のお金は、健康保険から産院へ直接払われます": {
-    zh: "分娩的费用，会由健康保险直接支付给分娩的医院",
-    en: "The cost of the birth is paid straight from your health insurance to the maternity hospital",
+    zh: "分娩的费用，会由健康保险直接支付给产科医院",
+    en: "The cost of the birth is paid straight from your health insurance to the maternity clinic",
   },
   "{c}の名前が、戸籍にのります": { zh: "{c}的名字，会登记到户籍（戸籍）上", en: "The family register (戸籍) will now list {c}'s name" },
   "{c}が、健康保険に入ります": { zh: "{c}会加入健康保险", en: "Health insurance will now cover {c}" },

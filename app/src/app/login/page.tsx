@@ -114,7 +114,7 @@ export default function Login() {
           <p className="text-base text-muted">{t("メールに届く6桁のコードで入ります。はじめての人は、そのままアカウントができます。")}</p>
           <form onSubmit={send} className="flex flex-col gap-3">
             <label className="flex flex-col gap-1 text-base">
-              {t("メール")}
+              {t("メールアドレス")}
               <input
                 id="email"
                 type="email"

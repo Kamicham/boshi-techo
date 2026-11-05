@@ -76,4 +76,7 @@ export const GLOSSARY: readonly Term[] = [
   { ja: "国民健康保険", jaAlt: ["国保"], zh: "国民健康保险", en: "National Health Insurance", source: "isa", counter: true },
   { ja: "マイナンバーカード", zh: "个人编号卡", en: "Individual Number Card", enAlt: ["My Number Card"], source: "isa", counter: true },
   { ja: "戸籍", zh: "户籍", en: "family register", enAlt: ["koseki"], source: "isa", counter: true },
+  // 11/5 夕方: 産院は、急ぎの時の画面（安全の文。言い換えない）の言葉にそろえる。前は「分娩医院・maternity hospital」と割れていた。
+  // 公の訳が見つからないので一般の訳。「お産をした産院」は「分娩的医院」、「産院の書類」などは clinic だけでもよい
+  { ja: "産院", zh: "产科医院", zhAlt: ["分娩的医院"], en: "maternity clinic", enAlt: ["clinic"], source: "general" },
 ];

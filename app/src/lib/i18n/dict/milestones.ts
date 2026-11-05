@@ -22,10 +22,10 @@ export default {
     en: "You get the Maternal and Child Health Handbook and checkup vouchers. You can also apply for the 1st support benefit at the interview",
   },
 
-  "里帰り先の産院に、お産の予約をする": { zh: "在回乡分娩地的分娩医院预约分娩", en: "Book your delivery at a maternity clinic in your hometown" },
-  "里帰り先の産院を予約する": { zh: "预约回乡分娩地的分娩医院", en: "Book a maternity clinic in your hometown" },
+  "里帰り先の産院に、お産の予約をする": { zh: "在回乡分娩地的产科医院预约分娩", en: "Book your delivery at a maternity clinic in your hometown" },
+  "里帰り先の産院を予約する": { zh: "预约回乡分娩地的产科医院", en: "Book a maternity clinic in your hometown" },
   "早めに。多くの産院は妊娠中期までに予約が要ります": {
-    zh: "要尽早。很多分娩医院需要在妊娠中期之前预约",
+    zh: "要尽早。很多产科医院需要在妊娠中期之前预约",
     en: "Do it early. Many clinics need a booking by mid-pregnancy",
   },
 
@@ -148,10 +148,10 @@ export default {
   "出産後1年まで。泊まり・通い・訪問": { zh: "产后1年内可以使用。有住宿、日间、上门几种", en: "Up to 1 year after the birth. Overnight stays, day visits, or home visits" },
 
   "出産育児一時金の直接支払制度の書類を産院で出す": {
-    zh: "在分娩医院提交分娩育儿一次性补贴直接支付制度的文件",
+    zh: "在产科医院提交分娩育儿一次性补贴直接支付制度的文件",
     en: "Submit the direct payment forms for the Childbirth and Childcare lump-sum grant at your maternity clinic",
   },
-  "出産のお金の書類を産院に出す": { zh: "向分娩医院提交分娩费用的文件", en: "Hand in the birth payment forms at your clinic" },
+  "出産のお金の書類を産院に出す": { zh: "向产科医院提交分娩费用的文件", en: "Hand in the birth payment forms at your clinic" },
   "退院の時に大きなお金を払わずにすみます": { zh: "这样出院时就不用支付一大笔钱", en: "So you don't have to pay a large sum when you leave the hospital" },
 
   "産休・育休のお金の手続きを、勤め先にまとめて頼む（出産手当金・保険料の免除・育児休業給付・振込の口座）": {
@@ -363,7 +363,7 @@ export default {
   "入園の日と慣らし保育に合わせて決めます": { zh: "配合入园日期和适应期保育来决定", en: "Match it to the daycare start date and the settling-in period" },
 
   "出産手当金の申請書の、医師の証明の欄を産院で書いてもらう": {
-    zh: "请分娩医院填写分娩补贴申请书上的医师证明栏",
+    zh: "请产科医院填写分娩补贴申请书上的医师证明栏",
     en: "Have your maternity clinic fill in the doctor's section of the maternity allowance application",
   },
   "出産手当金の書類に医師の証明をもらう": {
@@ -593,7 +593,7 @@ export default {
     en: "Vouchers often work within the same prefecture. Only for the ones you couldn't use",
   },
   "里帰り先の産院で受けてから戻る家族が多い": {
-    zh: "很多家庭会在回乡分娩地的分娩医院做完检查再回来",
+    zh: "很多家庭会在回乡分娩地的产科医院做完检查再回来",
     en: "Many families have it at the hometown clinic before coming back",
   },
   // 赤ちゃんが国保に入る・公務員

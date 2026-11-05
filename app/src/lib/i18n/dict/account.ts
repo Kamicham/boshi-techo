@@ -82,7 +82,7 @@ export default {
     en: "Family members invited to the household can also see the records (invited grandparents and others aren't shown Mom's pages in the handbook or the checkup records. For now, though, things like records made by talking and the Book also include the mother's records. A way to choose what to show is still in preparation)",
   },
   "体の判断はしません。気になる事は、産院・小児科・#8000 につなぎます": {
-    zh: "手册不对身体状况做判断。有担心的事，会引导你联系分娩医院、儿科或儿童医疗咨询热线（#8000）",
+    zh: "手册不对身体状况做判断。有担心的事，会引导你联系产科医院、儿科或儿童医疗咨询热线（#8000）",
     en: "The handbook doesn't make judgments about your body. For anything that worries you, it connects you with your maternity clinic, a pediatrician, or the Children's Medical Hotline (#8000)",
   },
   // 記録の同意で正直に書く、今できていない事（RECORD_HONEST）

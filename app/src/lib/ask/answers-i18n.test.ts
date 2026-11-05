@@ -148,7 +148,7 @@ describe("急ぎの橋と見本の答え", () => {
     expect(zh.lead).toContain("如果打不通 #8000");
     expect(noKana(zh.lead!)).toBe(true);
     const en = inLang("en", () => bridgeFor("赤ちゃんがぐったりしている", "pregnant"));
-    expect(en.lead).toBe("Call your maternity hospital right now (even at night). If you think a life is in danger, call 119 without hesitation.");
+    expect(en.lead).toBe("Call your maternity clinic right now (even at night). If you think a life is in danger, call 119 without hesitation.");
     // 番号のボタンは日本語の札のまま（画面が t() で引く）。番号は変えない
     expect(en.actions.map((a) => (a.type === "call" ? a.tel : a.type))).toEqual(["open", "119"]);
   });
