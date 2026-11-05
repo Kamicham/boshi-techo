@@ -19,7 +19,8 @@ export const GET = route(async (req: Request) => {
   const { family } = h;
   const today = todayOf(q.get("today"));
   const viewer = shareViewerOf(h);
-  const choices = shareChoices(viewer);
+  // 生まれた後は、母の体の束をはじめは外す（子の健診で開くと妊娠中の表が上に来るため。ママは入れられる）
+  const choices = shareChoices(viewer, { born: !!family.birthDate && family.birthDate <= today });
   // 束の指定（bundles=body,growth）。無ければ、はじめの入り切りのまま。選べない束は shareView が外す
   const asked = q.get("bundles");
   const bundles = asked === null ? choices.filter((c) => c.on).map((c) => c.id) : asked.split(",").filter((x): x is ShareBundle => IDS.has(x));

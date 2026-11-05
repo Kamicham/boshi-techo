@@ -162,6 +162,15 @@ describe("健診で見せる1枚の決まり（lib/share-view.ts）", () => {
     }
   });
 
+  it("生まれた後は、母の体の束をはじめは外す（ママが選べば入る）。ほかの束と、生まれる前のはじめの入り切りは変えない", () => {
+    const on = (born?: boolean) => shareChoices("mother", { born }).filter((c) => c.on).map((c) => c.id);
+    expect(on(true)).toEqual(["growth", "checkups", "vaccines", "next", "questions"]);
+    expect(on(false)).toEqual(["body", "growth", "checkups", "vaccines", "next", "questions"]);
+    expect(shareChoices("mother", { born: true }).map((c) => c.id)).toContain("body");
+    // 生まれた後の家族（INPUT）でも、ママが選べば母の体の束は入る
+    expect(shareView(INPUT, { viewer: "mother", bundles: ["body"] }).bundles).toEqual(["body"]);
+  });
+
   it("選んだ束だけが入る（選ばない束の欄は1枚に無い）", () => {
     const sheet = shareView(MANUAL, { viewer: "mother", bundles: ["next"] });
     expect(sheet).toEqual({ bundles: ["next"], hideCounts: false, next: { date: "2026-11-20", time: "10:30" } });

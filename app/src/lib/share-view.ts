@@ -52,9 +52,13 @@ function canChoose(b: (typeof SHARE_BUNDLES)[number], viewer: ShareViewer): bool
   return (!b.mother || viewer === "mother") && (!b.visit || viewer !== "reader");
 }
 
-/** その人が選べる束と、はじめの入り切り（ママ本人でなければママの束、読むだけの人には健診の記録の束を出さない） */
-export function shareChoices(viewer: ShareViewer): { id: ShareBundle; on: boolean }[] {
-  return SHARE_BUNDLES.filter((b) => canChoose(b, viewer)).map((b) => ({ id: b.id, on: b.defaultOn }));
+/**
+ * その人が選べる束と、はじめの入り切り（ママ本人でなければママの束、読むだけの人には健診の記録の束を出さない）。
+ * 生まれた後は、母の体の束（妊娠中の経過の表と線）をはじめは外す。子の健診で開くと、妊娠中の表が1枚の上に来るため
+ * （ママは入れられる。2026-11-05 思い出の会話の気づき）
+ */
+export function shareChoices(viewer: ShareViewer, opts: { born?: boolean } = {}): { id: ShareBundle; on: boolean }[] {
+  return SHARE_BUNDLES.filter((b) => canChoose(b, viewer)).map((b) => ({ id: b.id, on: b.defaultOn && !(opts.born && b.id === "body") }));
 }
 
 // ───────── 1枚の形（id・名前・題・元の言葉・メモ・施設名・ロット・医師を持たない） ─────────
