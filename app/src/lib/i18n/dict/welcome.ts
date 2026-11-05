@@ -7,6 +7,8 @@ export default {
   "母子手帳を、再発明する": { zh: "重新发明母子健康手册", en: "Reinventing the Maternal and Child Health Handbook" },
   "読む手帳から、": { zh: "从用来读的手册，", en: "From a handbook you read," },
   "一緒に動く手帳へ。": { zh: "到和你一起行动的手册。", en: "to one that moves with you." },
+  // アプリの説明（app/layout.tsx の description。検索・共有の時に名前の下に出る）
+  "家族の1000日を、一緒に動く手帳": { zh: "陪伴家人走过1000天、和你一起行动的手册", en: "A handbook that moves with your family through the first 1000 days" },
   "妊娠から2歳までの1000日。手帳が先に動いて、やる事を調べて用意します。家族の手は、赤ちゃんのために。": {
     zh: "从怀孕到2岁的1000天。手册先行一步，替你查好要做的事，提前准备好。家人的双手，留给宝宝。",
     en: "The 1,000 days from pregnancy to age two. The handbook moves first: it looks up what needs doing and gets it ready. Your hands stay free for the baby.",
@@ -29,6 +31,9 @@ export default {
   },
   // 見本の家族で触ってみる
   "見本の家族の手帳で、触ってみる": { zh: "用示例家庭的手册试一试", en: "Try a sample family's handbook" },
+  // 見本の家族の町（下の紹介の {city}。Welcome.tsx が t() で引く）。中文はかなを漢字に戻した「埼玉市」（nippon.com 中文版の埼玉県の案内・2026-11 に確かめた）、
+  // English は市の英語の名前。家族が入れた町の名前は日本語のまま（窓口の書類と同じ字）
+  "さいたま市": { zh: "埼玉市", en: "Saitama City" },
   "{names}と{child}（{city}・作った家族）。時期を選ぶと、その日の手帳が開きます。": {
     zh: "{names}，还有{child}（{city}，虚构的家庭）。选一个时期，就会打开那一天的手册。",
     en: "{names}, with {child} ({city}; a fictional family). Pick a stage to open the handbook on that day.",

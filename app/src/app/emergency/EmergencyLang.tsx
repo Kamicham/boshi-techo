@@ -8,7 +8,7 @@
 // 名前のローマ字（lib/i18n/names.ts の nameIn）は画面全体の言葉を読むので、そちらも合わせる。ほかの画面へ移る時は、LocaleProvider が読み直す。
 import { useEffect, useState } from "react";
 import { LocaleScope, useLang } from "@/components/LocaleProvider";
-import { HTML_LANG, detectLang, langFromCookieHeader, setLocale, type Lang } from "@/lib/i18n";
+import { APP_NAME, HTML_LANG, detectLang, langFromCookieHeader, setLocale, t, type Lang } from "@/lib/i18n";
 import { EMERGENCY_DICTS } from "@/lib/i18n/emergency-dict";
 
 export function EmergencyLang({ children }: { children: React.ReactNode }) {
@@ -16,10 +16,25 @@ export function EmergencyLang({ children }: { children: React.ReactNode }) {
   const [want, setWant] = useState<Lang | null>(null);
   useEffect(() => {
     const w = detectLang(langFromCookieHeader(document.cookie), navigator.languages?.join(",") || navigator.language);
-    if (w === lang) return;
-    setLocale(w, EMERGENCY_DICTS[w]);
-    document.documentElement.lang = HTML_LANG[w];
-    setWant(w);
+    if (w === "ja") return;
+    if (w !== lang) {
+      setLocale(w, EMERGENCY_DICTS[w]);
+      document.documentElement.lang = HTML_LANG[w];
+      setWant(w);
+    }
+    // 題（app/emergency/layout.tsx の「急ぎの時 | 母子手帳」は日本語で1回だけ組み立てる）と、ホーム画面に置いた時の名前も端末の言葉に（いまの辞書で引く）。
+    // ほかの画面から移った時（画面はすでに端末の言葉）も、題は layout.tsx の日本語になるので直す。
+    // Next が描いた後に題を描き直して日本語へ戻す（11/5 夕: 描き直した 0.5 秒後に戻っていた）ので、head が変わるたびに確かめて直す
+    const title = `${t("急ぎの時")} | ${APP_NAME[w]}`;
+    const keep = () => {
+      if (document.title !== title) document.title = title;
+      const apple = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+      if (apple && apple.getAttribute("content") !== APP_NAME[w]) apple.setAttribute("content", APP_NAME[w]);
+    };
+    keep();
+    const watch = new MutationObserver(keep);
+    watch.observe(document.head, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["content"] });
+    return () => watch.disconnect();
   }, [lang]);
   if (!want) return <>{children}</>;
   return (

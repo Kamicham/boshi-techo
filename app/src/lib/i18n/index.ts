@@ -21,6 +21,11 @@ export const LANG_COOKIE = "boshi_lang";
 export const HTML_LANG: Readonly<Record<Lang, string>> = { ja: "ja", zh: "zh-Hans", en: "en" };
 /** 切り替えの札（それぞれの言葉で書く） */
 export const LANG_NAMES: Readonly<Record<Lang, string>> = { ja: "日本語", zh: "中文", en: "English" };
+/**
+ * アプリの名前（ブラウザのタブの題・ホーム画面のアイコンの下の名前）。言葉ごとの名前は作り手が決めた（2026-11-05 夕・AskUserQuestion）。
+ * 名前なので辞書（日本語の文が鍵）には入れない（辞書の「母子手帳」は、用語集が公の手帳の名前＝母子健康手册と決めている）
+ */
+export const APP_NAME: Readonly<Record<Lang, string>> = { ja: "母子手帳", zh: "母子手册", en: "MCH Handbook" };
 /** Intl（日付・数）に渡す名前 */
 export const INTL_LOCALE: Readonly<Record<Lang, string>> = { ja: "ja-JP", zh: "zh-CN", en: "en-US" };
 

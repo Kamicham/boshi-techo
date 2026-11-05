@@ -23,6 +23,7 @@ const SRC = path.join(process.cwd(), "src");
 /** 訳し終えた画面（src/ からの道）。UX の③が1つ仕上がるごとに足す */
 const DONE: readonly string[] = [
   "components/Welcome.tsx", // 入口の1枚（多言語化③の1・9424bad）
+  "app/layout.tsx", // アプリの題と説明（名前は lib/i18n の APP_NAME。作り手が決めた・11/5 夕）
   "components/Shell.tsx", // 上の帯と下のタブ
   "components/FamilyProvider.tsx", // 家族の手帳を読めなかった時の画面（LostNotebook）
   "components/today/StagePicker.tsx", // 時期の札

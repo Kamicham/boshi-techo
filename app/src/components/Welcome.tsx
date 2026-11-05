@@ -178,7 +178,7 @@ export function Welcome({ onClose, again = false }: { onClose: () => void; again
               {t("見本の家族の手帳で、触ってみる")}
             </h2>
             <p className="text-sm text-muted">
-              {t("{names}と{child}（{city}・作った家族）。時期を選ぶと、その日の手帳が開きます。", { names, child: t("赤ちゃん"), city: family.city })}
+              {t("{names}と{child}（{city}・作った家族）。時期を選ぶと、その日の手帳が開きます。", { names, child: t("赤ちゃん"), city: t(family.city) })}
             </p>
           </div>
           <div className={busy ? "pointer-events-none opacity-60" : ""} aria-busy={busy}>
