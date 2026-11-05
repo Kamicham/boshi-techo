@@ -9,7 +9,7 @@ import { clockAt, clockShort } from "@/lib/clock";
 import { hideCounts } from "@/lib/situation";
 import { recordingBusy, recordingBusyServer, subscribeRecording } from "@/lib/recording-state";
 import { TABS } from "@/lib/app-guide";
-import { listOf, t } from "@/lib/i18n";
+import { currentLang, listOf, t } from "@/lib/i18n";
 import { nameIn } from "@/lib/i18n/names";
 import { PUBLIC_UI, TRIAL_BANNER } from "@/lib/trial-words";
 import { AskButton } from "./ask/AskSheet";
@@ -121,9 +121,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
             <span className="flex min-w-0 items-center gap-1.5">
               {/* 体験版（公開版）は、この札の頭に小さく「体験版」（断り書きの全文は入口の1枚に。家族の声①への直し A） */}
               {PUBLIC_UI && <span className="shrink-0 rounded-full border border-sky/40 bg-card px-1.5 text-xs leading-5 font-semibold text-sky">{t("体験版")}</span>}
-              <span className="truncate">
+              {/* 収まらない時は切らずに2行へ折り返す（English は「Sample (Misaki) · 2 months old」が長く、時期が「2 mont…」と切れていた＝11/5 UX）。
+                  時期はひとかたまりで次の行へ。区切りは日本語は前と同じ「 ・ 」、中文・English は「 · 」 */}
+              <span className="min-w-0 leading-tight">
                 {t("見本")}
-                {me ? <span className="text-muted">{t("（{x}）", { x: nameIn(me.name) })}</span> : null} ・ <b className="font-semibold">{shortClock(family, today)}</b>
+                {me ? <span className="text-muted">{t("（{x}）", { x: nameIn(me.name) })}</span> : null}
+                {currentLang() === "ja" ? " ・ " : " · "}
+                <b className="font-semibold whitespace-nowrap">{shortClock(family, today)}</b>
               </span>
             </span>
             <span className="shrink-0 font-semibold whitespace-nowrap text-sky">{t("ほかの時期")} ▾</span>

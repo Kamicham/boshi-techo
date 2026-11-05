@@ -80,10 +80,14 @@ export function VoiceItem({ m, canWrite, full = canWrite, focus, minna }: { m: C
           {loading ? "…" : playing ? <PauseIcon /> : <PlayIcon />}
         </button>
         <button type="button" onClick={() => setOpen((o) => !o)} className="flex min-w-0 flex-1 flex-col text-left">
-          <span className="truncate text-base font-semibold">
-            {minna && m.from ? minnaVoiceLabel(nameOf(family, m.from.name), m.durationSec) : voiceTitleShown(m, madeOf(family))}
-            {m.star > 0 && <span className="ml-1 text-warn">★</span>}
-            {m.from && !minna && <span className="ml-2 rounded-full bg-rose-soft px-2 py-0.5 text-xs font-bold text-rose">{t("みんなの章")}</span>}
+          {/* 題と「みんなの章」の札は、切らずに折り返す（English は「From Grandma to Hinata」と「Everyone's chapter」が1行に収まらず、
+              札が「Ever…」と切れていた＝11/5 UX）。札はひとかたまりで次の行の頭へ。題は2行まで */}
+          <span className="flex flex-wrap items-center gap-x-2">
+            <span className="line-clamp-2 min-w-0 text-base font-semibold">
+              {minna && m.from ? minnaVoiceLabel(nameOf(family, m.from.name), m.durationSec) : voiceTitleShown(m, madeOf(family))}
+              {m.star > 0 && <span className="ml-1 text-warn">★</span>}
+            </span>
+            {m.from && !minna && <span className="shrink-0 rounded-full bg-rose-soft px-2 py-0.5 text-xs font-bold whitespace-nowrap text-rose">{t("みんなの章")}</span>}
           </span>
           <span className="text-xs text-muted">
             {minna && m.from && m.title ? `${voiceTitleShown(m, madeOf(family))}${dot()}` : ""}
