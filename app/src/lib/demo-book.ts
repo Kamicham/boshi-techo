@@ -1,7 +1,8 @@
 // 見本の家族の一冊（2026-11-04・UX「見本の一冊を本物にする」）。
 // 見本の家族（すべて作った家族）の記録から、本番と同じ作り方で Claude に実際に書かせた一冊を、リポジトリに入れて持たせる。
 // 審査の人・公開版で初めて開いた人が、鍵を作る前でも「子どもへの本になる」ことを一目で見られるように。
-// - 書いたのは scripts/make-demo-books.mts（妊娠30週・生後2か月・2歳の3冊）。中身は demo-books.json
+// - 書いたのは scripts/make-demo-books.mts（妊娠30週・生後2か月・2歳の3冊は Claude（API）に書かせた）。中身は demo-books.json
+//   1歳の一冊は 2026-11-05 に、API を呼ばず Claude Code が同じ決まりと記録から書いた（種の writer に残す。ハッカソン中は API を使わない決まり）
 // - 写真と声は、Claude が選んだ番号（P1・V1）と、その番号の写真の日付・一言（声は日付・題）で持つ。
 //   写真の id は世帯ごとに違う（公開版の写しも）ので、読む時に今の候補から同じ日付・一言の物を探して結び直す
 // - 見本の家族（demo）だけ。家族が作り直した一冊があれば、そちらが先（latestBook）
@@ -16,8 +17,10 @@ import seeds from "./demo-books.json";
 export interface DemoBookSeed {
   /** この日までの記録で書いた */
   asOf: string;
-  /** Claude が書いた時 */
+  /** 書いた時 */
   generatedAt: string;
+  /** 書いた者（無い種は、台本から Claude（API）に書かせた物）。API を呼ばずに書いた時は、誰がどう書いたかを正直に残す */
+  writer?: string;
   /** 使った記録の数 */
   sourceCount: number;
   /** Claude の答え（写真と声は番号のまま） */

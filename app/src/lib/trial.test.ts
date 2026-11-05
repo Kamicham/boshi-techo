@@ -161,7 +161,7 @@ describe("公開版の体験用の家族", () => {
     const book = await import("@/app/api/book/route");
     const r = await book.POST(req("/api/book", { trial: A, body: { familyId: "demo-sato", today: "2026-12-01" } }));
     expect(r.status).toBe(409);
-    expect(((await r.json()) as { error?: string }).error).toContain("妊娠30週・生後2か月・2歳の日で、前に Claude が書いた一冊を読めます");
+    expect(((await r.json()) as { error?: string }).error).toContain("妊娠30週・生後2か月・1歳・2歳の日で、前に Claude が書いた一冊を読めます");
     const { list } = await import("./db");
     expect(list(A, "book")).toHaveLength(0);
   });

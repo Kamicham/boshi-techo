@@ -18,9 +18,9 @@ export const SAMPLE_BOOK_LABEL = "見本の家族の一冊を読む ›";
 export const SAMPLE_BOOK_KEY = "boshi.readSampleBook";
 /**
  * 見本の一冊が無い日に、見本の答えで一冊を作ろうとした時（lib/book.ts の makeBook。中身の無い一冊を作らず、保存もしない）。
- * 見本の一冊は lib/demo-books.json の3冊（妊娠30週・生後2か月・2歳＝scripts/make-demo-books.mts）
+ * 見本の一冊は lib/demo-books.json の4冊（妊娠30週・生後2か月・1歳・2歳＝scripts/make-demo-books.mts。1歳は API を呼ばず Claude Code が書いた）
  */
-export const SAMPLE_BOOK_LATER = "この日までの見本の一冊は、まだありません。見本の家族の妊娠30週・生後2か月・2歳の日で、前に Claude が書いた一冊を読めます";
+export const SAMPLE_BOOK_LATER = "この日までの見本の一冊は、まだありません。見本の家族の妊娠30週・生後2か月・1歳・2歳の日で、前に Claude が書いた一冊を読めます";
 
 export type BookIntro =
   | { kind: "gather"; eyebrow?: undefined; title: string; sub: string; cta: string; tryMake: boolean; sample: boolean }
@@ -38,7 +38,7 @@ export function bookIntro(o: { childName?: string | null; count: number; born: b
       kind: "read",
       eyebrow: `${child}への一冊`,
       title: "記録を本にまとめる",
-      sub: "この体験版では Claude を呼ばないので、ここでは本を作りません。見本の家族の妊娠30週・生後2か月・2歳の日で、前に Claude がこの家族の記録から書いた一冊を読めます",
+      sub: "この体験版では Claude を呼ばないので、ここでは本を作りません。見本の家族の妊娠30週・生後2か月・1歳・2歳の日で、前に Claude がこの家族の記録から書いた一冊を読めます",
       cta: "2歳の日の一冊を読む ›",
     };
   }

@@ -1,12 +1,16 @@
 // 見本の家族に同梱した一冊（demo-books.json。Claude が書いた答え）が、一冊の決まりを満たすか
-import { describe, expect, it } from "vitest";
-import { addDays } from "./clock";
+import { describe, expect, it, vi } from "vitest";
+import { demoStages } from "@/components/today/stages";
+import { addDays, addMonths } from "./clock";
 import { DEMO_FAMILY } from "./demo-family";
 import { PERIODS } from "./media-shared";
 import seeds from "./demo-books.json";
 
+vi.mock("server-only", () => ({}));
+
 type Seed = {
   asOf: string;
+  writer?: string;
   sourceCount: number;
   raw: {
     title: string;
@@ -28,8 +32,30 @@ describe("見本の一冊（demo-books.json）", () => {
   const birth = DEMO_FAMILY.birthDate!;
   const lmp = addDays(DEMO_FAMILY.dueDate, -280);
 
-  it("妊娠30週・生後2か月・2歳の3冊がある", () => {
-    expect(BOOKS.map((b) => b.asOf)).toEqual([addDays(lmp, 30 * 7), addDays(birth, 61), addDays(birth, 731)]);
+  it("妊娠30週・生後2か月・1歳・2歳の4冊がある", () => {
+    expect(BOOKS.map((b) => b.asOf)).toEqual([addDays(lmp, 30 * 7), addDays(birth, 61), addMonths(birth, 12), addDays(birth, 731)]);
+  });
+
+  it("時期の札「1歳の誕生日」の日に開くと、1歳の一冊が出る（前は生後2か月の一冊が開いた。2026-11-05）", async () => {
+    const { demoBookSeed } = await import("./demo-book");
+    const y1 = demoStages(DEMO_FAMILY).find((s) => s.key === "y1")!;
+    expect(y1.what).toContain("この1年の一冊");
+    expect(demoBookSeed(y1.date)?.asOf).toBe(addMonths(birth, 12));
+    // ほかの札の日も、その日までに書けた一番新しい一冊（2歳の札は2歳の一冊）
+    const y2 = demoStages(DEMO_FAMILY).find((s) => s.key === "y2")!;
+    expect(demoBookSeed(y2.date)?.asOf).toBe(addDays(birth, 731));
+  });
+
+  it("1歳の一冊は API を呼ばず Claude Code が書いた事を、種に正直に残す。今の書き方の決まり（子どもからの呼び名がある人は呼び名で）に沿う", () => {
+    const y1 = BOOKS.find((b) => b.asOf === addMonths(birth, 12))!;
+    expect(y1.writer).toMatch(/^Claude Code/);
+    expect(y1.writer).toContain("API は呼ばず");
+    // ほかの3冊は台本から Claude（API）に書かせた物（writer 無し）
+    expect(BOOKS.filter((b) => !b.writer)).toHaveLength(3);
+    const text = [y1.raw.dedication, y1.raw.closing, ...y1.raw.chapters.map((c) => c.text)].join("\n");
+    expect(text).toContain("ママ");
+    expect(text).toContain("パパ");
+    expect(text).not.toMatch(/美咲|翔太/);
   });
 
   for (const b of BOOKS) {

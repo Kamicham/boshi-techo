@@ -72,23 +72,24 @@ describe("体験版の一冊の箱（Claude を呼ばない・2026-11-05）", ()
       expect(x.kind).toBe("read");
       expect(x.cta).toBe("2歳の日の一冊を読む ›");
       expect(x.sub).toContain("この体験版では Claude を呼ばない");
-      expect(x.sub).toContain("妊娠30週・生後2か月・2歳");
+      expect(x.sub).toContain("妊娠30週・生後2か月・1歳・2歳");
     }
   });
   it("記録が0件なら、今までどおり見本の記録を入れる", () => {
     expect(bookIntro({ count: 0, born: false, isDemo: true, trial: true }).kind).toBe("seed");
   });
-  it("言葉の「妊娠30週・生後2か月・2歳」は、持っている見本の一冊3冊の日と合う（2歳の一冊は SAMPLE_BOOK_DAY）", async () => {
+  it("言葉の「妊娠30週・生後2か月・1歳・2歳」は、持っている見本の一冊4冊の日と合う（2歳の一冊は SAMPLE_BOOK_DAY）", async () => {
     const seeds = (await import("./demo-books.json")).default as { asOf: string }[];
     const { clockAt } = await import("./clock");
     const { DEMO_FAMILY } = await import("./demo-family");
     const { SAMPLE_BOOK_DAY, SAMPLE_BOOK_LATER } = await import("./book-intro");
     const labels = seeds.map((b) => clockAt(DEMO_FAMILY, b.asOf).label);
-    expect(labels).toHaveLength(3);
+    expect(labels).toHaveLength(4);
     expect(labels[0]).toMatch(/^妊娠30週/);
     expect(labels[1]).toMatch(/^生後2か月/);
-    expect(labels[2]).toMatch(/^2歳/);
-    expect(seeds[2].asOf).toBe(SAMPLE_BOOK_DAY);
-    expect(SAMPLE_BOOK_LATER).toContain("妊娠30週・生後2か月・2歳");
+    expect(labels[2]).toMatch(/^1歳/);
+    expect(labels[3]).toMatch(/^2歳/);
+    expect(seeds[3].asOf).toBe(SAMPLE_BOOK_DAY);
+    expect(SAMPLE_BOOK_LATER).toContain("妊娠30週・生後2か月・1歳・2歳");
   });
 });

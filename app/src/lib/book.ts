@@ -254,6 +254,9 @@ const SYSTEM = `あなたの役割: 家族の1000日の記録から、いつか�
 - 章の voices は、その時期の候補から0〜2本を番号（V1 など）で選ぶ。line は「だれが・だれに・いつ」を候補の題から短く。
 - film の voiceId は、その声の日付に近い写真の行に付ける。同じ声は1回だけ。声のある行の sec は5〜6。声の候補が無ければすべて空文字。`;
 
+/** 書き方の決まり（見本の一冊を API を呼ばずに書く時も、書き手に同じ文を渡す。scripts/make-demo-books.mts --input） */
+export const BOOK_WRITING = SYSTEM;
+
 /** 1章あたり・全体の写真の候補の数（多すぎると Claude への文が長くなる） */
 const PHOTOS_PER_PERIOD = 12;
 const PHOTOS_TOTAL = 60;
