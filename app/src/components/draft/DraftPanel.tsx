@@ -4,10 +4,14 @@
 // 宛名・メールアドレス・件名・本文はそれぞれコピーでき、メール・LINE・共有で開く。送るのは家族（手帳からは送らない）。
 // 残った【 】は全部、欄として並べて埋める。会社名・部署・上司・人事・病院は「いつもの」として覚え、次の下書きから最初から入る。
 // 「✓ 送った」などの印を付けると、その事も済みになる（印を外すと済みも外れる）。
+// 札は画面の言葉に訳す。宛先・件名・本文（勤め先・役所あての日本語の文書）と、【 】の欄の名前（文書の言葉）は日本語のまま。
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { applyBlanks, jpDate, type Blank, type BlankKey } from "@/lib/blanks";
 import { lineUrl } from "@/lib/handoff";
+import { t } from "@/lib/i18n";
+import { msWords } from "@/lib/i18n/milestone-words";
+import { tr } from "@/lib/i18n/rich";
 import { draftConsentWaitKey, draftWaitValue, isClaudeConsentError, readConsentState, type ClaudeConsentState } from "@/lib/claude-consent-flow";
 import type { Draft, DraftKind, DraftView } from "@/lib/drafts";
 import { api } from "../FamilyProvider";
@@ -15,14 +19,20 @@ import { ClaudeConsentLink } from "../settings/ClaudeConsentLink";
 import { Btn, CopyField, HandoffRow, Pill, Why } from "../ui";
 import { ErrorLine, Working } from "./Working";
 
-/** 家族が付ける印の言葉（status "ok" の見せ方。仕組みは「OK」のまま） */
+/** 家族が付ける印の言葉（status "ok" の見せ方。仕組みは「OK」のまま）。画面の言葉で返す */
 export function doneWord(kind: DraftKind): string {
-  return kind === "メール" ? "送った" : kind === "記入メモ" ? "書いた" : kind === "質問リスト" ? "聞いた" : kind === "頼み文" ? "送った" : "使った";
+  return t(kind === "メール" ? "送った" : kind === "記入メモ" ? "書いた" : kind === "質問リスト" ? "聞いた" : kind === "頼み文" ? "送った" : "使った");
 }
 
 function mdJst(iso: string): string {
   const d = new Date(Date.parse(iso) + 9 * 3600_000);
-  return `${d.getUTCMonth() + 1}月${d.getUTCDate()}日`;
+  return t("{m}月{d}日", { m: d.getUTCMonth() + 1, d: d.getUTCDate() });
+}
+
+/** サーバの宛先の一言（lib/drafts.ts の mailHint。町の名前入り）を画面の言葉に。形が違えば、そのまま出す */
+function mailHintWords(s: string): string {
+  const m = /^宛先は(.+)のページで（問い合わせのフォームやメールアドレス）$/.exec(s);
+  return m ? t("宛先は{city}のページで（問い合わせのフォームやメールアドレス）", { city: m[1] }) : s;
 }
 
 /**
@@ -30,12 +40,12 @@ function mdJst(iso: string): string {
  * 「◯◯の番です」は、やる事の札がすぐ上で言っているので重ねない。呼び方は今日の画面と同じ（名前に「さん」を付けない）
  */
 function HandTo({ name, title }: { name: string; title: string }) {
-  const text = `「${title}」の下書きを、手帳に用意したよ。手帳で開いて、確かめてから使ってね。`;
+  const text = t("「{title}」の下書きを、手帳に用意したよ。手帳で開いて、確かめてから使ってね。", { title: msWords(title) });
   return (
     <p className="text-sm">
-      {name}の名前と職場で書いています。{" "}
+      {t("{name}の名前と職場で書いています。", { name })}{" "}
       <a className="font-bold underline underline-offset-2" href={lineUrl(text)} target="_blank" rel="noreferrer">
-        {name}に LINE で頼む ›
+        {t("{name}に LINE で頼む ›", { name })}
       </a>
     </p>
   );
@@ -62,16 +72,16 @@ type PanelProps = {
 export function DraftPanel(p: PanelProps) {
   const draft = p.view?.draft ?? null;
   return (
-    <section aria-label="下書き" className="flex flex-col gap-3 rounded-2xl border border-line bg-paper p-4">
-      {p.busy === "load" && <Working steps={[{ at: 0, text: "前に作った下書きを開いています" }]} />}
+    <section aria-label={t("下書き")} className="flex flex-col gap-3 rounded-2xl border border-line bg-paper p-4">
+      {p.busy === "load" && <Working steps={[{ at: 0, text: t("前に作った下書きを開いています") }]} />}
       {p.busy === "make" && (
         <Working
           steps={[
-            { at: 0, text: "下書きを書いています" },
-            { at: 8, text: "期限と町の調べに合わせています" },
-            { at: 25, text: "分からない所を【 】にしています（もう少し）" },
+            { at: 0, text: t("下書きを書いています") },
+            { at: 8, text: t("期限と町の調べに合わせています") },
+            { at: 25, text: t("分からない所を【 】にしています（もう少し）") },
           ]}
-          then="できたら、ここに宛先・件名・本文が出ます"
+          then={t("できたら、ここに宛先・件名・本文が出ます")}
         />
       )}
       {p.err &&
@@ -110,11 +120,7 @@ function DraftConsent({ familyId, milestoneId, err }: { familyId: string; milest
       error={err}
       back={here || "/"}
       waitMother={state === "mother"}
-      lead={
-        <>
-          下書きを書くには、<b>米国の Claude に送る同意</b>が要ります。読んで決めて戻ると、そのまま書きます。
-        </>
-      }
+      lead={tr("下書きを書くには、{consent}が要ります。読んで決めて戻ると、そのまま書きます。", { consent: <b>{t("米国の Claude に送る同意")}</b> })}
       onGo={() => {
         try {
           sessionStorage.setItem(draftConsentWaitKey(familyId), draftWaitValue(milestoneId, Date.now()));
@@ -199,13 +205,8 @@ function DraftBody(p: Omit<PanelProps, "view" | "err" | "settled" | "onRetry"> &
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
-        <Pill tone="sky">{draft.kind}</Pill>
-        {draft.status === "ok" && (
-          <Pill tone="ok">
-            ✓ {word}
-            {draft.okAt ? `・${mdJst(draft.okAt)}` : ""}
-          </Pill>
-        )}
+        <Pill tone="sky">{t(draft.kind)}</Pill>
+        {draft.status === "ok" && <Pill tone="ok">{draft.okAt ? t("✓ {word}・{date}", { word, date: mdJst(draft.okAt) }) : `✓ ${word}`}</Pill>}
       </div>
 
       {view.handTo && <HandTo name={view.handTo.name} title={draft.milestoneTitle} />}
@@ -217,21 +218,19 @@ function DraftBody(p: Omit<PanelProps, "view" | "err" | "settled" | "onRetry"> &
       ) : (
         <>
           {view.fromName && (
-            <p className="text-sm text-muted">
-              {view.fromName}さんから{isMail ? "送る文" : "使うメモ"}
-            </p>
+            <p className="text-sm text-muted">{t(isMail ? "{name}さんから送る文" : "{name}さんから使うメモ", { name: view.fromName })}</p>
           )}
           {isMail ? (
             <>
-              <CopyField label="宛名" value={view.toName} />
-              {view.mailTo ? <CopyField label="メールアドレス" value={view.mailTo} /> : view.mailHint && <p className="text-sm text-muted">{view.mailHint}</p>}
+              <CopyField label={t("宛名")} value={view.toName} />
+              {view.mailTo ? <CopyField label={t("メールアドレス")} value={view.mailTo} /> : view.mailHint && <p className="text-sm text-muted">{mailHintWords(view.mailHint)}</p>}
               {view.cc && <p className="text-sm text-muted">CC: {view.cc}</p>}
             </>
           ) : (
-            <CopyField label="出す先" value={draft.to} />
+            <CopyField label={t("出す先")} value={draft.to} />
           )}
-          <CopyField label={isMail ? "件名" : "見出し"} value={draft.title} />
-          <CopyField label="本文" value={draft.body} long />
+          <CopyField label={t(isMail ? "件名" : "見出し")} value={draft.title} />
+          <CopyField label={t("本文")} value={draft.body} long />
           <HandoffRow {...handoff} />
         </>
       )}
@@ -242,23 +241,23 @@ function DraftBody(p: Omit<PanelProps, "view" | "err" | "settled" | "onRetry"> &
         <div className="flex flex-wrap items-center gap-2 border-t border-line pt-3">
           {draft.status === "ok" ? (
             <Btn kind="quiet" disabled={!!saving} onClick={() => void send("PATCH", { unmark: true }, "mark")}>
-              「{word}」を外す
+              {t("「{word}」を外す", { word })}
             </Btn>
           ) : (
             <Btn kind="secondary" disabled={!!saving || !!p.busy} onClick={() => void send("PUT", {}, "mark")}>
-              {saving === "mark" ? "残しています…" : `✓ ${word}`}
+              {saving === "mark" ? t("残しています…") : `✓ ${word}`}
             </Btn>
           )}
           <Btn kind="quiet" disabled={!!saving} onClick={() => setEditing(true)}>
-            文を直す
+            {t("文を直す")}
           </Btn>
           <Btn kind="quiet" disabled={!!saving || !!p.busy} onClick={p.onRemake}>
-            作り直す
+            {t("作り直す")}
           </Btn>
         </div>
       )}
 
-      <Why label={draft.checklist.length ? "送る前に確かめる事" : "なぜ？"}>
+      <Why label={t(draft.checklist.length ? "送る前に確かめる事" : "なぜ？")}>
         {draft.checklist.length > 0 && (
           <ul className="flex flex-col gap-1">
             {draft.checklist.map((c) => (
@@ -269,13 +268,14 @@ function DraftBody(p: Omit<PanelProps, "view" | "err" | "settled" | "onRetry"> &
             ))}
           </ul>
         )}
-        <p>「{word}」は家族の印です。手帳からは何も送りません。印を付けると、この事も済みになります（外すと戻ります）。</p>
-        {draft.usedLocal && <p>町の調べに合わせて書きました。</p>}
+        <p>{t("「{word}」は家族の印です。手帳からは何も送りません。印を付けると、この事も済みになります（外すと戻ります）。", { word })}</p>
+        {draft.usedLocal && <p>{t("町の調べに合わせて書きました。")}</p>}
       </Why>
     </>
   );
 }
 
+/** 欄の入れ方の例（辞書の鍵。描く時に t() で訳す） */
 const KEY_HINT: Partial<Record<BlankKey, string>> = {
   company: "例: ○○株式会社",
   dept: "例: 営業部",
@@ -304,6 +304,10 @@ function BlankFields({
   const id = (b: Blank) => (b.at ? `${b.at.field}:${b.at.index}` : b.raw);
   const filled = blanks.map((b) => ({ blank: b, value: (v[id(b)] ?? "").trim() })).filter((x) => x.value);
   const anyKeep = blanks.some((b) => b.key && (b.key !== "myName" || keepName));
+  const hint = (key?: BlankKey) => {
+    const h = key && KEY_HINT[key];
+    return h ? t(h) : "";
+  };
   return (
     <form
       className="flex flex-col gap-3 rounded-xl bg-warn/10 p-3"
@@ -313,19 +317,19 @@ function BlankFields({
       }}
     >
       <div className="flex flex-col gap-0.5">
-        <p className="text-base font-semibold">空欄を埋める（{blanks.length}か所）</p>
-        {anyKeep && <p className="text-sm text-muted">会社名・名前などは、次の下書きから自動で入ります</p>}
+        <p className="text-base font-semibold">{t("空欄を埋める（{n}か所）", { n: blanks.length })}</p>
+        {anyKeep && <p className="text-sm text-muted">{t("会社名・名前などは、次の下書きから自動で入ります")}</p>}
       </div>
       {blanks.map((b) => (
         <label key={id(b)} className="flex flex-col gap-1 text-sm text-muted">
           <span>
             {b.label}
-            {b.key && (b.key !== "myName" || keepName) && <span className="ml-2 text-xs text-ok">覚えます</span>}
+            {b.key && (b.key !== "myName" || keepName) && <span className="ml-2 text-xs text-ok">{t("覚えます")}</span>}
           </span>
           <input
             type={b.input}
             value={v[id(b)] ?? ""}
-            placeholder={b.input === "date" || b.input === "datetime-local" ? undefined : (b.key && KEY_HINT[b.key]) || ""}
+            placeholder={b.input === "date" || b.input === "datetime-local" ? undefined : hint(b.key)}
             onChange={(e) => setV((s) => ({ ...s, [id(b)]: e.target.value }))}
             className="min-h-11 w-full rounded-lg border border-line bg-card px-3 text-base text-ink"
             autoComplete={b.key === "company" ? "organization" : b.key === "myName" ? "name" : "off"}
@@ -339,7 +343,7 @@ function BlankFields({
           disabled={!filled.length || busy}
           className="inline-flex min-h-11 items-center justify-center rounded-full bg-rose px-5 text-base font-semibold text-white disabled:opacity-50"
         >
-          {busy ? "入れています…" : filled.length ? `${filled.length}か所を埋める` : "埋める"}
+          {busy ? t("入れています…") : filled.length ? t("{n}か所を埋める", { n: filled.length }) : t("埋める")}
         </button>
       </div>
     </form>
@@ -364,23 +368,23 @@ function EditFields({
   return (
     <div className="flex flex-col gap-3">
       <label className="flex flex-col gap-1 text-sm font-semibold text-muted">
-        {isMail ? "宛先" : "出す先"}
+        {t(isMail ? "宛先" : "出す先")}
         <input className={`${cls} min-h-11`} value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} />
       </label>
       <label className="flex flex-col gap-1 text-sm font-semibold text-muted">
-        {isMail ? "件名" : "見出し"}
+        {t(isMail ? "件名" : "見出し")}
         <input className={`${cls} min-h-11`} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} />
       </label>
       <label className="flex flex-col gap-1 text-sm font-semibold text-muted">
-        本文
+        {t("本文")}
         <textarea className={`${cls} min-h-64 leading-relaxed`} value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} />
       </label>
       <div className="flex flex-wrap gap-2">
         <Btn disabled={busy} onClick={() => onSave(f)}>
-          {busy ? "残しています…" : "直した文を残す"}
+          {busy ? t("残しています…") : t("直した文を残す")}
         </Btn>
         <Btn kind="quiet" disabled={busy} onClick={onCancel}>
-          やめる
+          {t("やめる")}
         </Btn>
       </div>
     </div>

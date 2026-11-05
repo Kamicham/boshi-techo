@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/components/FamilyProvider";
 import type { Advice } from "@/lib/advisor";
+import { t } from "@/lib/i18n";
 import { Fold } from "../ui";
 import { ADVICE_CLOSED, AdviceDetails } from "./AdvisorCard";
 
@@ -42,7 +43,7 @@ export function ClosedAdvice({ familyId }: { familyId: string }) {
 
   if (!items.length) return null;
   return (
-    <Fold title="手帳が気づいた事（閉じた物）" count={items.length}>
+    <Fold title={t("手帳が気づいた事（閉じた物）")} count={items.length}>
       <ul className="flex flex-col">
         {items.map(({ advice: a, mailTo, from }) => {
           const on = open === a.key;
@@ -54,13 +55,13 @@ export function ClosedAdvice({ familyId }: { familyId: string }) {
                 onClick={() => setOpen(on ? null : a.key)}
                 className="flex min-h-12 w-full items-center justify-between gap-3 text-left text-base"
               >
-                <span className="min-w-0">{a.title}</span>
-                <span className="shrink-0 text-sm text-muted underline underline-offset-2">{on ? "閉じる" : "もう一度開く"}</span>
+                <span className="min-w-0">{t(a.title)}</span>
+                <span className="shrink-0 text-sm text-muted underline underline-offset-2">{on ? t("閉じる") : t("もう一度開く")}</span>
               </button>
               {on && (
                 <div className="flex flex-col gap-3 pb-4">
                   {/* 札と同じく1文目だけ（残りは下の中身に出る） */}
-                  {whyHead(a.why) && <p className="text-base">{whyHead(a.why)}</p>}
+                  {whyHead(a.why) && <p className="text-base">{t(whyHead(a.why))}</p>}
                   <AdviceDetails a={a} res={{ mailTo, from }} />
                 </div>
               )}

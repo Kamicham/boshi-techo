@@ -10,11 +10,13 @@ import type { Family, Member } from "@/lib/demo-family";
 import type { Keep } from "@/lib/keep";
 import type { LocalInfo } from "@/lib/local";
 import { mergeBring, tripDue, type BirthTrip, type TripFold, type TripWhere } from "@/lib/birth-trip";
+import { listOf, t } from "@/lib/i18n";
+import { msWords } from "@/lib/i18n/milestone-words";
 import { api } from "../FamilyProvider";
 import { Btn, CopyButton, Pill } from "../ui";
 import { PrepBox } from "./NowCard";
 import { TaskBody, type ShownTask } from "./TaskCard";
-import { whoLabel } from "./task";
+import { turnLabel, whoLabel } from "./task";
 import { dueName, nudgeText, untilWords } from "./trip";
 import { usePrep } from "./usePrep";
 
@@ -81,21 +83,22 @@ export function BirthTripCard({
   );
   const picker = !!onAssignMany && family.members.length >= 2 && trip.items.some((i) => i.task.shared);
   const who = picker ? "" : whoLabel(trip.items[0].task, family, me);
+  // 訳さない: 行き先の値（見出しは STAGE を描く所で訳す）
   const stages = (["役所", "勤め先", "保険が届いたら"] as TripWhere[]).filter((w) => trip.items.some((i) => i.where === w));
 
   return (
-    <section aria-label="生まれた届けを、まとめて" className="flex flex-col gap-4 rounded-2xl border-2 border-rose/40 bg-card p-4">
+    <section aria-label={t("生まれた届けを、まとめて")} className="flex flex-col gap-4 rounded-2xl border-2 border-rose/40 bg-card p-4">
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-semibold text-rose">生まれた届けを、まとめて</p>
-        <h2 className="font-display text-xl leading-snug font-bold">役所へ行く日を1つにしましょう</h2>
+        <p className="text-sm font-semibold text-rose">{t("生まれた届けを、まとめて")}</p>
+        <h2 className="font-display text-xl leading-snug font-bold">{t("役所へ行く日を1つにしましょう")}</h2>
         {(due || who) && (
           <p className="flex flex-wrap items-center gap-x-2 text-base">
             {due && (
               <span>
-                {dueName(due.task)}は <b className="tabular">{untilWords(due.left, due.date, today)}</b>
+                {t("{name}は", { name: dueName(due.task) })} <b className="tabular">{untilWords(due.left, due.date, today)}</b>
               </span>
             )}
-            {who && <Pill tone="sky">{who}の番</Pill>}
+            {who && <Pill tone="sky">{turnLabel(trip.items[0].task, family, me)}</Pill>}
           </p>
         )}
       </div>
@@ -103,7 +106,7 @@ export function BirthTripCard({
       {picker && <TripWho trip={trip} family={family} onAssignMany={onAssignMany!} />}
 
       <label className="flex flex-wrap items-center gap-2 text-base">
-        <span className="text-sm font-semibold text-muted">行く日</span>
+        <span className="text-sm font-semibold text-muted">{t("行く日")}</span>
         <input
           type="date"
           min={today}
@@ -116,7 +119,7 @@ export function BirthTripCard({
 
       {stages.map((w) => (
         <div key={w} className="flex flex-col gap-1">
-          <p className="text-sm font-semibold text-muted">{STAGE[w]}</p>
+          <p className="text-sm font-semibold text-muted">{t(STAGE[w])}</p>
           <ol className="flex flex-col">
             {trip.items
               .filter((i) => i.where === w)
@@ -128,16 +131,17 @@ export function BirthTripCard({
                     <div className="flex items-start justify-between gap-2">
                       <span className="min-w-0 text-base leading-snug font-semibold">
                         <span className="tabular mr-1 text-rose">{i.step}.</span>
-                        {i.task.plain}
+                        {msWords(i.task.plain)}
                       </span>
                       <div className="flex shrink-0 gap-1">
-                        <Btn kind="secondary" onClick={() => onDone([i.task.id])} ariaLabel={`${i.task.plain}を済んだにする`}>
-                          済んだ
+                        <Btn kind="secondary" onClick={() => onDone([i.task.id])} ariaLabel={t("{plain}を済んだにする", { plain: msWords(i.task.plain) })}>
+                          {t("済んだ")}
                         </Btn>
                       </div>
                     </div>
-                    <p className="text-sm text-muted">{i.reason}</p>
-                    {i.also && <p className="text-sm font-semibold">{i.also}</p>}
+                    {/* 行く順の理由と一緒にする事は lib/birth-trip.ts の BIRTH_TRIP（辞書は today.ts） */}
+                    <p className="text-sm text-muted">{t(i.reason)}</p>
+                    {i.also && <p className="text-sm font-semibold">{t(i.also)}</p>}
                     {first ? (
                       <FirstRow task={i.task} today={today} family={family} me={me} keep={keep} onAssign={onAssign} onDone={() => onDone([i.task.id])} />
                     ) : (
@@ -148,7 +152,7 @@ export function BirthTripCard({
                           className="min-h-11 self-start text-sm text-sky underline underline-offset-2"
                           aria-expanded={open === i.task.id}
                         >
-                          {open === i.task.id ? "閉じる" : "窓口・書く事を見る"}
+                          {open === i.task.id ? t("閉じる") : t("窓口・書く事を見る")}
                         </button>
                         {open === i.task.id && (
                           <div className="flex flex-col gap-2 rounded-lg bg-sky-soft px-3 py-2">
@@ -165,28 +169,31 @@ export function BirthTripCard({
       ))}
 
       <div className="flex flex-col gap-1">
-        <p className="text-sm font-semibold text-muted">役所へ持って行く物（調べた分を合わせた物）</p>
+        <p className="text-sm font-semibold text-muted">{t("役所へ持って行く物（調べた分を合わせた物）")}</p>
         {bring.length > 0 ? (
           <ul className="flex flex-col gap-1">
             {bring.map((b) => (
               <li key={b.item} className="flex flex-col text-base">
+                {/* 持ち物の名前は、町のページから取った日本語のまま（窓口で見る字） */}
                 <span>□ {b.item}</span>
-                <span className="text-sm text-muted">{b.for.join("・")}の分</span>
+                <span className="text-sm text-muted">{t("{what}の分", { what: listOf(b.for.map(msWords)) })}</span>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-muted">まだ町の窓口を調べていません。</p>
+          <p className="text-sm text-muted">{t("まだ町の窓口を調べていません。")}</p>
         )}
         {notYet.length > 0 && (
-          <p className="text-sm text-muted">まだ調べていない届け: {notYet.map((i) => i.task.plain).join("・")}（行の「窓口・書く事を見る」から町で調べられます）</p>
+          <p className="text-sm text-muted">
+            {t("まだ調べていない届け: {list}（行の「窓口・書く事を見る」から町で調べられます）", { list: listOf(notYet.map((i) => msWords(i.task.plain))) })}
+          </p>
         )}
       </div>
 
       {trip.items.length > 1 && (
         <div>
           <Btn kind="quiet" onClick={() => onDone(trip.items.map((i) => i.task.id))}>
-            全部済んだ（{trip.items.length}件）
+            {t("全部済んだ（{n}件）", { n: trip.items.length })}
           </Btn>
         </div>
       )}
@@ -204,10 +211,10 @@ function TripWho({ trip, family, onAssignMany }: { trip: BirthTrip<ShownTask>; f
   const picks = new Set(shared.map(pickOf));
   const current = picks.size === 1 ? [...picks][0] : "";
   const people = [...family.members].sort((a, b) => Number(a.role !== "パートナー") - Number(b.role !== "パートナー"));
-  const choices = [...people.map((m) => ({ id: m.id, label: m.name })), { id: "together", label: "2人で" }];
+  const choices = [...people.map((m) => ({ id: m.id, label: m.name })), { id: "together", label: t("2人で") }];
   return (
-    <div className="flex flex-wrap items-center gap-2" role="group" aria-label="生まれた届けを、誰が出しに行くか">
-      <span className="text-sm text-muted">{current ? "役所へ行く人" : "役所へ行くのは？"}</span>
+    <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("生まれた届けを、誰が出しに行くか")}>
+      <span className="text-sm text-muted">{current ? t("役所へ行く人") : t("役所へ行くのは？")}</span>
       {choices.map((c) => (
         <button
           key={c.id}
@@ -248,7 +255,7 @@ function FirstRow({
 }) {
   const [tries, setTries] = useState(0);
   const prep = usePrep(task, today, family, me, tries);
-  const label = !prep.preps ? null : prep.busy ? "手帳が用意しています" : prep.made ? "手帳が用意しておきました" : null;
+  const label = !prep.preps ? null : prep.busy ? t("手帳が用意しています") : prep.made ? t("手帳が用意しておきました") : null;
   return (
     <div className="flex flex-col gap-2 rounded-lg bg-sky-soft px-3 py-2">
       {label && <p className="text-sm font-semibold text-sky">{label}</p>}
@@ -265,17 +272,17 @@ function FirstRow({
  */
 export function TripFolded({ fold, family, today, open, onToggle }: { fold: TripFold<ShownTask>; family: Family; today: string; open: boolean; onToggle: () => void }) {
   const person = family.members.find((m) => m.role === fold.who);
-  const name = person ? `${person.name}さん` : "パートナー";
-  const due = fold.due ? `${dueName(fold.due.task)}は ${untilWords(fold.due.left, fold.due.date, today)}` : null;
-  const count = `済んだ ${fold.done}/${fold.total}`;
+  const name = person ? t("{name}さん", { name: person.name }) : t("パートナー");
+  const due = fold.due ? `${t("{name}は", { name: dueName(fold.due.task) })} ${untilWords(fold.due.left, fold.due.date, today)}` : null;
+  const count = t("済んだ {done}/{total}", { done: fold.done, total: fold.total });
   const text = fold.due ? nudgeText(fold.items.length, fold.due, today) : "";
   return (
-    <section aria-label="生まれた届け" className="flex flex-col rounded-2xl border border-line bg-card px-4 py-1">
+    <section aria-label={t("生まれた届け")} className="flex flex-col rounded-2xl border border-line bg-card px-4 py-1">
       {fold.nudge && (
         <details className="group border-b border-line">
           <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 py-2">
             <span className="min-w-0">
-              <span className="block text-base font-semibold">{name}に声をかける文を作る</span>
+              <span className="block text-base font-semibold">{t("{name}に声をかける文を作る", { name })}</span>
               {due && <span className="tabular block text-sm text-muted">{due}</span>}
             </span>
             <span className="shrink-0 text-muted transition-transform group-open:rotate-90" aria-hidden>
@@ -285,7 +292,7 @@ export function TripFolded({ fold, family, today, open, onToggle }: { fold: Trip
           <div className="flex flex-col gap-2 pb-3">
             <p className="rounded-lg bg-sky-soft px-3 py-2 text-base">{text}</p>
             <div>
-              <CopyButton label="文を写す" text={text} />
+              <CopyButton label={t("文を写す")} text={text} />
             </div>
           </div>
         </details>
@@ -293,8 +300,8 @@ export function TripFolded({ fold, family, today, open, onToggle }: { fold: Trip
       <button type="button" onClick={onToggle} aria-expanded={open} className="flex min-h-12 w-full items-center justify-between gap-3 py-2 text-left">
         <span className="min-w-0">
           <span className="block text-base">
-            {fold.nudge ? "届けを見る" : `生まれた届け${fold.total}件は、${name}の番です`}
-            <span className="tabular text-sm text-muted">（{count}）</span>
+            {fold.nudge ? t("届けを見る") : t("生まれた届け{n}件は、{name}の番です", { n: fold.total, name })}
+            <span className="tabular text-sm text-muted">{t("（{x}）", { x: count })}</span>
           </span>
           {!fold.nudge && due && <span className="tabular block text-sm text-muted">{due}</span>}
         </span>

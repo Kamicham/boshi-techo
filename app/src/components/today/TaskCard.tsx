@@ -7,6 +7,8 @@ import { isPaidId } from "@/lib/money";
 import type { Family, Member } from "@/lib/demo-family";
 import type { Keep } from "@/lib/keep";
 import { deadlineKindOf } from "@/lib/milestones";
+import { t as tr } from "@/lib/i18n";
+import { msWords } from "@/lib/i18n/milestone-words";
 import { officeOf } from "@/lib/move";
 import { Btn, CopyButton, HandoffRow, NextStep, Pill, Why } from "../ui";
 import { callMemo } from "@/lib/vax-next";
@@ -49,9 +51,9 @@ function target(t: Task, today: string): When {
   // 形は近い行と同じ「2/25（木）ごろから」「12/10（木）まで」（UX 2026-11-04: 「11/19（木）ごろから」と「12月31日から」が混ざっていた）
   if (days > FAR_DAYS) {
     if (!whenDate(t, today)) return null;
-    return { far: t.status === "まだ先" ? `${jpShort(t.startDate, today)}ごろから` : `${jpShort(t.deadlineDate!, today)}まで` };
+    return { far: t.status === "まだ先" ? tr("{date}ごろから", { date: jpShort(t.startDate, today) }) : tr("{date}まで", { date: jpShort(t.deadlineDate!, today) }) };
   }
-  return { days, label: t.status === "まだ先" ? `${jpShort(t.startDate, today)}から` : `${jpShort(t.deadlineDate!, today)}まで` };
+  return { days, label: t.status === "まだ先" ? tr("{date}から", { date: jpShort(t.startDate, today) }) : tr("{date}まで", { date: jpShort(t.deadlineDate!, today) }) };
 }
 
 /** 一番上の「今やる1つ」。soon = 自分の今やる事が無く、まだ先の近い事を出した */
@@ -60,15 +62,15 @@ export function TopTask(p: Common & { soon?: boolean; eyebrowOverride?: string; 
   const when = target(t, today);
   // 担当の呼び名（「家族」の事は空なので、担当名を出さない）
   const who = whoLabel(t, family, me);
-  const eyebrow = p.eyebrowOverride ?? (p.soon ? "もうすぐ" : me && isMine(t, me) ? "次にやる事" : who ? `${who}の番` : "次にやる事");
+  const eyebrow = p.eyebrowOverride ?? (p.soon ? tr("もうすぐ") : me && isMine(t, me) ? tr("次にやる事") : who ? tr("{who}の番", { who }) : tr("次にやる事"));
   const counted = when && "days" in when ? when : null;
   const guide = when && "guide" in when ? when : null;
   const far = when && "far" in when ? when.far : null;
   return (
     <NextStep
       eyebrow={eyebrow}
-      title={t.plain}
-      sub={t.hint}
+      title={msWords(t.plain)}
+      sub={msWords(t.hint)}
       days={counted?.days}
       dateLabel={counted ? (t.status === "まだ先" ? counted.label : jpShort(t.deadlineDate!, p.today)) : undefined}
       daysKind={t.status === "まだ先" ? "start" : "deadline"}
@@ -92,23 +94,23 @@ export function TaskRow(p: Common & { muted?: boolean }) {
   const who = whoLabel(t, family, me);
   // 担当の札は、担当名がある時だけ。家族みんなの事でまだ決めていない時は「誰がやる？」、2人でと決めた時は「2人で」
   const showPill = !!who && (!me || others);
-  const sharedPill = !who && t.shared ? (t.together ? "2人で" : "誰がやる？") : null;
+  const sharedPill = !who && t.shared ? (t.together ? tr("2人で") : tr("誰がやる？")) : null;
   // 手帳が前に用意した物の札（開く前に分かるように。UX の見直し C07）
   const ready = p.prepared?.[t.id];
   return (
     <details className="group border-b border-line last:border-b-0">
       <summary
         className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 py-2"
-        aria-label={others && who ? `${who}の番: ${t.plain}` : undefined}
+        aria-label={others && who ? tr("{who}の番: {plain}", { who, plain: msWords(t.plain) }) : undefined}
       >
         <span className="flex min-w-0 flex-col gap-0.5">
-          <span className={`text-base leading-snug ${p.muted || others ? "text-muted" : "font-semibold"}`}>{t.plain}</span>
+          <span className={`text-base leading-snug ${p.muted || others ? "text-muted" : "font-semibold"}`}>{msWords(t.plain)}</span>
           {(showPill || sharedPill || ready) && (
             <span className="flex flex-wrap gap-1">
-              {showPill && <Pill tone={others ? "muted" : "rose"}>{who}の番</Pill>}
+              {showPill && <Pill tone={others ? "muted" : "rose"}>{tr("{who}の番", { who })}</Pill>}
               {sharedPill && <Pill tone="muted">{sharedPill}</Pill>}
-              {ready?.draft && <Pill tone="sky">下書きあり</Pill>}
-              {ready?.local && <Pill tone="sky">窓口 ✓</Pill>}
+              {ready?.draft && <Pill tone="sky">{tr("下書きあり")}</Pill>}
+              {ready?.local && <Pill tone="sky">{tr("窓口 ✓")}</Pill>}
             </span>
           )}
         </span>
@@ -122,8 +124,8 @@ export function TaskRow(p: Common & { muted?: boolean }) {
       <div className="flex flex-col gap-2 pb-4">
         {when && "days" in when && <span className="tabular text-sm text-muted">{when.label}</span>}
         {when && "guide" in when && <GuideLine guide={when.guide} past={when.past} wait={isPaidId(t.id)} />}
-        <p className="text-base">{t.hint}</p>
-        {others && who && <p className="text-sm text-muted">{who}の番です。代わりにやってもかまいません</p>}
+        <p className="text-base">{msWords(t.hint)}</p>
+        {others && who && <p className="text-sm text-muted">{tr("{who}の番です。代わりにやってもかまいません", { who })}</p>}
         <TaskBody {...p} />
       </div>
     </details>
@@ -132,15 +134,15 @@ export function TaskRow(p: Common & { muted?: boolean }) {
 
 /** 目安の日（法の期限ではない）。過ぎても赤くしない */
 function RowGuide({ guide }: { guide: string }) {
-  return <span className="tabular text-sm whitespace-nowrap text-muted">目安 {guide.replace(/（.）$/, "")}</span>;
+  return <span className="tabular text-sm whitespace-nowrap text-muted">{tr("目安 {date}", { date: guide.replace(/（.）$/, "") })}</span>;
 }
 
 /** wait: 届くのを待つ件（お金の1000日・lib/money.ts）。する事ではないので「今からできます」と言わない */
 function GuideLine({ guide, past, wait }: { guide: string; past: boolean; wait?: boolean }) {
   return (
     <p className="text-base text-muted">
-      目安 <span className="tabular font-semibold text-ink">{guide}</span>
-      {wait ? (past ? "（届く時期を過ぎました）" : "ごろまでに届く見込み") : past ? "（過ぎていても、今からできます）" : "ごろまでに"}
+      {tr("目安")} <span className="tabular font-semibold text-ink">{guide}</span>
+      {wait ? (past ? tr("（届く時期を過ぎました）") : tr("ごろまでに届く見込み")) : past ? tr("（過ぎていても、今からできます）") : tr("ごろまでに")}
     </p>
   );
 }
@@ -156,17 +158,17 @@ function RowDays({ days, upcoming, start }: { days: number; upcoming: boolean; s
   const color = upcoming ? "text-muted" : days < 0 ? "text-ink" : days <= 1 ? "text-alert" : days <= 3 ? "text-warn" : "text-ink";
   const text = upcoming
     ? days <= 0
-      ? "今日から"
+      ? tr("今日から")
       : days === 1
-        ? "あしたから"
-        : `${start}ごろから`
+        ? tr("あしたから")
+        : tr("{date}ごろから", { date: start })
     : days < 0
-      ? "今からでも"
+      ? tr("今からでも")
       : days === 0
-        ? "今日まで"
+        ? tr("今日まで")
         : days === 1
-          ? "あしたまで"
-          : `あと${days}日`;
+          ? tr("あしたまで")
+          : tr("あと{n}日", { n: days });
   return <span className={`tabular text-sm font-semibold whitespace-nowrap ${color}`}>{text}</span>;
 }
 
@@ -180,10 +182,10 @@ function RowDays({ days, upcoming, start }: { days: number; upcoming: boolean; s
 function WhoPicker({ task: t, family, onAssign }: Pick<Common, "task" | "family" | "onAssign">) {
   if (!t.shared || !onAssign) return null;
   const current = t.together ? "together" : (family.members.find((m) => m.role === t.who)?.id ?? "");
-  const choices = [...family.members.map((m) => ({ id: m.id, label: m.name })), { id: "together", label: "2人で" }];
+  const choices = [...family.members.map((m) => ({ id: m.id, label: m.name })), { id: "together", label: tr("2人で") }];
   return (
-    <div className="flex flex-wrap items-center gap-2" role="group" aria-label={`${t.plain}を誰がやるか`}>
-      <span className="text-sm text-muted">{current ? "やる人" : "誰がやる？"}</span>
+    <div className="flex flex-wrap items-center gap-2" role="group" aria-label={tr("{plain}を誰がやるか", { plain: msWords(t.plain) })}>
+      <span className="text-sm text-muted">{current ? tr("やる人") : tr("誰がやる？")}</span>
       {choices.map((c) => (
         <button
           key={c.id}
@@ -234,12 +236,20 @@ export function TaskBody({
   // 前の町の窓口（町を変えた時の印つき）は場所に使わない
   const office = officeOf(keep?.office);
   const place = t.kind === "健診" ? keep?.hospital?.name : t.kind === "手続き" ? office?.address || office?.name : undefined;
+  // カレンダーに入れる文も画面の言葉で（家族のカレンダーに入る）
   const calendar = t.deadlineDate
-    ? { title: `${t.plain}（期限）`, date: t.deadlineDate, details: `${t.hint}\n${t.title}\n根拠: ${t.basis}`, place: place || undefined }
+    ? {
+        title: tr("{plain}（期限）", { plain: msWords(t.plain) }),
+        date: t.deadlineDate,
+        details: [msWords(t.hint), msWords(t.title), tr("根拠: {basis}", { basis: msWords(t.basis) })].join("\n"),
+        place: place || undefined,
+      }
     : undefined;
   const notice = !t.deadlineDate; // 期限の無いお知らせ（産休に入れる・健診の回数が変わる、など）
-  const doneWord = notice ? "わかった" : "済んだ";
+  const doneWord = notice ? tr("わかった") : tr("済んだ");
+  const doneAria = notice ? tr("{plain}をわかったにする", { plain: msWords(t.plain) }) : tr("{plain}を済んだにする", { plain: msWords(t.plain) });
   const doneKind = top ? (hasActions ? "quiet" : "primary") : "secondary";
+  const whoWord = whoLabel(t, family, me);
 
   return (
     <>
@@ -253,14 +263,14 @@ export function TaskBody({
       {!noWho && <WhoPicker task={t} family={family} onAssign={onAssign} />}
       <div className="flex flex-wrap items-center gap-x-2">
         {!noDone && (
-          <Btn kind={doneKind} onClick={onDone} ariaLabel={`${t.plain}を${doneWord}にする`}>
+          <Btn kind={doneKind} onClick={onDone} ariaLabel={doneAria}>
             {doneWord}
           </Btn>
         )}
         {calendar && (
           <details className="group/cal text-sm">
             <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 px-1 text-muted">
-              <span className="underline underline-offset-2">カレンダーに入れる</span>
+              <span className="underline underline-offset-2">{tr("カレンダーに入れる")}</span>
               <span className="transition-transform group-open/cal:rotate-90" aria-hidden>
                 ›
               </span>
@@ -273,20 +283,30 @@ export function TaskBody({
       </div>
       {t.retime && (
         <CopyButton
-          label="予約の電話メモをコピー"
+          label={tr("予約の電話メモをコピー")}
+          // 電話メモは、小児科へ電話で読む日本語のまま
           text={callMemo({ childName: family.childName, birthDate: family.birthDate, plain: t.plain, start: t.startDate, doses: t.retime.doses, lastDate: t.retime.lastDate, lastFacility: t.retime.lastFacility })}
         />
       )}
       <Why>
         <span>
-          {t.title}（{[t.kind, whoLabel(t, family, me)].filter(Boolean).join("・")}）
+          {msWords(t.title)}
+          {tr("（{x}）", { x: whoWord ? tr("{kind}・{who}", { kind: tr(t.kind), who: whoWord }) : tr(t.kind) })}
         </span>
-        <span>根拠: {t.basis}</span>
-        {/* 公費の年齢を越える見込みの時は、retimeNote に確かめる先（小児科・保健センター）が入っているので重ねない */}
-        {t.retimeNote && <span>打てる最短日: {jpShort(t.startDate, today)}（{t.retimeNote}{t.beyondPublic ? "" : "。回数や間隔が標準と違う時は小児科で確かめる"}）</span>}
+        <span>{tr("根拠: {basis}", { basis: msWords(t.basis) })}</span>
+        {/* 公費の年齢を越える見込みの時は、retimeNote に確かめる先（小児科・保健センター）が入っているので重ねない（retimeNote は予定から数えた日本語のまま） */}
+        {t.retimeNote && (
+          <span>
+            {t.beyondPublic
+              ? tr("打てる最短日: {date}（{note}）", { date: jpShort(t.startDate, today), note: t.retimeNote })
+              : tr("打てる最短日: {date}（{note}。回数や間隔が標準と違う時は小児科で確かめる）", { date: jpShort(t.startDate, today), note: t.retimeNote })}
+          </span>
+        )}
         {t.deadlineDate && (
           <span>
-            始まり {jpShort(t.startDate, today)}・{isGuide(t) ? "目安" : "期限"} {jpShort(t.deadlineDate, today)}
+            {isGuide(t)
+              ? tr("始まり {start}・目安 {end}", { start: jpShort(t.startDate, today), end: jpShort(t.deadlineDate, today) })
+              : tr("始まり {start}・期限 {end}", { start: jpShort(t.startDate, today), end: jpShort(t.deadlineDate, today) })}
           </span>
         )}
       </Why>

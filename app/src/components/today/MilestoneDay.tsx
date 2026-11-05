@@ -9,6 +9,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Family } from "@/lib/demo-family";
+import { t } from "@/lib/i18n";
 import { milestoneSay, type PhotoMilestone } from "@/lib/media-shared";
 import { useMedia } from "../album/useMedia";
 import { Btn } from "../ui";
@@ -35,7 +36,7 @@ export function MilestoneDay({ family, today, m }: { family: Family; today: stri
   useEffect(() => setClosed(readClosed(family.id)), [family.id]);
   if (!closed || closed.includes(m.id) || !family.birthDate) return null;
   const canKeep = !loading && !unavailable && (canWrite || !!canContribute);
-  const child = family.childName ?? "赤ちゃん";
+  const child = family.childName ?? t("赤ちゃん");
   const close = () => {
     const next = [...closed, m.id];
     writeClosed(family.id, next);
@@ -43,20 +44,21 @@ export function MilestoneDay({ family, today, m }: { family: Family; today: stri
   };
   const link = "flex min-h-12 items-center justify-between gap-3 rounded-xl bg-card px-4 text-base font-semibold";
   return (
-    <section aria-label={m.label} className="flex flex-col gap-3 rounded-2xl border border-ok/40 bg-ok/5 p-4">
-      <p className="text-sm font-semibold text-ok">{m.label}</p>
-      <h2 className="font-display text-2xl font-bold [text-wrap:balance]">{milestoneSay(m, family.birthDate, today)}</h2>
-      {m.note && <p className="-mt-2 text-sm text-muted">{m.note}</p>}
+    // 節目の名前・一言・注の訳は、思い出の側の辞書（lib/media-shared.ts の節目）
+    <section aria-label={t(m.label)} className="flex flex-col gap-3 rounded-2xl border border-ok/40 bg-ok/5 p-4">
+      <p className="text-sm font-semibold text-ok">{t(m.label)}</p>
+      <h2 className="font-display text-2xl font-bold [text-wrap:balance]">{t(milestoneSay(m, family.birthDate, today))}</h2>
+      {m.note && <p className="-mt-2 text-sm text-muted">{t(m.note)}</p>}
       {canKeep && (
         <div className="flex flex-col gap-2">
           <Link href="/capture?keep=1" onClick={close} className={link}>
-            <span>📷 写真・🎙 声を残す</span>
+            <span>{t("📷 写真・🎙 声を残す")}</span>
             <span className="text-muted" aria-hidden>
               ›
             </span>
           </Link>
           <Link href="/book#letters" className={link}>
-            <span>💌 {child}へ、手紙を書く</span>
+            <span>{t("💌 {child}へ、手紙を書く", { child })}</span>
             <span className="text-muted" aria-hidden>
               ›
             </span>
@@ -65,7 +67,7 @@ export function MilestoneDay({ family, today, m }: { family: Family; today: stri
       )}
       <div>
         <Btn kind="quiet" onClick={close}>
-          閉じる
+          {t("閉じる")}
         </Btn>
       </div>
     </section>

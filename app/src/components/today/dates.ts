@@ -4,7 +4,9 @@
 // 勤め先・役所あての文書の日付は lib/blanks.ts の jpDate（いつも日本語）
 import { currentLang } from "@/lib/i18n";
 
+// 訳さない: 日本語と中文の曜日の書き方（English は Intl）
 const JA_WEEK = "日月火水木金土";
+// 訳さない: 同上
 const ZH_WEEK = "日一二三四五六";
 
 function parts(s: string): { y: number; m: number; d: number; w: number } {
@@ -15,6 +17,7 @@ function parts(s: string): { y: number; m: number; d: number; w: number } {
 const otherYear = (s: string, today?: string) => !!today && s.slice(0, 4) !== today.slice(0, 4);
 
 /** 曜日の札: 月 / 周一 */
+// 訳さない: 言葉ごとの日付の書き方（中文の曜日）
 const week = (w: number) => (currentLang() === "zh" ? `周${ZH_WEEK[w]}` : JA_WEEK[w]);
 
 /** English の日付（暦日なので UTC で書く） */
@@ -28,6 +31,7 @@ export function jpDate(s: string, today?: string): string {
   const { y, m, d, w } = parts(s);
   const year = otherYear(s, today);
   if (currentLang() === "en") return en(s, { weekday: "short", month: "short", day: "numeric", ...(year ? { year: "numeric" } : {}) });
+  // 訳さない: 日本語と中文で同じ並び（年・月・日）
   return `${year ? `${y}年` : ""}${m}月${d}日（${week(w)}）`;
 }
 
@@ -36,5 +40,6 @@ export function jpShort(s: string, today?: string): string {
   const { y, m, d, w } = parts(s);
   const year = otherYear(s, today);
   if (currentLang() === "en") return en(s, { weekday: "short", month: "numeric", day: "numeric", ...(year ? { year: "numeric" } : {}) });
+  // 訳さない: 日本語と中文で同じ並び
   return `${year ? `${y}/` : ""}${m}/${d}（${week(w)}）`;
 }

@@ -7,6 +7,8 @@
 // 「まだ」なら、予定の並びには戻さず（目安を過ぎた事は畳まれるので）、この1枚に「まだの事」として出し続ける。
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Family } from "@/lib/demo-family";
+import { t } from "@/lib/i18n";
+import { msWords } from "@/lib/i18n/milestone-words";
 import { scheduleFor, type Milestone } from "@/lib/milestones";
 import { recentlyPassed } from "@/lib/started-late";
 import { api } from "../FamilyProvider";
@@ -60,26 +62,26 @@ export function StartedLate({ family, today, onCount, onOpen, lifted, version = 
   };
 
   return (
-    <section aria-label="手帳を始める前の事" className="flex flex-col gap-3 rounded-2xl border border-line bg-card px-4 py-4">
+    <section aria-label={t("手帳を始める前の事")} className="flex flex-col gap-3 rounded-2xl border border-line bg-card px-4 py-4">
       {ask.length > 0 && (
         <>
           <div className="flex flex-col gap-1">
-            <h2 className="font-display text-lg font-bold">もう済んでいますか？</h2>
-            <p className="text-sm text-muted">手帳を始める前の時期の事です。「まだ」を押すと、やる事に入れます。</p>
+            <h2 className="font-display text-lg font-bold">{t("もう済んでいますか？")}</h2>
+            <p className="text-sm text-muted">{t("手帳を始める前の時期の事です。「まだ」を押すと、やる事に入れます。")}</p>
           </div>
           <ul className="flex flex-col divide-y divide-line">
             {ask.map((m) => (
               <li key={m.id} className="flex flex-col gap-2 py-2">
                 <span className="text-base">
-                  {m.plain}
-                  <span className="text-sm text-muted">（目安 {jpShort(m.deadlineDate!, today)}）</span>
+                  {msWords(m.plain)}
+                  <span className="text-sm text-muted">{t("（目安 {date}）", { date: jpShort(m.deadlineDate!, today) })}</span>
                 </span>
                 <span className="flex gap-2">
                   <button type="button" disabled={busy === m.id} onClick={() => void answer(m.id, true)} className="min-h-11 rounded-full bg-ok/10 px-4 text-base font-semibold text-ok disabled:opacity-50">
-                    済んでいる
+                    {t("済んでいる")}
                   </button>
                   <button type="button" disabled={busy === m.id} onClick={() => void answer(m.id, false)} className="min-h-11 rounded-full bg-rose-soft px-4 text-base font-semibold text-rose disabled:opacity-50">
-                    まだ
+                    {t("まだ")}
                   </button>
                 </span>
               </li>
@@ -89,15 +91,15 @@ export function StartedLate({ family, today, onCount, onOpen, lifted, version = 
       )}
       {shownOpen.length > 0 && (
         <>
-          <h2 className="font-display text-lg font-bold">始める前の事で、まだの事</h2>
+          <h2 className="font-display text-lg font-bold">{t("始める前の事で、まだの事")}</h2>
           <ul className="flex flex-col divide-y divide-line">
             {shownOpen.map((m) => (
               <li key={m.id} className="flex flex-col gap-1 py-2">
-                <span className="text-base font-semibold">{m.plain}</span>
-                {m.hint && <span className="text-sm text-muted">{m.hint}</span>}
+                <span className="text-base font-semibold">{msWords(m.plain)}</span>
+                {m.hint && <span className="text-sm text-muted">{msWords(m.hint)}</span>}
                 <span>
                   <button type="button" disabled={busy === m.id} onClick={() => void answer(m.id, true)} className="min-h-11 rounded-full bg-ok/10 px-4 text-base font-semibold text-ok disabled:opacity-50">
-                    済んだ
+                    {t("済んだ")}
                   </button>
                 </span>
               </li>

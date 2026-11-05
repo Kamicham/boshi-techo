@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Family } from "@/lib/demo-family";
+import { t } from "@/lib/i18n";
 import { bumpMomentFor, type BumpSeen } from "@/lib/media-shared";
 import { useMedia } from "../album/useMedia";
 import { Btn } from "../ui";
@@ -45,16 +46,17 @@ export function BumpMoment({ family, today, reportedOn }: { family: Family; toda
   };
   const href = m.to === "letter" ? "/book#letters" : "/capture?keep=1";
   return (
-    <section aria-label={m.label} className="flex flex-col gap-2 rounded-2xl border border-ok/40 bg-ok/5 p-4">
-      <p className="text-sm font-semibold text-ok">{m.label}</p>
-      <p className="font-display text-lg font-bold [text-wrap:balance]">{m.say}</p>
-      {m.note && <p className="text-sm text-muted">{m.note}</p>}
+    // 節目の言葉の訳は、思い出の側の辞書（lib/media-shared.ts の BUMP_MOMENTS）
+    <section aria-label={t(m.label)} className="flex flex-col gap-2 rounded-2xl border border-ok/40 bg-ok/5 p-4">
+      <p className="text-sm font-semibold text-ok">{t(m.label)}</p>
+      <p className="font-display text-lg font-bold [text-wrap:balance]">{t(m.say)}</p>
+      {m.note && <p className="text-sm text-muted">{t(m.note)}</p>}
       <div className="flex flex-wrap items-center gap-2">
         <Link href={href} onClick={mark} className="inline-flex min-h-11 items-center justify-center gap-1 rounded-full bg-rose px-5 text-base font-semibold text-white">
-          {m.action}
+          {t(m.action)}
         </Link>
         <Btn kind="quiet" onClick={mark}>
-          閉じる
+          {t("閉じる")}
         </Btn>
       </div>
     </section>

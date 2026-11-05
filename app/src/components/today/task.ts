@@ -2,6 +2,7 @@
 import type { Family, Member } from "@/lib/demo-family";
 import { deadlineKindOf, endOf, type Milestone, type Status } from "../../lib/milestones";
 import { diffDays } from "../../lib/clock";
+import { t as tr } from "@/lib/i18n";
 
 const daysUntil = (today: string, date: string) => diffDays(date, today);
 
@@ -90,10 +91,10 @@ export function shownDays(t: Task, today: string): number | null {
   return d != null && d <= FAR_DAYS ? d : null;
 }
 
-/** 12月10日（年が今日と違う時は 2027年12月10日） */
+/** 12月10日（年が今日と違う時は 2027年12月10日）。画面の言葉で返す（中文は同じ形・English は 12/10・12/10/2027） */
 export function dateWord(date: string, today: string): string {
   const [y, m, d] = date.split("-").map(Number);
-  return date.slice(0, 4) === today.slice(0, 4) ? `${m}月${d}日` : `${y}年${m}月${d}日`;
+  return date.slice(0, 4) === today.slice(0, 4) ? tr("{m}月{d}日", { m, d }) : tr("{y}年{m}月{d}日", { y, m, d });
 }
 
 /**
@@ -102,8 +103,8 @@ export function dateWord(date: string, today: string): string {
  */
 export function whenDate(t: Task, today: string): string | null {
   if (t.awaitingBirth || t.awaitingPregnancy) return null;
-  if (t.status === "まだ先") return `${dateWord(t.startDate, today)}から`;
-  if (t.deadlineDate) return `${dateWord(t.deadlineDate, today)}まで`;
+  if (t.status === "まだ先") return tr("{date}から", { date: dateWord(t.startDate, today) });
+  if (t.deadlineDate) return tr("{date}まで", { date: dateWord(t.deadlineDate, today) });
   return null;
 }
 
@@ -166,11 +167,18 @@ export function planToday(tasks: Task[], today: string, me: Member | null): Toda
   return { top: null, topIsSoon: false, rest: byDays(others, (t) => daysLeft(t, today)), upcoming, stale };
 }
 
-/** 担当の呼び名（家族の名前で。いなければ役の言い方）。「家族」の事は空文字（画面は札を出さない） */
+/** 担当の呼び名（家族の名前で。いなければ役の言い方。画面の言葉で返す＝サーバと試験ではいつも日本語）。「家族」の事は空文字（画面は札を出さない） */
 export function whoLabel(m: Pick<Milestone, "who">, family: Family, me: Member | null): string {
   if (m.who === "家族") return "";
-  if (me && m.who === me.role) return "あなた";
+  if (me && m.who === me.role) return tr("あなた");
   const person = family.members.find((x) => x.role === m.who);
   if (person) return person.name;
-  return m.who === "母" ? "ママ" : "パートナー";
+  return m.who === "母" ? tr("ママ") : tr("パートナー");
+}
+
+/** 「◯◯の番」（自分の番は「あなたの番」。英語の「you's turn」を作らないよう、自分の時は別の言い方で引く）。「家族」の事は空文字 */
+export function turnLabel(m: Pick<Milestone, "who">, family: Family, me: Member | null): string {
+  if (m.who === "家族") return "";
+  if (me && m.who === me.role) return tr("あなたの番");
+  return tr("{who}の番", { who: whoLabel(m, family, me) });
 }

@@ -9,9 +9,10 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "@/components/FamilyProvider";
-import { CAUTION_LABEL, POISON_LINES, POISON_NOTE, cautionFor, cautionShareText, devDatesOf, nestQuote, type CautionCtx, type CautionSeen } from "@/lib/cautions";
+import { CAUTION_LABEL, POISON_LINES, POISON_NOTE, cautionFor, cautionInLang, cautionShareText, devDatesOf, nestQuote, type CautionCtx, type CautionSeen } from "@/lib/cautions";
 import { addMonths } from "@/lib/clock";
 import type { Family } from "@/lib/demo-family";
+import { t } from "@/lib/i18n";
 import { line8000, telLink } from "@/lib/emergency-lines";
 import { mapUrl } from "@/lib/handoff";
 import { Btn, ShareButton, useDevice, Why } from "../ui";
@@ -54,15 +55,17 @@ export function CautionCard({ family, today, role, busy }: { family: Family; tod
   }, [family.id, today, wantDev]);
   // できた日を読む頃は、読み終わるまで出さない（出た後に札が入れ替わらないように）
   if (!seen || (wantDev && dev === null)) return null;
-  const c = cautionFor(family, today, seen, { role, busy, dev: dev ?? undefined });
-  if (!c) return null;
+  const found = cautionFor(family, today, seen, { role, busy, dev: dev ?? undefined });
+  if (!found) return null;
+  // 札の言葉を画面の言葉に（中身は lib/cautions.ts。家族に送る文も同じ言葉で作る）
+  const c = cautionInLang(found);
   const read = () => {
     const next = { ids: [...seen.ids, c.id], day: today };
     writeSeen(family.id, next);
     setSeen(next);
   };
   const alt = c.calls.includes("8000") ? line8000(family.prefecture) : null;
-  const label = CAUTION_LABEL[c.kind];
+  const label = t(CAUTION_LABEL[c.kind]);
 
   return (
     <section aria-label={`${label}: ${c.title}`} className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4">
@@ -74,7 +77,8 @@ export function CautionCard({ family, today, role, busy }: { family: Family; tod
       <ul className="flex flex-col gap-2 text-base leading-relaxed">
         {c.quotes.map((q) => (
           <li key={q.text} className={q.tone === "alert" ? "font-semibold text-alert" : q.tone === "bold" ? "font-semibold" : undefined}>
-            「{nestQuote(q.text)}」<span className="text-xs font-normal text-muted">（{q.from}）</span>
+            {t("「{text}」", { text: nestQuote(q.text) })}
+            <span className="text-xs font-normal text-muted">{t("（{x}）", { x: q.from })}</span>
           </li>
         ))}
       </ul>
@@ -87,18 +91,19 @@ export function CautionCard({ family, today, role, busy }: { family: Family; tod
               <a href="tel:%238000" className="flex min-h-12 items-center justify-between gap-3 px-4 py-2">
                 <span className="min-w-0">
                   <span className="block text-base font-semibold text-sky">#8000</span>
-                  <span className="block text-sm text-muted">子どもの事で、受診するか迷う時（夜や休みの日）</span>
+                  <span className="block text-sm text-muted">{t("子どもの事で、受診するか迷う時（夜や休みの日）")}</span>
                 </span>
-                <span className="shrink-0 text-sm font-semibold">電話する</span>
+                <span className="shrink-0 text-sm font-semibold">{t("電話する")}</span>
               </a>
               {alt && (
                 <a
                   href={telLink(alt.tel)}
-                  aria-label={`#8000 につながらない時は、${alt.tel}（${alt.prefecture}の窓口）にかける`}
+                  aria-label={t("{instead} につながらない時は、{tel}（{where}の窓口）にかける", { instead: "#8000", tel: alt.tel, where: alt.prefecture })}
                   className="flex min-h-11 items-center justify-center border-t border-sky/30 px-3 py-1 text-center text-sm text-muted"
                 >
                   <span>
-                    つながらない時は <span className="tabular font-semibold text-sky underline underline-offset-2">{alt.tel}</span>（{alt.prefecture}）
+                    {t("つながらない時は")} <span className="tabular font-semibold text-sky underline underline-offset-2">{alt.tel}</span>
+                    {t("（{x}）", { x: alt.prefecture })}
                   </span>
                 </a>
               )}
@@ -108,20 +113,23 @@ export function CautionCard({ family, today, role, busy }: { family: Family; tod
             <a href="tel:0120189783" className="flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-ink/20 px-4 py-2">
               <span className="min-w-0">
                 <span className="tabular block text-base font-semibold">0120-189-783</span>
-                <span className="block text-sm text-muted">「出産や子育てに悩んだ時は、こちらにお電話ください。」（こども家庭庁・無料）</span>
+                <span className="block text-sm text-muted">{t("「出産や子育てに悩んだ時は、こちらにお電話ください。」（こども家庭庁・無料）")}</span>
               </span>
-              <span className="shrink-0 text-sm font-semibold">電話する</span>
+              <span className="shrink-0 text-sm font-semibold">{t("電話する")}</span>
             </a>
           )}
           {c.calls.includes("poison") && (
             <div className="flex flex-col gap-1 rounded-2xl border border-ink/20 px-4 py-2">
-              <p className="text-sm text-muted">中毒110番（日本中毒情報センター・24時間対応）「{POISON_NOTE}」</p>
+              <p className="text-sm text-muted">
+                {t("中毒110番（日本中毒情報センター・24時間対応）")}
+                {t("「{text}」", { text: t(POISON_NOTE) })}
+              </p>
               {POISON_LINES.map((p) => (
                 <a key={p.tel} href={telLink(p.tel)} className="flex min-h-11 items-center justify-between gap-3">
                   <span className="text-base">
-                    {p.name} <span className="tabular font-semibold">{p.tel}</span>
+                    {t(p.name)} <span className="tabular font-semibold">{p.tel}</span>
                   </span>
-                  <span className="shrink-0 text-sm font-semibold">電話する</span>
+                  <span className="shrink-0 text-sm font-semibold">{t("電話する")}</span>
                 </a>
               ))}
             </div>
@@ -135,8 +143,14 @@ export function CautionCard({ family, today, role, busy }: { family: Family; tod
             </Link>
           )}
           {c.center && (
-            <a href={mapUrl(`${family.city ?? ""} 保健センター`, apple)} target="_blank" rel="noreferrer" className="flex min-h-11 items-center gap-2 rounded-xl border border-line px-4 py-2 text-ink">
-              <span className="min-w-0 text-base">町の保健センター（地図で探す）</span>
+            <a
+              // 訳さない: 地図で引く言葉（町の窓口の日本語の名前）
+              href={mapUrl(`${family.city ?? ""} 保健センター`, apple)}
+              target="_blank"
+              rel="noreferrer"
+              className="flex min-h-11 items-center gap-2 rounded-xl border border-line px-4 py-2 text-ink"
+            >
+              <span className="min-w-0 text-base">{t("町の保健センター（地図で探す）")}</span>
               <span aria-hidden className="ml-auto shrink-0 text-muted">
                 ›
               </span>
@@ -147,26 +161,26 @@ export function CautionCard({ family, today, role, busy }: { family: Family; tod
 
       <div className="flex flex-wrap items-center gap-2">
         <Btn kind="secondary" onClick={read}>
-          読んだ
+          {t("読んだ")}
         </Btn>
-        <ShareButton title={c.title} text={cautionShareText(c)} label="家族に送る" />
+        <ShareButton title={c.title} text={cautionShareText(c)} label={t("家族に送る")} />
       </div>
-      <Why label="なぜ今？">
+      <Why label={t("なぜ今？")}>
         {c.why.map((w) => (
           <p key={w}>{w}</p>
         ))}
         <p>
-          出典:{" "}
+          {t("出典:")}{" "}
           {c.sources.map((s, i) => (
             <span key={s.href}>
-              {i > 0 && "・"}
+              {i > 0 && t("・")}
               <a href={s.href} target="_blank" rel="noreferrer" className="underline underline-offset-2">
                 {s.label}
               </a>
             </span>
           ))}
         </p>
-        <p>「読んだ」は、この端末にだけ覚えます（家族のほかの人の画面からは消えません）。押した日は、次の札を出しません。</p>
+        <p>{t("「読んだ」は、この端末にだけ覚えます（家族のほかの人の画面からは消えません）。押した日は、次の札を出しません。")}</p>
       </Why>
     </section>
   );

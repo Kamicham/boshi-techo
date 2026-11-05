@@ -7,6 +7,7 @@ import answers from "./dict/answers";
 import ask from "./dict/ask";
 import book from "./dict/book";
 import core from "./dict/core";
+import draft from "./dict/draft";
 import memories from "./dict/memories";
 import milestones from "./dict/milestones";
 import now from "./dict/now";
@@ -16,7 +17,7 @@ import start from "./dict/start";
 import today from "./dict/today";
 import welcome from "./dict/welcome";
 
-export const AREAS: Readonly<Record<string, Entries>> = { core, shell, welcome, start, stages, now, today, milestones, ask, answers, album, book, memories };
+export const AREAS: Readonly<Record<string, Entries>> = { core, shell, welcome, start, stages, now, today, draft, milestones, ask, answers, album, book, memories };
 
 function build(lang: "zh" | "en"): Dict {
   const out: Record<string, string> = {};

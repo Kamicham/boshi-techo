@@ -11,6 +11,7 @@ import { useMedia } from "@/components/album/useMedia";
 import { useThanksLog } from "@/components/album/ThanksChapter";
 import { conceptionDate, totalDays } from "@/lib/clock";
 import type { Family } from "@/lib/demo-family";
+import { currentLang, t } from "@/lib/i18n";
 import type { ClientLetter } from "@/lib/letters-shared";
 import { jpDate } from "./dates";
 
@@ -29,7 +30,7 @@ export function ThousandDays({ family, today, letters }: { family: Family; today
       alive = false;
     };
   }, [family.id, today]);
-  const child = family.childName ?? "赤ちゃん";
+  const child = family.childName ?? t("赤ちゃん");
   const days = totalDays(family);
   const counts = [
     { icon: "📝", label: "記録", n: records ?? 0, unit: "件" },
@@ -42,45 +43,46 @@ export function ThousandDays({ family, today, letters }: { family: Family; today
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-1">
-        <p className="font-display text-xl font-bold">1000日、一緒に歩きました</p>
+        <p className="font-display text-xl font-bold">{t("1000日、一緒に歩きました")}</p>
         <p className="text-sm text-muted">
-          妊娠のはじまり（{jpDate(conceptionDate(family), today)}ごろ）から2歳の誕生日まで、{child}の{days}日。
+          {t("妊娠のはじまり（{date}ごろ）から2歳の誕生日まで、{child}の{days}日。", { date: jpDate(conceptionDate(family), today), child, days })}
         </p>
       </div>
       {counts.length > 0 && (
-        <ul aria-label="家族が手帳に残した物" className="grid grid-cols-2 gap-2">
+        <ul aria-label={t("家族が手帳に残した物")} className="grid grid-cols-2 gap-2">
           {counts.map((c) => (
             <li key={c.label} className="flex items-baseline justify-between gap-2 rounded-xl bg-card px-3 py-2">
               <span className="text-sm text-muted">
-                {c.icon} {c.label}
+                {c.icon} {t(c.label)}
               </span>
               <span className="tabular text-lg font-bold">
                 {c.n}
-                <span className="text-sm font-normal">{c.unit}</span>
+                {/* 英語に助数詞は無いので、数だけ（何の数かは左の札が言う） */}
+                {c.unit && currentLang() !== "en" && <span className="text-sm font-normal">{t(c.unit)}</span>}
               </span>
             </li>
           ))}
         </ul>
       )}
-      <h3 className="mt-1 text-sm font-semibold text-rose">渡す準備</h3>
+      <h3 className="mt-1 text-sm font-semibold text-rose">{t("渡す準備")}</h3>
       <div className="flex flex-col gap-2">
         <Link href="/book#letters" className={link}>
-          <span>💌 20歳の{child}へ、手紙を書く</span>
+          <span>{t("💌 20歳の{child}へ、手紙を書く", { child })}</span>
           <span className="text-muted" aria-hidden>
             ›
           </span>
         </Link>
         <Link href="/book/print" className={link}>
-          <span>🖨 一冊を印刷する（A5・PDF）</span>
+          <span>{t("🖨 一冊を印刷する（A5・PDF）")}</span>
           <span className="text-muted" aria-hidden>
             ›
           </span>
         </Link>
         {timeTravel ? (
-          <p className="px-1 text-sm text-muted">📦 本物の手帳では、写真・声・記録の原本を1つの zip で書き出して、手元に残せます。</p>
+          <p className="px-1 text-sm text-muted">{t("📦 本物の手帳では、写真・声・記録の原本を1つの zip で書き出して、手元に残せます。")}</p>
         ) : (
           accountsEnabled && <a href={`/api/export?familyId=${encodeURIComponent(family.id)}`} download className={link}>
-            <span>📦 写真・声・記録を書き出す（zip）</span>
+            <span>{t("📦 写真・声・記録を書き出す（zip）")}</span>
             <span className="text-muted" aria-hidden>
               ›
             </span>

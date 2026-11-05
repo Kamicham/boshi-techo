@@ -3,9 +3,12 @@
 // 「今やる事」のカードに付く動き（答えずに、動く）。
 // ② その町の窓口を調べる → 一番上に「どこへ・何を持って」、地図で開く
 // ③ 下書きを作る → 宛先・件名・本文をワンタップでコピー、メール・LINE・共有で開く（送るのは家族）
+// ボタンの札は画面の言葉に訳す（下書きの呼び名の辞書は lib/i18n/dict/today.ts、ボタンの言い方は dict/draft.ts）
 import { useEffect, useRef, useState } from "react";
 import { afterDraftConsentReturn, CONSENT_REQUIRED_TEXT, draftConsentWaitKey, readConsentState, waitingDraftFor } from "@/lib/claude-consent-flow";
 import { DRAFTABLE } from "@/lib/draft-kinds";
+import { t } from "@/lib/i18n";
+import { msWords } from "@/lib/i18n/milestone-words";
 import type { Milestone } from "@/lib/milestones";
 import type { LocalInfo } from "@/lib/local";
 import type { DraftKind, DraftView } from "@/lib/drafts";
@@ -17,7 +20,7 @@ import { LocalPanel } from "./draft/LocalPanel";
 // 下書きが意味を持つ事の表は lib/draft-kinds.ts（鍵の無い見本の下書きも同じ表で種類を決める）
 export { DRAFTABLE };
 
-/** 下書きの呼び名（種類ごと） */
+/** 下書きの呼び名（種類ごと）。値は辞書の鍵（描く所で t() で訳す） */
 export const NOUN: Record<DraftKind, string> = {
   メール: "職場へのメール",
   記入メモ: "書く事のメモ",
@@ -26,6 +29,7 @@ export const NOUN: Record<DraftKind, string> = {
 };
 
 /** 下書きの呼び名（町の窓口あてのメールは「町への問い合わせ」） */
+// 訳さない: 呼び名は日本語の値で返す（今日の画面の usePrep・PrepAhead とこの下のボタンが、描く所で t() で訳す。辞書は today.ts）
 export function nounFor(kind: DraftKind, m: { kind: string; id?: string }): string {
   if (kind === "メール" && m.id === "older-daycare-continue") return "園か町への問い合わせ";
   if (kind === "メール" && m.id === "satogaeri-return") return "保健センターへの連絡";
@@ -79,7 +83,7 @@ function Actions({ milestone, today, primary, compact, onDoneChange }: Props) {
   // 役所の窓口を調べるのは、役所に出す手続きだけ（産院・職場に出す物を役所で調べると、違う行き先が出る＝sim-14 の直接支払制度）
   const canLocal = milestone.needsLocal && !!family.city && !(milestone.kind === "仕事" || /産院|職場/.test(`${milestone.title}${milestone.plain}`));
   const canDraft = milestone.id in DRAFTABLE;
-  const title = milestone.plain || milestone.title;
+  const title = msWords(milestone.plain || milestone.title);
 
   // 前に作った下書き・調べた結果があるかだけ先に見る（作り・調べには行かない）
   useEffect(() => {
@@ -183,15 +187,22 @@ function Actions({ milestone, today, primary, compact, onDoneChange }: Props) {
 
   const draft = view?.draft ?? null;
   // ボタンの言葉は、押す前と同じ種類で呼ぶ（表に無い事だけ、作った下書きの種類で呼ぶ）
-  const noun = nounFor(DRAFTABLE[milestone.id] ?? draft?.kind ?? "記入メモ", milestone);
+  // 訳さない: 「記入メモ」は下書きの種類の値（DraftKind）
+  const noun = t(nounFor(DRAFTABLE[milestone.id] ?? draft?.kind ?? "記入メモ", milestone));
   const draftLabel =
-    open === "draft" ? `${noun}を閉じる` : draft ? (draft.status === "ok" ? `${noun}を見る（✓ ${doneWord(draft.kind)}）` : `${noun}を見る`) : `${noun}を作る`;
-  const localLabel = open === "local" ? "行き先を閉じる" : "どこへ行くか見る";
+    open === "draft"
+      ? t("{noun}を閉じる", { noun })
+      : draft
+        ? draft.status === "ok"
+          ? t("{noun}を見る（✓ {word}）", { noun, word: doneWord(draft.kind) })
+          : t("{noun}を見る", { noun })
+        : t("{noun}を作る", { noun });
+  const localLabel = open === "local" ? t("行き先を閉じる") : t("どこへ行くか見る");
 
   // 窓口が要る事は「どこへ行くか見る」を先（主）に。下書きはその次
   const buttons = [
     canLocal && { id: "local" as const, label: localLabel, aria: `${title}: ${localLabel}` },
-    canDraft && { id: "draft" as const, label: draftLabel, aria: `${title}の${draftLabel}` },
+    canDraft && { id: "draft" as const, label: draftLabel, aria: t("{title}の{label}", { title, label: draftLabel }) },
   ].filter((x): x is { id: Exclude<Open, null>; label: string; aria: string } => !!x);
 
   return (

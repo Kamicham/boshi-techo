@@ -10,6 +10,7 @@ import { useFamily } from "../FamilyProvider";
 import { TopTask, type ShownTask } from "./TaskCard";
 import type { Family, Member } from "@/lib/demo-family";
 import type { Keep } from "@/lib/keep";
+import { t as tr } from "@/lib/i18n";
 import { PrepConsent } from "./PrepConsent";
 import { isMine, whoLabel } from "./task";
 import { usePrep, type PrepLine } from "./usePrep";
@@ -33,8 +34,16 @@ export function NowCard(p: {
   // 見出し: 用意している間は「手帳が用意しています」、できたら「手帳が用意しておきました」（ほかの人の番の事なら、誰の番かを添える）。
   // 見本の答えだけの時・つまずいた時は、手帳がしたとは言わない
   const who = whoLabel(t, family, me);
-  const others = me && !isMine(t, me) && who ? `（${who}の番）` : "";
-  const eyebrow = !prep.preps ? undefined : prep.busy ? "手帳が用意しています" : prep.made ? `手帳が用意しておきました${others}` : prep.settled ? "いま、いちばん先の事" : undefined;
+  const others = me && !isMine(t, me) && who ? tr("（{who}の番）", { who }) : "";
+  const eyebrow = !prep.preps
+    ? undefined
+    : prep.busy
+      ? tr("手帳が用意しています")
+      : prep.made
+        ? `${tr("手帳が用意しておきました")}${others}`
+        : prep.settled
+          ? tr("いま、いちばん先の事")
+          : undefined;
 
   return (
     <TopTask {...p} key={prep.ver} eyebrowOverride={eyebrow}>
@@ -50,9 +59,9 @@ export function PrepBox({ prep, family, onRetry }: { prep: ReturnType<typeof use
       {/* 書く事のメモは、下の「◯を作る」が同じ事をするので、ここで重ねて出さない（UX 2026-11-04: 同じ札にメモを作るが2つ並んでいた） */}
       {prep.failed && !prep.canDraft && (
         <div className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl bg-card/70 px-3 py-2">
-          <span className="text-base">{family.city}の窓口と持ち物を、手帳が作れます</span>
+          <span className="text-base">{tr("{city}の窓口と持ち物を、手帳が作れます", { city: family.city })}</span>
           <button type="button" onClick={onRetry} className="min-h-11 rounded-full bg-rose px-4 text-base font-semibold text-white">
-            作る
+            {tr("作る")}
           </button>
         </div>
       )}

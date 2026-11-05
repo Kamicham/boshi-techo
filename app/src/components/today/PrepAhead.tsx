@@ -9,6 +9,8 @@ import { useEffect } from "react";
 import type { LocalInfo } from "@/lib/local";
 import type { DraftView } from "@/lib/drafts";
 import type { Family, Member } from "@/lib/demo-family";
+import { t as tr } from "@/lib/i18n";
+import { msWords } from "@/lib/i18n/milestone-words";
 import { ApiError, api } from "../FamilyProvider";
 import { DRAFTABLE, nounFor } from "../MilestoneActions";
 import { jpShort } from "./dates";
@@ -85,14 +87,14 @@ export function PrepNote({ tasks, prepared, today }: { tasks: Task[]; prepared: 
     prepared,
   );
   if (!note) return null;
-  const parts = [note.local.length > 0 && `窓口の調べ${note.local.length}件`, note.draft.length > 0 && `下書き${note.draft.length}件`].filter(Boolean);
+  const parts = [note.local.length > 0 && tr("窓口の調べ{n}件", { n: note.local.length }), note.draft.length > 0 && tr("下書き{n}件", { n: note.draft.length })].filter(Boolean);
   const done = tasks.filter((t) => prepared[t.id]?.local || prepared[t.id]?.draft);
   return (
     <details className="group -mt-2 text-sm text-muted">
       <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1">
         <span className="min-w-0">
-          <span className="font-semibold text-sky">手帳がしておいた事</span>
-          {note.on && <span className="tabular">（{jpShort(note.on, today)}）</span>}: {parts.join("・")}
+          <span className="font-semibold text-sky">{tr("手帳がしておいた事")}</span>
+          {note.on && <span className="tabular">{tr("（{x}）", { x: jpShort(note.on, today) })}</span>}: {parts.join(tr("・"))}
         </span>
         <span className="shrink-0 transition-transform group-open:rotate-90" aria-hidden>
           ›
@@ -101,14 +103,14 @@ export function PrepNote({ tasks, prepared, today }: { tasks: Task[]; prepared: 
       <ul className="flex flex-col gap-1 pb-1">
         {done.map((t) => {
           const p = prepared[t.id];
-          const what = [p.local && "窓口を調べた", p.draft && `${nounFor(draftKindFor(t.id, p.draft.kind), t)}を作った`].filter(Boolean).join("・");
+          const what = [p.local && tr("窓口を調べた"), p.draft && tr("{noun}を作った", { noun: tr(nounFor(draftKindFor(t.id, p.draft.kind), t)) })].filter(Boolean).join(tr("・"));
           return (
             <li key={t.id} className="flex items-baseline gap-2">
               <span aria-hidden className="w-4 shrink-0 text-center text-ok">
                 ✓
               </span>
               <span className="min-w-0">
-                {t.plain}: {what}
+                {msWords(t.plain)}: {what}
               </span>
             </li>
           );

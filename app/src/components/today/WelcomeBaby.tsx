@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn, plainError } from "@/components/ui";
 import type { Family, Member } from "@/lib/demo-family";
+import { t } from "@/lib/i18n";
 import type { ClientLetter } from "@/lib/letters-shared";
 import { birthNewsText } from "@/lib/media-shared";
 import { jpDate } from "./dates";
@@ -34,7 +35,7 @@ export function BornPrompt({ family, today }: { family: Family; today: string })
   if (!canSave && !made) return null;
 
   const save = async () => {
-    if (!date || date > today) return setErr("生まれた日は、今日かそれより前の日を入れてください");
+    if (!date || date > today) return setErr(t("生まれた日は、今日かそれより前の日を入れてください"));
     setSaving(true);
     setErr("");
     try {
@@ -52,35 +53,35 @@ export function BornPrompt({ family, today }: { family: Family; today: string })
       await api(accountsEnabled ? "/api/account/profile" : "/api/family", { body: payload });
       await reload();
     } catch (e) {
-      setErr(`まだ残せていません。入れた事は画面に残っています（${plainError(e)}）`);
+      setErr(t("まだ残せていません。入れた事は画面に残っています（{e}）", { e: plainError(e) }));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <section aria-label="生まれたら" className="flex flex-col gap-3 rounded-2xl border border-rose/40 bg-card p-4">
+    <section aria-label={t("生まれたら")} className="flex flex-col gap-3 rounded-2xl border border-rose/40 bg-card p-4">
       <div className="flex items-center justify-between gap-3">
         <p className="min-w-0 text-base">
-          <span className="font-display text-lg font-bold">👶 生まれたら、ここから</span>
-          {!open && <span className="block text-sm text-muted">生まれた日を入れると、出生届から先の14日を手帳が組み直します</span>}
+          <span className="font-display text-lg font-bold">👶 {t("生まれたら、ここから")}</span>
+          {!open && <span className="block text-sm text-muted">{t("生まれた日を入れると、出生届から先の14日を手帳が組み直します")}</span>}
         </p>
         {!open && (
           <span className="shrink-0">
-            <Btn onClick={() => (made ? setToday(family.birthDate!) : setOpen(true))}>生まれました</Btn>
+            <Btn onClick={() => (made ? setToday(family.birthDate!) : setOpen(true))}>{t("生まれました")}</Btn>
           </span>
         )}
       </div>
-      {made && <p className="text-sm text-muted">見本の家族は、押すと{jpDate(family.birthDate!, today)}（生まれた日）へ進みます</p>}
+      {made && <p className="text-sm text-muted">{t("見本の家族は、押すと{date}（生まれた日）へ進みます", { date: jpDate(family.birthDate!, today) })}</p>}
       {open && (
         <div className="flex flex-col gap-3">
           <label className="flex flex-col gap-1 text-base">
-            生まれた日
+            {t("生まれた日")}
             <input type="date" className={field} value={date} max={today} onChange={(e) => setDate(e.target.value)} />
           </label>
           <label className="flex flex-col gap-1 text-base">
-            名前（決まっていれば。あとからでも大丈夫です）
-            <input className={field} value={name} maxLength={30} onChange={(e) => setName(e.target.value)} placeholder="例: ひなた" />
+            {t("名前（決まっていれば。あとからでも大丈夫です）")}
+            <input className={field} value={name} maxLength={30} onChange={(e) => setName(e.target.value)} placeholder={t("例: ひなた")} />
           </label>
           {err && (
             <p role="alert" className="text-sm text-alert">
@@ -89,10 +90,10 @@ export function BornPrompt({ family, today }: { family: Family; today: string })
           )}
           <div className="flex flex-wrap gap-2">
             <Btn onClick={() => void save()} disabled={saving}>
-              {saving ? "残しています…" : "手帳に残す"}
+              {saving ? t("残しています…") : t("手帳に残す")}
             </Btn>
             <Btn kind="quiet" onClick={() => setOpen(false)}>
-              やめる
+              {t("やめる")}
             </Btn>
           </div>
         </div>
@@ -131,7 +132,8 @@ export function WelcomeBaby({
     };
   }, [family.id, today, by]);
   const birth = family.birthDate!;
-  const name = family.childName ?? "赤ちゃん";
+  // 名前がまだ無い時は「ようこそ、赤ちゃん」（English で the baby と呼びかけないよう、文ごとに引く）
+  const welcome = family.childName != null ? t("ようこそ、{name}", { name: family.childName }) : t("ようこそ、赤ちゃん");
   const news = birthNewsText({ birthDate: birth, childName: family.childName });
   const share = async () => {
     try {
@@ -149,21 +151,22 @@ export function WelcomeBaby({
   const line = registrationLine(family, me, reg);
   const link = "flex min-h-12 items-center justify-between gap-3 rounded-xl bg-card px-4 text-base font-semibold";
   return (
-    <section aria-label="ようこそ" className="flex flex-col gap-3 rounded-2xl border border-rose/40 bg-rose-soft p-4">
-      <p className="text-sm font-semibold text-rose">{jpDate(birth, today)}に生まれました</p>
-      <h2 className="font-display text-2xl font-bold [text-wrap:balance]">ようこそ、{name}</h2>
-      {sealed > 0 && <p className="text-base">おなかにいた頃に書いた手紙が{sealed}通、1歳の誕生日を待っています。</p>}
+    <section aria-label={t("ようこそ")} className="flex flex-col gap-3 rounded-2xl border border-rose/40 bg-rose-soft p-4">
+      <p className="text-sm font-semibold text-rose">{t("{date}に生まれました", { date: jpDate(birth, today) })}</p>
+      <h2 className="font-display text-2xl font-bold [text-wrap:balance]">{welcome}</h2>
+      {sealed > 0 && <p className="text-base">{t("おなかにいた頃に書いた手紙が{n}通、1歳の誕生日を待っています。", { n: sealed })}</p>}
       <div className="flex flex-col gap-2">
         <Link href="/capture?keep=1" className={link}>
-          <span>📷 はじめましての写真・🎙 声を残す</span>
+          <span>{t("📷 はじめましての写真・🎙 声を残す")}</span>
           <span className="text-muted" aria-hidden>
             ›
           </span>
         </Link>
         <button type="button" onClick={() => void share()} className={`${link} text-left`}>
           <span className="min-w-0">
-            💌 家族に知らせる
-            <span className="block text-sm font-normal text-muted">{copied ? "文を写しました。LINE などに貼れます" : `「${news}」`}</span>
+            💌 {t("家族に知らせる")}
+            {/* 知らせる文（birthNewsText・lib/media-shared.ts）は、そちらの言葉のまま */}
+            <span className="block text-sm font-normal text-muted">{copied ? t("文を写しました。LINE などに貼れます") : t("「{text}」", { text: news })}</span>
           </span>
           <span className="text-muted" aria-hidden>
             ›
@@ -172,7 +175,7 @@ export function WelcomeBaby({
       </div>
       {line && (
         <p className="text-base">
-          {tripBelow && reg?.status !== "済み" ? "届けの準備は、手帳が下の1枚にまとめました。" : ""}
+          {tripBelow && reg?.status !== "済み" ? t("届けの準備は、手帳が下の1枚にまとめました。") : ""}
           {line}
         </p>
       )}

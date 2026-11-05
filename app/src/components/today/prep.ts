@@ -6,15 +6,18 @@ import type { DraftKind } from "@/lib/drafts";
 import type { Family, Member } from "@/lib/demo-family";
 import { diffDays } from "@/lib/clock";
 import { DRAFTABLE } from "@/lib/draft-kinds";
+import { t as tr } from "@/lib/i18n";
 import { NOW, byDays, daysLeft, isMine, isStale, type Task } from "./task";
 
 /** 下書きを何と呼ぶかの種類: 表（lib/draft-kinds.ts）を先に見る＝札の下のボタン（MilestoneActions）と同じ順。
  *  Claude が表と違う種類で作った時も、「✓ …を下書きしました」の行とボタンが同じ名前で言う。表に無い事だけ、作った種類で言う */
 export function draftKindFor(id: string, made?: DraftKind | null): DraftKind {
+  // 訳さない: 下書きの種類の値（画面の呼び名は nounFor・描く所で訳す）
   return DRAFTABLE[id] ?? made ?? "記入メモ";
 }
 
 /** 見本の答えの札（lib/samples.ts の SAMPLE_MARK と同じ。あちらは server-only なので画面用に写す。同じかは試験で見る） */
+// 訳さない: 見本の答えの印（保存した題の頭と比べるだけ）
 export const SAMPLE_MARK = "（見本の答え）";
 
 /** 鍵が無い時の見本の答えか（手帳が用意したとは数えない＝「下書きしました」と言わない） */
@@ -31,18 +34,18 @@ export interface Prepared {
 /** 空欄の名前がこれより長い時は、名前を言わずに数で言う（名前の無い【 】は、その行の文が名前になる） */
 const BLANK_LABEL_MAX = 12;
 
-/** 下書きに残る空欄の一言: 「（あと上司の名前だけ）」「（空欄あと2つ）」。無ければ空 */
+/** 下書きに残る空欄の一言: 「（あと上司の名前だけ）」「（空欄あと2つ）」。無ければ空。画面の言葉で返す（空欄の名前は下書きの日本語のまま） */
 export function blankNote(blanks: string[]): string {
   if (blanks.length === 0) return "";
   const one = blanks[0].trim();
-  if (blanks.length === 1 && one && one.length <= BLANK_LABEL_MAX) return `（あと${one}だけ）`;
-  return `（空欄あと${blanks.length}つ）`;
+  if (blanks.length === 1 && one && one.length <= BLANK_LABEL_MAX) return tr("（あと{blank}だけ）", { blank: one });
+  return tr("（空欄あと{n}つ）", { n: blanks.length });
 }
 
 /** できた下書きの行（✓ の後ろ）: 「職場へのメールを下書きしました（あと上司の名前だけ）」。メモと一覧は「作りました」 */
 export function madeLine(noun: string, kind: DraftKind, blanks: string[]): string {
-  const verb = kind === "メール" || kind === "頼み文" ? "下書きしました" : "作りました";
-  return `${noun}を${verb}${blankNote(blanks)}`;
+  const vars = { noun: tr(noun), note: blankNote(blanks) };
+  return kind === "メール" || kind === "頼み文" ? tr("{noun}を下書きしました{note}", vars) : tr("{noun}を作りました{note}", vars);
 }
 
 /** 窓口を先に調べる事（役所に出す手続きだけ。産院・職場に出す物を役所の窓口で調べると、違う行き先が出る＝sim-14 の直接支払制度） */

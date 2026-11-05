@@ -34,8 +34,45 @@ const DONE: readonly string[] = [
   "app/start/page.tsx", // はじめの画面（自分の手帳を始める・3つ答えた後の予告）
   "lib/start-preview.ts", // 予告の文
   "components/settings/ClaudeConsentLink.tsx", // 米国の Claude に送る同意がまだの時の札
+  // いま（components/today/）。stages.ts（時期の決まり）は 11/5 は触らない日なので、次の日に足す
+  "components/today/AdvisorCard.tsx",
+  "components/today/BirthTripCard.tsx",
+  "components/today/BirthdayCard.tsx",
+  "components/today/BumpMoment.tsx",
+  "components/today/CautionCard.tsx",
+  "components/today/ClosedAdvice.tsx",
+  "components/today/ConsultAsk.tsx",
+  "components/today/FamilyNews.tsx",
+  "components/today/HelpPlaces.tsx",
+  "components/today/LetterNews.tsx",
+  "components/today/MilestoneDay.tsx",
+  "components/today/NowCard.tsx",
+  "components/today/PrepAhead.tsx",
+  "components/today/PrepConsent.tsx",
+  "components/today/StaleBox.tsx",
+  "components/today/StartedLate.tsx",
+  "components/today/TaskCard.tsx",
+  "components/today/ThousandDays.tsx",
+  "components/today/VisitToday.tsx",
+  "components/today/WelcomeBaby.tsx",
+  "components/today/calm.ts",
+  "components/today/consent-line.ts",
+  "components/today/consult-answer.ts",
+  "components/today/dates.ts",
+  "components/today/help-rows.ts",
+  "components/today/prep.ts",
+  "components/today/stage-focus.ts",
+  "components/today/task.ts",
+  "components/today/trip.ts",
+  "components/today/urgent.ts",
+  "components/today/usePrep.ts",
+  "components/today/welcome.ts",
   "components/album/", // アルバム（写真・声・残す・みんなの章・未来の手紙・映画への入口と書き出し）
   "app/book/", // 一冊（読む・映画・印刷）
+  "components/MilestoneActions.tsx", // やる事を開いた時のボタン（どこへ行くか見る・下書きを作る）
+  "components/draft/DraftPanel.tsx", // 手続きの下書き（宛先・件名・本文・空欄・印）
+  "components/draft/LocalPanel.tsx", // 町の窓口・持ち物・期限の調べ
+  "components/draft/Working.tsx", // 待つ間の表示・失敗の行
 ];
 
 /** 体験の筋（③）。I18N_LEFT=1 で残りを数える */

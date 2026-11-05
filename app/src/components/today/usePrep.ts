@@ -8,6 +8,7 @@ import { draftConsentWaitKey, isClaudeConsentError, waitingDraftFor } from "@/li
 import type { LocalInfo } from "@/lib/local";
 import type { DraftView } from "@/lib/drafts";
 import type { Family, Member } from "@/lib/demo-family";
+import { listOf, t as tr } from "@/lib/i18n";
 import { api } from "../FamilyProvider";
 import { DRAFTABLE, nounFor } from "../MilestoneActions";
 import { canLocalFor, draftKindFor, isSample, madeLine } from "./prep";
@@ -92,12 +93,16 @@ export function usePrep(t: Task, today: string, family: Family, me: Member | nul
     lines.push({
       key: "where",
       state: localState,
-      text: localState === "ok" && where ? `行き先: ${where}` : `${family.city}の窓口を調べています`,
+      text: localState === "ok" && where ? tr("行き先: {where}", { where }) : tr("{city}の窓口を調べています", { city: family.city }),
     });
-    if (localState === "ok" && local?.bring?.length) lines.push({ key: "bring", state: "ok", text: `持ち物 ${local.bring.length}つ: ${local.bring.slice(0, 3).join("・")}${local.bring.length > 3 ? " ほか" : ""}` });
+    // 窓口・持ち物の名前は、町のページから取った日本語のまま（窓口で見る字）
+    if (localState === "ok" && local?.bring?.length) {
+      const items = { n: local.bring.length, items: listOf(local.bring.slice(0, 3)) };
+      lines.push({ key: "bring", state: "ok", text: local.bring.length > 3 ? tr("持ち物 {n}つ: {items} ほか", items) : tr("持ち物 {n}つ: {items}", items) });
+    }
   }
   if (canDraft && draftState === "busy") {
-    lines.push({ key: "draft", state: "busy", text: `${nounFor(DRAFTABLE[t.id], t)}を作っています` });
+    lines.push({ key: "draft", state: "busy", text: tr("{noun}を作っています", { noun: tr(nounFor(DRAFTABLE[t.id], t)) }) });
   }
   // できた下書きは消さずに、手帳がした事として残す。残る空欄は下書きから数える（見本の答えは数えない）
   if (canDraft && draftState === "ok" && draft && !sample) {

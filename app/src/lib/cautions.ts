@@ -28,6 +28,7 @@
 //   - （公財）日本中毒情報センター 中毒110番（ハンドブック p.16）
 //   - 人数: 「令和7年には59名の乳児がSIDSで亡くなっており」（こども家庭庁のページ）は、人口動態統計 令和7年（確定数）の0歳
 import { addDays, addMonths, diffDays, lmpFromDue } from "./clock";
+import { t } from "./i18n";
 import { backDate, satogaeriReach } from "./satogaeri";
 import { motherEmployed, type Situation } from "./situation";
 
@@ -409,7 +410,8 @@ export function cautionFor(f: CautionFamily, today: string, seen: CautionSeen, c
   const add = (id: string, from: string, because: string, body: () => Body) => {
     if (seen.ids.includes(id)) return;
     const x = body();
-    due.push({ c: { ...x, id, why: [`この札を出す時期: ${because}。`, ...(x.why ?? [])] }, from });
+    // 時期の1行は画面の言葉で（辞書は lib/i18n/dict/today.ts。サーバと試験ではいつも日本語）
+    due.push({ c: { ...x, id, why: [t("この札を出す時期: {because}。", { because: t(because) }), ...(x.why ?? [])] }, from });
   };
   const week = b ? null : Math.floor(diffDays(today, lmp) / 7);
   const wk = (n: number) => addDays(lmp, n * 7);
@@ -430,12 +432,17 @@ export function cautionFor(f: CautionFamily, today: string, seen: CautionSeen, c
       const early = did && did >= b && did <= today && did < byAge ? did : null;
       const start = early ?? byAge;
       if (today >= start && today < addDays(start, ACCIDENT_DAYS))
-        add(a.id, start, early && "item" in a ? `手帳の「${a.item}」のできた日（${md(early)}）から60日の間` : `生後${a.months}か月から60日の間`, BODIES[a.id]);
+        add(
+          a.id,
+          start,
+          early && "item" in a ? t("手帳の「{item}」のできた日（{date}）から60日の間", { item: t(a.item), date: md(early) }) : t("生後{n}か月から60日の間", { n: a.months }),
+          BODIES[a.id],
+        );
     }
     if (ym.endsWith("-11") && today < addMonths(b, 12)) add(`sleep-nov-${ym.slice(0, 4)}`, `${ym}-01`, "0歳の子がいる家の11月（SIDS の対策強化月間）", BODIES["sleep-nov"]);
     if (f.situation?.satogaeri && satogaeriReach(f, f.situation) !== "同じ市") {
       const back = backDate(b, f.situation.satogaeriBack);
-      if (today >= addDays(back, -7) && today < back) add("sleep-home", addDays(back, -7), `住む町に戻る日（${md(back)}ごろ）の前の週`, BODIES["sleep-home"]);
+      if (today >= addDays(back, -7) && today < back) add("sleep-home", addDays(back, -7), t("住む町に戻る日（{date}ごろ）の前の週", { date: md(back) }), BODIES["sleep-home"]);
     }
   }
   // 6月の現況届: 子のいる家（生まれた後か、上の子がいる家は妊娠中も）
@@ -447,12 +454,29 @@ export function cautionFor(f: CautionFamily, today: string, seen: CautionSeen, c
 /** 引用の中の「」を『』にする（画面で「」に入れて引くため） */
 export const nestQuote = (s: string) => s.replace(/「/g, "『").replace(/」/g, "』");
 
+/**
+ * 札の言葉を画面の言葉にする（画面に出す時と、家族に送る文を作る前に通す）。中身の文は辞書（lib/i18n/dict/today.ts）の鍵。
+ * 国の資料の引用は、意味を変えずに訳した文（出典はそのまま並べる）。日本語の画面では1字も変えない
+ */
+export function cautionInLang(c: Caution): Caution {
+  return {
+    ...c,
+    title: t(c.title),
+    ...(c.lead ? { lead: t(c.lead) } : {}),
+    quotes: c.quotes.map((q) => ({ ...q, text: t(q.text), from: t(q.from) })),
+    ...(c.after ? { after: t(c.after) } : {}),
+    why: c.why.map((w) => t(w)),
+    sources: c.sources.map((s) => ({ ...s, label: t(s.label) })),
+    ...(c.emergency ? { emergency: { ...c.emergency, label: t(c.emergency.label) } } : {}),
+  };
+}
+
 /** 家族に送る文（端末の共有。送る相手は使う人が選ぶ）。札の言葉と出典だけ */
 export function cautionShareText(c: Caution): string {
   return [
-    `【${c.title}】`,
+    t("【{title}】", { title: c.title }),
     ...(c.lead ? [c.lead] : []),
-    ...c.quotes.map((q) => `「${nestQuote(q.text)}」（${q.from}）`),
+    ...c.quotes.map((q) => t("「{text}」（{from}）", { text: nestQuote(q.text), from: q.from })),
     ...(c.after ? [c.after] : []),
     "",
     ...c.sources.map((s) => `${s.label} ${s.href}`),

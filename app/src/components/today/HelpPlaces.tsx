@@ -27,6 +27,7 @@
 //   外国人在留総合インフォメーションセンター 0570-013904 https://www.moj.go.jp/isa/consultation/center/index.html
 import type { Family } from "@/lib/demo-family";
 import { telLink } from "@/lib/emergency-lines";
+import { t } from "@/lib/i18n";
 import { useDevice, Why } from "../ui";
 import { helpRows } from "./help-rows";
 
@@ -43,11 +44,12 @@ function List({ family, loss }: { family: Family; loss?: boolean }) {
               {r.alt && (
                 <a
                   href={telLink(r.alt.tel)}
-                  aria-label={`${r.alt.instead} につながらない時は、${r.alt.tel}（${r.alt.where}の窓口）にかける`}
+                  aria-label={t("{instead} につながらない時は、{tel}（{where}の窓口）にかける", { instead: r.alt.instead, tel: r.alt.tel, where: r.alt.where })}
                   className="inline-flex min-h-11 items-center text-sm text-muted"
                 >
                   <span>
-                    つながらない時は <span className="tabular font-semibold text-sky underline underline-offset-2">{r.alt.tel}</span>（{r.alt.where}）
+                    {t("つながらない時は")} <span className="tabular font-semibold text-sky underline underline-offset-2">{r.alt.tel}</span>
+                    {t("（{x}）", { x: r.alt.where })}
                   </span>
                 </a>
               )}
@@ -65,22 +67,30 @@ function List({ family, loss }: { family: Family; loss?: boolean }) {
       </ul>
       {/* 命の橋は末尾に控えめに（相談の場で赤い119を大きく出して、怖がらせない） */}
       <p className="text-sm text-muted">
-        命に関わる時は <a href="tel:119" className="underline underline-offset-2">119</a>。妊娠中・産後の体の急ぎは、かかっている産院へ（夜間も）。
+        {t("命に関わる時は")}{" "}
+        <a href="tel:119" className="underline underline-offset-2">
+          119
+        </a>
+        {t("。妊娠中・産後の体の急ぎは、かかっている産院へ（夜間も）。")}
       </p>
       <Why>
-        <p>こども家庭センターは、2024年4月から市区町村に置かれ始めた相談の窓口です（児童福祉法。2025年5月で約7割の市区町村。まだの町は保健センターが窓口です）。産後ケアは出産後1年までの母と子のための市区町村の事業で、使える人や料金は町ごとに違います（母子保健法）。</p>
         <p>
-          0570-064-556 は厚生労働省の「こころの健康相談統一ダイヤル」で、かけた場所の都道府県・政令市の公的な相談窓口につながります（ナビダイヤルなので通話料がかかり、050 の IP 電話からはつながりません）。
-        </p>
-        <p>0120-189-783 は、こども家庭庁の「児童相談所 相談専用ダイヤル」です。叱られる所ではなく、出産や子育てに悩んだ時に話せる電話です。#8000 は、厚生労働省の「子ども医療電話相談事業」で、都道府県が行っています（つながる時間は都道府県ごと）。</p>
-        <p>
-          DV相談＋は、内閣府の配偶者やパートナーからの暴力の相談窓口です（電話は24時間・通話料なし。チャットは12時〜22時、外国語はチャットで24時間）。今すぐ危ない時は110番です。思いがけない妊娠の相談窓口サイトは、こども家庭庁の補助事業で、全国の窓口を時間や相談のしかたで探せます。妊娠の相談だけの全国で1つの番号はありません（2026年11月に確かめました）。
+          {t("こども家庭センターは、2024年4月から市区町村に置かれ始めた相談の窓口です（児童福祉法。2025年5月で約7割の市区町村。まだの町は保健センターが窓口です）。産後ケアは出産後1年までの母と子のための市区町村の事業で、使える人や料金は町ごとに違います（母子保健法）。")}
         </p>
         <p>
-          NET119 は、声での119番が難しい人がスマホの画面から文字で通報できる仕組みです（消防庁。2026年4月で全国719の消防本部のうち677本部。使う前に住む町の消防本部への登録が要ります）。電話リレーサービスは法律にもとづく公共の仕組みで、通訳の人が手話や文字と声をつなぎます（2026年に確かめました）。
+          {t("0570-064-556 は厚生労働省の「こころの健康相談統一ダイヤル」で、かけた場所の都道府県・政令市の公的な相談窓口につながります（ナビダイヤルなので通話料がかかり、050 の IP 電話からはつながりません）。")}
         </p>
         <p>
-          日本語以外の相談先は、出入国在留管理庁の「外国人生活支援ポータルサイト」で、都道府県・言葉・相談のしかた（窓口・電話・メール・LINE）から探せます。在留の手続きの質問は、外国人在留総合インフォメーションセンター（0570-013904・平日。英語・中国語・ベトナム語など11の言葉）でも聞けます（2026年に確かめました）。
+          {t("0120-189-783 は、こども家庭庁の「児童相談所 相談専用ダイヤル」です。叱られる所ではなく、出産や子育てに悩んだ時に話せる電話です。#8000 は、厚生労働省の「子ども医療電話相談事業」で、都道府県が行っています（つながる時間は都道府県ごと）。")}
+        </p>
+        <p>
+          {t("DV相談＋は、内閣府の配偶者やパートナーからの暴力の相談窓口です（電話は24時間・通話料なし。チャットは12時〜22時、外国語はチャットで24時間）。今すぐ危ない時は110番です。思いがけない妊娠の相談窓口サイトは、こども家庭庁の補助事業で、全国の窓口を時間や相談のしかたで探せます。妊娠の相談だけの全国で1つの番号はありません（2026年11月に確かめました）。")}
+        </p>
+        <p>
+          {t("NET119 は、声での119番が難しい人がスマホの画面から文字で通報できる仕組みです（消防庁。2026年4月で全国719の消防本部のうち677本部。使う前に住む町の消防本部への登録が要ります）。電話リレーサービスは法律にもとづく公共の仕組みで、通訳の人が手話や文字と声をつなぎます（2026年に確かめました）。")}
+        </p>
+        <p>
+          {t("日本語以外の相談先は、出入国在留管理庁の「外国人生活支援ポータルサイト」で、都道府県・言葉・相談のしかた（窓口・電話・メール・LINE）から探せます。在留の手続きの質問は、外国人在留総合インフォメーションセンター（0570-013904・平日。英語・中国語・ベトナム語など11の言葉）でも聞けます（2026年に確かめました）。")}
         </p>
       </Why>
     </>
@@ -91,12 +101,12 @@ function List({ family, loss }: { family: Family; loss?: boolean }) {
  * 頼れる所。compact は1行の「頼れる所 ›」で開く畳み（label で言い方を変えられる）。
  * 例: <HelpPlaces family={family} compact />（手帳の「相談した記録」・気持ちの記録から）
  */
-export function HelpPlaces({ family, compact, label = "頼れる所", loss }: { family: Family; compact?: boolean; label?: string; loss?: boolean }) {
+export function HelpPlaces({ family, compact, label, loss }: { family: Family; compact?: boolean; label?: string; loss?: boolean }) {
   if (compact) {
     return (
       <details className="group rounded-2xl border border-line bg-card px-4">
         <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-base font-semibold">
-          <span>{label}</span>
+          <span>{label ?? t("頼れる所")}</span>
           <span className="text-muted transition-transform group-open:rotate-90" aria-hidden>
             ›
           </span>
@@ -108,7 +118,7 @@ export function HelpPlaces({ family, compact, label = "頼れる所", loss }: { 
     );
   }
   return (
-    <section aria-label="頼れる所" className="flex flex-col gap-2">
+    <section aria-label={t("頼れる所")} className="flex flex-col gap-2">
       <List family={family} loss={loss} />
     </section>
   );

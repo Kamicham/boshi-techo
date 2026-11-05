@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/components/FamilyProvider";
 import type { Advice } from "@/lib/advisor";
+import { t as tr } from "@/lib/i18n";
 import { Btn, CopyField, HandoffRow, Why } from "../ui";
 
 /** 「わかった」で閉じた時に出す合図（ClosedAdvice が読み直す） */
@@ -19,9 +20,9 @@ const BOX = "flex min-h-[15rem] flex-col gap-3 rounded-2xl border-2 border-sky b
 /** 読み込み中の場所取り（気づきの箱と同じ高さ） */
 export function AdvisorSpace() {
   return (
-    <section aria-label="手帳が気づいた事を見ています" aria-busy className={BOX}>
-      <p className="text-sm font-semibold text-sky">手帳が気づいた事</p>
-      <p className="text-base text-muted">この家族の今から、気づいた事をまとめています…</p>
+    <section aria-label={tr("手帳が気づいた事を見ています")} aria-busy className={BOX}>
+      <p className="text-sm font-semibold text-sky">{tr("手帳が気づいた事")}</p>
+      <p className="text-base text-muted">{tr("この家族の今から、気づいた事をまとめています…")}</p>
     </section>
   );
 }
@@ -84,18 +85,19 @@ export function AdvisorCard({ familyId, today, meId }: { familyId: string; today
     .map((x) => x.trim())
     .filter(Boolean);
   return (
-    <section aria-label="手帳が気づいた事" className={BOX}>
+    <section aria-label={tr("手帳が気づいた事")} className={BOX}>
       {/* 主語は手帳（UX の見直し C07: 「気づいた事」だけでは、誰が気づいたのかが無かった） */}
-      <p className="text-sm font-semibold text-sky">{a.kind === "look" ? "手帳を見渡して、気づいた事" : "手帳が気づいた事"}</p>
-      <h2 className="line-clamp-2 font-display text-2xl leading-snug font-bold text-balance">{a.title}</h2>
-      {whyHead && <p className="line-clamp-1 text-base">{whyHead}</p>}
+      <p className="text-sm font-semibold text-sky">{a.kind === "look" ? tr("手帳を見渡して、気づいた事") : tr("手帳が気づいた事")}</p>
+      {/* 気づきの中身はサーバ（Claude か決まり）が日本語で書いて残した物。辞書にある文（決まりの文）だけ、画面の言葉にする */}
+      <h2 className="line-clamp-2 font-display text-2xl leading-snug font-bold text-balance">{tr(a.title)}</h2>
+      {whyHead && <p className="line-clamp-1 text-base">{tr(whyHead)}</p>}
       <div className="mt-auto flex flex-wrap items-center gap-2">
         <Btn kind="secondary" onClick={() => void dismiss()} disabled={closing}>
-          わかった
+          {tr("わかった")}
         </Btn>
-        {res && res.waiting > 0 && <span className="text-sm text-muted">ほかにも気づいた事が{res.waiting}つ</span>}
+        {res && res.waiting > 0 && <span className="text-sm text-muted">{tr("ほかにも気づいた事が{n}つ", { n: res.waiting })}</span>}
       </div>
-      <Why label={a.plan.length > 0 || m ? "次にする事と文面" : "なぜ？"}>
+      <Why label={a.plan.length > 0 || m ? tr("次にする事と文面") : tr("なぜ？")}>
         <AdviceDetails a={a} res={res} />
       </Why>
     </section>
@@ -119,7 +121,7 @@ export function AdviceDetails({ a, res }: { a: Advice; res: Pick<Res, "mailTo" |
           {a.plan.map((p, i) => (
             <li key={i} className="flex gap-2 text-base">
               <span className="tabular font-bold text-sky">{i + 1}</span>
-              <span>{p}</span>
+              <span>{tr(p)}</span>
             </li>
           ))}
         </ol>
@@ -128,31 +130,33 @@ export function AdviceDetails({ a, res }: { a: Advice; res: Pick<Res, "mailTo" |
       {m && (
         <div className="flex flex-col gap-2 rounded-xl bg-card p-3">
           <p className="text-sm font-semibold text-muted">
-            {m.to}へ渡す文面{res?.from ? `（${res.from}から送る文）` : ""}
+            {tr("{to}へ渡す文面", { to: tr(m.to) })}
+            {res?.from ? tr("（{from}から送る文）", { from: res.from }) : ""}
           </p>
           {m.via === "mail" &&
             (mailTo ? (
-              <CopyField label="宛先" value={mailTo} />
+              <CopyField label={tr("宛先")} value={mailTo} />
             ) : (
-              <p className="text-sm text-muted">{isWork ? "宛先は、メールアプリで上司のアドレスを選んでください" : "宛先は町のページで（問い合わせのフォームやメールアドレス）"}</p>
+              <p className="text-sm text-muted">{isWork ? tr("宛先は、メールアプリで上司のアドレスを選んでください") : tr("宛先は町のページで（問い合わせのフォームやメールアドレス）")}</p>
             ))}
-          {m.subject && <CopyField label="件名" value={m.subject} />}
-          <CopyField label="本文" value={m.body} long />
+          {/* 件名と本文は、職場・役所あての日本語の文書のまま */}
+          {m.subject && <CopyField label={tr("件名")} value={m.subject} />}
+          <CopyField label={tr("本文")} value={m.body} long />
           <HandoffRow mail={m.via === "mail" ? { to: mailTo || undefined, subject: m.subject, body: m.body } : undefined} line={m.via === "line" ? m.body : undefined} />
         </div>
       )}
 
       <div className="flex flex-col gap-1 text-sm text-muted">
         {whyRest.map((w, i) => (
-          <p key={i}>{w}</p>
+          <p key={i}>{tr(w)}</p>
         ))}
-        <p className="font-semibold">{a.kind === "look" ? "手帳の中で気づいた所" : "機械で確かめた事"}</p>
+        <p className="font-semibold">{a.kind === "look" ? tr("手帳の中で気づいた所") : tr("機械で確かめた事")}</p>
         {a.facts.map((f, i) => (
-          <p key={`f${i}`}>{f}</p>
+          <p key={`f${i}`}>{tr(f)}</p>
         ))}
         {a.sources && a.sources.length > 0 && (
           <>
-            <p className="font-semibold">調べたページ</p>
+            <p className="font-semibold">{tr("調べたページ")}</p>
             {a.sources.map((s) => (
               <a key={s.url} href={s.url} target="_blank" rel="noreferrer" className="underline underline-offset-2">
                 {s.title || s.url}
