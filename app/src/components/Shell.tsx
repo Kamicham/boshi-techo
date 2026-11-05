@@ -12,7 +12,7 @@ import { TABS } from "@/lib/app-guide";
 import { PUBLIC_UI, TRIAL_BANNER } from "@/lib/trial-words";
 import { AskButton } from "./ask/AskSheet";
 import { useFamily } from "./FamilyProvider";
-import { readWelcomed, StageSheet, Welcome } from "./Welcome";
+import { readWelcomed, shortClock, StageSheet, Welcome } from "./Welcome";
 
 
 export function Shell({ children }: { children: React.ReactNode }) {
@@ -23,6 +23,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
   // 見本の家族を初めて開いた時だけ、入口の1枚（何のアプリか・時期を選ぶ）。Shell は家族を読み終えてから描くので、端末の記憶をそのまま読める
   const [welcomed, setWelcomed] = useState(() => (typeof window === "undefined" ? true : readWelcomed()));
   const [stageOpen, setStageOpen] = useState(false);
+  // 左上の「‹ はじめの画面」で、入口の1枚を開き直す（作り手 11/5「一番上の画面に戻れるようにしておいて」）
+  const [home, setHome] = useState(false);
   // 合言葉・ログイン・招待の画面では、家族の切り替えもタブも出さない
   if (path === "/unlock" || path === "/login" || path === "/start" || (path.startsWith("/invite/") && path !== "/invite/new")) return <div className="mx-auto min-h-dvh max-w-md">{children}</div>;
   // 映画は画面いっぱいに映す（タブも家族の切り替えも出さない）
@@ -58,17 +60,20 @@ export function Shell({ children }: { children: React.ReactNode }) {
           </label>
         ) : null}
         {isDemo ? (
-          /* 見本の家族: 「デモ」「わたし: 美咲」を、何を見ているかの1本にまとめる（だれの手帳か・いつか・変える所） */
+          /* 見本の家族: いちばん上の左は、はじめの画面（入口の1枚: 何のアプリか・時期の一覧）へ戻る道（作り手 11/5「一番上の画面に戻れるようにしておいて」）。
+             戻る道は左上を探すので、見本の札（だれの手帳か・いつか・ほかの時期）は、急ぎの時の次に幅いっぱいの1行で出す（下）。
+             録音中は押せない（ほかの画面へ移ると録音が止まる） */
           <button
             type="button"
-            onClick={() => setStageOpen(true)}
+            onClick={() => setHome(true)}
             disabled={recording}
-            className="flex min-h-11 min-w-0 shrink items-center gap-1.5 rounded-full bg-sky-soft px-3 text-left text-sm text-ink disabled:opacity-50"
+            aria-label="はじめの画面へ戻る（説明と時期の一覧）"
+            className="flex min-h-11 shrink-0 items-center gap-1 px-1 text-sm font-semibold whitespace-nowrap text-sky disabled:opacity-50"
           >
-            <span className="truncate">
-              見本{me ? <span className="text-muted">（{me.name}）</span> : null} ・ <b className="font-semibold">{clockAt(family, today).label.replace(/^妊娠/, "").replace(/(\d+週)\d+日/, "$1")}</b>
+            <span aria-hidden className="text-base leading-none">
+              ‹
             </span>
-            <span className="shrink-0 font-semibold whitespace-nowrap text-sky">ほかの時期 ▾</span>
+            はじめの画面
           </button>
         ) : (
         <div className={`flex min-w-0 shrink items-center gap-1 whitespace-nowrap ${recording ? "invisible" : ""}`}>
@@ -96,10 +101,33 @@ export function Shell({ children }: { children: React.ReactNode }) {
           <span aria-hidden className="inline-block size-1.5 shrink-0 rounded-full bg-alert" />
           急ぎの時
         </Link>
+        {isDemo ? (
+          /* 見本の家族の札: 「デモ」「わたし: 美咲」を、何を見ているかの1本にまとめる（だれの手帳か・いつか・変える所）。幅いっぱいの1行 */
+          <button
+            type="button"
+            onClick={() => setStageOpen(true)}
+            disabled={recording}
+            className="flex min-h-11 min-w-0 basis-full items-center justify-between gap-1.5 rounded-full bg-sky-soft px-3 text-left text-sm text-ink disabled:opacity-50"
+          >
+            <span className="truncate">
+              見本{me ? <span className="text-muted">（{me.name}）</span> : null} ・ <b className="font-semibold">{shortClock(family, today)}</b>
+            </span>
+            <span className="shrink-0 font-semibold whitespace-nowrap text-sky">ほかの時期 ▾</span>
+          </button>
+        ) : null}
       </div>
       {/* 体験版（公開版）: 何を触っているかを、どの画面でも上の帯の下に1つ（AI を呼ばず、前に Claude が書いた一冊と見本の答えで動く） */}
       {PUBLIC_UI && !recording && <p className="px-4 pt-1 text-xs leading-snug text-muted">{TRIAL_BANNER}</p>}
-      {isDemo && !welcomed && <Welcome onClose={() => setWelcomed(true)} />}
+      {/* 入口の1枚: 初めての時と、左上の「‹ はじめの画面」から開き直した時（again） */}
+      {isDemo && (!welcomed || home) && (
+        <Welcome
+          again={welcomed}
+          onClose={() => {
+            setWelcomed(true);
+            setHome(false);
+          }}
+        />
+      )}
       {isDemo && stageOpen && <StageSheet onClose={() => setStageOpen(false)} />}
       {accountsEnabled && !recording && <AccountBar isDemo={isDemo} signedIn={!!account} hasOwn={households.length > 0} consentFor={here?.needsRecordConsent && !path.startsWith("/account/consent") ? here.id : null} />}
       {/* 家族を読み終えるまで中身を出さない（わが家の人に、デモの家族が一瞬見えないように） */}

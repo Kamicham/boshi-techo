@@ -3,10 +3,15 @@
 // 初めて見本の家族を開いた時だけの1枚（UI/UX 見直し「最初の1分」2026-11-04）。
 // 最初の数秒で、決めた一言「読む手帳から、一緒に動く手帳へ」と、手帳が先に動く事を言い、見本の家族の時期を選んで入る。
 // 選んだら、その時期まで時計を進め、作った記録（話した・撮った）を入れてから開く（手帳と一冊が空で始まらない）。
-import { useState } from "react";
+// 上の帯の左上「‹ はじめの画面」から、いつでも開き直せる（作り手 11/5「一番上の画面に戻れるようにしておいて」）。
+import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { api, useFamily } from "./FamilyProvider";
 import { demoStages, StagePicker } from "./today/StagePicker";
 import { setStageFocus } from "./today/stage-focus";
+import { clockAt } from "@/lib/clock";
+import type { Family } from "@/lib/demo-family";
+import { hideCounts } from "@/lib/situation";
 import { PUBLIC_UI, TRIAL_BANNER, TRIAL_BODY, TRIAL_KEEP } from "@/lib/trial-words";
 
 export const WELCOMED_KEY = "boshi.welcomed";
@@ -41,6 +46,11 @@ export function readWelcomed(): boolean {
   }
 }
 
+/** 見本の家族の「いつ」を短く（妊娠37週3日 → 37週）。上の帯の札と、開き直した入口の「見ていた手帳に戻る」で同じ言い方にする */
+export function shortClock(family: Family, today: string): string {
+  return clockAt(family, today).label.replace(/^妊娠/, "").replace(/(\d+週)\d+日/, "$1");
+}
+
 /** 何のアプリかを、手帳がする事3つで見せる（作った例） */
 const DOES = [
   { icon: "📮", head: "手続きは、先に用意", body: "町の窓口・持ち物・書く事のメモを、期限の前に手帳が作っておく" },
@@ -48,27 +58,59 @@ const DOES = [
   { icon: "📖", head: "2歳の日に、一冊", body: "話した事・撮った写真が、子どもへ語りかける本になる" },
 ];
 
-export function Welcome({ onClose }: { onClose: () => void }) {
-  const { family, setToday } = useFamily();
+/**
+ * again: 上の帯の「‹ はじめの画面」から開き直した時。左上に「‹ 見ていた手帳に戻る」（選ばずに閉じる・Esc でも）を出し、見ていた時期の札に印を付け、
+ * 札を選んだら、初めての時と同じく、その日の「いま」を開く（手帳や一冊から戻った時も。札の言葉の事は「いま」の一番上に出るため）
+ */
+export function Welcome({ onClose, again = false }: { onClose: () => void; again?: boolean }) {
+  const { family, setToday, today } = useFamily();
+  const path = usePathname();
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const back = useRef<HTMLButtonElement>(null);
   const child = "赤ちゃん";
   const names = family.members.map((m) => `${m.name}さん`).join("・");
+
+  // 開き直した時は、戻る道に手元を移し（キーボード・読み上げ）、Esc で閉じる。
+  // 手元を移すのは開いた時の1回だけ（onClose は帯が描き直すたびに変わるので、ref で持つ）
+  const close = useRef(onClose);
+  useEffect(() => {
+    close.current = onClose;
+  });
+  useEffect(() => {
+    if (!again) return;
+    back.current?.focus({ preventScroll: true });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [again]);
 
   const start = async (date: string, focus?: string) => {
     setBusy(true);
     setToday(date);
     // 札の言葉の事を、開いた画面の一番上に（その日だけ。UX の見直し C36）
     setStageFocus(focus, date);
-    // 作った記録（話した・撮った）を入れておく。入らなくても手帳は開く
+    // 作った記録（話した・撮った）を入れておく（何度呼んでも重複しない）。入らなくても手帳は開く
     await api("/api/capture/seed", { body: { familyId: family.id } }).catch(() => {});
     markWelcomed();
     onClose();
+    if (again && path !== "/") router.push("/");
   };
 
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="welcome-title" className="fixed inset-0 z-50 overflow-y-auto bg-paper">
       <div className="mx-auto flex max-w-md flex-col gap-5 px-4 pt-[max(env(safe-area-inset-top),1.75rem)] pb-16">
         <header className="flex flex-col gap-2">
+          {again && (
+            <button ref={back} type="button" onClick={onClose} className="flex min-h-11 items-center gap-1 self-start px-1 text-sm font-semibold text-sky">
+              <span aria-hidden className="text-base leading-none">
+                ‹
+              </span>
+              見ていた手帳に戻る{hideCounts(family) ? "" : `（${shortClock(family, today)}）`}
+            </button>
+          )}
           <div className="flex items-center justify-between gap-3">
             <p className="text-sm font-semibold text-rose">母子手帳を、再発明する</p>
             {/* 急ぎの時（UX の見直し C02④）: この1枚は画面いっぱいに出て上の帯の「急ぎの時」を隠すので、右上にも置く。
@@ -113,7 +155,8 @@ export function Welcome({ onClose }: { onClose: () => void }) {
             </p>
           </div>
           <div className={busy ? "pointer-events-none opacity-60" : ""} aria-busy={busy}>
-            <StagePicker family={family} today="" onPick={(d, focus) => void start(d, focus)} />
+            {/* 開き直した時は、見ていた時期の札に印（いまどこにいるか） */}
+            <StagePicker family={family} today={again ? today : ""} onPick={(d, focus) => void start(d, focus)} />
           </div>
           {busy && (
             <p className="text-base text-muted" aria-live="polite">
