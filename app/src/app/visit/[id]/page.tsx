@@ -13,7 +13,8 @@ import { lineUrl } from "@/lib/handoff";
 import { Guide } from "@/components/visit/Guide";
 import { Recorder } from "@/components/visit/Recorder";
 import { Results } from "@/components/visit/Results";
-import { STAGES, autoStage, bringList, familyMessage, lineMessage, looksStuck, type VisitStage, type VisitView } from "@/lib/visit";
+import { t } from "@/lib/i18n";
+import { STAGES, autoStage, bringList, familyMessage, lineMessage, looksStuck, nextOfVisit, type VisitStage, type VisitView } from "@/lib/visit";
 
 const STAGE_KEY = (id: string) => `boshi.visitStage:${id}`;
 
@@ -128,8 +129,10 @@ export default function VisitDay() {
   const canRecord = visit.status === "ready" || visit.status === "recording" || (visit.status === "failed" && !visit.transcript);
   const agenda = visit.agenda ?? [];
   const asked = agenda.filter((a) => a.asked).length;
+  // 送る文に入る次の健診は、本人が確かめた日だけ（lib/visit.ts）。聞こえただけの日がある時は、確かめると入る事を添える
   const message = familyMessage(visit, jpDate);
   const lineText = lineMessage(visit);
+  const unchecked = nextOfVisit(visit)?.checked === false || (!!visit.result?.nextAppointment && !visit.nextCheck);
 
   return (
     <main className="flex flex-col gap-4 px-4 pt-3 pb-6">
@@ -246,7 +249,7 @@ export default function VisitDay() {
               {hasAudio ? <Btn onClick={() => void retry()}>まとめを作り直す</Btn> : <Btn onClick={() => go("record")}>録音へ</Btn>}
             </Notice>
           )}
-          {visit.status === "done" && <Results visit={visit} today={today} onSend={() => go("send")} />}
+          {visit.status === "done" && <Results visit={visit} today={today} family={family} onSend={() => go("send")} onChange={setVisit} />}
           {(visit.status === "ready" || visit.status === "recording") && (
             <NextStep title="まだ録音していません" tone="sky">
               <Btn onClick={() => go("record")}>録音へ</Btn>
@@ -265,6 +268,14 @@ export default function VisitDay() {
               <ShareButton title={`${visit.label}の健診`} text={message} label="ほかのアプリで" />
             </NextStep>
             <CopyField label="3行の全文" value={message} long />
+            {unchecked && (
+              <p className="flex flex-wrap items-center gap-x-2 text-sm text-muted">
+                <span>{t("次の健診の日を確かめると、送る文にも入ります")}</span>
+                <button type="button" onClick={() => go("read")} className="min-h-11 underline underline-offset-2">
+                  {t("確かめる")}
+                </button>
+              </p>
+            )}
           </>
         ) : (
           <NextStep title="まとめができたら送れます" tone="sky">

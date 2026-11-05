@@ -36,7 +36,8 @@ import { PARENT_FILINGS, PREGNANCY_ONLY, scheduleFor, statusOf } from "../lib/mi
 import { hasOlderChildren, hideCounts, motherEmployed, partnerEmployed, partnerTakesLeave } from "../lib/situation";
 import { bodySeries } from "../lib/body-series";
 import { detectTriggers, BIRTH_SHIFT_DAYS, BIRTH_WINDOW_DAYS, MOVED_WINDOW_DAYS, type TriggerKind } from "../lib/advisor";
-import { briefingDay } from "../lib/visit";
+import { briefingDay, familyMessage, lineMessage, resolveAppointmentDate, type VisitPlan } from "../lib/visit";
+import { afterCheck, heardFlags, withHeard } from "../lib/visit-next";
 import { NOW, planToday, shownDays, whenDate, whoLabel, type Task } from "../components/today/task";
 import { foldNow, mustShow } from "../components/today/now-fold";
 import { SIM_FAMILIES } from "./families";
@@ -84,6 +85,7 @@ const RULES = {
   s: "早く生まれた時: 予定日より7日以上早く生まれ、育休を取るかもしれないパートナーがいる家族だけに「育休の始まりを早める」が、生まれた日から予定日の前日まで出る（遅く生まれた時・6日以内は出さない。見直し C10②）",
   t: "気をつける事の札（lib/cautions.ts）: 1日に1枚まで。静かにする家族・生まれた日・母の画面の生後14日まで・お祝いや届けの束や手帳の気づきの日には出ず、読んだ札は同じ端末に二度出ない。引用ごとに出典があり、労基法の引用は働く母の家族だけ。出生届出済証明は36週の札と、届けの束の出生届の行で伝える（2026-11-05 総点検の札）",
   u: "ほかに今やる事は畳んで出す（家族の声①「要らないのに、ずらっと並ぶ。疲れる」への直し A・2026-11-05）: 自分の番は3行まで・ほかの人の番は人ごとに1行・法の期限が明日までの事は誰の番でも畳まない。畳んだ後の行は6行まで（components/today/now-fold.ts。画面と同じ関数）",
+  v: "健診の録音から聞こえた次の健診の日（2026-11-05 作り手の方針「聞き違いは0にできない。最後の確かめと OK は本人」・lib/visit-next.ts）: 国の標準の間隔で正しく聞こえた日には機械の印が付かず（本当に年をまたぐ日だけ「年をまたいだ」）、月を聞き違えて翌年に回った日には印が付く。確かめる前は送る文（LINE・共有）に日が入らず、予定に heard の印が付き、前日の声かけは出る。確かめた後は送る文に入り、heard が外れる",
 } as const;
 type Rule = keyof typeof RULES;
 const RULE_IDS = Object.keys(RULES) as Rule[];
@@ -424,6 +426,34 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
         if (ps.next >= f.dueDate) push("k", "due", `健診の目安 ${ps.next} が予定日以降`);
         if (ck.length && diffDays(day, lmpFromDue(f.dueDate)) >= 56 && diffDays(ps.next, day) > intervalDays(Math.floor(diffDays(day, lmpFromDue(f.dueDate)) / 7))) push("k", "gap", `今日受けたのに次の目安が ${diffDays(ps.next, day)} 日後`);
       }
+    }
+    // v: 健診の録音から聞こえた次の健診の日（健診の日だけ。整理の後の形を lib/visit-next.ts の関数で作って見る）
+    if (visits.includes(day)) {
+      const wk = Math.floor(diffDays(day, lmpFromDue(f.dueDate)) / 7);
+      const right = isBorn ? addMonths(day, 1) : addDays(day, intervalDays(wk));
+      const said = (month: number, d: number) => ({ month, day: d, afterWeeks: null, afterDays: null, afterMonths: null, weekday: null });
+      const rs = said(Number(right.slice(5, 7)), Number(right.slice(8, 10)));
+      if (resolveAppointmentDate(day, rs) !== right) push("v", "resolve", `正しく聞こえた ${right} が ${resolveAppointmentDate(day, rs)} になった`);
+      const fl = heardFlags(day, rs, right, f).filter((x) => !(x === "rollover" && right.slice(0, 4) !== day.slice(0, 4)));
+      if (fl.length) push("v", "flag-right", `正しく聞こえた ${right} に印 ${fl.join("・")}`);
+      // 月を聞き違えた日: 健診の月の1日（健診の日より前の月日なので、翌年に回る）
+      if (Number(day.slice(8, 10)) > 1) {
+        const ws = said(Number(day.slice(5, 7)), 1);
+        const wrong = resolveAppointmentDate(day, ws);
+        if (!wrong || !heardFlags(day, ws, wrong, f).includes("rollover")) push("v", "flag-wrong", `聞き違えて ${wrong} に回った日に「年をまたいだ」の印が無い`);
+      }
+      // 確かめる前と後
+      const id = `ff-${day}`;
+      const result = { summary: ["a"], said: [], todo: [], nextAppointment: { said: "x", ...rs, time: "10:30" }, numbers: [], terms: [], questions: [], answered: [] };
+      const v = { date: day, label: "x", result, nextDate: right };
+      const plan: VisitPlan["next"] = { date: right, time: "10:30", source: "visit", visitId: id, said: "x" };
+      const jp = (x: string) => x;
+      if (familyMessage(v, jp).includes(right) || lineMessage(v).includes("次は")) push("v", "send-heard", `確かめていない ${right} が送る文に入った`);
+      if (!withHeard(plan, () => ({}))?.heard) push("v", "heard", `確かめていない ${right} に heard が付かない`);
+      if (briefingDay(addDays(right, -1), withHeard(plan, () => ({}))?.date) !== "eve") push("v", "eve", `確かめていない ${right} の前日の声かけが出ない`);
+      const check = { state: "ok" as const, date: right, time: "10:30", at: `${day}T03:00:00.000Z` };
+      const out = afterCheck({ id, date: day }, "x", plan, check, true);
+      if (!familyMessage({ ...v, nextCheck: check }, jp).includes(right) || withHeard(out.planNext, () => ({ nextCheck: check }))?.heard) push("v", "send-checked", `確かめた ${right} が送る文に入らない・heard が残る`);
     }
     // l: 上の子の予定
     {

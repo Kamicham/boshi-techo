@@ -141,7 +141,7 @@ describe("健診の日の段", () => {
     expect(autoStage({ status: "done" })).toBe("read");
   });
 
-  it("家族へ送る文は、まとめ3行と次の予約だけ", () => {
+  it("家族へ送る文は、まとめ3行と次の予約だけ。次の予約は本人が確かめた日だけ（聞こえただけの日は入れない）", () => {
     const jp = (d: string) => d;
     const result = {
       summary: ["a", "b", "c", "d"],
@@ -153,10 +153,16 @@ describe("健診の日の段", () => {
       questions: [],
       answered: [],
     };
-    expect(familyMessage({ date: "2026-11-05", label: "妊娠28週", result, nextDate: "2026-11-19" }, jp)).toBe(
-      "2026-11-05の健診（妊娠28週）\n・a\n・b\n・c\n次の健診: 2026-11-19 10:30",
+    const at = "2027-06-10T03:00:00.000Z";
+    const v = { date: "2027-06-10", label: "妊娠28週", result, nextDate: "2027-06-24" };
+    expect(familyMessage(v, jp)).toBe("2027-06-10の健診（妊娠28週）\n・a\n・b\n・c");
+    expect(familyMessage({ ...v, nextCheck: { state: "ok", date: "2027-06-24", time: "10:30", at } }, jp)).toBe(
+      "2027-06-10の健診（妊娠28週）\n・a\n・b\n・c\n次の健診: 2027-06-24 10:30",
     );
-    expect(familyMessage({ date: "2026-11-05", label: "妊娠28週", result: undefined, nextDate: null }, jp)).toBe("2026-11-05の健診（妊娠28週）");
+    // 直した日と時刻が入る（聞こえた時刻は使わない）。言われていない時は入れない
+    expect(familyMessage({ ...v, nextDate: "2027-06-25", nextCheck: { state: "fixed", date: "2027-06-25", time: "14:00", at } }, jp)).toContain("次の健診: 2027-06-25 14:00");
+    expect(familyMessage({ ...v, nextDate: null, nextCheck: { state: "none", at } }, jp)).not.toContain("次の健診");
+    expect(familyMessage({ date: "2027-06-10", label: "妊娠28週", result: undefined, nextDate: null }, jp)).toBe("2027-06-10の健診（妊娠28週）");
   });
 
   it("LINE に渡す文はさらに短い（まとめ2行・40字まで・次の健診）", () => {
@@ -171,8 +177,11 @@ describe("健診の日の段", () => {
       questions: [],
       answered: [],
     };
-    const m = lineMessage({ date: "2026-11-05", label: "妊娠28週", result, nextDate: "2026-11-19" });
-    expect(m).toBe(`11/5 健診（妊娠28週）\n${"あ".repeat(39)}…\nb\n次は 11/19 10:30`);
+    const v = { date: "2027-06-10", label: "妊娠28週", result, nextDate: "2027-06-24" };
+    // まだ確かめていない日は、LINE の文にも入れない
+    expect(lineMessage(v)).toBe(`6/10 健診（妊娠28週）\n${"あ".repeat(39)}…\nb`);
+    const m = lineMessage({ ...v, nextCheck: { state: "ok", date: "2027-06-24", time: "10:30", at: "2027-06-10T03:00:00.000Z" } });
+    expect(m).toBe(`6/10 健診（妊娠28週）\n${"あ".repeat(39)}…\nb\n次は 6/24 10:30`);
     expect(m.split("\n").every((l) => l.length <= 40)).toBe(true);
   });
 

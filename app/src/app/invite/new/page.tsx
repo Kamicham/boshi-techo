@@ -100,7 +100,7 @@ export default function NewInvite() {
               ))}
             </div>
             <p className="text-sm text-muted">
-              {role === "admin" ? "共同の管理: 記録を見て、足して、家族を招けます" : "読むだけ: 子の手帳の記録と写真・声を見られます（手帳のママの頁は見えません。話した記録や一冊などには、今は母の記録も入ります）。足す・直すはできません"}
+              {role === "admin" ? "共同の管理: 記録を見て、足して、家族を招けます" : "読むだけ: 子の手帳の記録と写真・声を見られます（手帳のママの頁と健診は見えません。話した記録や一冊などには、今は母の記録も入ります）。足す・直すはできません"}
             </p>
             <label className="flex flex-col gap-1 text-base">
               相手のメール（このメールのコードで入った人だけが受けられます）
@@ -112,26 +112,32 @@ export default function NewInvite() {
             <Box title="母の記録から、見せる物">
               {iAmMother ? (
                 <>
-                  <p className="text-base">何も選ばなければ、写真と声は子の分だけを見せます（1つでも選ぶと、母の写真と声も見せます）。手帳の文字の記録は、今は母の分も見えます（項目ごとに選ぶ仕組みは準備中です）。</p>
-                  {SHARE_ITEMS.map((it) => (
-                    <label key={it.id} className="flex min-h-11 items-center gap-3 text-base">
-                      <input
-                        type="checkbox"
-                        className="size-5 accent-rose"
-                        checked={show.has(it.id)}
-                        onChange={(e) => {
-                          const n = new Set(show);
-                          if (e.target.checked) n.add(it.id);
-                          else n.delete(it.id);
-                          setShow(n);
-                        }}
-                      />
-                      {it.label}
-                    </label>
-                  ))}
+                  <p className="text-base">何も選ばなければ、写真と声は子の分だけを見せます。母の写真を選ぶと、母の写真と声も見せます。母の手帳の頁と健診の記録は、今は見せません（選べるようにする仕組みは準備中です）。話した記録や一冊などには、今は母の記録も入ります。</p>
+                  {SHARE_ITEMS.map((it) => {
+                    // 母の手帳の頁と健診は、読むだけの人には今は見せない（lib/mother-records.ts・api/visit の notForReaders）。選べても効かないので選べなくする
+                    const notYet = it.id !== "photo";
+                    return (
+                      <label key={it.id} className={`flex min-h-11 items-center gap-3 text-base ${notYet ? "text-muted" : ""}`}>
+                        <input
+                          type="checkbox"
+                          className="size-5 accent-rose"
+                          disabled={notYet}
+                          checked={!notYet && show.has(it.id)}
+                          onChange={(e) => {
+                            const n = new Set(show);
+                            if (e.target.checked) n.add(it.id);
+                            else n.delete(it.id);
+                            setShow(n);
+                          }}
+                        />
+                        {it.label}
+                        {notYet ? "（今は見せません）" : ""}
+                      </label>
+                    );
+                  })}
                 </>
               ) : (
-                <p className="text-base">母の記録を見せる範囲は、母本人が選びます。この招待では、写真と声は子の分だけを見せます（手帳の文字の記録は、今は母の分も見えます）。</p>
+                <p className="text-base">母の記録を見せる範囲は、母本人が選びます。この招待では、写真と声は子の分だけを見せます（手帳のママの頁と健診は見せません。話した記録や一冊などには、今は母の記録も入ります）。</p>
               )}
             </Box>
           )}

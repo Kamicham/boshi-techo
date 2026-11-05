@@ -1,9 +1,11 @@
 "use client";
 
-// 帰り道に読む: 3行のまとめ → 次の予約（カレンダーへ） → 残りは3つの箱に畳む（先生の話／聞いた事と答え／次までに）。
-// 体の判断はしない。言い換えは必ず元の言葉（引用）と並べる。
+// 帰り道に読む: 3行のまとめ → 次の健診の日の1問（録音から聞こえた日を本人が確かめる。NextCheck.tsx） → 残りは3つの箱に畳む（先生の話／聞いた事と答え／次までに）。
+// 体の判断はしない。言い換えは必ず元の言葉（引用）と並べる。機械が聞き取った言葉を「先生の言葉」と書かない（録音から聞こえた言葉）。
 import { jpDate } from "@/components/Techo";
-import { Btn, Fold, HandoffRow, NextStep, Why, daysUntil } from "@/components/ui";
+import { Btn, Fold, Why } from "@/components/ui";
+import { NextCheck } from "@/components/visit/NextCheck";
+import { t } from "@/lib/i18n";
 import { SUMMARY_LINE, clip, formatClock, summaryTooLong, type VisitView } from "@/lib/visit";
 
 function Quote({ children, at }: { children: React.ReactNode; at?: string | null }) {
@@ -14,11 +16,23 @@ function Quote({ children, at }: { children: React.ReactNode; at?: string | null
   );
 }
 
-export function Results({ visit, today, onSend }: { visit: VisitView; today: string; onSend: () => void }) {
+export function Results({
+  visit,
+  today,
+  family,
+  onSend,
+  onChange,
+}: {
+  visit: VisitView;
+  today: string;
+  /** 機械の印に使う（予定日・生まれた日） */
+  family: { dueDate?: string | null; birthDate?: string | null };
+  onSend: () => void;
+  onChange: (v: VisitView) => void;
+}) {
   const r = visit.result;
   if (!r) return null;
-  const t = visit.transcript;
-  const na = r.nextAppointment;
+  const tr = visit.transcript;
   const summary = r.summary.slice(0, 3);
   const long = summaryTooLong(r.summary);
   const nextAsk = r.questions.length;
@@ -50,32 +64,10 @@ export function Results({ visit, today, onSend }: { visit: VisitView; today: str
         {visit.warning && <Why label="録れていない所">{visit.warning}</Why>}
       </section>
 
-      {na &&
-        (visit.nextDate ? (
-          <NextStep
-            eyebrow="次の健診"
-            title={`${jpDate(visit.nextDate)}${na.time ? ` ${na.time}` : ""}`}
-            days={daysUntil(today, visit.nextDate)}
-            tone="sky"
-          >
-            <HandoffRow calendar={{ title: "健診", date: visit.nextDate, time: na.time, minutes: 60, details: `先生の言葉:「${na.said}」` }} />
-            <Why label="先生の言葉">
-              <Quote>{na.said}</Quote>
-            </Why>
-          </NextStep>
-        ) : (
-          <NextStep eyebrow="次の健診" title="日付を入れる" tone="sky">
-            <Btn href="/visit" kind="secondary">
-              入れに行く
-            </Btn>
-            <Why label="先生の言葉">
-              <Quote>{na.said}</Quote>
-            </Why>
-          </NextStep>
-        ))}
+      <NextCheck visit={visit} today={today} family={family} onChange={onChange} />
 
       {/* 畳んだ箱は3つ: 先生の話 / 聞いた事と答え / 次までに（題が重ならないように） */}
-      {(r.said.length > 0 || r.numbers.length > 0 || r.terms.length > 0 || t) && (
+      {(r.said.length > 0 || r.numbers.length > 0 || r.terms.length > 0 || tr) && (
         <Fold title="先生の話" count={r.said.length || undefined}>
           {r.said.map((x, i) => (
             <div key={i} className="flex flex-col gap-1">
@@ -85,14 +77,17 @@ export function Results({ visit, today, onSend }: { visit: VisitView; today: str
           ))}
           {r.numbers.length > 0 && (
             <table className="w-full text-base">
-              <caption className="pb-1 text-left text-sm font-semibold text-muted">話に出た数字</caption>
+              <caption className="pb-1 text-left text-sm font-semibold text-muted">{t("聞こえた数字")}</caption>
               <tbody>
                 {r.numbers.map((n, i) => (
                   <tr key={i} className="border-b border-line align-top last:border-0">
                     <th scope="row" className="py-2 pr-3 text-left font-normal text-muted">
                       {n.name}
                     </th>
-                    <td className="tabular py-2 font-semibold">{n.value}</td>
+                    <td className="py-2">
+                      <span className="tabular font-semibold">{n.value}</span>
+                      {n.quote && <span className="block text-sm text-muted">「{n.quote}」</span>}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -109,13 +104,13 @@ export function Results({ visit, today, onSend }: { visit: VisitView; today: str
             </div>
           )}
           <Why>
-            <p>先生が言ったままの言葉と並べています。数字は言われたとおりに書き、良い・悪いは書きません。気になる時は先生に聞いてください。</p>
+            <p>{t("録音から聞こえた言葉と並べています。数字は機械が聞き取った物で、紙の手帳（先生が書いた欄）が正です。良い・悪いは書きません。気になる時は先生に聞いてください。")}</p>
           </Why>
-          {t && (
-            <Why label={`録音の文字${t.duration ? `（${formatClock(t.duration)}）` : ""}`}>
-              <p>{t.source === "asr" ? "機械が聞き取った文です。聞き間違いが含まれることがあります。" : "文字で渡された会話です。"}</p>
+          {tr && (
+            <Why label={`録音の文字${tr.duration ? `（${formatClock(tr.duration)}）` : ""}`}>
+              <p>{tr.source === "asr" ? "機械が聞き取った文です。聞き間違いが含まれることがあります。" : "文字で渡された会話です。"}</p>
               <ol className="flex flex-col gap-2 text-base leading-relaxed text-ink">
-                {t.segments.map((s, i) => (
+                {tr.segments.map((s, i) => (
                   <li key={i} className="flex gap-2">
                     {s.start !== undefined && <span className="tabular w-12 shrink-0 text-sm text-sky">{formatClock(s.start)}</span>}
                     <span>{s.text}</span>

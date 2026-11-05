@@ -138,19 +138,37 @@ describe("健診で見せる1枚の決まり（lib/share-view.ts）", () => {
     expect(sheet.motherHealth).toEqual({ heightCm: 158, preWeightKg: 50, history: "これまでの病気の字", allergy: "卵", medicine: "なし", pastBirths: "初めて", smoking: "吸わない" });
   });
 
-  it("ママ本人でない人（パートナー・読むだけの人）には、ママの束を頼んでも入らず、束の中のママの行（健診の日・RS・ママの健診で聞く事）も入らない", () => {
+  it("ママ本人でない人（パートナー・読むだけの人）には、ママの束を頼んでも入らず、束の中のママの行（健診の日・RS・ママの健診で聞く事）も入らない。読むだけの人には健診の記録の束（次の予約・聞きたい事）も入らない", () => {
     for (const viewer of ["writer", "reader"] as const) {
-      const sheet = shareView(INPUT, { viewer, bundles: ALL });
+      const sheet = shareView(MANUAL, { viewer, bundles: ALL });
       const json = JSON.stringify(sheet);
-      expect(sheet.bundles, viewer).toEqual(["growth", "checkups", "vaccines", "next", "questions"]);
+      const own = viewer === "writer" ? ["growth", "checkups", "vaccines", "next", "questions"] : ["growth", "checkups", "vaccines"];
+      expect(sheet.bundles, viewer).toEqual(own);
       expect(sheet.body).toBeUndefined();
       expect(sheet.motherHealth).toBeUndefined();
       expect(sheet.checkups?.map((c) => c.kind)).toEqual(["child"]);
       expect(sheet.vaccines?.map((v) => v.vaccine)).toEqual(["ヒブ"]);
-      expect(sheet.questions).toEqual([{ forChild: true, text: "子の気がかりの字" }]);
+      if (viewer === "writer") {
+        expect(sheet.questions).toEqual([{ forChild: true, text: "子の気がかりの字" }]);
+        expect(sheet.next).toEqual({ date: "2026-11-20", time: "10:30" });
+      } else {
+        // C の3: 読むだけの人には健診の口（次の予約・気がかり）を開かないので、1枚にも入れない（子の気がかりも）
+        expect(sheet.questions).toBeUndefined();
+        expect(sheet.next).toBeUndefined();
+        for (const bad of ["子の気がかり", "2026-11-20"]) expect(json, `reader: ${bad}`).not.toContain(bad);
+      }
       for (const bad of [...NEVER, "55.2", "56.4", "36.7", "卵", "ママの気がかり", "印の無い気がかり", "妊娠30週", "RSウイルス"]) expect(json, `${viewer}: ${bad}`).not.toContain(bad);
-      expect(shareChoices(viewer).map((c) => c.id), viewer).toEqual(["growth", "checkups", "vaccines", "next", "questions"]);
+      expect(shareChoices(viewer).map((c) => c.id), viewer).toEqual(own);
     }
+  });
+
+  it("生まれた後は、母の体の束をはじめは外す（ママが選べば入る）。ほかの束と、生まれる前のはじめの入り切りは変えない", () => {
+    const on = (born?: boolean) => shareChoices("mother", { born }).filter((c) => c.on).map((c) => c.id);
+    expect(on(true)).toEqual(["growth", "checkups", "vaccines", "next", "questions"]);
+    expect(on(false)).toEqual(["body", "growth", "checkups", "vaccines", "next", "questions"]);
+    expect(shareChoices("mother", { born: true }).map((c) => c.id)).toContain("body");
+    // 生まれた後の家族（INPUT）でも、ママが選べば母の体の束は入る
+    expect(shareView(INPUT, { viewer: "mother", bundles: ["body"] }).bundles).toEqual(["body"]);
   });
 
   it("選んだ束だけが入る（選ばない束の欄は1枚に無い）", () => {
@@ -161,11 +179,14 @@ describe("健診で見せる1枚の決まり（lib/share-view.ts）", () => {
   });
 
   it("次の予約は、本人が入れた日（manual）だけ。録音から聞こえた日（visit）は、だれが作る1枚にも出さない（聞き違いの件・手帳の外へは本人の［大丈夫］の後だけ）", () => {
-    for (const viewer of ["mother", "writer", "reader"] as const) {
+    for (const viewer of ["mother", "writer"] as const) {
       expect(shareView(INPUT, { viewer, bundles: ["next"] }).next, viewer).toBeNull();
       expect(shareView(MANUAL, { viewer, bundles: ["next"] }).next, viewer).toEqual({ date: "2026-11-20", time: "10:30" });
     }
     expect(JSON.stringify(shareView(INPUT, { viewer: "mother", bundles: ALL }))).not.toContain("2026-11-20");
+    // 本人が結果の画面で確かめた日（口が nextChecked を付ける）は出る。印が false・無い時は出ない
+    expect(shareView({ ...INPUT, nextChecked: true }, { viewer: "mother", bundles: ["next"] }).next).toEqual({ date: "2026-11-20", time: "10:30" });
+    expect(shareView({ ...INPUT, nextChecked: false }, { viewer: "mother", bundles: ["next"] }).next).toBeNull();
   });
 
   it("つらい別れの家族には、週数を出さない（体の図の束は空・RS の回の妊娠週数も出さない）", () => {

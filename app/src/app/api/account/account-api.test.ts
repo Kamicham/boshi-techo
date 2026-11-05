@@ -354,6 +354,9 @@ describe("アカウントの画面の API", () => {
     const M = await import("@/lib/media");
     const { addTecho } = await import("@/lib/techo-store");
     const today = "2027-06-01";
+    // 照らす前に、時刻の秒と小数（"…T05:50:55.286Z" など）を伏せる。伏せないと、同意の時刻などの秒に
+    // 見本の値（"55.2"・"6.1" など）がたまたま当たって落ちる（CI で1回、同意の履歴の時刻の "55.286" に当たった）
+    const unTimed = (s: string) => s.replace(/\d{1,2}:\d{2}:\d{2}\.\d+/g, "hh:mm:ss");
     // 作った記録（値は見本）。ママの頁・家で測った物・妊娠中の RS・お産のしかたと、子の記録
     const add = await json<{ techo: unknown[] }>(
       T.POST(
@@ -385,7 +388,7 @@ describe("アカウントの画面の API", () => {
     expect(gList.status).toBe(200);
     expect(gList.body.techo.map((d) => d.data.page).sort()).toEqual(["birth", "growth", "vaccine"]);
     expect(gList.body.techo.find((d) => d.data.page === "vaccine")!.data.values.vaccine).toBe("ヒブ");
-    const gJson = JSON.stringify(gList.body);
+    const gJson = unTimed(JSON.stringify(gList.body));
     for (const bad of ["55.2", "56.4", "36.7", "妊娠30週", "アレルギーの字", "お産のしかたの字", "6.1"]) expect(gJson, bad).not.toContain(bad);
 
     // 写真: 子の写真・ママの写真・だれの物か決まっていない写真（作ったバイト列だけ）
@@ -406,7 +409,7 @@ describe("アカウントの画面の API", () => {
     const gDocs = JSON.parse(gz.get("記録/records.json")!.toString()) as { type: string; data: { page: string; pending?: boolean } }[];
     expect(new Set(gDocs.map((x) => x.type))).toEqual(new Set(["techo"]));
     expect(gDocs.map((x) => x.data.page).sort()).toEqual(["birth", "growth", "vaccine"]);
-    const gAll = [...gz.entries()].filter(([k]) => !k.startsWith("写真と録音/") || k.endsWith(".json")).map(([, v]) => v.toString()).join("\n");
+    const gAll = unTimed([...gz.entries()].filter(([k]) => !k.startsWith("写真と録音/") || k.endsWith(".json")).map(([, v]) => v.toString()).join("\n"));
     // 家族の設定（町・家族の形）も入らない。ママの名前は、子に結ばれた声の「話した人」には残る（お腹の赤ちゃんへの声は子の物）
     for (const bad of ["55.2", "56.4", "36.7", "妊娠30週", "アレルギーの字", "お産のしかたの字", "上牧町"]) expect(gAll, bad).not.toContain(bad);
     expect((JSON.parse(gz.get("本人.json")!.toString()) as { kind: string }[]).map((s) => s.kind)).toEqual(["child"]);
@@ -426,6 +429,36 @@ describe("アカウントの画面の API", () => {
     const mIds = (JSON.parse(m.get("写真と録音/一覧.json")!.toString()) as { id: string }[]).map((x) => x.id);
     expect(mIds).toEqual(expect.arrayContaining([childPhoto.id, momPhoto.id]));
     expect(m.get("はじめに.txt")!.toString()).not.toContain("読むだけの方");
+  });
+
+  it("読むだけの人（祖父母）には、健診の口（一覧・1回分）を開かない（403）。書く口（次の健診の日の確かめを含む）は前から閉じている。ママは今までどおり", async () => {
+    const V = await import("../visit/route");
+    const one = await import("../visit/[id]/route");
+    const plan = await import("../visit/plan/route");
+    const at = (id: string) => ({ params: Promise.resolve({ id }) });
+    const made = await json<{ visit: { id: string } }>(V.POST(rq("/api/visit", mom, "POST", { familyId: hid, date: "2027-06-01" })));
+    expect(made.status).toBe(200);
+    const id = made.body.visit.id;
+    expect((await V.GET(rq(`/api/visit?familyId=${hid}&today=2027-06-01`, mom))).status).toBe(200);
+    const mine = await json<{ visit: { canWrite?: boolean } }>(one.GET(rq(`/api/visit/${id}`, mom), at(id)));
+    expect(mine.status).toBe(200);
+    expect(mine.body.visit.canWrite).toBe(true);
+    // 結果の画面の1問（次の健診の日の確かめ）: まとめの前は 409。祖父母は 403、よその人は 404（下）
+    expect((await one.PATCH(rq(`/api/visit/${id}`, mom, "PATCH", { nextCheck: { state: "none" } }), at(id))).status).toBe(409);
+
+    const list = await json<{ error?: string; visits?: unknown }>(V.GET(rq(`/api/visit?familyId=${hid}&today=2027-06-01`, grandma)));
+    expect(list.status).toBe(403);
+    expect(list.body.visits).toBeUndefined();
+    expect(JSON.stringify(list.body)).toContain("健診の記録は、ママと、記録を書ける家族だけが開けます");
+    expect((await one.GET(rq(`/api/visit/${id}`, grandma), at(id))).status).toBe(403);
+    expect((await one.PATCH(rq(`/api/visit/${id}`, grandma, "PATCH", { label: "x" }), at(id))).status).toBe(403);
+    expect((await one.PATCH(rq(`/api/visit/${id}`, grandma, "PATCH", { nextCheck: { state: "none" } }), at(id))).status).toBe(403);
+    expect((await one.DELETE(rq(`/api/visit/${id}`, grandma, "DELETE"), at(id))).status).toBe(403);
+    expect((await V.POST(rq("/api/visit", grandma, "POST", { familyId: hid, date: "2027-06-02" }))).status).toBe(403);
+    expect((await plan.POST(rq("/api/visit/plan", grandma, "POST", { familyId: hid, concern: "x" }))).status).toBe(403);
+    // よその人は、在るかどうかも見せない（404）
+    expect((await one.GET(rq(`/api/visit/${id}`, stranger), at(id))).status).toBe(404);
+    expect((await one.PATCH(rq(`/api/visit/${id}`, stranger, "PATCH", { nextCheck: { state: "none" } }), at(id))).status).toBe(404);
   });
 
   it("祖父母は、自分の分でない本人を消せない。持ち主は「消す」と入れれば本人の分を消せる", async () => {

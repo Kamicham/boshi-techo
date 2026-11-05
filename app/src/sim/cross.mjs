@@ -113,16 +113,15 @@ try {
     }
   }
 
-  // 5) 健診（11/5 の健診が済むまで visit には関所が無い約束。× ではなく △ として出す）
-  const visitA = await call(ca, "GET", `/api/visit?${q(B)}`);
-  if (visitA.status === 404) mark("健診の一覧", 404, 404);
-  else gap("健診の一覧", `家族Aの札で ${visitA.status}（11/5 の後に関所が入る）`);
+  // 5) 健診（2026-11-05 監査 #2 で世帯の関所が入った。家族Aの札で家族Bの健診は、在るかどうかも見せずに 404）
+  mark("健診の一覧", (await call(ca, "GET", `/api/visit?${q(B)}`)).status, 404);
   const visitB = await call(cb, "GET", `/api/visit?${q(B)}`);
   const v = (visitB.json?.visits ?? []).find((x) => x && typeof x.id === "string");
-  if (v) {
-    const s = (await call(ca, "GET", `/api/visit/${encodeURIComponent(v.id)}`)).status;
-    if (s === 404) mark("健診の id", 404, 404);
-    else gap("健診の id", `家族Aの札で ${s}（11/5 の後に関所が入る）`);
+  if (!v) gap("健診の id", visitB.status === 200 ? "家族Bに健診が無い" : `家族Bの健診の一覧が読めない（${visitB.status}）`);
+  else {
+    mark("健診の id", (await call(ca, "GET", `/api/visit/${encodeURIComponent(v.id)}`)).status, 404);
+    // 結果の画面の1問（次の健診の日の確かめ）も、よその世帯の札では書けない
+    mark("健診の次の日の確かめ（家族Bの健診）", (await call(ca, "PATCH", `/api/visit/${encodeURIComponent(v.id)}`, { nextCheck: { state: "none", by: "x" } })).status, 404);
   }
 } catch (e) {
   console.log(`止まりました: ${e instanceof Error ? e.message : e}`);

@@ -1,14 +1,17 @@
 // 健診の一覧と、新しい健診を始める。関所は familyFor（家族の id で世帯を指し、「セッション → 世帯 → 権限」）。
 import { body, route } from "@/lib/api";
 import { familyFor } from "../_lib/household";
-import { concernSide, nextAgenda, type VisitData } from "@/lib/visit";
-import { bornOn, createVisit, getPlan, ongoingVisit, visitsOf } from "./_lib/server";
+import { concernSide, nextAgenda, nextOfVisit, type VisitData } from "@/lib/visit";
+import { withHeard } from "@/lib/visit-next";
+import { bornOn, canWriteVisit, createVisit, getPlan, notForReaders, ongoingVisit, visitsOf } from "./_lib/server";
 import { prenatalState } from "@/lib/prenatal";
 import { listTecho } from "@/lib/techo-store";
 
 export const GET = route(async (req: Request) => {
   const q = new URL(req.url).searchParams;
-  const { family: fam } = await familyFor(req, q.get("familyId"), "record:read");
+  const h = await familyFor(req, q.get("familyId"), "record:read");
+  notForReaders(h);
+  const fam = h.family;
   const today = q.get("today") ?? new Date().toISOString().slice(0, 10);
   const docs = visitsOf(fam.id);
   const plan = getPlan(fam.id);
@@ -26,11 +29,16 @@ export const GET = route(async (req: Request) => {
     plan,
     bornOn(fam, today),
   );
-  // 予約が入っていなければ、一番新しい健診の結果から取れた日を使う
+  // 予約が入っていなければ、一番新しい「できた」健診の結果から取れた日を使う（「言われていない」と答えた健診なら、さらに古い健診の日は拾わない）
   if (!plan.next) {
-    const last = docs.find((d) => d.data.status === "done" && d.data.nextDate);
-    if (last) plan.next = { date: last.data.nextDate!, time: last.data.result?.nextAppointment?.time ?? null, source: "visit", visitId: last.id, said: last.data.result?.nextAppointment?.said };
+    const last = docs.find((d) => d.data.status === "done");
+    const n = last ? nextOfVisit(last.data) : null;
+    if (last && n) plan.next = { date: n.date, time: n.time, source: "visit", visitId: last.id, said: last.data.result?.nextAppointment?.said };
   }
+  // 録音から聞こえただけで、まだ本人が確かめていない日には heard を付ける（保存しない。lib/visit-next.ts）
+  const byId = new Map(docs.map((d) => [d.id, d.data]));
+  plan.next = withHeard(plan.next ?? null, (id) => byId.get(id));
+  const canWrite = canWriteVisit(h);
   // 妊婦健診の次の目安と受診券の残り（第1波⑧）。受けた日は、妊娠中の健診の記録と手帳の妊婦健診のページから
   const checkups = [
     ...docs.filter((d) => d.data.status === "done" && !d.data.demo).map((d) => d.data.date),
@@ -48,9 +56,9 @@ export const GET = route(async (req: Request) => {
       const c = a.from === "気がかり" ? carried.get(a.id) : undefined;
       return !c || concernSide(c, bornOn(fam, today)) === "mother";
     });
-    return { visits, plan, agenda, agendaFor: "today" as const, prenatal };
+    return { visits, plan, agenda, agendaFor: "today" as const, prenatal, canWrite };
   }
-  return { visits, plan, agenda: items, agendaFor: "next" as const, prenatal };
+  return { visits, plan, agenda: items, agendaFor: "next" as const, prenatal, canWrite };
 });
 
 export const POST = route(async (req: Request) => {

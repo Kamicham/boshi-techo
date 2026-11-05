@@ -32,23 +32,33 @@ export const shareViewerOf = recordViewerOf;
 export type ShareBundle = "body" | "growth" | "checkups" | "vaccines" | "next" | "questions" | "motherHealth";
 
 /**
- * 束の並び（1枚の上からこの順）。mother はママ本人だけが選べる束。
+ * 束の並び（1枚の上からこの順）。mother はママ本人だけが選べる束。visit は健診の記録（次の予定・気がかり）から作る束で、
+ * 読むだけの人（reader）には選ぶ所も出さない（C の3: 読むだけの人には健診の口を開かない・2026-11-05。子の分も一緒に隠れる）。
  * body＝母の体（妊婦健診の値・家で測った物・身長と妊娠前の体重）／ growth＝子の成長 ／ checkups＝健診の日 ／ vaccines＝接種 ／
  * next＝次の予定 ／ questions＝健診で聞きたい事 ／ motherHealth＝妊婦の健康状態（これまでの病気・アレルギー・薬など。既定でオフ）
  */
-export const SHARE_BUNDLES: readonly { id: ShareBundle; mother: boolean; defaultOn: boolean }[] = [
+export const SHARE_BUNDLES: readonly { id: ShareBundle; mother: boolean; visit?: true; defaultOn: boolean }[] = [
   { id: "body", mother: true, defaultOn: true },
   { id: "growth", mother: false, defaultOn: true },
   { id: "checkups", mother: false, defaultOn: true },
   { id: "vaccines", mother: false, defaultOn: true },
-  { id: "next", mother: false, defaultOn: true },
-  { id: "questions", mother: false, defaultOn: true },
+  { id: "next", mother: false, visit: true, defaultOn: true },
+  { id: "questions", mother: false, visit: true, defaultOn: true },
   { id: "motherHealth", mother: true, defaultOn: false },
 ];
 
-/** その人が選べる束と、はじめの入り切り（ママ本人でなければ、ママの束は出さない） */
-export function shareChoices(viewer: ShareViewer): { id: ShareBundle; on: boolean }[] {
-  return SHARE_BUNDLES.filter((b) => !b.mother || viewer === "mother").map((b) => ({ id: b.id, on: b.defaultOn }));
+/** その人が選べる束か（ママの束はママ本人だけ・健診の記録の束は読むだけの人には出さない） */
+function canChoose(b: (typeof SHARE_BUNDLES)[number], viewer: ShareViewer): boolean {
+  return (!b.mother || viewer === "mother") && (!b.visit || viewer !== "reader");
+}
+
+/**
+ * その人が選べる束と、はじめの入り切り（ママ本人でなければママの束、読むだけの人には健診の記録の束を出さない）。
+ * 生まれた後は、母の体の束（妊娠中の経過の表と線）をはじめは外す。子の健診で開くと、妊娠中の表が1枚の上に来るため
+ * （ママは入れられる。2026-11-05 思い出の会話の気づき）
+ */
+export function shareChoices(viewer: ShareViewer, opts: { born?: boolean } = {}): { id: ShareBundle; on: boolean }[] {
+  return SHARE_BUNDLES.filter((b) => canChoose(b, viewer)).map((b) => ({ id: b.id, on: b.defaultOn && !(opts.born && b.id === "body") }));
 }
 
 // ───────── 1枚の形（id・名前・題・元の言葉・メモ・施設名・ロット・医師を持たない） ─────────
@@ -146,6 +156,11 @@ export interface ShareInput {
   family: Pick<Family, "dueDate" | "birthDate" | "childName" | "situation">;
   /** 今日（YYYY-MM-DD）。これより後の記録は出さない */
   today: string;
+  /**
+   * 次の予約（source "visit"＝録音から聞こえた日）を、本人が結果の画面の1問で確かめたか（ok・fixed）。
+   * 口が健診の記録から作る（lib/visit-next.ts の withHeard。健診のタブと同じ決まり）。無ければ確かめていない扱い
+   */
+  nextChecked?: boolean;
 }
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -178,7 +193,7 @@ export function shareView(input: ShareInput, opts: { viewer: ShareViewer; bundle
   const mother = opts.viewer === "mother";
   const quiet = hideCounts(input.family);
   const today = DATE.test(input.today) ? input.today : "0000-00-00";
-  const bundles = SHARE_BUNDLES.filter((b) => (!b.mother || mother) && opts.bundles.includes(b.id)).map((b) => b.id);
+  const bundles = SHARE_BUNDLES.filter((b) => canChoose(b, opts.viewer) && opts.bundles.includes(b.id)).map((b) => b.id);
   const want = new Set(bundles);
   const live = input.entries.filter((e) => e && !e.pending && typeof e.date === "string" && DATE.test(e.date) && e.date <= today && (mother || !isMotherEntry(e)));
   // 体の数字は B と同じ拾い方（どの束でも、何人目かの番号をそろえるために毎回作る）
@@ -261,11 +276,12 @@ export function shareView(input: ShareInput, opts: { viewer: ShareViewer; bundle
   }
 
   if (want.has("next")) {
-    // 次の予約は、本人が入れた日（source "manual"）だけ。録音から聞こえた日（"visit"）は聞き違えがあり得るので、
-    // 手帳の外（1枚・印刷・共有の文）へは出さない（2026-11-05 聞き違いの件・プラン第4版「手帳の外へは、本人の［大丈夫］の後だけ」）
+    // 次の予約は、本人が入れた日（source "manual"）か、録音から聞こえた日（"visit"）を本人が確かめた（ok・fixed）時だけ。
+    // 聞き違えがあり得るので、確かめる前の日は手帳の外（1枚・印刷・共有の文）へ出さない（2026-11-05 聞き違いの件・プラン第4版）
     const n = input.plan?.next;
+    const confirmed = n?.source === "manual" || (n?.source === "visit" && input.nextChecked === true);
     sheet.next =
-      n && n.source === "manual" && typeof n.date === "string" && DATE.test(n.date) && n.date >= today ? compact({ date: n.date, time: text(n.time, 10) }) : null;
+      n && confirmed && typeof n.date === "string" && DATE.test(n.date) && n.date >= today ? compact({ date: n.date, time: text(n.time, 10) }) : null;
   }
 
   if (want.has("questions")) {
