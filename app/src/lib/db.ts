@@ -6,8 +6,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { HttpError } from "./http-error";
+import { dataDirOf, homeDataDir } from "./mode";
 
-export const DATA_DIR = process.env.BOSHI_DATA_DIR ?? path.join(process.cwd(), "data");
+export const DATA_DIR = dataDirOf();
 
 /**
  * 試験（vitest）が、わが家の記録の置き場（app/data）を開かないための止め（2026-11-05 監査）。
@@ -133,9 +134,12 @@ export function database(): Database.Database {
   return open();
 }
 
-/** BOSHI_DATA_DIR を指定していない＝わが家・本番の置き場（app/data/） */
+/**
+ * わが家・本番の置き場か: BOSHI_MODE=home（本番の serve-prod.sh が置き場の絶対パスと一緒に入れる）、
+ * または BOSHI_DATA_DIR を指定していない（＝app/data/。11/5 までの本番の動かし方）。決まりの本体は lib/mode.ts
+ */
 export function isHomeDataDir(): boolean {
-  return !process.env.BOSHI_DATA_DIR;
+  return homeDataDir();
 }
 
 let accountSchemaReady = false;
