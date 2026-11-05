@@ -65,4 +65,15 @@ export const GLOSSARY: readonly Term[] = [
   { ja: "里帰り出産", zh: "回乡分娩", en: "giving birth in your hometown", source: "isa" },
   { ja: "妊婦のための支援給付", zh: "孕妇支援给付", en: "support benefit for pregnant women", source: "general", counter: true },
   { ja: "産婦健康診査", jaAlt: ["産婦健診"], zh: "产妇健康检查", en: "postpartum checkup for mothers", source: "general" },
+  // 11/5 午後に足した言葉（窓口と地域の支え手）。出典は外国語版の母子健康手帳（R5）と生活・就労ガイドブック（中文・English 第7版）の本文で確かめた
+  // （出生連絡票は、手帳の訳と今の訳「出生联络单・birth notification card」のどちらにそろえるかを決めてから足す）
+  { ja: "こども家庭センター", zh: "儿童家庭中心", en: "Children and Family Center", source: "isa", counter: true },
+  { ja: "子育て世代包括支援センター", zh: "育儿家庭综合支援中心", en: "comprehensive support center for families with children", source: "mch", counter: true },
+  { ja: "保健センター", zh: "保健中心", en: "municipal health center", enAlt: ["health center"], source: "mch", counter: true },
+  { ja: "保健所", zh: "保健所", en: "public health center", source: "mch", counter: true },
+  { ja: "保健師", zh: "保健师", en: "public health nurse", source: "mch" },
+  { ja: "産後ケア", zh: "产后护理", en: "postpartum care", source: "isa" },
+  { ja: "国民健康保険", jaAlt: ["国保"], zh: "国民健康保险", en: "National Health Insurance", source: "isa", counter: true },
+  { ja: "マイナンバーカード", zh: "个人编号卡", en: "Individual Number Card", enAlt: ["My Number Card"], source: "isa", counter: true },
+  { ja: "戸籍", zh: "户籍", en: "family register", enAlt: ["koseki"], source: "isa", counter: true },
 ];

@@ -276,7 +276,7 @@ export default {
   "ほかに{n}件": { zh: "另外还有{n}件", en: "{n} more" },
   "{who}さんの番 {n}件": { zh: "轮到{who}的事 {n}件", en: "{who}'s turn: {n} {n:thing|things}" },
   "近づいたら出す事 {n}件": { zh: "临近时会显示的事 {n}件", en: "Coming up later: {n} {n:thing|things}" },
-  "{city}のこども家庭センター・保健センター": { zh: "{city}的儿童家庭中心（こども家庭センター）、保健中心", en: "{city} Children and Families Center (こども家庭センター) / health center" },
+  "{city}のこども家庭センター・保健センター": { zh: "{city}的儿童家庭中心（こども家庭センター）、保健中心", en: "{city} Children and Family Center (こども家庭センター) / health center" },
   "妊娠中から子育てまで、何でも聞ける町の窓口です（保健師さんがいます）": {
     zh: "从怀孕到育儿，什么都可以咨询的市区町村窗口（有保健师）",
     en: "Your city's office for anything from pregnancy to raising a child (public health nurses are there)",
@@ -285,7 +285,7 @@ export default {
   町の窓口の電話番号を調べる: { zh: "查市区町村窗口的电话号码", en: "Look up the city office's phone number" },
   "「{city} こども家庭センター」で調べると、町の公式のページに電話番号があります": {
     zh: "搜索儿童家庭中心（{city} こども家庭センター），市区町村的官方网页上有电话号码",
-    en: "Search for the Children and Families Center (“{city} こども家庭センター”); the number is on the city's official page",
+    en: "Search for the Children and Family Center (“{city} こども家庭センター”); the number is on the city's official page",
   },
   調べる: { zh: "搜索", en: "Search" },
   産後ケア: { zh: "产后护理（産後ケア）", en: "Postpartum care (産後ケア)" },
@@ -340,7 +340,7 @@ export default {
   },
   "こども家庭センターは、2024年4月から市区町村に置かれ始めた相談の窓口です（児童福祉法。2025年5月で約7割の市区町村。まだの町は保健センターが窓口です）。産後ケアは出産後1年までの母と子のための市区町村の事業で、使える人や料金は町ごとに違います（母子保健法）。": {
     zh: "儿童家庭中心（こども家庭センター）是2024年4月起开始在各市区町村设立的咨询窗口（儿童福利法。截至2025年5月约7成市区町村已设立，尚未设立的地方由保健中心作为窗口）。产后护理（産後ケア）是市区町村为产后1年内的母亲和孩子开展的项目，可以使用的人和费用因地而异（母子保健法）。",
-    en: "Children and Families Centers (こども家庭センター) are support offices that cities began setting up in April 2024 (Child Welfare Act; about 7 in 10 cities as of May 2025; where there isn't one yet, the health center is the contact). Postpartum care (産後ケア) is a city program for mothers and babies up to 1 year after birth; who can use it and the fees differ by city (Maternal and Child Health Act).",
+    en: "Children and Family Centers (こども家庭センター) are support offices that cities began setting up in April 2024 (Child Welfare Act; about 7 in 10 cities as of May 2025; where there isn't one yet, the health center is the contact). Postpartum care (産後ケア) is a city program for mothers and babies up to 1 year after birth; who can use it and the fees differ by city (Maternal and Child Health Act).",
   },
   "0570-064-556 は厚生労働省の「こころの健康相談統一ダイヤル」で、かけた場所の都道府県・政令市の公的な相談窓口につながります（ナビダイヤルなので通話料がかかり、050 の IP 電話からはつながりません）。": {
     zh: "0570-064-556 是厚生劳动省的“心理健康咨询统一热线（こころの健康相談統一ダイヤル）”，会接通拨打地所在都道府县或政令指定市的公共咨询窗口（这是导航拨号号码，需付通话费，用 050 开头的 IP 电话打不通）。",
