@@ -5,6 +5,7 @@ import { jpDate, jpShort } from "@/components/today/dates";
 import { clockAt, clockShort } from "@/lib/clock";
 import { currentLang, detectLang, fill, langFromCookieHeader, setLocale, t, translate, withLang } from ".";
 import { AREAS, DICTS, langOf, tFor } from "./dicts";
+import { GLOSSARY, SOURCES } from "./glossary";
 
 describe("言葉の選び方", () => {
   it("クッキーが先。無ければブラウザの言葉（従う時だけ）。zh-* は简体字", () => {
@@ -87,6 +88,34 @@ describe("辞書", () => {
     expect(tFor("en", "Claude の呼び出しに失敗しました（{status}）", { status: 502 })).toBe("Couldn't reach Claude (502)");
     expect(tFor("ja", "Claude の呼び出しに失敗しました（{status}）", { status: 502 })).toBe("Claude の呼び出しに失敗しました（502）");
     expect(tFor("zh", "辞書に無い文")).toBe("辞書に無い文");
+  });
+});
+
+describe("用語集（外国語版の母子健康手帳・生活・就労ガイドブック）", () => {
+  const all = Object.entries(AREAS).flatMap(([area, entries]) => Object.entries(entries).map(([key, e]) => ({ area, key, e })));
+
+  it("用語集の行がそろう（日本語が重ならない・出典がある・訳が空でない）", () => {
+    const jas = GLOSSARY.flatMap((g) => [g.ja, ...(g.jaAlt ?? [])]);
+    expect(jas.length).toBe(new Set(jas).size);
+    for (const g of GLOSSARY) {
+      expect(SOURCES[g.source], g.ja).toBeTruthy();
+      expect(g.zh.trim() && g.en.trim(), g.ja).toBeTruthy();
+    }
+  });
+
+  it("辞書の鍵に用語集の言葉があれば、訳に正の訳（か別の訳）が入る", () => {
+    const bad: string[] = [];
+    for (const { area, key, e } of all)
+      for (const g of GLOSSARY) {
+        if (![g.ja, ...(g.jaAlt ?? [])].some((w) => key.includes(w))) continue;
+        for (const lang of ["zh", "en"] as const) {
+          const v = e[lang];
+          if (!v) continue;
+          const words = [g[lang], ...((lang === "zh" ? g.zhAlt : g.enAlt) ?? [])];
+          if (!words.some((w) => v.toLowerCase().includes(w.toLowerCase()))) bad.push(`${area}: 「${key}」の ${lang} に「${words.join("／")}」が無い`);
+        }
+      }
+    expect(bad).toEqual([]);
   });
 });
 
