@@ -13,6 +13,7 @@ import capture from "./dict/capture";
 import core from "./dict/core";
 import draft from "./dict/draft";
 import emergency from "./dict/emergency";
+import inviteShare from "./dict/invite-share";
 import memories from "./dict/memories";
 import milestones from "./dict/milestones";
 import now from "./dict/now";
@@ -25,7 +26,7 @@ import today from "./dict/today";
 import visit from "./dict/visit";
 import welcome from "./dict/welcome";
 
-export const AREAS: Readonly<Record<string, Entries>> = { core, shell, welcome, start, stages, now, today, draft, milestones, ask, answers, album, book, memories, emergency, capture, techo, basis, body, settings, account, visit };
+export const AREAS: Readonly<Record<string, Entries>> = { core, shell, welcome, start, stages, now, today, draft, milestones, ask, answers, album, book, memories, emergency, capture, techo, basis, body, settings, account, inviteShare, visit };
 
 function build(lang: "zh" | "en"): Dict {
   const out: Record<string, string> = {};

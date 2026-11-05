@@ -2,7 +2,8 @@
 // 画面（.tsx）は vitest で読めないので、文を組む関数はここに置いて試験する（invite-words.test.ts）。
 // 体の判断の言葉は使わない。招待の決まり（48時間・メールのコード・役と見せる範囲）は変えない。
 import { clockAt, relabel, type FamilyDates } from "./clock";
-import { t } from "./i18n";
+import { isLang, t, translate, type Dict, type Lang } from "./i18n";
+import inviteShare from "./i18n/dict/invite-share";
 import { nameIn } from "./i18n/names";
 
 /** 手帳の時期の言葉（例: 妊娠11週・生後3か月・1歳2か月）。予定日が無い・授かる前・2歳を過ぎた時は null（作らない） */
@@ -81,6 +82,52 @@ export function inviteMotherItemsLine(role: string, motherItems: readonly string
 export function inviteShareText(email: string, link: string): string {
   const mail = email.trim();
   return `母子手帳のアプリに一緒に入ってほしい。このリンクを Safari で開いて、${mail ? `このメール（${mail}）` : "招待したメール"}に届くコードで入ってね。48時間で切れます。\n${link}`;
+}
+
+// ───────── 招待のリンクの言葉（11/5 UX・統括 OK） ─────────
+// 送る人は「送る文の言葉」を日本語・中文・English から選べる（最初は送る人の画面の言葉）。リンクにもその言葉の印を付け、
+// 開いた人の画面もその言葉で開く（日本語の画面の人が中国の家族を招く・中文の画面の人が日本の祖父母を招く時に、どちらの向きでも読めるように）。
+// リンクに付けるのは言葉の印（ja・zh・en）だけ。呼び名などは入れない（統括 11/5）。
+
+/** 招待のリンクに付ける言葉の印の名前（/invite/<id>?lang=zh） */
+export const INVITE_LANG_PARAM = "lang";
+
+function pickShare(lang: "zh" | "en"): Dict {
+  const out: Record<string, string> = {};
+  for (const [key, e] of Object.entries(inviteShare)) if (e[lang]) out[key] = e[lang]!;
+  return out;
+}
+/** 送る文の辞書（dict/invite-share.ts の3つの鍵だけ）。送る文の言葉は画面の言葉と別に選ぶので、画面の辞書（今の言葉の分だけ）に頼らない */
+const SHARE_DICTS: Readonly<Record<Lang, Dict>> = { ja: {}, zh: pickShare("zh"), en: pickShare("en") };
+
+/** 相手にそのまま送る文を lang の言葉で（日本語は inviteShareText と同じ字） */
+export function inviteShareTextIn(lang: Lang, email: string, link: string): string {
+  const mail = email.trim();
+  return translate(SHARE_DICTS[lang], inviteShareText(mail ? "{email}" : "", "{link}"), mail ? { email: mail, link } : { link });
+}
+
+/** 送る時の題（ほかのアプリで送る時に、メールの件名などに使われる）を lang の言葉で */
+export function inviteShareTitleIn(lang: Lang): string {
+  return translate(SHARE_DICTS[lang], "母子手帳への招待");
+}
+
+/** 招待のリンク（作った時に返る /invite/<id> に origin を付けた物）に、開いた人の画面の言葉の印を付ける */
+export function inviteLinkIn(link: string, lang: Lang): string {
+  const u = new URL(link);
+  u.searchParams.set(INVITE_LANG_PARAM, lang);
+  return u.toString();
+}
+
+/**
+ * 招待のリンクを開いた時に、画面の言葉を変えるか（変える先の言葉。変えない時は null）。順は「本人のクッキー → リンクの言葉 → ブラウザの言葉」:
+ * - 本人が選んだ言葉（クッキー）があれば変えない
+ * - ログインしている人（送った本人が確かめに開いた時・ほかの手帳ですでに使っている人）も変えない
+ * - 言葉の印が無い・知らない値・今の画面と同じ時も変えない（ブラウザの言葉は、根の layout がもう選んでいる）
+ * 変える時は、クッキーに残して読み直す（app/invite/[id]/page.tsx。続くログイン・同意の画面も、その言葉で開くように）
+ */
+export function inviteLangToSwitch(linkLang: string | null | undefined, cookieLang: Lang | null, signedIn: boolean, now: Lang): Lang | null {
+  if (cookieLang || signedIn || !isLang(linkLang) || linkLang === now) return null;
+  return linkLang;
 }
 
 /** LINE で送る（LINE の共有の URL） */

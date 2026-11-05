@@ -18,6 +18,21 @@ describe("言葉の選び方", () => {
     expect(detectLang(undefined, "fr-FR", true)).toBe("ja");
     expect(detectLang("xx", null, true)).toBe("ja");
   });
+  it("作り手の決め事①: 一覧に日本語が1つでもあれば日本語。無い時だけ一覧の先の zh・en。どれも無ければ日本語", () => {
+    expect(detectLang(undefined, "en-US,en,ja", true)).toBe("ja");
+    expect(detectLang(undefined, "zh-CN,zh", true)).toBe("zh");
+    expect(detectLang(undefined, "en-US,en", true)).toBe("en");
+    expect(detectLang(undefined, "", true)).toBe("ja");
+    expect(detectLang(undefined, null, true)).toBe("ja");
+    // iPhone の一覧の形（地域つき）と、q つき
+    expect(detectLang(undefined, "zh-Hans-JP,ja-JP;q=0.9", true)).toBe("ja");
+    expect(detectLang(undefined, "en-JP,zh-Hans-CN;q=0.9", true)).toBe("en");
+    // 似た字の言葉は取り違えない（jv＝ジャワ語・enm＝中英語）
+    expect(detectLang(undefined, "jv,zh-TW", true)).toBe("zh");
+    expect(detectLang(undefined, "enm,zh", true)).toBe("zh");
+    // クッキーはいつも先
+    expect(detectLang("en", "ja,zh", true)).toBe("en");
+  });
   it("ブラウザの言葉に従わない間は、選んだ人（クッキー）だけ", () => {
     expect(detectLang(undefined, "zh-CN", false)).toBe("ja");
     expect(detectLang("en", "zh-CN", false)).toBe("en");

@@ -387,7 +387,6 @@ export default {
   家族の合言葉で入る: { zh: "用家庭口令进入", en: "Enter with the family passphrase" },
 
   // ── 招待を受ける（app/invite/[id]/page.tsx） ──
-  母子手帳への招待: { zh: "母子健康手册的邀请", en: "Invitation to the Maternal and Child Health Handbook" },
   // サーバが組む見出し（lib/invite-words.ts の inviteHeadline）を、呼び名と時期に分けて組み直す。呼び名の無い時の「ご家族」
   "{who}から、母子手帳への招待です": { zh: "{who}邀请你加入母子健康手册", en: "An invitation from {who} to the Maternal and Child Health Handbook" },
   "{who}から、{period}の母子手帳への招待です": { zh: "{who}邀请你加入母子健康手册（{period}）", en: "An invitation from {who} to the Maternal and Child Health Handbook ({period})" },
@@ -441,14 +440,12 @@ export default {
     zh: "请把这段文字直接发给对方。在{date}之前（48小时内）有效。",
     en: "Send this message to them as is. It works until {date} (48 hours).",
   },
-  // 相手にそのまま送る文（lib/invite-words.ts の inviteShareText の文そのものが鍵。メールとリンクを差し込む）
-  "母子手帳のアプリに一緒に入ってほしい。このリンクを Safari で開いて、このメール（{email}）に届くコードで入ってね。48時間で切れます。\n{link}": {
-    zh: "想请你一起用母子健康手册的应用。用 Safari 打开这个链接，再用发到这个邮箱（{email}）的验证码登录吧。48小时后失效。\n{link}",
-    en: "I'd like you to join me in the Maternal and Child Health Handbook app. Open this link in Safari and sign in with the code sent to this email ({email}). It expires in 48 hours.\n{link}",
-  },
-  "母子手帳のアプリに一緒に入ってほしい。このリンクを Safari で開いて、招待したメールに届くコードで入ってね。48時間で切れます。\n{link}": {
-    zh: "想请你一起用母子健康手册的应用。用 Safari 打开这个链接，再用发到受邀邮箱的验证码登录吧。48小时后失效。\n{link}",
-    en: "I'd like you to join me in the Maternal and Child Health Handbook app. Open this link in Safari and sign in with the code sent to the invited email. It expires in 48 hours.\n{link}",
+  // 相手にそのまま送る文と、その題（母子手帳への招待）は dict/invite-share.ts（送る文の言葉を、画面の言葉と別に選ぶため）
+  // 送る文の言葉（日本語・中文・English。言葉の名前は LANG_NAMES で、それぞれの言葉で書く）
+  送る文の言葉: { zh: "发送内容的语言", en: "Language of the message" },
+  "相手がリンクを開くと、この言葉の画面で開きます（相手は画面の上で変えられます）。": {
+    zh: "对方打开链接时，页面也会用这种语言显示（对方可以在页面上方切换）。",
+    en: "When they open the link, the page opens in this language (they can change it at the top of the page).",
   },
   文をコピー: { zh: "复制文字", en: "Copy the message" },
   "ほかのアプリで送る…": { zh: "用其他应用发送…", en: "Send with another app…" },

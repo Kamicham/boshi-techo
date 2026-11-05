@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn } from "@/components/ui";
+import { LangRow } from "@/components/LangSwitch";
 import { field, Msg } from "@/components/settings/account-ui";
 import { clockAt, clockShort, diffDays } from "@/lib/clock";
 import type { Family } from "@/lib/demo-family";
@@ -119,9 +120,13 @@ export default function Start() {
   if (step === "ask")
     return (
       <main className="flex flex-col gap-5 px-4 pt-6 pb-10">
-        <Link href="/" className="inline-flex min-h-11 items-center self-start text-base text-muted">
-          {t("‹ 戻る")}
-        </Link>
+        {/* 上の帯が無い画面なので、言葉の1行を戻るの右に（はじめての人が、答える前に自分の言葉を選べるように） */}
+        <div className="flex flex-wrap items-center justify-between gap-x-2">
+          <Link href="/" className="inline-flex min-h-11 items-center text-base text-muted">
+            {t("‹ 戻る")}
+          </Link>
+          <LangRow className="-mr-2" />
+        </div>
         <header className="flex flex-col gap-2">
           <h1 className="font-display text-2xl font-bold">{t("自分の手帳を始める")}</h1>
           <p className="text-base text-muted">{t("3つだけ。答えると、あなたの手帳がその場で動きます。名前やメールは、残す時に。")}</p>

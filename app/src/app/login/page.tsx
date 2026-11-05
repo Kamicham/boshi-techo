@@ -8,6 +8,7 @@
 import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { Btn, Why } from "@/components/ui";
+import { LangRow } from "@/components/LangSwitch";
 import { authMessage, field, Msg, safeNext } from "@/components/settings/account-ui";
 import { t } from "@/lib/i18n";
 
@@ -91,7 +92,8 @@ export default function Login() {
 
   if (enabled === false)
     return (
-      <main className="flex flex-col gap-4 px-4 pt-10">
+      <main className="flex flex-col gap-4 px-4 pt-3">
+        <LangRow className="-mr-2 self-end" />
         <h1 className="font-display text-2xl font-bold">{t("ログイン")}</h1>
         <p className="rounded-xl bg-rose-soft px-4 py-3 text-base">{t("このサーバでは、アカウントの仕組みをまだ動かしていません。いまは今までどおり使えます。")}</p>
         <Btn href="/" kind="secondary">
@@ -101,7 +103,10 @@ export default function Login() {
     );
 
   return (
-    <main className="flex flex-col gap-4 px-4 pt-10 pb-10">
+    <main className="flex flex-col gap-4 px-4 pt-3 pb-10">
+      {/* 上の帯が無い画面なので、言葉の1行を上に（招待のリンクから来た人・ホーム画面のアプリで初めて開いた人が、最初に自分の言葉を選べるように）。
+          コードを待っている間に押すと読み直しで入れた所が消えるので、メールの段だけで押せる（ほかの段は場所だけ残して隠す＝見出しが動かない） */}
+      <LangRow className={`-mr-2 self-end ${step === "email" ? "" : "invisible"}`} />
       <h1 className="font-display text-2xl font-bold">{step === "passkey" ? t("入りました") : t("ログイン・アカウントを作る")}</h1>
 
       {step === "email" && (

@@ -36,19 +36,24 @@ export function isLang(x: unknown): x is Lang {
 
 /**
  * ブラウザの言葉（Accept-Language）にも従うか。体験の筋（③: 入口・上の帯・下のタブ・いま・手帳に聞く）を訳し終えるまでは、
- * 自分で選んだ人（クッキーがある人）だけを切り替える（途中の画面で、日本語と訳が半端に混ざらないように）
+ * 自分で選んだ人（クッキーがある人）だけを切り替える（途中の画面で、日本語と訳が半端に混ざらないように）。
+ * 健診の訳が入ったら true にする（作り手 11/5 16:2x の決め事①。下の detectLang）
  */
 export const FOLLOW_BROWSER = false;
 
-/** クッキーの値、無ければブラウザの言葉から選ぶ。zh-* は简体字、en-* は英語、ほかは日本語（並びの早い方が勝つ） */
+/**
+ * クッキーの値、無ければブラウザの言葉（従う時だけ）から選ぶ。作り手の決め事①（2026-11-05）:
+ * 一覧に日本語が1つでもあれば日本語（日本語が読める人は日本語。審査員もほぼこれ）。日本語が無い時だけ、一覧で先に来る zh・en
+ * （zh-* は简体字）。どれも無ければ日本語
+ */
 export function detectLang(cookie: string | null | undefined, acceptLanguage: string | null | undefined, followBrowser = FOLLOW_BROWSER): Lang {
   if (isLang(cookie)) return cookie;
   if (!followBrowser || !acceptLanguage) return "ja";
-  for (const part of acceptLanguage.split(",")) {
-    const tag = part.split(";")[0].trim().toLowerCase();
-    if (tag.startsWith("ja")) return "ja";
-    if (tag.startsWith("zh")) return "zh";
-    if (tag.startsWith("en")) return "en";
+  const tags = acceptLanguage.split(",").map((part) => part.split(";")[0].trim().toLowerCase());
+  if (tags.some((tag) => tag === "ja" || tag.startsWith("ja-"))) return "ja";
+  for (const tag of tags) {
+    if (tag === "zh" || tag.startsWith("zh-")) return "zh";
+    if (tag === "en" || tag.startsWith("en-")) return "en";
   }
   return "ja";
 }

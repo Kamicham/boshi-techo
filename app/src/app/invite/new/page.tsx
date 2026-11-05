@@ -4,18 +4,16 @@
 // 母の記録のどの項目を見せるかは母（本人）が選ぶ。既定は「子の記録だけ」（何も選ばない）。
 // リンクは48時間で切れる。開発中はメールを送らないので、出たリンクをLINEなどで手渡しする。
 // 字は画面の言葉で出す（t()。辞書は lib/i18n/dict/account.ts）。続柄（RELATIONS）と見せる項目は日本語の値のまま API に送り、出す所で訳す
+// 相手に送る文の言葉は、画面の言葉と別に選べる（最初は画面の言葉。11/5 UX）。リンクにもその言葉の印（?lang=zh）を付け、
+// 相手が開いた画面もその言葉で開く（app/invite/[id]）。文と題の辞書は dict/invite-share.ts（lib/invite-words.ts の inviteShareTextIn）
 import { useEffect, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn, CopyButton, ShareButton, Why } from "@/components/ui";
 import { Box, field, jpDateTime, Msg, useHouseholdDetail } from "@/components/settings/account-ui";
 import { useQuery } from "@/components/settings/ConsentScreen";
 import { RELATIONS, SHARE_ITEMS, type Relation, type ShareItem } from "@/components/settings/consent-texts";
-import { inviteShareText, lineShareUrl } from "@/lib/invite-words";
-import { t } from "@/lib/i18n";
-
-/** 相手にそのまま送る文（画面の言葉で）。鍵は inviteShareText が組む文そのもの＝日本語は同じ字 */
-const shareText = (email: string, link: string) =>
-  email.trim() ? t(inviteShareText("{email}", "{link}"), { email: email.trim(), link }) : t(inviteShareText("", "{link}"), { link });
+import { inviteLinkIn, inviteShareTextIn, inviteShareTitleIn, lineShareUrl } from "@/lib/invite-words";
+import { currentLang, HTML_LANG, LANG_NAMES, LANGS, t, type Lang } from "@/lib/i18n";
 
 export default function NewInvite() {
   const { family, households } = useFamily();
@@ -29,6 +27,8 @@ export default function NewInvite() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [made, setMade] = useState<{ link: string; expiresAt: string; email: string } | null>(null);
+  // 送る文の言葉（作った時に、画面の言葉で始める）
+  const [shareLang, setShareLang] = useState<Lang>("ja");
 
   // ママとパートナーは共同の管理（記録を足せる）、ほかは読むだけ
   const role = relation === "パートナー" || relation === "ママ" ? "admin" : "member";
@@ -50,6 +50,7 @@ export default function NewInvite() {
       const r = await api<{ link: string; expiresAt: string }>("/api/account/invite", {
         body: { familyId, email, role, relation, showMother: role === "member" ? [...show] : [] },
       });
+      setShareLang(currentLang());
       setMade({ link: `${window.location.origin}${r.link}`, expiresAt: r.expiresAt, email: email.trim() });
     } catch (e) {
       setMsg({ ok: false, text: (e as Error).message });
@@ -57,6 +58,10 @@ export default function NewInvite() {
       setBusy(false);
     }
   };
+
+  // 相手に送るリンク（言葉の印つき）と文。言葉を選び直すと、両方が変わる
+  const link = made ? inviteLinkIn(made.link, shareLang) : "";
+  const text = made ? inviteShareTextIn(shareLang, made.email, link) : "";
 
   if (!familyId) return <main className="px-4 pt-6 text-base">{t("招く世帯がありません。先に世帯を作ってください。")}</main>;
 
@@ -68,23 +73,41 @@ export default function NewInvite() {
       {made ? (
         <Box title={t("招待のリンクができました")}>
           <p className="text-base">{t("この文を、そのまま相手に送ってください。{date}まで（48時間）使えます。", { date: jpDateTime(made.expiresAt) })}</p>
-          <p id="invite-text" className="rounded-lg bg-paper px-3 py-2 text-base break-all whitespace-pre-line">
-            {shareText(made.email, made.link)}
+          <fieldset className="flex flex-col gap-2">
+            <legend className="mb-2 text-base font-semibold">{t("送る文の言葉")}</legend>
+            <div className="flex flex-wrap gap-2">
+              {LANGS.map((l) => (
+                <button
+                  key={l}
+                  type="button"
+                  lang={HTML_LANG[l]}
+                  aria-pressed={shareLang === l}
+                  onClick={() => setShareLang(l)}
+                  className={`min-h-11 rounded-full px-5 text-base font-semibold ${shareLang === l ? "bg-rose text-white" : "bg-rose-soft text-rose"}`}
+                >
+                  {LANG_NAMES[l]}
+                </button>
+              ))}
+            </div>
+            <p className="text-sm text-muted">{t("相手がリンクを開くと、この言葉の画面で開きます（相手は画面の上で変えられます）。")}</p>
+          </fieldset>
+          <p id="invite-text" lang={HTML_LANG[shareLang]} className="rounded-lg bg-paper px-3 py-2 text-base break-all whitespace-pre-line">
+            {text}
           </p>
-          <Btn href={lineShareUrl(shareText(made.email, made.link))} full>
+          <Btn href={lineShareUrl(text)} full>
             {t("LINE で送る")}
           </Btn>
           <div className="flex flex-wrap items-center gap-2">
-            <CopyButton text={shareText(made.email, made.link)} label={t("文をコピー")} />
-            <ShareButton title={t("母子手帳への招待")} text={shareText(made.email, made.link)} label={t("ほかのアプリで送る…")} fallback={false} />
+            <CopyButton text={text} label={t("文をコピー")} />
+            <ShareButton title={inviteShareTitleIn(shareLang)} text={text} label={t("ほかのアプリで送る…")} fallback={false} />
           </div>
           <Why label={t("リンクだけを送る時")}>
             <div className="flex items-center justify-between gap-2">
               <span>{t("招待のリンク")}</span>
-              <CopyButton text={made.link} />
+              <CopyButton text={link} />
             </div>
             <p id="invite-link" className="break-all">
-              {made.link}
+              {link}
             </p>
           </Why>
           <Btn href={`/account?familyId=${encodeURIComponent(familyId)}`} kind="secondary">

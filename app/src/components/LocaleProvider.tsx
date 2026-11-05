@@ -47,5 +47,8 @@ export function useT(): (key: string, vars?: Vars) => string {
 /** 言葉を変える: クッキーに1年残して読み直す（サーバで描く所も、その言葉で描き直すため） */
 export function switchLang(lang: Lang): void {
   document.cookie = `${LANG_COOKIE}=${lang}; path=/; max-age=31536000; samesite=lax`;
+  // クッキーを残せない端末（クッキーを止めた設定など）は、読み直しても同じ言葉で描かれる。
+  // 開いた時に自分で切り替える所（招待のリンクの言葉）が、読み直しを繰り返さないように止める
+  if (langFromCookieHeader(document.cookie) !== lang) return;
   location.reload();
 }
