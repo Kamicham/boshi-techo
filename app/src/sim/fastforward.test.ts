@@ -33,7 +33,8 @@ import { olderOf } from "../lib/older";
 import { benefitFirst } from "../lib/leave-money";
 import type { Family, Member } from "../lib/demo-family";
 import { PARENT_FILINGS, PREGNANCY_ONLY, scheduleFor, statusOf } from "../lib/milestones";
-import { hasOlderChildren, motherEmployed, partnerEmployed, partnerTakesLeave } from "../lib/situation";
+import { hasOlderChildren, hideCounts, motherEmployed, partnerEmployed, partnerTakesLeave } from "../lib/situation";
+import { bodySeries } from "../lib/body-series";
 import { detectTriggers, BIRTH_SHIFT_DAYS, BIRTH_WINDOW_DAYS, MOVED_WINDOW_DAYS, type TriggerKind } from "../lib/advisor";
 import { briefingDay } from "../lib/visit";
 import { NOW, planToday, shownDays, whenDate, whoLabel, type Task } from "../components/today/task";
@@ -989,9 +990,10 @@ const TECHO_RULES = {
   t3: "出生体重は家族のデータ（1000組は population.ts の値）か、週数の中央値の±10%",
   t4: "生まれた後の体重・身長・頭囲は、発育調査の中央値の0.5〜1.5倍（早く生まれた子は修正月齢で）",
   t5: "妊婦健診は標準の14回まで・週数の順",
-  t6: "判定の言葉（異常・正常・大丈夫）を含まない",
+  t6: "判定の言葉（異常・正常・大丈夫・順調・増えすぎ・多い・少ない・注意）を含まない",
   t7: "みな source が seed で、候補（pending）ではない",
   t8: "本物の世帯（kind = real・わが家の mine・アカウントで作った世帯）には何も無い",
+  t9: "からだの記録の図（lib/body-series.ts。手帳の画面と同じ関数・家族の声②・プランの B）: 健診の表の行＝今日までの妊婦健診の日の数・今日より後の点が無い・生まれた後は子ごとに線が分かれる（双子は2本）・つらい別れの家族には図を作らない",
 } as const;
 type TechoRule = keyof typeof TECHO_RULES;
 /**
@@ -1002,7 +1004,7 @@ type TechoRule = keyof typeof TECHO_RULES;
  */
 const REAL_LIKE_IDS = ["mine", "family-x", "Xk3v9QpL0aZr7TbN2mWc5HsY8dFj1UeG", "a0b1c2d3e4f5g6h7i8j9k0l1m2n3o4p5"];
 const AFTER_BIRTH = new Set(["birth", "newborn", "stool", "postpartum", "growth", "development", "child-checkup", "vaccine"]);
-const JUDGE = /異常|正常|大丈夫/;
+const JUDGE = /異常|正常|大丈夫|順調|増えすぎ|多い|少ない|注意/;
 const techoReport: string[] = [];
 
 function techoBroken(f: Family, today: string, es: TechoEntry[]): string[] {
@@ -1044,6 +1046,19 @@ function techoBroken(f: Family, today: string, es: TechoEntry[]): string[] {
     if (e.source !== "seed" || e.pending) bad.push(`t7 ${tag}`);
   }
   if (checkups > 14) bad.push(`t5 ${today} 妊婦健診が${checkups}回`);
+  // t9 からだの記録の図（手帳の画面と同じ関数で、作った記録から描く物を数える）
+  const body = bodySeries(es, f, today);
+  if (hideCounts(f)) {
+    if (body !== null) bad.push(`t9 ${today} つらい別れの家族に図がある`);
+  } else if (!body) bad.push(`t9 ${today} 図が作られない`);
+  else {
+    const lmp = lmpFromDue(f.dueDate);
+    const dates = new Set(es.filter((e) => e.page === "pregnancy-checkup" && e.date <= today && e.date >= lmp && (!f.birthDate || e.date < f.birthDate)).map((e) => e.date));
+    if (body.mother.checkups.length !== dates.size) bad.push(`t9 ${today} 健診の表が${body.mother.checkups.length}行（健診の日は${dates.size}日）`);
+    const future = [...body.mother.checkups, ...body.mother.home, ...body.babies.flatMap((b) => b.points)].filter((x) => x.date > today);
+    if (future.length) bad.push(`t9 ${today} 今日より後の点が${future.length}個`);
+    if (born && body.babies.length !== weightsG.length) bad.push(`t9 ${today} 子の線が${body.babies.length}本（生まれた子は${weightsG.length}人）`);
+  }
   return bad;
 }
 
@@ -1056,7 +1071,7 @@ function techoDays(f: Family): string[] {
 
 describe("① 早送りの検査: 手帳の記録（作った家族の記録）", () => {
   const rows: { id: string; label: string; n: number; pages: number; bad: string[] }[] = [];
-  const count: Record<TechoRule, number> = { t1: 0, t2: 0, t3: 0, t4: 0, t5: 0, t6: 0, t7: 0, t8: 0 };
+  const count: Record<TechoRule, number> = { t1: 0, t2: 0, t3: 0, t4: 0, t5: 0, t6: 0, t7: 0, t8: 0, t9: 0 };
   const check = (f: Family, label: string) => {
     const bad: string[] = [];
     let n = 0;

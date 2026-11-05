@@ -7,8 +7,15 @@
 // 出典（数字の元。完全には再現できない所は「近似」）:
 // - 妊婦健診の回数と時期: 厚生労働省「妊婦に対する健康診査についての望ましい基準」（平成27年 告示第226号）
 //   妊娠初期〜23週は4週に1回、24〜35週は2週に1回、36週〜出産は毎週（標準14回）。初回は8週ごろとした（近似）
-// - 妊娠中の体重の増え方: 厚生労働省「妊娠前からはじめる妊産婦のための食生活指針」（2021年）。ふつうの体格（BMI 18.5〜25）で 10〜13kg
-// - 妊娠前の身長と体重: 厚生労働省「国民健康・栄養調査」（令和元年）30代女性の平均（身長約158cm・BMI 約21）の近くに家族ごとの幅（近似）
+// - 妊娠前の体格（ふだんの BMI）: こども家庭庁「令和5年乳幼児身体発育調査」結果の概要 表14（一般調査と病院調査の合計）の割合で、
+//   やせ（18.5未満）14.4%・ふつう 71.8%・肥満（1度）8.9%・肥満（2度以上）3.1%（不詳 1.7% を除いて割り直す）。区分の中は一様（近似）。
+//   身長は厚生労働省「国民健康・栄養調査」（令和元年）30代女性の平均（約158cm）の近くに家族ごとの幅（近似）
+// - 出産までに増える量: 同じ概要の表15（病院調査・単胎・正期産。出産直前の体重とふだんの体重の差）の、BMI の区分ごとの割合
+//   （ふつう: 10kg 未満 44.8%・10〜13kg 38.6%・13kg 超 15.5% など。不詳を除いて割り直す）。幅の端（例 10kg 未満を 6〜10kg）は近似。
+//   週ごとの増え方は、12週までに0.5kg、その後40週まで同じ割合で増える形（近似）。多胎の値は表に無いので単胎と同じ引き方（近似）
+// - 子宮底長: 妊娠週数−3cm（33cm まで）に、健診ごとに ±1.5cm の揺らぎ（0.5cm 刻み。近似）
+// - 見本の家族 demo-sato（と体験版の写し）は、動画と見本の画面を変えないよう前のまま（BMI 21 前後・10〜13kg・子宮底長に揺らぎなし）
+//   出典: https://www.cfa.go.jp/policies/boshihoken/r5-nyuuyoujityousa/ （調査結果の概要 p.21。2024-12-25 公表）
 // - 出生体重と在胎週数: 1000組は population.ts の値（人口動態統計 2025年の分布から作った値）をそのまま使う。
 //   デモと30家族は予定日と生まれた日から週数を出し、体重は週数ごとの中央値（日本小児科学会「在胎期間別出生時体格標準値」2010年の近似。
 //   population.ts の MEDIAN_G と同じ表）に、家族ごとの ±6% の幅（近似）
@@ -125,6 +132,61 @@ function unit(familyId: string, key: string): number {
 /** -1〜1 */
 const spread = (fid: string, key: string) => unit(fid, key) * 2 - 1;
 
+/** 割合の表から、u（0〜1）の所の行を引く（割合の合計で割り直す＝不詳を除いた形） */
+function pickShare<T extends { p: number }>(rows: readonly T[], u: number): T {
+  const sum = rows.reduce((n, r) => n + r.p, 0);
+  let acc = 0;
+  for (const r of rows) {
+    acc += r.p / sum;
+    if (u < acc) return r;
+  }
+  return rows[rows.length - 1];
+}
+
+/**
+ * 母のふだんの BMI の区分（令和5年乳幼児身体発育調査 結果の概要 表14・一般調査と病院調査の合計の %）。
+ * 区分の中の幅の端（やせの下 16.5・肥満2度以上の上 35）は近似
+ */
+/** 割合の表の1行（lo 以上 hi 未満の値が、p %） */
+type Share = { lo: number; hi: number; p: number };
+
+export const BMI_SHARE: readonly Share[] = [
+  { lo: 16.5, hi: 18.5, p: 14.4 }, // 低体重（やせ）
+  { lo: 18.5, hi: 25, p: 71.8 }, // ふつう
+  { lo: 25, hi: 30, p: 8.9 }, // 肥満（1度）
+  { lo: 30, hi: 35, p: 3.1 }, // 肥満（2度以上）
+];
+
+/**
+ * BMI の区分ごとの、出産直前の体重とふだんの体重の差（kg）の割合（同じ概要の表15・病院調査・単胎・正期産の %）。
+ * 表の区切り（12kg 未満・12〜15kg・15kg 超 など）はそのまま。開いた側の端（例 12kg 未満を 8kg から）は近似
+ */
+export const GAIN_SHARE: readonly (readonly Share[])[] = [
+  [{ lo: 8, hi: 12, p: 61.9 }, { lo: 12, hi: 15, p: 28.8 }, { lo: 15, hi: 18, p: 8.2 }], // やせ
+  [{ lo: 6, hi: 10, p: 44.8 }, { lo: 10, hi: 13, p: 38.6 }, { lo: 13, hi: 16, p: 15.5 }], // ふつう
+  [{ lo: 3, hi: 7, p: 43.3 }, { lo: 7, hi: 10, p: 28.7 }, { lo: 10, hi: 13, p: 27.5 }], // 肥満（1度）
+  [{ lo: 0, hi: 5, p: 53.1 }, { lo: 5, hi: 9, p: 46.3 }], // 肥満（2度以上）
+];
+
+/** 家族の妊娠前の BMI と、出産までに増える量（kg）。見本の家族 demo-sato は前のまま（動画と見本の画面を変えない） */
+export function bodyOf(fid: string): { bmi: number; gainKg: number } {
+  if (fid === "demo-sato") return { bmi: 21 + 1.8 * spread(fid, "bmi"), gainKg: 10 + 3 * unit(fid, "gain") };
+  const k = BMI_SHARE.indexOf(pickShare(BMI_SHARE, unit(fid, "bmiClass")));
+  const b = BMI_SHARE[k];
+  const g = pickShare(GAIN_SHARE[k], unit(fid, "gainClass"));
+  return {
+    bmi: b.lo + (b.hi - b.lo) * unit(fid, "bmi"),
+    gainKg: g.lo + (g.hi - g.lo) * unit(fid, "gain"),
+  };
+}
+
+/** 子宮底長（cm）: 妊娠週数−3（33 まで）に、健診ごとの ±1.5cm の揺らぎ（0.5cm 刻み）。demo-sato は揺らぎなし */
+function fundusOf(fid: string, week: number, i: number): number {
+  const base = Math.min(33, week - 3);
+  if (fid === "demo-sato") return base;
+  return Math.round((base + 1.5 * spread(fid, `fu${i}`)) * 2) / 2;
+}
+
 function interp(table: [number, number][], x: number): number {
   if (x <= table[0][0]) return table[0][1];
   for (let i = 1; i < table.length; i++) {
@@ -202,7 +264,7 @@ export function seedTecho(family: Family, today: string): TechoEntry[] {
 
   // ── 妊婦の健康状態（初回の健診の日に本人が書いた、の形）
   const heightCm = round1(158 + 5 * spread(fid, "h"));
-  const bmi = 21 + 1.8 * spread(fid, "bmi");
+  const { bmi, gainKg } = bodyOf(fid);
   const preKg = round1((bmi * heightCm * heightCm) / 10000);
   const first = addDays(lmp, CHECKUP_WEEKS[0] * 7 + Math.floor(unit(fid, "c0") * 4));
   if (first < birthEdge) {
@@ -221,7 +283,6 @@ export function seedTecho(family: Family, today: string): TechoEntry[] {
   }
 
   // ── 妊婦健診（標準の時期。生まれる日より前・今日まで）
-  const gainKg = 10 + 3 * unit(fid, "gain");
   const bpHi = Math.round(110 + 7 * spread(fid, "bph"));
   const bpLo = Math.round(66 + 5 * spread(fid, "bpl"));
   for (const [i, w] of CHECKUP_WEEKS.entries()) {
@@ -237,7 +298,7 @@ export function seedTecho(family: Family, today: string): TechoEntry[] {
         weightKg: round1(preKg + gain),
         bpHigh: bpHi + Math.round(3 * spread(fid, `bph${i}`)),
         bpLow: bpLo + Math.round(3 * spread(fid, `bpl${i}`)),
-        ...(w >= 20 ? { fundusCm: Math.min(33, w - 3) } : {}),
+        ...(w >= 20 ? { fundusCm: fundusOf(fid, w, i) } : {}),
         urineProtein: "−",
         urineSugar: "−",
       },
