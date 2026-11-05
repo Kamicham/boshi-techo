@@ -20,6 +20,7 @@ const PUBLIC: Record<string, { why: string; must: RegExp[] }> = {
   "sim/login/route.ts": { why: "シミュレーションのサーバ（BOSHI_SIM=1）だけの仮のログイン。本番では中身を読まずに 404", must: [/process\.env\.BOSHI_SIM\s*!==\s*"1"/, /status:\s*404/] },
   "unlock/route.ts": { why: "合言葉の門（11/5 の後に外す。記録には触らない）", must: [] },
   "media/file/route.ts": { why: "期限つきの URL（署名を確かめてから置き場の鍵に戻す）", must: [/keyFromSignedUrl\(|verifySignedPath\(/] },
+  "health/route.ts": { why: "見張りの口（fly.toml の checks・15秒ごと）。記録に触らず、動いている事と置き場の空きだけを返す。門は札を配らない", must: [/dataFree\(/] },
 };
 
 function walk(d: string): string[] {

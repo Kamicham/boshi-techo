@@ -6,13 +6,26 @@ import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { HttpError } from "./http-error";
+import { dataDirOf, homeDataDir } from "./mode";
 
-export const DATA_DIR = process.env.BOSHI_DATA_DIR ?? path.join(process.cwd(), "data");
+export const DATA_DIR = dataDirOf();
+
+/**
+ * 試験（vitest）が、わが家の記録の置き場（app/data）を開かないための止め（2026-11-05 監査）。
+ * 試験の置き場は app/vitest.setup.ts が一時の置き場に決める。ここは環境変数ではなく、実際に開く道で見る
+ * （BOSHI_DATA_DIR を消して「わが家の置き場」の振る舞いを試す試験でも、開くのは一時の置き場のままなので止まらない）。
+ */
+export function assertNotHomeInTests(dir: string = DATA_DIR): void {
+  if (process.env.VITEST && path.resolve(dir) === path.resolve(process.cwd(), "data")) {
+    throw new Error(`試験が、わが家の記録の置き場（${path.resolve(dir)}）を開こうとしました。試験の置き場は一時の置き場に（app/vitest.setup.ts）`);
+  }
+}
 
 let db: Database.Database | null = null;
 
 function open(): Database.Database {
   if (db) return db;
+  assertNotHomeInTests();
   fs.mkdirSync(DATA_DIR, { recursive: true });
   db = new Database(path.join(DATA_DIR, "boshi.db"));
   db.pragma("journal_mode = WAL");
@@ -101,6 +114,7 @@ export function remove(id: string): void {
 
 /** 家族ごとのファイル置き場（録音など）。app/data/files/<家族>/ */
 export function filesDir(familyId: string, ...sub: string[]): string {
+  assertNotHomeInTests();
   const dir = path.join(DATA_DIR, "files", familyId.replace(/[^a-zA-Z0-9_-]/g, ""), ...sub.map((s) => s.replace(/[^a-zA-Z0-9_.-]/g, "")));
   fs.mkdirSync(dir, { recursive: true });
   return dir;
@@ -120,9 +134,12 @@ export function database(): Database.Database {
   return open();
 }
 
-/** BOSHI_DATA_DIR を指定していない＝わが家・本番の置き場（app/data/） */
+/**
+ * わが家・本番の置き場か: BOSHI_MODE=home（本番の serve-prod.sh が置き場の絶対パスと一緒に入れる）、
+ * または BOSHI_DATA_DIR を指定していない（＝app/data/。11/5 までの本番の動かし方）。決まりの本体は lib/mode.ts
+ */
 export function isHomeDataDir(): boolean {
-  return !process.env.BOSHI_DATA_DIR;
+  return homeDataDir();
 }
 
 let accountSchemaReady = false;

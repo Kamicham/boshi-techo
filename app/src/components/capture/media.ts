@@ -107,7 +107,8 @@ export async function keepPhoto(file: File, o: KeepOptions): Promise<KeepResult>
   }
   let r: Response;
   try {
-    r = await fetch("/api/media", { method: "POST", body: form });
+    // familyId は道にも付ける（サーバは関所を通ってから写真を読む・lib/api.ts の formAfterGate）
+    r = await fetch(`/api/media?familyId=${encodeURIComponent(o.familyId)}`, { method: "POST", body: form });
   } catch {
     throw new Error("送れませんでした。電波を確かめて、もう一度");
   }

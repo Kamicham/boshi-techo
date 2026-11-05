@@ -2,6 +2,8 @@
 // 音声は家のネットワークの外に出ない。
 import "server-only";
 import http from "node:http";
+import { madeFamilyKind } from "./family";
+import { HttpError } from "./http-error";
 import { publicOn } from "./trial-cookie";
 
 export interface Transcript {
@@ -35,10 +37,17 @@ function post(url: URL, headers: Record<string, string>, payload: Buffer, timeou
 /** 機械が無い時に返すデモの文（健診は用意した健診の会話、ひとことは短い記録） */
 const DEMO_NOTE = "今日は夜に胎動をたくさん感じた。お腹が少し張ったので、早めに横になった。";
 
-export async function transcribe(audio: Buffer, prompt?: string, kind: "visit" | "note" = "note"): Promise<Transcript> {
+/**
+ * familyId を渡すと、本物の世帯（作った家族でない）で文字起こしの機械が無い時は、デモの文に落とさず 503 で止める
+ * （本物の記録・健診にデモの文が入らないように。2026-11-05 監査。わが家の本番は ASR_URL が無いと立たない＝lib/mode.ts）
+ */
+export async function transcribe(audio: Buffer, prompt?: string, kind: "visit" | "note" = "note", familyId?: string): Promise<Transcript> {
   const base = process.env.ASR_URL;
   // 体験版（公開版）は声を文字にしない（だれの声も、文字起こしの機械へ送らない。2026-11-05）
   if (!base || publicOn()) {
+    if (!publicOn() && familyId !== undefined && !madeFamilyKind(familyId)) {
+      throw new HttpError(503, "声を文字にする機械につながっていません。少し後にもう一度試すか、書いて残してください");
+    }
     // 審査員がリポジトリを手元で動かしても、健診の1日を最後まで試せるようにする
     const { DEMO_TRANSCRIPT } = await import("@/components/visit/demoTranscript");
     const text = kind === "visit" ? DEMO_TRANSCRIPT : DEMO_NOTE;

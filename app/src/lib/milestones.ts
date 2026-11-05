@@ -71,9 +71,10 @@ export interface MilestoneDef {
   only?: Only[];
   /**
    * 起点からの月・日では決まらない日（4月入園・学年など）。起点の日（anchor の日）から始まりと期限の日を出す。
-   * あれば start・deadline より先に使う（start・deadline は並べ方の目安として残す）
+   * あれば start・deadline より先に使う（start・deadline は並べ方の目安として残す）。
+   * due は出産予定日（scheduleFor が渡す）。予定日より早く生まれた時に予定日から数える決まり（産後パパ育休の給付の申請）が使う
    */
-  dates?: (base: string) => { start: string; deadline?: string };
+  dates?: (base: string, due?: string) => { start: string; deadline?: string };
 }
 
 const w = (weeks: number) => ({ days: weeks * 7 });
@@ -181,7 +182,11 @@ export const MILESTONES: MilestoneDef[] = [
   { id: "direct-payment", title: "出産育児一時金の直接支払制度の書類を産院で出す", plain: "出産のお金の書類を産院に出す", hint: "退院の時に大きなお金を払わずにすみます", kind: "手続き", who: "母", anchor: "lmp", start: w(30), deadline: w(36), deadlineKind: "目安", basis: "健康保険法（出産育児一時金。金額と手続きは制度が変わる事があるので、そのつど公式の情報で確かめる）", needsLocal: true, pregnancyOnly: true },
   { id: "leave-money-request", title: "産休・育休のお金の手続きを、勤め先にまとめて頼む（出産手当金・保険料の免除・育児休業給付・振込の口座）", plain: "産休・育休のお金の手続きを職場に頼む", hint: "出産手当金・保険料の免除・育休の給付。産休の前に", kind: "仕事", who: "母", anchor: "lmp", start: w(28), deadline: { days: 280 - 42 }, deadlineKind: "目安", basis: "健康保険法第102条（出産手当金: 産前42日・産後56日の間で休んだ日に、賃金のおよそ3分の2）・健康保険法第159条・厚生年金保険法第81条の2の2（産休中の保険料の免除）・同法第81条の2（育休中の免除。どちらも勤め先が届ける）・雇用保険法第61条の7（育児休業給付: 180日まで賃金の67%・その後50%）。パートでも勤め先の健康保険・雇用保険に入っていれば対象。入っているか・手続きの順は勤め先に確かめる", needsLocal: false, pregnancyOnly: true, only: ["mother-leave"] },
   { id: "partner-leave-14", title: "パートナーの育休を、生まれて8週の間に通算14日以上にするか決める（出生後休業支援給付の上乗せ）", plain: "パートナーの育休の日数を決める", hint: "14日以上で、賃金の13%の上乗せ（最大28日分）", kind: "仕事", who: "パートナー", anchor: "lmp", start: w(20), deadline: { days: 280 - 14 }, deadlineKind: "目安", basis: "雇用保険法第61条の10（出生後休業支援給付・2025年4月から。父は子が生まれて8週の間に通算14日以上の育休を取り、母も14日以上の育休を取る時に、28日分まで賃金の13%を上乗せ。母が産後休業中・働いていない時などは、母の条件は要らない）。足りるかは勤め先とハローワークで確かめる", needsLocal: false, only: ["partner-leave", "leave-short"] },
-  { id: "maternity-leave", title: "産前休業が始められる（予定日の6週前）", plain: "産休に入れる", hint: "予定日の6週前から休めます", kind: "仕事", who: "母", anchor: "lmp", start: { days: 280 - 42 }, basis: "労働基準法第65条", needsLocal: false, pregnancyOnly: true, only: ["mother-employed"] },
+  // 産前休業の6週（42日）は、出産の当日を産前に入れて数える。予定日を含めた42日の1日目は、予定日の41日前（双子などの14週＝98日は97日前。adjust）。
+  // 出典（2026-11-05 確認）: 厚生労働省「働く女性の心とからだの応援サイト」用語辞典「産前・産後休業」（出産日は産前休業に含まれます） https://www.bosei-navi.mhlw.go.jp/glossary/provide01.html
+  //   協会けんぽ「出産手当金」（出産の日以前42日。出産日は出産の日以前の期間に含まれます） https://www.kyoukaikenpo.or.jp/benefit/childbirth/001/index.html
+  //   協会けんぽ よくあるご質問「出産日は産前、産後のどちらの期間に入りますか？」（出産日は産前期間に入ります） https://www.kyoukaikenpo.or.jp/g6/cat620/r311/
+  { id: "maternity-leave", title: "産前休業が始められる（予定日の6週前）", plain: "産休に入れる", hint: "予定日も入れて6週。予定日の41日前から休めます", kind: "仕事", who: "母", anchor: "due", start: { days: -41 }, basis: "労働基準法第65条第1項（6週間以内に出産する予定の人は、請求すれば休める。出産の当日は産前に入るので、予定日を含めて6週（42日）と数え、1日目は予定日の41日前。厚生労働省「働く女性の心とからだの応援サイト」の用語辞典で確かめた・2026年11月）。出産手当金の「出産の日以前42日」も、出産の日を入れて数える（健康保険法第102条・協会けんぽ）", needsLocal: false, pregnancyOnly: true, only: ["mother-employed"] },
   { id: "mother-insurance-switch", title: "退職したら、母の健康保険を切り替える（家族の扶養・国民健康保険・任意継続のどれか）", plain: "母の健康保険を切り替える", hint: "辞めた次の日から。国保なら14日以内に届けます", kind: "手続き", who: "母", anchor: "lmp", start: w(34), deadline: { days: 280 + 70 }, deadlineKind: "目安", basis: "国民健康保険法第9条・同法施行規則第3条（国保は入った日から14日以内に届ける）・健康保険法施行規則第38条（家族の扶養は家族の勤め先へ）・健康保険法第37条（任意継続は辞めた次の日から20日以内）。辞める日で期限が変わるので、日は目安", needsLocal: true, only: ["mother-quits"] },
 
   // ── 生まれてから ──
@@ -218,7 +223,8 @@ export const MILESTONES: MilestoneDef[] = [
   { id: "maternity-allowance-cert", title: "出産手当金の申請書の、医師の証明の欄を産院で書いてもらう", plain: "出産手当金の書類に医師の証明をもらう", hint: "入院中か1か月健診で。用紙は勤め先から", kind: "手続き", who: "母", anchor: "birth", start: { days: 0 }, deadline: { months: 1 }, deadlineKind: "目安", basis: "健康保険法第102条・同法施行規則第84条（出産手当金の申請書には、出産の日などを医師か助産師が証明する欄がある）。出産で辞めた人も、1年以上入っていて辞める日に休んでいれば受け取れる事がある（同法第104条）。勤め先と健康保険に確かめる", needsLocal: false, only: ["mother-employed"] },
   { id: "maternity-allowance-apply", title: "出産手当金を申請する（勤め先を通して健康保険へ）", plain: "出産手当金を申請する", hint: "産後56日を過ぎたら。振込は申請から1〜2か月ほど", kind: "手続き", who: "母", anchor: "birth", start: { days: 57 }, deadline: { months: 3 }, deadlineKind: "目安", basis: "健康保険法第102条（産前42日・産後56日の間で休んだ日に、賃金のおよそ3分の2）・第193条（休んだ日ごとに、その次の日から2年で時効）。振込までの日数は健康保険ごとに違う（1〜2か月ほど＝近似）", needsLocal: false, only: ["mother-employed"] },
   { id: "childcare-benefit-first", title: "育児休業給付の初回の申請を、勤め先に頼む（その後は2か月ごと）", plain: "育休の給付の初回の申請を頼む", hint: "勤め先がハローワークへ。期限は育休の4か月目の月末", kind: "仕事", who: "母", anchor: "birth", start: { days: 57 }, deadline: { months: 5 }, deadlineKind: "期限", dates: (b) => benefitFirst(b), basis: "雇用保険法第61条の7（育児休業給付: 180日まで賃金の67%・その後50%）・同法施行規則第101条の30（初回の申請は、育休を始めた日から4か月を経過する日の属する月の末日まで。その後は2か月ごと）。育休は産後休業の次の日から始まる形で置いた（近似）", needsLocal: false, only: ["mother-leave"] },
-  { id: "partner-childcare-benefit", title: "パートナーの育休の給付（産後パパ育休の出生時育児休業給付）を、勤め先に申請してもらう", plain: "パートナーの育休の給付を申請してもらう", hint: "生まれて8週を過ぎてから。勤め先がハローワークへ", kind: "仕事", who: "パートナー", anchor: "birth", start: { days: 56 }, deadline: { months: 3 }, deadlineKind: "期限", dates: (b) => papaBenefit(b), basis: "雇用保険法第61条の8（出生時育児休業給付: 産後パパ育休の日に、賃金の67%）・同法施行規則第101条の33（生まれた日から8週を経過する日の翌日から、2か月を経過する日の属する月の末日まで）。ふつうの育休だけを取った時は、育児休業給付の申請になる", needsLocal: false, only: ["partner-leave"] },
+  // 申請の起点は、生まれた日（予定日より早く生まれた時は予定日）。日は papaBenefit（lib/leave-money.ts。出典の URL と確かめた日もそこに）
+  { id: "partner-childcare-benefit", title: "パートナーの育休の給付（産後パパ育休の出生時育児休業給付）を、勤め先に申請してもらう", plain: "パートナーの育休の給付を申請してもらう", hint: "生まれて8週を過ぎてから。勤め先がハローワークへ", kind: "仕事", who: "パートナー", anchor: "birth", start: { days: 56 }, deadline: { months: 3 }, deadlineKind: "期限", dates: (b, due) => papaBenefit(b, due ?? b), basis: "雇用保険法第61条の8（出生時育児休業給付: 産後パパ育休の日に、賃金の67%）・同法施行規則第101条の33（生まれた日（予定日より早く生まれた時は予定日）から8週を経過する日の翌日から、その日から2か月を経過する日の属する月の末日まで。産後パパ育休を28日取り終えた時・2回目を終えた時は、その次の日から申請でき、期限もその日から数えるので早まる。厚生労働省「育児休業等給付の内容と支給申請手続」2026年8月改訂版で確かめた・2026年11月）。ふつうの育休だけを取った時は、育児休業給付の申請になる。休みの取り方で日が変わるので、勤め先に確かめる", needsLocal: false, only: ["partner-leave"] },
   { id: "benefit-drop", title: "育休の181日目から、育児休業給付が賃金の67%から50%に下がる。その前の月に家計を見ておく", plain: "育休の給付が下がる前に家計を見る", hint: "育休が半年を超える時。181日目から67%が50%に", kind: "準備", who: "家族", anchor: "birth", start: { days: 207 }, deadline: { days: 237 }, deadlineKind: "目安", dates: (b) => benefitDrop(b), basis: "雇用保険法第61条の7（育児休業給付は、育休を始めて180日までは賃金の67%、181日目から50%）。育休は産後休業の次の日から始まる形で数えた（近似）。手取りの額は勤め先の明細で確かめる", needsLocal: false, only: ["mother-leave"] },
   { id: "shorttime-benefit", title: "時短で仕事に戻るなら、育児時短就業給付（時短の間の賃金の10%）を勤め先に頼む", plain: "時短で戻るなら時短の給付を頼む", hint: "子が2歳になるまで。勤め先がハローワークへ", kind: "仕事", who: "母", anchor: "birth", start: { months: 10 }, deadline: { months: 11 }, deadlineKind: "目安", dates: (b) => daycarePlan(b).back, basis: "雇用保険法第61条の12（育児時短就業給付・2025年4月から。2歳になるまでの子を育てて時短で働く時、時短の間に払われた賃金の10%まで）。時短で戻るか・受け取れるかは勤め先に確かめる", needsLocal: false, only: ["daycare", "mother-leave"] },
   { id: "lump-sum-diff", title: "出産育児一時金の差額を、健康保険に申請する（直接支払で、出産の費用が一時金より少なかった時）", plain: "一時金の差額を申請する", hint: "費用が一時金より少なかった時だけ。明細書で見る", kind: "手続き", who: "母", anchor: "birth", start: { days: 7 }, deadline: { months: 3 }, deadlineKind: "目安", basis: "出産育児一時金（健康保険法第101条）。直接支払で産院に払われた額が一時金より少なければ、差額を健康保険に申請する（健康保険から案内が届く所もある）。時効は2年（同法第193条）なので、ここは早めの目安。差額があるかは退院の時の明細書（直接支払の合意文書）で見る", needsLocal: false },
@@ -227,12 +233,15 @@ export const MILESTONES: MilestoneDef[] = [
   { id: "daycare-extend-2", title: "1歳6か月でも入れなかった時: もう一度申し込み、育休を2歳まで延ばす事を職場に申し出る", plain: "2回目の育休の延長を申し出る", hint: "入れた時は「済んだ」を。1歳6か月の2週間前まで", kind: "仕事", who: "母", anchor: "birth", start: { months: 16 }, deadline: { months: 18, days: -14 }, deadlineKind: "期限", dates: (b) => daycarePlan(b).extend2, basis: "育児・介護休業法第5条第4項（1歳6か月でも保育所に入れない時は2歳まで延ばせる）。1歳6か月の時点の申し込みと保留の通知が、もう一度要る（雇用保険法施行規則・2025年4月から）", needsLocal: false, only: ["daycare", "mother-employed", "return-late"] },
   { id: "daycare-prep", title: "入園が決まったら: 慣らし保育の送り迎えの担当を決め、病児保育に登録しておく", plain: "慣らし保育と病児保育の準備", hint: "慣らし保育は1〜2週間ほどが多い。病児保育は登録が要ります", kind: "準備", who: "家族", anchor: "birth", start: { months: 11 }, deadline: { months: 12 }, deadlineKind: "目安", dates: (b) => daycarePlan(b).prep, basis: "慣らし保育の長さは園ごと（1〜2週間ほどが多い＝近似）。病児保育（児童福祉法第6条の3第13項の病児保育事業）は、使う前に登録が要る所が多い。町と園で確かめる", needsLocal: true, only: ["daycare"] },
   { id: "bcg", title: "BCG の予防接種", plain: "BCG を受ける", hint: "生後5〜8か月が目安。1歳になる前に", kind: "健診", who: "家族", anchor: "birth", start: { months: 5 }, deadline: { months: 12, days: -1 }, basis: `予防接種法施行令（対象は1歳になるまで。標準は生後5〜8か月）。${VAX_WHERE}`, needsLocal: true },
-  { id: "vaccines-7m", title: "B型肝炎の予防接種（3回目）", plain: "B型肝炎の3回目を受ける", hint: "1回目から139日以上あけて。生後7〜8か月ごろ", kind: "健診", who: "家族", anchor: "birth", start: { months: 7 }, deadline: { months: 12, days: -1 }, basis: `予防接種法施行令（B型肝炎は1歳になるまでに3回。3回目は1回目から139日以上あける）。${VAX_WHERE}`, needsLocal: true },
+  // B型肝炎の3回目・水痘の2回目の期限は、公費（定期接種）で受けられる年齢の上限（法の期限）。予防接種法施行令第3条の表（2026年10月1日施行の版）:
+  // B型肝炎「一歳に至るまでの間にある者」・水痘「生後十二月から生後三十六月に至るまでの間にある者」。「至るまで」は誕生日の前日まで（days: -1）。
+  // 接種の日から数え直しても（vax-next.ts の applyRetime）、この2行の期限は動かさない。出典（2026-11-05 確認）: e-Gov 法令検索 https://laws.e-gov.go.jp/law/323CO0000000197
+  { id: "vaccines-7m", title: "B型肝炎の予防接種（3回目）", plain: "B型肝炎の3回目を受ける", hint: "1回目から139日以上あけて。生後7〜8か月ごろ", kind: "健診", who: "家族", anchor: "birth", start: { months: 7 }, deadline: { months: 12, days: -1 }, basis: `予防接種法施行令第3条（B型肝炎は1歳になるまでに3回。3回目は1回目から139日以上あける）。${VAX_WHERE}`, needsLocal: true },
   { id: "checkup-9-10m", title: "9〜10か月健診", plain: "9〜10か月健診", hint: "多くの町で。受け方は町ごとに違います", kind: "健診", who: "家族", anchor: "birth", start: { months: 9 }, deadline: { months: 11 }, deadlineKind: "目安", basis: "町の乳児健診（母子保健法第13条。行うか・小児科で受けるか集団かは町ごとに違う。町の案内で確かめる）", needsLocal: true },
   { id: "first-birthday-vaccines", title: "1歳の予防接種（麻しん風しん（MR）・水ぼうそう（水痘）・小児用肺炎球菌の追加）", plain: "1歳の予防接種", hint: "1歳になったら早めに。麻しん風しん（MR）・水ぼうそう（水痘）など", kind: "健診", who: "家族", anchor: "birth", start: { months: 12 }, deadline: { months: 24, days: -1 }, basis: `予防接種法施行令（麻しん風しん（MR）の1期は1歳から2歳になるまで。水ぼうそう（水痘）は1歳から3歳になるまでに2回。肺炎球菌の追加は標準で生後12〜15か月。五種混合の追加は3回目から6か月以上あける）。${VAX_WHERE}`, needsLocal: true },
   { id: "five-booster", title: "五種混合の追加（4回目）", plain: "五種混合の追加を受ける", hint: "3回目から6か月以上あけて。1歳から1歳半ごろ", kind: "健診", who: "家族", anchor: "birth", start: { months: 12 }, deadline: { months: 18 }, deadlineKind: "目安", basis: `予防接種法施行令（五種混合の1期の追加は、3回目から6か月以上あけて。標準は3回目から6〜18か月の間）。${VAX_WHERE}`, needsLocal: true },
   { id: "checkup-18m", title: "1歳6か月健診", plain: "1歳半健診", hint: "町から案内が届きます", kind: "健診", who: "家族", anchor: "birth", start: { months: 18 }, deadline: { months: 24 }, basis: "母子保健法第12条", needsLocal: true },
-  { id: "vaccines-18m", title: "水ぼうそう（水痘）の予防接種（2回目）", plain: "水ぼうそう（水痘）の2回目を受ける", hint: "1回目から6〜12か月あけて", kind: "健診", who: "家族", anchor: "birth", start: { months: 18 }, deadline: { months: 36, days: -1 }, basis: `予防接種法施行令（水ぼうそう（水痘）は1歳から3歳になるまでに2回。2回目は1回目から3か月以上、標準は6〜12か月あける）。${VAX_WHERE}`, needsLocal: true },
+  { id: "vaccines-18m", title: "水ぼうそう（水痘）の予防接種（2回目）", plain: "水ぼうそう（水痘）の2回目を受ける", hint: "1回目から6〜12か月あけて", kind: "健診", who: "家族", anchor: "birth", start: { months: 18 }, deadline: { months: 36, days: -1 }, basis: `予防接種法施行令第3条（水ぼうそう（水痘）は1歳から3歳になるまでに2回。2回目は1回目から3か月以上、標準は6〜12か月あける）。${VAX_WHERE}`, needsLocal: true },
 
   // ── 早く生まれた時（見直し C10②）: 予定日から休む申し出をしていたパートナーは、始まりを1回だけ早められる ──
   // 起点は予定日（始まりは生まれた日に寄る＝scheduleFor の「予定日から数える事」）。期限は予定日の前日（もとの始まりの日の前日まで＝目安）
@@ -275,6 +284,11 @@ export interface Milestone extends MilestoneDef {
   retimeNote?: string;
   /** 数え直した時の、打つ物と前の回（予約の電話メモに使う） */
   retime?: { doses: string[]; lastDate: string; lastFacility?: string };
+  /**
+   * 数え直した始まりが、公費（定期接種）で受けられる年齢の期限（deadlineDate。動かさない）を越える見込み（vax-next.ts の applyRetime）。
+   * 判断はせず、retimeNote に確かめる先（小児科・保健センター）を添える
+   */
+  beyondPublic?: boolean;
   /** 上の子の予定（第2波①。lib/older.ts）。何人目か（0から）と、画面に出す呼び方 */
   older?: { index: number; label: string };
 }
@@ -402,9 +416,13 @@ function adjust(m: MilestoneDef, f: ScheduleInput): MilestoneDef {
   if (!hasPartner(f) && out.id === "postpartum-care") out = { ...out, hint: "出産後1年まで。町の家事の手伝いも" };
   const n = babyCount(s);
   if (n >= 2 && PER_BABY.has(out.id)) out = { ...out, title: `${out.title}（${n}人分）`, plain: `${out.plain}（${n}人分）` };
-  // 双子など: 産前休業は予定日の14週前から（労働基準法第65条）
+  // 双子など: 産前休業は予定日を含めて14週（98日）。1日目は予定日の97日前（労働基準法第65条第1項。出典は MILESTONES の maternity-leave の上）
   if (n >= 2 && out.id === "maternity-leave") {
-    out = { ...out, title: "産前休業が始められる（双子などは予定日の14週前）", hint: "双子などは予定日の14週前から休めます", start: { days: 280 - 98 }, basis: "労働基準法第65条（多胎妊娠は14週間前から）" };
+    out = { ...out, title: "産前休業が始められる（双子などは予定日の14週前）", hint: "双子などは予定日も入れて14週。予定日の97日前から", start: { days: -97 }, basis: "労働基準法第65条第1項（多胎妊娠は、14週間以内に出産する予定の人が、請求すれば休める。出産の当日は産前に入るので、予定日を含めて14週（98日）と数え、1日目は予定日の97日前。厚生労働省「働く女性の心とからだの応援サイト」の用語辞典で確かめた・2026年11月）。出産手当金の「出産の日以前98日」も、出産の日を入れて数える（健康保険法第102条・協会けんぽ）" };
+  }
+  // 予定日より早く生まれた時: 産後パパ育休の給付の申請は、予定日から8週を過ぎてから（雇用保険法施行規則第101条の33。日は papaBenefit）
+  if (out.id === "partner-childcare-benefit" && f.birthDate && f.birthDate < f.dueDate) {
+    out = { ...out, hint: "予定日から8週を過ぎてから。勤め先がハローワークへ" };
   }
   // 保育園に預けて働く家族: 調べる・見学は、4月入園の申し込みの前に（daycarePlan の近似）
   if (out.id === "daycare-research" && applies("daycare", f)) {
@@ -492,7 +510,7 @@ export function scheduleFor(input: ScheduleInput, today?: string): Milestone[] {
       const m = adjust(def, f);
       // 引っ越しの行（anchor "moved"）は印 "moved" で、引っ越した日を持つ家族だけに残っている
       const base = m.anchor === "lmp" ? lmp : m.anchor === "due" ? f.dueDate : m.anchor === "moved" ? f.movedOn! : birth;
-      const fixed = m.dates?.(base);
+      const fixed = m.dates?.(base, f.dueDate);
       const start = fixed ? fixed.start : resolve(base, m.start);
       return {
         ...m,

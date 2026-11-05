@@ -2,7 +2,7 @@
 # app の名前は Fly.io 全体で1つなので、ほかの人が立てる時は自分の名前に変える。
 app = "boshi-techo-try"
 primary_region = "nrt"
-# 小さな機械（512MB）で、写真の加工や組み立ての山で落ちないように（表の見出しより前に置く＝全体の設定）
+# 小さな機械（審査の間は 1GB・ふだんは 512MB）で、写真の加工や組み立ての山で落ちないように（表の見出しより前に置く＝全体の設定）
 swap_size_mb = 512
 
 [build]
@@ -18,6 +18,11 @@ swap_size_mb = 512
 [[mounts]]
   source = "boshi_data"
   destination = "/data"
+  # 容量が足りなくなる前に自動で広げる（使った量が 70% を超えたら 1GB ずつ、5GB まで）。
+  # 空きが 20% を切ると、アプリは新しい体験の写しを作らず読むだけの見本にする（src/lib/trial.ts）ので、その手前で広げる
+  auto_extend_size_threshold = 70
+  auto_extend_size_increment = "1GB"
+  auto_extend_size_limit = "5GB"
 
 [http_service]
   internal_port = 8080
@@ -27,6 +32,16 @@ swap_size_mb = 512
   auto_start_machines = true
   min_machines_running = 1
 
+  # 見張り（15秒ごと）。道は札を配らず写しも作らない口（src/app/api/health・middleware.ts）。
+  # /api/family などを見張ると、札の無い頼みに札を配って15秒ごとに写しが1つ増えるので使わない
+  [[http_service.checks]]
+    grace_period = "30s"
+    interval = "15s"
+    method = "GET"
+    path = "/api/health"
+    timeout = "5s"
+
 [[vm]]
   size = "shared-cpu-1x"
-  memory = "512mb"
+  # 審査の間（〜11/10）は 1GB。終わったら 512mb に戻す
+  memory = "1gb"

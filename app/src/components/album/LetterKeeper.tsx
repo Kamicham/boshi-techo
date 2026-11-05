@@ -66,7 +66,8 @@ export function LetterSheet({ onClose }: { onClose: () => void }) {
         fd.set("voice", voice.blob, "voice");
         init = { method: "POST", body: fd };
       } else init = { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(fields) };
-      const r = await fetch("/api/letters", init);
+      // familyId は道にも付ける（声を添えた時、サーバは関所を通ってから声を読む・lib/api.ts の formAfterGate）
+      const r = await fetch(`/api/letters?familyId=${encodeURIComponent(family.id)}`, init);
       const j = (await r.json().catch(() => ({}))) as { letter?: ClientLetter; error?: string };
       if (!r.ok || !j.letter) throw new Error(j.error ?? `残せませんでした（${r.status}）`);
       setDone(j.letter);

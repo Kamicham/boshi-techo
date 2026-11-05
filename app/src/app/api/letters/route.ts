@@ -1,7 +1,7 @@
 // 未来の手紙: 一覧（GET・中身なし）・書いて封をする（POST）・消す（DELETE）。中身を読むのは ./[id]（開く日を過ぎた手紙だけ）。
 // 声を添える時は multipart（body・open… の欄と voice のファイル）で送る。文字だけの時は今までどおり JSON。
 // 関所は土台の withHousehold。書くのは家族の記録を書ける人と、みんなの章に足せる人（祖父母など）。Claude には何も送らない。
-import { body, route } from "@/lib/api";
+import { body, formAfterGate, route } from "@/lib/api";
 import { withHousehold } from "@/lib/access";
 import { HttpError } from "@/lib/http-error";
 import { listLetters, removeLetter, writeLetter, writeVoiceLetter } from "@/lib/letters";
@@ -18,11 +18,9 @@ export const GET = route(async (req: Request) => {
 
 export const POST = route(async (req: Request) => {
   if ((req.headers.get("content-type") ?? "").startsWith("multipart/form-data")) {
-    const fd = await req.formData().catch(() => {
-      throw new HttpError(400, "送り方が分かりません");
-    });
+    // 関所（?familyId=）を通ってから声を読む（lib/api.ts の formAfterGate）
+    const { ctx, form: fd } = await formAfterGate(req, (id) => withHousehold(req, id, "media:contribute"), "送り方が分かりません");
     const s = (k: string) => (typeof fd.get(k) === "string" ? (fd.get(k) as string) : undefined);
-    const ctx = await withHousehold(req, s("familyId"), "media:contribute");
     const f = fd.get("voice");
     if (!(f instanceof Blob)) throw new HttpError(400, "声がありません");
     const audio = Buffer.from(await f.arrayBuffer());

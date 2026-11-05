@@ -1,7 +1,7 @@
 // 公開版の体験用の家族の試験（BOSHI_PUBLIC=1・2026-11-04）:
 // - 見本の家族を頼むと、その人の札の写しに置き換わる（2人の書き込みが混ざらない・共有の見本の家族には書かれない）
 // - 写しの id を直に叩いても、札の持ち主でなければ 404
-// - 7日たった写しは消える。1つの住所から作れる写しは1日10まで
+// - 7日たった写しは消える。1つの住所から作れる写しは1日10まで・総数は300まで・置き場の空きが20%を切ったら作らない（作れない人は見本を読むだけ）
 // - 門（middleware）が札を配り、アカウント・招待・書き出し・シミュレーションの口を閉じ、健診は読むだけ
 // - 体験の写しは見本の家族と同じ扱い（時計の早送り・作った記録・上限の日は見本の答え）
 // DB は一時フォルダに作る（わが家の app/data には触らない）。Claude には一度もつながない。
@@ -193,10 +193,42 @@ describe("公開版の体験用の家族", () => {
     expect(j.reply).toContain("話した事を、そのまま");
   });
 
-  it("1つの住所から作れる写しは1日10まで。7日たった写しは消える", async () => {
+  it("写しの総数が上限に届いた時・置き場の空きが少ない時は、写しを作らず、共有の見本の家族を読むだけで見せる（技術監査 (5)②）", async () => {
+    const done = await import("@/app/api/done/route");
+    const { ensureTrial, dataFree } = await import("./trial");
+    const C = `try-${"9".repeat(32)}`;
+    const ip = "192.0.2.50";
+    process.env.BOSHI_TRIALS_MAX = "1";
+    try {
+      expect(await ensureTrial(C, ip)).toBe(false);
+      // 読める（見本の家族のまま）。書くと 403 で、読むだけの訳を返す
+      expect((await done.GET(req("/api/done?familyId=demo-sato", { trial: C, ip }))).status).toBe(200);
+      const w = await done.POST(req("/api/done", { trial: C, ip, body: { familyId: "demo-sato", milestoneId: "birth-registration" } }));
+      expect(w.status).toBe(403);
+      expect(((await w.json()) as { error: string }).error).toContain("読むだけ");
+      // 共有の見本の家族には書かれていない
+      const { get } = await import("./db");
+      expect(get("done:demo-sato:birth-registration")).toBeNull();
+    } finally {
+      delete process.env.BOSHI_TRIALS_MAX;
+    }
+    // 置き場の空きが少ない時も作らない（空きは 0〜1 で測れる）
+    expect(dataFree()).toBeGreaterThan(0);
+    expect(dataFree()).toBeLessThanOrEqual(1);
+    process.env.BOSHI_TRIAL_MIN_FREE = "1.01";
+    try {
+      expect(await ensureTrial(C, ip)).toBe(false);
+    } finally {
+      delete process.env.BOSHI_TRIAL_MIN_FREE;
+    }
+    // 空けば、次の頼みで自分の写しができる
+    expect(await ensureTrial(C, ip)).toBe(true);
+  });
+
+  it("1つの住所から作れる写しは1日10まで（超えたら読むだけの見本）。7日たった写しは消える", async () => {
     const { ensureTrial, purgeExpiredTrials } = await import("./trial");
-    for (let i = 0; i < 10; i++) await ensureTrial(`try-${String(i).padStart(32, "c")}`, "198.51.100.7");
-    await expect(ensureTrial(`try-${"d".repeat(32)}`, "198.51.100.7")).rejects.toMatchObject({ status: 429 });
+    for (let i = 0; i < 10; i++) expect(await ensureTrial(`try-${String(i).padStart(32, "c")}`, "198.51.100.7")).toBe(true);
+    expect(await ensureTrial(`try-${"d".repeat(32)}`, "198.51.100.7")).toBe(false);
     const { getHousehold } = await import("./households");
     expect(getHousehold(A)).not.toBeNull();
     expect(await purgeExpiredTrials(Date.now() + 8 * 86_400_000)).toBeGreaterThanOrEqual(12);
@@ -220,6 +252,51 @@ describe("公開版の門", () => {
     expect(r.headers.get("x-middleware-request-cookie") ?? r.headers.get("x-middleware-override-headers")).toBeTruthy();
     const again = await mw("/", { cookie: `boshi_try=${A}` });
     expect(again.cookies.get("boshi_try")).toBeUndefined();
+  });
+
+  it("見張りの口（/api/health）は札を配らず、写しも作らない（fly.toml の checks・15秒ごと）", async () => {
+    const r = await mw("/api/health");
+    expect(r.status).toBe(200);
+    expect(r.cookies.get("boshi_try")).toBeUndefined();
+    expect(r.headers.get("x-middleware-override-headers")).toBeNull();
+    const { GET } = await import("@/app/api/health/route");
+    const j = (await GET().json()) as { ok: boolean; free: number };
+    expect(j.ok).toBe(true);
+    expect(j.free).toBeGreaterThan(0);
+    // 見張りの道を fly.toml に書いてある
+    const toml = fs.readFileSync(path.join(process.cwd(), "fly.toml"), "utf8");
+    expect(toml).toMatch(/\[\[http_service\.checks\]\][\s\S]*path = "\/api\/health"/);
+  });
+
+  it("送る中身が上限を超えたら、中身を読まずに 413（写真と声は 32MB・ほかは 1MB。技術監査 (5)①）", async () => {
+    const { middleware } = await import("@/middleware");
+    const send = (url: string, n: number) =>
+      middleware(new NextRequest(`${BASE}${url}`, { method: "POST", headers: { cookie: `boshi_try=${A}`, "content-length": String(n) } }));
+    expect((await send("/api/done", 1024 * 1024 + 1)).status).toBe(413);
+    expect((await send("/api/done", 1024 * 1024)).status).toBe(200);
+    expect((await send("/api/media", 32 * 1024 * 1024)).status).toBe(200);
+    const r = await send("/api/media", 32 * 1024 * 1024 + 1);
+    expect(r.status).toBe(413);
+    expect(((await r.json()) as { error: string }).error).toContain("32MB");
+  });
+
+  it("写真と声の手紙は、関所を通ってから中身を読む（よその写しの id なら、中身が壊れていても 404）", async () => {
+    const media = await import("@/app/api/media/route");
+    const letters = await import("@/app/api/letters/route");
+    const broken = (url: string) =>
+      new Request(`${BASE}${url}`, {
+        method: "POST",
+        headers: { "content-type": "multipart/form-data; boundary=x", origin: BASE, "fly-client-ip": "203.0.113.1", cookie: `boshi_try=${A}` },
+        body: "壊れた中身",
+      });
+    // 道に familyId があれば先に関所: 札の持ち主でない写しは 404（中身は読まない）
+    expect((await media.POST(broken(`/api/media?familyId=${B}`))).status).toBe(404);
+    expect((await letters.POST(broken(`/api/letters?familyId=${B}`))).status).toBe(404);
+    // 自分の写し（見本の家族）なら、関所を通ってから中身を読む → 壊れた中身は 400
+    expect((await media.POST(broken("/api/media?familyId=demo-sato"))).status).toBe(400);
+    expect((await letters.POST(broken("/api/letters?familyId=demo-sato"))).status).toBe(400);
+    // 道に familyId の無い古い画面は、今までどおり中身を読んでから関所へ
+    expect((await media.POST(broken("/api/media"))).status).toBe(400);
   });
 
   it("アカウント・招待・書き出し・シミュレーションの口は閉じ、健診は読むだけ", async () => {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DEMO_FAMILY } from "./demo-family";
 import { benefitDrop, benefitFirst, endOfMonth, leaveStart, papaBenefit } from "./leave-money";
 import { scheduleFor } from "./milestones";
 import { bringList } from "./visit";
@@ -15,7 +16,27 @@ describe("産休・育休のお金の日", () => {
     expect(benefitFirst("2027-01-10")).toEqual({ start: "2027-03-08", deadline: "2027-07-31" });
   });
   it("産後パパ育休の給付は8週を過ぎた次の日から、2か月を経過する日の月末まで", () => {
-    expect(papaBenefit("2027-01-10")).toEqual({ start: "2027-03-07", deadline: "2027-05-31" });
+    expect(papaBenefit("2027-01-10", "2027-01-10")).toEqual({ start: "2027-03-07", deadline: "2027-05-31" });
+  });
+  it("産後パパ育休の給付: 予定日より早く生まれた時は予定日から、遅く生まれた時は生まれた日から数える（雇用保険法施行規則第101条の33）", () => {
+    // 見本の家族（予定日 5/10・2週早い 4/26 生まれ）。前は生まれた日から数えて 6/21〜8/31 を出していた
+    expect(papaBenefit("2027-04-26", "2027-05-10")).toEqual({ start: "2027-07-05", deadline: "2027-09-30" });
+    expect(papaBenefit("2027-05-20", "2027-05-10")).toEqual({ start: "2027-07-15", deadline: "2027-09-30" });
+    // 厚生労働省「育児休業等給付の内容と支給申請手続」2026年8月1日改訂版の例と同じ日
+    expect(papaBenefit("2026-10-01", "2026-10-06").start).toBe("2026-12-01"); // 3頁: 予定日10/6から起算して8週間を経過する日の翌日は12/1
+    expect(papaBenefit("2026-10-05", "2026-10-01")).toEqual({ start: "2026-11-30", deadline: "2027-01-31" }); // 5頁: 11/30から1/31まで
+  });
+  it("見本の家族の予定でも、産後パパ育休の給付の申請は予定日から数えた 7/5〜9/30（期限）。一言も「予定日から」", () => {
+    const m = scheduleFor(DEMO_FAMILY, "2027-05-01").find((x) => x.id === "partner-childcare-benefit")!;
+    expect(m.startDate).toBe("2027-07-05");
+    expect(m.deadlineDate).toBe("2027-09-30");
+    expect(m.deadlineKind).toBe("期限");
+    expect(m.hint).toBe("予定日から8週を過ぎてから。勤め先がハローワークへ");
+    expect(m.basis).toContain("予定日より早く生まれた時は予定日");
+    // まだ生まれていない時は予定日から（日は同じ）。予定日どおりに生まれた家族の一言は今までどおり
+    const before = scheduleFor({ ...DEMO_FAMILY, birthDate: undefined }, "2027-04-01").find((x) => x.id === "partner-childcare-benefit")!;
+    expect([before.startDate, before.deadlineDate]).toEqual(["2027-07-05", "2027-09-30"]);
+    expect(before.hint).toBe("生まれて8週を過ぎてから。勤め先がハローワークへ");
   });
   it("給付が下がるのは育休の181日目。その30日前から1件", () => {
     expect(benefitDrop("2027-01-10")).toEqual({ start: "2027-08-05", deadline: "2027-09-04" });

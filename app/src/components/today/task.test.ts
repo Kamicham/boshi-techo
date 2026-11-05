@@ -82,9 +82,9 @@ describe("言い方", () => {
   it("30日より先は「あと◯日」を出さず日付で。年が違えば年も", () => {
     const today = "2026-11-02";
     const tasks = tasksAt(today);
-    const near = tasks.find((t) => t.id === "maternity-leave")!; // 11/9 から
-    expect(shownDays(near, today)).toBe(7);
-    expect(whenDate(near, today)).toBe("11月9日から");
+    const near = tasks.find((t) => t.id === "maternity-leave")!; // 11/10 から（予定日 12/21 を含めて42日）
+    expect(shownDays(near, today)).toBe(8);
+    expect(whenDate(near, today)).toBe("11月10日から");
     const leave = tasks.find((t) => t.id === "partner-leave")!; // 期限 12/7
     expect(shownDays(leave, today)).toBeNull(); // あと35日
     expect(whenDate(leave, today)).toBe("12月7日まで");

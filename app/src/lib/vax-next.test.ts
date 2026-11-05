@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { vaxHistory } from "./techo-done";
 import { applyRetime, callMemo, vaxRetime } from "./vax-next";
-import { scheduleFor } from "./milestones";
+import { deadlineKindOf, scheduleFor } from "./milestones";
 
 const birth = "2027-01-10";
 const sched = scheduleFor({ dueDate: "2027-01-15", birthDate: birth, members: [{ role: "母" }, { role: "パートナー" }] }, "2027-06-01");
@@ -31,13 +31,50 @@ describe("予防接種の数え直し（第1波⑥）", () => {
     const h = vaxHistory([{ ...v("2027-04-20", "B型肝炎"), pending: true }, v("2027-08-01", "五種混合")], "2027-05-01");
     expect(h.size).toBe(0);
   });
-  it("当てはめた後も id は変わらず、期限は同じ幅だけ後ろへ", () => {
+  it("当てはめた後も id は変わらず、目安の行（2回目）は期限も同じ幅だけ後ろへ", () => {
     const h = vaxHistory([v("2027-04-20", "B型肝炎", "1回目"), v("2027-04-20", "小児用肺炎球菌", "1回目"), v("2027-04-20", "五種混合", "1回目")], "2027-05-01");
     const before = sched.find((m) => m.id === "vaccines-3m")!;
+    expect(deadlineKindOf(before)).toBe("目安");
     const after = applyRetime(sched, vaxRetime(h, sched)).find((m) => m.id === "vaccines-3m")!;
     expect(after.id).toBe(before.id);
     const w0 = Date.parse(before.deadlineDate!) - Date.parse(before.startDate);
     expect(Date.parse(after.deadlineDate!) - Date.parse(after.startDate)).toBe(w0);
+    expect(after.beyondPublic).toBeUndefined();
+  });
+  // 期限の行は、公費（定期接種）で受けられる年齢の上限（予防接種法施行令第3条の表。「至るまで」は誕生日の前日まで）。数え直しても動かさない
+  const retimed = (h: ReturnType<typeof vaxHistory>, id: string) => applyRetime(sched, vaxRetime(h, sched)).find((m) => m.id === id)!;
+  it("B型肝炎の3回目（1歳に至るまで）: 数え直しても期限は1歳の誕生日の前日のまま。越える見込みは確かめる先を添える", () => {
+    const before = sched.find((m) => m.id === "vaccines-7m")!;
+    expect(deadlineKindOf(before)).toBe("期限");
+    expect(before.deadlineDate).toBe("2028-01-09"); // 2027-01-10 生まれ
+    // 1回目が 5/1: 3回目の最短は 9/18（39日遅い）。前は期限も39日ずれて 2028-02-17（1歳を過ぎた日）を出していた
+    const within = retimed(vaxHistory([v("2027-05-01", "B型肝炎", "1"), v("2027-06-01", "B型肝炎", "2")], "2027-07-01"), "vaccines-7m");
+    expect(within.startDate).toBe("2027-09-18");
+    expect(within.deadlineDate).toBe("2028-01-09");
+    expect(within.retimeNote).toBe("5月1日のB型肝炎1回目から中139日");
+    expect(within.beyondPublic).toBeUndefined();
+    // 1回目が 9/1: 3回目の最短は 2028-01-19 で、1歳の誕生日を越える。始まりはそのまま出し、期限も動かさず、確かめる先を添える（判断はしない）
+    const beyond = retimed(vaxHistory([v("2027-09-01", "B型肝炎", "1"), v("2027-10-01", "B型肝炎", "2")], "2027-10-15"), "vaccines-7m");
+    expect(beyond.startDate).toBe("2028-01-19");
+    expect(beyond.deadlineDate).toBe("2028-01-09");
+    expect(beyond.retimeNote).toBe("9月1日のB型肝炎1回目から中139日。公費で受けられる年齢（1月9日まで）を過ぎる見込み。小児科・保健センターに確かめる");
+    expect(beyond.beyondPublic).toBe(true);
+  });
+  it("水痘の2回目（生後12月から36月に至るまで）: 数え直しても期限は3歳の誕生日の前日のまま。越える見込みは確かめる先を添える", () => {
+    const before = sched.find((m) => m.id === "vaccines-18m")!;
+    expect(deadlineKindOf(before)).toBe("期限");
+    expect(before.deadlineDate).toBe("2030-01-09"); // 2027-01-10 生まれ
+    // 1回目が 2028-06-01: 2回目の最短は3か月後の 2028-09-01（表の 2028-07-10 より遅い）。期限は動かさない
+    const within = retimed(vaxHistory([v("2028-06-01", "水痘", "1")], "2028-06-15"), "vaccines-18m");
+    expect(within.startDate).toBe("2028-09-01");
+    expect(within.deadlineDate).toBe("2030-01-09");
+    expect(within.beyondPublic).toBeUndefined();
+    // 1回目が 2029-11-01: 2回目の最短は 2030-02-01 で、3歳の誕生日を越える
+    const beyond = retimed(vaxHistory([v("2029-11-01", "水ぼうそう", "1")], "2029-11-15"), "vaccines-18m");
+    expect(beyond.startDate).toBe("2030-02-01");
+    expect(beyond.deadlineDate).toBe("2030-01-09");
+    expect(beyond.retimeNote).toBe("11月1日の水ぼうそう1回目から3か月。公費で受けられる年齢（1月9日まで）を過ぎる見込み。小児科・保健センターに確かめる");
+    expect(beyond.beyondPublic).toBe(true);
   });
   it("電話メモは、子の名前が無ければ空欄・体の言葉と電話番号を含まない", () => {
     const m = callMemo({ plain: "予防接種の2回目", start: "2027-05-18", doses: ["B型肝炎2回目"] });

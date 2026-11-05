@@ -15,13 +15,14 @@
 import "server-only";
 import { ensureAccountSchema, forHousehold, type HouseholdDb } from "./db";
 import { getFamily, madeFamilyKind } from "./family";
-import type { Family } from "./demo-family";
+import { DEMO_FAMILY, type Family } from "./demo-family";
 import { HttpError } from "./http-error";
 import { getSession } from "./auth";
 import { ensureHousehold, getHousehold, listProxies, listSubjects, seedMadeSubjects, type Household, type Subject } from "./households";
 import { storage, type StorageDriver } from "./storage";
 import { ownsTrial, resolveFamilyId } from "./trial";
-import { isTrialId } from "./trial-cookie";
+import { isTrialId, publicOn } from "./trial-cookie";
+import { TRIAL_READ_ONLY } from "./trial-words";
 
 export { forHousehold, type HouseholdDb } from "./db";
 
@@ -47,6 +48,9 @@ export const ROLE_PERMS: Record<Role, readonly Perm[]> = {
   member: ["record:read", "media:read", "media:contribute"], // 読む・みんなの章に足す（祖父母など）。見える本人は代理の印と子だけ
   guest: ["record:read", "record:write", "media:read", "media:write", "media:contribute", "claude:send"], // 公開の世帯（作った家族）を、ログインなしで
 };
+
+/** 公開版で写しを作れなかった人が、共有の見本の家族を見る時の権限（読むだけ。lib/trial.ts の ensureTrial） */
+const READ_ONLY: readonly Perm[] = ["record:read", "media:read"];
 
 export type Account = { id: string; email: string; name: string };
 
@@ -127,8 +131,8 @@ function visibleSubjects(all: Subject[], role: Role, accountId: string | null, h
   return all.filter((s) => s.accountId === accountId || proxied.has(s.id) || s.kind === "child");
 }
 
-function makeCtx(household: Household, account: Account | null, role: Role): HouseholdCtx {
-  const perms = new Set(ROLE_PERMS[role]);
+function makeCtx(household: Household, account: Account | null, role: Role, only?: readonly Perm[]): HouseholdCtx {
+  const perms = new Set(only ?? ROLE_PERMS[role]);
   const family = getFamily(household.id);
   // 作った家族にも本人を置く（同意の画面・写真の本人が空にならない）
   seedMadeSubjects(household, family);
@@ -160,6 +164,8 @@ export async function withHousehold(req: Request, asked: unknown, perm: Perm | r
 
   const pub = publicHouseholdKind(familyId);
   const account = await currentAccount(req);
+  // 公開版で見本の家族の id のまま来た＝写しを作れなかった人（総数・空き・住所の数）。共有の見本の家族を読むだけにする（書く人は居ない）
+  const readOnly = publicOn() && familyId === DEMO_FAMILY.id;
 
   let ctx: HouseholdCtx;
   const role = account ? memberRole(account.id, familyId) : null;
@@ -168,12 +174,12 @@ export async function withHousehold(req: Request, asked: unknown, perm: Perm | r
   } else if (isTrialId(familyId) && ownsTrial(req, familyId)) {
     ctx = makeCtx(ensureHousehold(familyId, "demo"), account, "guest");
   } else if (pub) {
-    ctx = makeCtx(ensureHousehold(familyId, pub), account, "guest");
+    ctx = makeCtx(ensureHousehold(familyId, pub), account, "guest", readOnly ? READ_ONLY : undefined);
   } else {
     // 体験の写しは、札の持ち主でなければだれにでも 404（ある・無いを漏らさない）
     if (!account && !isTrialId(familyId)) throw new HttpError(401, "ログインしてください");
     throw new HttpError(404, "見つかりません");
   }
-  for (const p of need) if (!ctx.can(p)) throw new HttpError(403, "この操作はできません");
+  for (const p of need) if (!ctx.can(p)) throw new HttpError(403, readOnly ? TRIAL_READ_ONLY : "この操作はできません");
   return ctx;
 }
