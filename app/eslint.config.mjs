@@ -15,6 +15,8 @@ const eslintConfig = [
     ignores: [
       "node_modules/**",
       ".next/**",
+      // 本番・試しのサーバの組み立ての置き場（.next-prod・.next-sim・.next-<会話の名前>。.gitignore の /.next-*/ と同じ）
+      ".next-*/**",
       "out/**",
       "build/**",
       "next-env.d.ts",
