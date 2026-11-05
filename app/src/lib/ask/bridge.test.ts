@@ -292,3 +292,23 @@ describe("話す・撮るの床（確度の高い言葉だけ）", () => {
     expect(bridgeFor("けいれんしている", "child").lead).toBe(urgentLead("child"));
   });
 });
+
+describe("iPhone のまるいアポストロフィ（’）", () => {
+  it.each([
+    ["my baby can’t breathe", "urgent"],
+    ["my son can‘t breathe", "urgent"],
+    ["I don’t want to live", "crisis"],
+    ["I can’t go on anymore", "crisis"],
+    ["I don＇t want to live", "crisis"],
+  ] as const)("%s → %s（まっすぐの ' と同じに当たる）", (text, kind) => {
+    expect(bridgeFor(text, "other")[kind]).toBe(true);
+    expect(bridgeFor(text.replace(/[‘’＇]/g, "'"), "other")[kind]).toBe(true);
+  });
+
+  it("日本語の床と、当たらない英語は今までどおり", () => {
+    expect(bridgeFor("I’m fine, the baby’s doing well", "child").urgent).toBe(false);
+    expect(bridgeFor("I’m fine, the baby’s doing well", "child").crisis).toBe(false);
+    expect(sureUrgent("出血はない")).toBe(false);
+    expect(sureUrgent("出血がある")).toBe(true);
+  });
+});
