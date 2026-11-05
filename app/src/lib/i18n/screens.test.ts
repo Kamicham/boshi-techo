@@ -94,6 +94,14 @@ const DONE: readonly string[] = [
   // 設定（多言語化④・11/6 の分を前倒し。エージェントが訳した）
   "app/settings/page.tsx", // わが家の設定（町の名前の例「奈良県」「上牧町」は日本語のまま＝「訳さない」の注）
   "components/settings/SituationForm.tsx", // 家族の形の問い（選びの言葉は保存する値のまま持ち、描く所で訳す）
+  // アカウント・ログイン・招待・同意（多言語化④・11/6 の分を前倒し。エージェントが訳した。体験版では閉じている画面）
+  // lib/consent-screen.ts・lib/invite-words.ts は日本語で文を組む所（サーバと試験も読む）。出す所で t(文) と引くので、ここには入れない
+  "app/account/", // アカウント・世帯を作る・記録を残す同意・米国の Claude に送る同意（パスキーの名前と確かめの「消す」は日本語のまま＝「訳さない」の注）
+  "app/login/",
+  "app/invite/", // 招待を受ける・家族を招く（相手に送る文は送る人の画面の言葉で組む）
+  "components/settings/account-ui.tsx",
+  "components/settings/ConsentScreen.tsx", // 同意の文の下に、中文・English の画面だけ「日本語の文が正本です。この訳は参考です。」（統括 2026-11-05）
+  "components/settings/consent-texts.ts", // 同意の文（日本語が正本。訳は account.ts）
 ];
 
 /** 体験の筋（③）。I18N_LEFT=1 で残りを数える */

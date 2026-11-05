@@ -2,6 +2,7 @@
 
 // アカウントの画面: あなた（パスキー・ログアウト）・本人ごとの同意と撤回・同意の履歴・家族（仲間と招待）・書き出す・消す。
 // 撤回は同意と同じく1回押すだけ（PHR 指針 3.2(2)④・3.3(2)①）。消す前に書き出しを勧める（PHR 指針 3.3(1)③）。
+// 字は画面の言葉で出す（t()。辞書は lib/i18n/dict/account.ts）。メール・家族の名前・世帯の名前（家族が入れた値）は訳さない
 import { useEffect, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { authClient } from "@/lib/auth-client";
@@ -9,6 +10,10 @@ import { Btn, Fold, Pill, Why } from "@/components/ui";
 import { Box, field, jpDateTime, Msg, ROLE_WORD, useHouseholdDetail, type HouseholdDetail, type SubjectView } from "@/components/settings/account-ui";
 import { subjectLabel, useQuery } from "@/components/settings/ConsentScreen";
 import { CONSENT_NAME } from "@/components/settings/consent-texts";
+import { currentLang, t } from "@/lib/i18n";
+
+/** English の「あなた」は文の中の形（you）なので、見出しでは頭を大文字に（日本語・中文は変わらない） */
+const head = (s: string) => (currentLang() === "en" && s ? s[0].toUpperCase() + s.slice(1) : s);
 
 export default function AccountPage() {
   const { account, accountsEnabled, households, family, isHousehold, signOut, setFamilyId, reload } = useFamily();
@@ -20,34 +25,34 @@ export default function AccountPage() {
   if (!accountsEnabled)
     return (
       <main className="flex flex-col gap-4 px-4 pt-6">
-        <h1 className="font-display text-2xl font-bold">アカウント</h1>
-        <p className="rounded-xl bg-rose-soft px-4 py-3 text-base">このサーバでは、アカウントの仕組みをまだ動かしていません。</p>
+        <h1 className="font-display text-2xl font-bold">{t("アカウント")}</h1>
+        <p className="rounded-xl bg-rose-soft px-4 py-3 text-base">{t("このサーバでは、アカウントの仕組みをまだ動かしていません。")}</p>
       </main>
     );
 
   return (
     <main className="flex flex-col gap-4 px-4 pt-4 pb-10">
-      <h1 className="font-display text-2xl font-bold">アカウントと同意</h1>
+      <h1 className="font-display text-2xl font-bold">{t("アカウントと同意")}</h1>
 
       {account ? (
         <Me email={account.email} onSignOut={signOut} />
       ) : (
         <Box>
-          <p className="text-base">ログインしていません。いまは作った家族（デモ）を見ています。</p>
-          <Btn href="/login?next=/account">ログイン・アカウントを作る</Btn>
+          <p className="text-base">{t("ログインしていません。いまは作った家族（デモ）を見ています。")}</p>
+          <Btn href="/login?next=/account">{t("ログイン・アカウントを作る")}</Btn>
         </Box>
       )}
 
       {account && households.length === 0 && (
-        <Box title="世帯">
-          <p className="text-base">まだ自分の世帯がありません。作ると、家族の手帳が始まります。招待を受けた人は、招待のリンクを開いてください。</p>
-          <Btn href="/account/new">世帯を作る</Btn>
+        <Box title={t("世帯")}>
+          <p className="text-base">{t("まだ自分の世帯がありません。作ると、家族の手帳が始まります。招待を受けた人は、招待のリンクを開いてください。")}</p>
+          <Btn href="/account/new">{t("世帯を作る")}</Btn>
         </Box>
       )}
 
       {households.length > 1 && (
         <label className="flex flex-col gap-1 text-base">
-          <span className="text-sm font-semibold text-muted">どの世帯の</span>
+          <span className="text-sm font-semibold text-muted">{t("どの世帯の")}</span>
           <select
             className={field}
             value={familyId ?? ""}
@@ -59,7 +64,8 @@ export default function AccountPage() {
           >
             {households.map((h) => (
               <option key={h.id} value={h.id}>
-                {h.name || "わが家"}（{ROLE_WORD[h.role]}）
+                {h.name || t("わが家")}
+                {t("（{x}）", { x: t(ROLE_WORD[h.role] ?? "") })}
               </option>
             ))}
           </select>
@@ -71,7 +77,7 @@ export default function AccountPage() {
         <>
           {data.role === "guest" && (
             <p role="note" className="rounded-xl bg-sky-soft px-4 py-3 text-base">
-              いま見ているのは作った家族（デモ）です。同意の画面の動きを試せます。本物の家族の記録はここにはありません。
+              {t("いま見ているのは作った家族（デモ）です。同意の画面の動きを試せます。本物の家族の記録はここにはありません。")}
             </p>
           )}
           <Consents data={data} reload={load} />
@@ -110,18 +116,19 @@ function Me({ email, onSignOut }: { email: string; onSignOut: () => Promise<void
   }, []);
   const add = async () => {
     setMsg(null);
+    // 訳さない: パスキーの名前（サーバに残す値）
     const r = await authClient.passkey.addPasskey({ name: "この端末" });
-    if (r?.error) return setMsg({ ok: false, text: "パスキーを登録できませんでした。メールのコードでは、いつでも入れます" });
+    if (r?.error) return setMsg({ ok: false, text: t("パスキーを登録できませんでした。メールのコードでは、いつでも入れます") });
     setCount((c) => (c ?? 0) + 1);
-    setMsg({ ok: true, text: "登録しました。次から顔認証で入れます" });
+    setMsg({ ok: true, text: t("登録しました。次から顔認証で入れます") });
   };
   return (
-    <Box title="あなた">
+    <Box title={head(t("あなた"))}>
       <p className="text-base break-all">{email}</p>
-      <p className="text-sm text-muted">{count ? `パスキー: ${count}台の端末に登録しています` : "パスキーはまだ登録していません"}</p>
+      <p className="text-sm text-muted">{count ? t("パスキー: {n}台の端末に登録しています", { n: count }) : t("パスキーはまだ登録していません")}</p>
       <div className="flex flex-wrap gap-2">
         <Btn kind="secondary" onClick={() => void add()}>
-          この端末にパスキーを登録
+          {t("この端末にパスキーを登録")}
         </Btn>
         <Btn
           kind="secondary"
@@ -129,10 +136,10 @@ function Me({ email, onSignOut }: { email: string; onSignOut: () => Promise<void
             void onSignOut().then(() => (window.location.href = "/"));
           }}
         >
-          ログアウト
+          {t("ログアウト")}
         </Btn>
       </div>
-      <p className="text-sm text-muted">ログアウトすると、この端末に覚えた家族の一覧も消えます。</p>
+      <p className="text-sm text-muted">{t("ログアウトすると、この端末に覚えた家族の一覧も消えます。")}</p>
       <Msg msg={msg} />
     </Box>
   );
@@ -149,7 +156,7 @@ function Consents({ data, reload }: { data: HouseholdDetail; reload: () => Promi
     try {
       await api("/api/account/consent", { method: "DELETE", body: { familyId: hid, subjectIds: [s.id], kind } });
       await reload();
-      setMsg({ ok: true, text: `${subjectLabel(s)}の「${CONSENT_NAME[kind]}」を撤回しました` });
+      setMsg({ ok: true, text: t("{who}の「{what}」を撤回しました", { who: subjectLabel(s), what: t(CONSENT_NAME[kind]) }) });
     } catch (e) {
       setMsg({ ok: false, text: (e as Error).message });
     } finally {
@@ -162,37 +169,37 @@ function Consents({ data, reload }: { data: HouseholdDetail; reload: () => Promi
     return (
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="flex flex-col">
-          <span className="text-base">{CONSENT_NAME[kind]}</span>
-          <span className="text-sm text-muted">{c ? `同意（${jpDateTime(c.grantedAt)}）` : "同意していません"}</span>
+          <span className="text-base">{t(CONSENT_NAME[kind])}</span>
+          <span className="text-sm text-muted">{c ? t("同意（{date}）", { date: jpDateTime(c.grantedAt) }) : t("同意していません")}</span>
         </span>
         {s.canConsent &&
           (c ? (
             <Btn kind="secondary" onClick={() => void revoke(s, kind)} disabled={busy !== null}>
-              {busy === `${s.id}:${kind}` ? "撤回しています…" : "撤回する"}
+              {busy === `${s.id}:${kind}` ? t("撤回しています…") : t("撤回する")}
             </Btn>
           ) : (
-            <Btn href={href}>読んで同意する</Btn>
+            <Btn href={href}>{t("読んで同意する")}</Btn>
           ))}
       </div>
     );
   };
   return (
-    <Box title="本人ごとの同意">
-      {data.subjects.length === 0 && <p className="text-base text-muted">見られる本人がいません。</p>}
+    <Box title={t("本人ごとの同意")}>
+      {data.subjects.length === 0 && <p className="text-base text-muted">{t("見られる本人がいません。")}</p>}
       {data.subjects.map((s) => (
         <div key={s.id} className="flex flex-col gap-2 border-t border-line pt-3 first:border-0 first:pt-0">
           <p className="font-semibold">
             {subjectLabel(s)}
-            {s.kind === "child" && <span className="ml-2 text-sm font-normal text-muted">親が代わりに同意</span>}
+            {s.kind === "child" && <span className="ml-2 text-sm font-normal text-muted">{t("親が代わりに同意")}</span>}
           </p>
           {row(s, "record")}
           {row(s, "claude_us")}
         </div>
       ))}
       <Msg msg={msg} />
-      <Why label="撤回すると？">
-        <p>「記録を残す」を撤回すると、その本人の新しい記録は残しません。今までの記録を消したい時は、下の「消す」から本人の分を消してください。</p>
-        <p>「米国の Claude に送る」を撤回すると、その本人の分は Claude に送りません。送った分の Anthropic の側の写しは、30日以内に消えます。</p>
+      <Why label={t("撤回すると？")}>
+        <p>{t("「記録を残す」を撤回すると、その本人の新しい記録は残しません。今までの記録を消したい時は、下の「消す」から本人の分を消してください。")}</p>
+        <p>{t("「米国の Claude に送る」を撤回すると、その本人の分は Claude に送りません。送った分の Anthropic の側の写しは、30日以内に消えます。")}</p>
       </Why>
     </Box>
   );
@@ -202,14 +209,15 @@ function History({ data }: { data: HouseholdDetail }) {
   const name = new Map(data.subjects.map((s) => [s.id, subjectLabel(s)]));
   if (!data.history.length) return null;
   return (
-    <Fold title="同意の履歴" count={data.history.length}>
+    <Fold title={t("同意の履歴")} count={data.history.length}>
       <ul className="flex flex-col gap-2">
         {data.history.map((c) => (
           <li key={c.id} className="rounded-xl bg-paper px-3 py-2 text-sm">
-            <span className="font-semibold">{name.get(c.subjectId) ?? "本人"}</span>・{CONSENT_NAME[c.kind]}（版 {c.version}）
+            <span className="font-semibold">{name.get(c.subjectId) ?? t("本人")}</span>
+            {t("・{what}（版 {version}）", { what: t(CONSENT_NAME[c.kind]), version: c.version })}
             <br />
-            同意 {jpDateTime(c.grantedAt)}
-            {c.revokedAt ? ` → 撤回 ${jpDateTime(c.revokedAt)}` : <Pill tone="ok">有効</Pill>}
+            {t("同意 {date}", { date: jpDateTime(c.grantedAt) })}
+            {c.revokedAt ? ` ${t("→ 撤回 {date}", { date: jpDateTime(c.revokedAt) })}` : <Pill tone="ok">{t("有効")}</Pill>}
           </li>
         ))}
       </ul>
@@ -231,29 +239,30 @@ function Family({ data, reload }: { data: HouseholdDetail; reload: () => Promise
     }
   };
   return (
-    <Box title="家族（世帯の仲間）">
+    <Box title={t("家族（世帯の仲間）")}>
       <ul className="flex flex-col gap-2">
         {data.members.map((m) => (
           <li key={m.id} className="flex flex-wrap items-center justify-between gap-2 text-base">
             <span className="break-all">
               {m.name || m.email}
-              {data.account?.id === m.accountId && "（あなた）"}
+              {data.account?.id === m.accountId && t("（あなた）")}
             </span>
-            <Pill>{ROLE_WORD[m.role.split(",")[0]] ?? m.role}</Pill>
+            <Pill>{t(ROLE_WORD[m.role.split(",")[0]] ?? m.role)}</Pill>
           </li>
         ))}
       </ul>
       {data.invitations.length > 0 && (
         <>
-          <h3 className="pt-1 text-base font-bold">返事待ちの招待</h3>
+          <h3 className="pt-1 text-base font-bold">{t("返事待ちの招待")}</h3>
           <ul className="flex flex-col gap-2">
             {data.invitations.map((i) => (
               <li key={i.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
                 <span className="break-all">
-                  {i.email}・{i.relation ?? ROLE_WORD[i.role]}・{jpDateTime(i.expiresAt)}まで
+                  {/* 続柄（保存した値）と役の言葉は、出す時に訳す */}
+                  {t("{email}・{who}・{date}まで", { email: i.email, who: t(i.relation ?? ROLE_WORD[i.role] ?? ""), date: jpDateTime(i.expiresAt) })}
                 </span>
                 <Btn kind="quiet" onClick={() => void cancel(i.id)}>
-                  取り消す
+                  {t("取り消す")}
                 </Btn>
               </li>
             ))}
@@ -261,9 +270,9 @@ function Family({ data, reload }: { data: HouseholdDetail; reload: () => Promise
         </>
       )}
       {admin ? (
-        <Btn href={`/invite/new?familyId=${encodeURIComponent(hid)}`}>家族を招く</Btn>
+        <Btn href={`/invite/new?familyId=${encodeURIComponent(hid)}`}>{t("家族を招く")}</Btn>
       ) : (
-        <p className="text-sm text-muted">招くのは、世帯の持ち主と共同の管理の人です。</p>
+        <p className="text-sm text-muted">{t("招くのは、世帯の持ち主と共同の管理の人です。")}</p>
       )}
       <Msg msg={msg} />
     </Box>
@@ -272,21 +281,21 @@ function Family({ data, reload }: { data: HouseholdDetail; reload: () => Promise
 
 function Export({ familyId }: { familyId: string }) {
   return (
-    <Box title="書き出す">
-      <p className="text-base">記録（JSON と CSV）・家族の設定・同意の履歴・写真と録音の原本を、1つの zip で受け取れます。</p>
+    <Box title={t("書き出す")}>
+      <p className="text-base">{t("記録（JSON と CSV）・家族の設定・同意の履歴・写真と録音の原本を、1つの zip で受け取れます。")}</p>
       <a
         href={`/api/export?familyId=${encodeURIComponent(familyId)}`}
         download
         className="inline-flex min-h-11 items-center justify-center rounded-full border border-ink/20 bg-card px-5 text-base font-semibold"
       >
-        zip を受け取る
+        {t("zip を受け取る")}
       </a>
-      <p className="text-sm text-muted">紙の母子手帳の並びで見たい時は、「手帳」→「一冊」から印刷して PDF にできます。</p>
+      <p className="text-sm text-muted">{t("紙の母子手帳の並びで見たい時は、「手帳」→「一冊」から印刷して PDF にできます。")}</p>
     </Box>
   );
 }
 
-/** 消す: 本人の分・世帯の全部。「消す」と入れてから押す */
+/** 消す: 本人の分・世帯の全部。「消す」と入れてから押す（確かめの「消す」はサーバが日本語で見るので、どの言葉の画面でも「消す」のまま） */
 function Delete({ data, onDone }: { data: HouseholdDetail; onDone: (all: boolean) => Promise<void> }) {
   const [target, setTarget] = useState<string>("");
   const [confirm, setConfirm] = useState("");
@@ -295,8 +304,8 @@ function Delete({ data, onDone }: { data: HouseholdDetail; onDone: (all: boolean
   const owner = data.perms.includes("household:delete");
   const hid = data.household.id;
   const choices = [
-    ...data.subjects.filter((s) => s.mine || owner).map((s) => ({ id: s.id, label: `${subjectLabel(s)}の分` })),
-    ...(owner ? [{ id: "__all__", label: "世帯の全部（家族全員の分）" }] : []),
+    ...data.subjects.filter((s) => s.mine || owner).map((s) => ({ id: s.id, label: t("{who}の分", { who: subjectLabel(s) }) })),
+    ...(owner ? [{ id: "__all__", label: t("世帯の全部（家族全員の分）") }] : []),
   ];
   if (!choices.length) return null;
 
@@ -306,7 +315,7 @@ function Delete({ data, onDone }: { data: HouseholdDetail; onDone: (all: boolean
     try {
       if (target === "__all__") await api("/api/account/household", { method: "DELETE", body: { familyId: hid, confirm } });
       else await api("/api/account/subject", { method: "DELETE", body: { familyId: hid, subjectId: target, confirm } });
-      setMsg({ ok: true, text: "消しました" });
+      setMsg({ ok: true, text: t("消しました") });
       setConfirm("");
       await onDone(target === "__all__");
     } catch (e) {
@@ -317,12 +326,12 @@ function Delete({ data, onDone }: { data: HouseholdDetail; onDone: (all: boolean
   };
 
   return (
-    <Box title="消す" tone="alert">
-      <p className="text-base">消す前に、上の「zip を受け取る」で書き出しておくと安心です。消した物は戻せません。</p>
+    <Box title={t("消す")} tone="alert">
+      <p className="text-base">{t("消す前に、上の「zip を受け取る」で書き出しておくと安心です。消した物は戻せません。")}</p>
       <label className="flex flex-col gap-1 text-base">
-        何を消しますか
+        {t("何を消しますか")}
         <select className={field} value={target} onChange={(e) => setTarget(e.target.value)}>
-          <option value="">選んでください</option>
+          <option value="">{t("選んでください")}</option>
           {choices.map((c) => (
             <option key={c.id} value={c.id}>
               {c.label}
@@ -333,12 +342,16 @@ function Delete({ data, onDone }: { data: HouseholdDetail; onDone: (all: boolean
       {target && (
         <>
           <ul className="flex list-disc flex-col gap-1 pl-5 text-sm">
-            <li>{target === "__all__" ? "記録・写真・録音・同意・世帯の鍵を、まとめて消します。鍵を消すので、残ったファイルも読めなくなります" : "その本人の記録・写真・録音・同意・代理の印を消します。本人の付いていない世帯全体の記録は残ります"}</li>
-            <li>Claude に送った分の Anthropic の側の写しは、30日以内に自動で消えます</li>
-            <li>サーバのバックアップに残る写しは、バックアップが入れ替わるまで残ります（日数はまだ決めていません）</li>
+            <li>
+              {target === "__all__"
+                ? t("記録・写真・録音・同意・世帯の鍵を、まとめて消します。鍵を消すので、残ったファイルも読めなくなります")
+                : t("その本人の記録・写真・録音・同意・代理の印を消します。本人の付いていない世帯全体の記録は残ります")}
+            </li>
+            <li>{t("Claude に送った分の Anthropic の側の写しは、30日以内に自動で消えます")}</li>
+            <li>{t("サーバのバックアップに残る写しは、バックアップが入れ替わるまで残ります（日数はまだ決めていません）")}</li>
           </ul>
           <label className="flex flex-col gap-1 text-base">
-            確かめのため「消す」と入れてください
+            {t("確かめのため「消す」と入れてください")}
             <input className={field} value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="off" />
           </label>
           <button
@@ -347,7 +360,7 @@ function Delete({ data, onDone }: { data: HouseholdDetail; onDone: (all: boolean
             onClick={() => void run()}
             className="min-h-12 rounded-full bg-alert px-5 text-base font-bold text-white disabled:opacity-50"
           >
-            {busy ? "消しています…" : "消す"}
+            {busy ? t("消しています…") : t("消す")}
           </button>
         </>
       )}

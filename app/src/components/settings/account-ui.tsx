@@ -1,12 +1,13 @@
 "use client";
 
 // アカウントの画面（ログイン・世帯・同意・招待）で共通の小さな部品。
+// 字は画面の言葉で出す（lib/i18n の t()。辞書は lib/i18n/dict/account.ts）。本人・役の言葉（SUBJECT_WORD・ROLE_WORD）は日本語のまま持ち、出す所で t() で訳す
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/components/FamilyProvider";
-import { currentLang, INTL_LOCALE } from "@/lib/i18n";
+import { currentLang, INTL_LOCALE, t } from "@/lib/i18n";
 import type { Consent, Subject } from "@/lib/households";
 
-/** Better Auth の失敗を日本語に（英語の文を画面に出さない） */
+/** Better Auth の失敗を画面の言葉に（Better Auth の英語の文をそのまま出さない）。fallback は呼ぶ側が t() で訳して渡す */
 export function authMessage(err: { code?: string; message?: string; status?: number } | null | undefined, fallback: string): string {
   const code = err?.code ?? "";
   const map: Record<string, string> = {
@@ -15,9 +16,9 @@ export function authMessage(err: { code?: string; message?: string; status?: num
     TOO_MANY_ATTEMPTS: "3回まちがえたので、このコードは使えなくなりました。もう一度コードを送ってください",
     INVALID_EMAIL: "メールの形が違います",
   };
-  if (map[code]) return map[code];
-  if (err?.status === 429) return "続けて押されたので、少し待ってからもう一度押してください";
-  if (err?.status === 503) return "このサーバでは、アカウントの仕組みをまだ動かしていません";
+  if (map[code]) return t(map[code]);
+  if (err?.status === 429) return t("続けて押されたので、少し待ってからもう一度押してください");
+  if (err?.status === 503) return t("このサーバでは、アカウントの仕組みをまだ動かしていません");
   return fallback;
 }
 
@@ -42,6 +43,7 @@ export function Msg({ msg }: { msg: { ok: boolean; text: string } | null }) {
 
 export const field = "min-h-12 w-full rounded-xl border border-line bg-card px-3 text-base";
 
+/** 本人と役の言葉（値は日本語のまま。出す所で t() で訳す） */
 export const SUBJECT_WORD: Record<Subject["kind"], string> = { mother: "母", child: "子", partner: "パートナー" };
 export const ROLE_WORD: Record<string, string> = { owner: "持ち主", admin: "共同の管理", member: "読むだけ", guest: "作った家族（ログインなし）" };
 

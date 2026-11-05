@@ -3,6 +3,7 @@
 // 家族を招く（世帯の持ち主・共同の管理の人）。役と見せる範囲を一緒に決める。
 // 母の記録のどの項目を見せるかは母（本人）が選ぶ。既定は「子の記録だけ」（何も選ばない）。
 // リンクは48時間で切れる。開発中はメールを送らないので、出たリンクをLINEなどで手渡しする。
+// 字は画面の言葉で出す（t()。辞書は lib/i18n/dict/account.ts）。続柄（RELATIONS）と見せる項目は日本語の値のまま API に送り、出す所で訳す
 import { useEffect, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn, CopyButton, ShareButton, Why } from "@/components/ui";
@@ -10,6 +11,11 @@ import { Box, field, jpDateTime, Msg, useHouseholdDetail } from "@/components/se
 import { useQuery } from "@/components/settings/ConsentScreen";
 import { RELATIONS, SHARE_ITEMS, type Relation, type ShareItem } from "@/components/settings/consent-texts";
 import { inviteShareText, lineShareUrl } from "@/lib/invite-words";
+import { t } from "@/lib/i18n";
+
+/** 相手にそのまま送る文（画面の言葉で）。鍵は inviteShareText が組む文そのもの＝日本語は同じ字 */
+const shareText = (email: string, link: string) =>
+  email.trim() ? t(inviteShareText("{email}", "{link}"), { email: email.trim(), link }) : t(inviteShareText("", "{link}"), { link });
 
 export default function NewInvite() {
   const { family, households } = useFamily();
@@ -17,6 +23,7 @@ export default function NewInvite() {
   const familyId = q.ready ? (q.familyId ?? (households.some((h) => h.id === family.id) ? family.id : (households[0]?.id ?? null))) : null;
   const { data, error } = useHouseholdDetail(familyId);
   const [email, setEmail] = useState("");
+  // 訳さない: 続柄の値（API に送る。出す時に t() で訳す）
   const [relation, setRelation] = useState<Relation>("パートナー");
   const [show, setShow] = useState<Set<ShareItem>>(new Set());
   const [busy, setBusy] = useState(false);
@@ -32,6 +39,7 @@ export default function NewInvite() {
   const choices = RELATIONS.filter((r) => (r === "ママ" ? motherFree && !iAmMother : r === "パートナー" ? !iAmPartner : true));
   const mamaFirst = choices[0] === "ママ";
   useEffect(() => {
+    // 訳さない: 続柄の値（API に送る。出す時に t() で訳す）
     if (mamaFirst) setRelation("ママ");
   }, [mamaFirst]);
 
@@ -50,29 +58,29 @@ export default function NewInvite() {
     }
   };
 
-  if (!familyId) return <main className="px-4 pt-6 text-base">招く世帯がありません。先に世帯を作ってください。</main>;
+  if (!familyId) return <main className="px-4 pt-6 text-base">{t("招く世帯がありません。先に世帯を作ってください。")}</main>;
 
   return (
     <main className="flex flex-col gap-4 px-4 pt-4 pb-10">
-      <h1 className="font-display text-2xl font-bold">家族を招く</h1>
+      <h1 className="font-display text-2xl font-bold">{t("家族を招く")}</h1>
       {error && <Msg msg={{ ok: false, text: error }} />}
 
       {made ? (
-        <Box title="招待のリンクができました">
-          <p className="text-base">この文を、そのまま相手に送ってください。{jpDateTime(made.expiresAt)}まで（48時間）使えます。</p>
+        <Box title={t("招待のリンクができました")}>
+          <p className="text-base">{t("この文を、そのまま相手に送ってください。{date}まで（48時間）使えます。", { date: jpDateTime(made.expiresAt) })}</p>
           <p id="invite-text" className="rounded-lg bg-paper px-3 py-2 text-base break-all whitespace-pre-line">
-            {inviteShareText(made.email, made.link)}
+            {shareText(made.email, made.link)}
           </p>
-          <Btn href={lineShareUrl(inviteShareText(made.email, made.link))} full>
-            LINE で送る
+          <Btn href={lineShareUrl(shareText(made.email, made.link))} full>
+            {t("LINE で送る")}
           </Btn>
           <div className="flex flex-wrap items-center gap-2">
-            <CopyButton text={inviteShareText(made.email, made.link)} label="文をコピー" />
-            <ShareButton title="母子手帳への招待" text={inviteShareText(made.email, made.link)} label="ほかのアプリで送る…" fallback={false} />
+            <CopyButton text={shareText(made.email, made.link)} label={t("文をコピー")} />
+            <ShareButton title={t("母子手帳への招待")} text={shareText(made.email, made.link)} label={t("ほかのアプリで送る…")} fallback={false} />
           </div>
-          <Why label="リンクだけを送る時">
+          <Why label={t("リンクだけを送る時")}>
             <div className="flex items-center justify-between gap-2">
-              <span>招待のリンク</span>
+              <span>{t("招待のリンク")}</span>
               <CopyButton text={made.link} />
             </div>
             <p id="invite-link" className="break-all">
@@ -80,12 +88,12 @@ export default function NewInvite() {
             </p>
           </Why>
           <Btn href={`/account?familyId=${encodeURIComponent(familyId)}`} kind="secondary">
-            アカウントの画面へ
+            {t("アカウントの画面へ")}
           </Btn>
         </Box>
       ) : (
         <>
-          <Box title="だれを">
+          <Box title={t("だれを")}>
             <div className="flex flex-wrap gap-2">
               {choices.map((r) => (
                 <button
@@ -95,24 +103,30 @@ export default function NewInvite() {
                   onClick={() => setRelation(r)}
                   className={`min-h-11 rounded-full px-5 text-base font-semibold ${relation === r ? "bg-rose text-white" : "bg-rose-soft text-rose"}`}
                 >
-                  {r}
+                  {t(r)}
                 </button>
               ))}
             </div>
             <p className="text-sm text-muted">
-              {role === "admin" ? "共同の管理: 記録を見て、足して、家族を招けます" : "読むだけ: 子の手帳の記録と写真・声を見られます（手帳のママの頁と健診は見えません。話した記録や一冊などには、今は母の記録も入ります）。足す・直すはできません"}
+              {role === "admin"
+                ? t("共同の管理: 記録を見て、足して、家族を招けます")
+                : t("読むだけ: 子の手帳の記録と写真・声を見られます（手帳のママの頁と健診は見えません。話した記録や一冊などには、今は母の記録も入ります）。足す・直すはできません")}
             </p>
             <label className="flex flex-col gap-1 text-base">
-              相手のメール（このメールのコードで入った人だけが受けられます）
+              {t("相手のメール（このメールのコードで入った人だけが受けられます）")}
               <input type="email" inputMode="email" autoComplete="off" className={field} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="family@example.com" />
             </label>
           </Box>
 
           {role === "member" && (
-            <Box title="母の記録から、見せる物">
+            <Box title={t("母の記録から、見せる物")}>
               {iAmMother ? (
                 <>
-                  <p className="text-base">何も選ばなければ、写真と声は子の分だけを見せます。母の写真を選ぶと、母の写真と声も見せます。母の手帳の頁と健診の記録は、今は見せません（選べるようにする仕組みは準備中です）。話した記録や一冊などには、今は母の記録も入ります。</p>
+                  <p className="text-base">
+                    {t(
+                      "何も選ばなければ、写真と声は子の分だけを見せます。母の写真を選ぶと、母の写真と声も見せます。母の手帳の頁と健診の記録は、今は見せません（選べるようにする仕組みは準備中です）。話した記録や一冊などには、今は母の記録も入ります。",
+                    )}
+                  </p>
                   {SHARE_ITEMS.map((it) => {
                     // 母の手帳の頁と健診は、読むだけの人には今は見せない（lib/mother-records.ts・api/visit の notForReaders）。選べても効かないので選べなくする
                     const notYet = it.id !== "photo";
@@ -130,24 +144,26 @@ export default function NewInvite() {
                             setShow(n);
                           }}
                         />
-                        {it.label}
-                        {notYet ? "（今は見せません）" : ""}
+                        {t(it.label)}
+                        {notYet ? t("（今は見せません）") : ""}
                       </label>
                     );
                   })}
                 </>
               ) : (
-                <p className="text-base">母の記録を見せる範囲は、母本人が選びます。この招待では、写真と声は子の分だけを見せます（手帳のママの頁と健診は見せません。話した記録や一冊などには、今は母の記録も入ります）。</p>
+                <p className="text-base">
+                  {t("母の記録を見せる範囲は、母本人が選びます。この招待では、写真と声は子の分だけを見せます（手帳のママの頁と健診は見せません。話した記録や一冊などには、今は母の記録も入ります）。")}
+                </p>
               )}
             </Box>
           )}
 
           <Btn onClick={() => void send()} disabled={busy || !email.trim() || !data} full>
-            {busy ? "作っています…" : "招待のリンクを作る"}
+            {busy ? t("作っています…") : t("招待のリンクを作る")}
           </Btn>
           <Msg msg={msg} />
-          <Why label="なぜメールのコードで受けるの？">
-            <p>リンクを他の人に転送されても、招待したメールの持ち主でなければ受けられないようにするためです。</p>
+          <Why label={t("なぜメールのコードで受けるの？")}>
+            <p>{t("リンクを他の人に転送されても、招待したメールの持ち主でなければ受けられないようにするためです。")}</p>
           </Why>
         </>
       )}
