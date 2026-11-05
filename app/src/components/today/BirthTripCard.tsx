@@ -127,13 +127,34 @@ export function BirthTripCard({
               .map((i) => {
                 // 自分の番の最初の届けは、窓口と書く事をこの中で用意して開いておく（一番上の札を重ねない）
                 const first = !!firstId && i.task.id === firstId;
+                // 束の1件目（出生届）と自分の番の最初の届けは開いたまま。2件目からは、題と「済んだ」の1行に畳み、題を押すと理由と窓口が出る
+                // （家族の声①への直し A。早送りの決まり j の「1件目は出生届」は畳まない）
+                const lead = first || i.task.id === trip.items[0]?.task.id;
+                const isOpen = open === i.task.id;
+                const name = (
+                  <>
+                    <span className="tabular mr-1 text-rose">{i.step}.</span>
+                    {msWords(i.task.plain)}
+                  </>
+                );
                 return (
-                  <li key={i.task.id} className="flex flex-col gap-1 border-b border-line py-2 last:border-b-0">
+                  <li key={i.task.id} className={`flex flex-col gap-1 border-b border-line last:border-b-0 ${lead || isOpen ? "py-2" : "py-1"}`}>
                     <div className="flex items-start justify-between gap-2">
-                      <span className="min-w-0 text-base leading-snug font-semibold">
-                        <span className="tabular mr-1 text-rose">{i.step}.</span>
-                        {msWords(i.task.plain)}
-                      </span>
+                      {lead ? (
+                        <span className="min-w-0 text-base leading-snug font-semibold">{name}</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setOpen(isOpen ? null : i.task.id)}
+                          aria-expanded={isOpen}
+                          className="flex min-h-11 min-w-0 items-center gap-1 text-left text-base leading-snug font-semibold"
+                        >
+                          <span>{name}</span>
+                          <span className={`shrink-0 text-muted transition-transform ${isOpen ? "rotate-90" : ""}`} aria-hidden>
+                            ›
+                          </span>
+                        </button>
+                      )}
                       <div className="flex shrink-0 gap-1">
                         <Btn kind="secondary" onClick={() => onDone([i.task.id])} ariaLabel={t("{plain}を済んだにする", { plain: msWords(i.task.plain) })}>
                           {t("済んだ")}
@@ -141,21 +162,23 @@ export function BirthTripCard({
                       </div>
                     </div>
                     {/* 行く順の理由と一緒にする事は lib/birth-trip.ts の BIRTH_TRIP（辞書は today.ts） */}
-                    <p className="text-sm text-muted">{t(i.reason)}</p>
-                    {i.also && <p className="text-sm font-semibold">{t(i.also)}</p>}
+                    {(lead || isOpen) && <p className="text-sm text-muted">{t(i.reason)}</p>}
+                    {(lead || isOpen) && i.also && <p className="text-sm font-semibold">{t(i.also)}</p>}
                     {first ? (
                       <FirstRow task={i.task} today={today} family={family} me={me} keep={keep} onAssign={onAssign} onDone={() => onDone([i.task.id])} />
                     ) : (
                       <>
-                        <button
-                          type="button"
-                          onClick={() => setOpen(open === i.task.id ? null : i.task.id)}
-                          className="min-h-11 self-start text-sm text-sky underline underline-offset-2"
-                          aria-expanded={open === i.task.id}
-                        >
-                          {open === i.task.id ? t("閉じる") : t("窓口・書く事を見る")}
-                        </button>
-                        {open === i.task.id && (
+                        {lead && (
+                          <button
+                            type="button"
+                            onClick={() => setOpen(isOpen ? null : i.task.id)}
+                            className="min-h-11 self-start text-sm text-sky underline underline-offset-2"
+                            aria-expanded={isOpen}
+                          >
+                            {isOpen ? t("閉じる") : t("窓口・書く事を見る")}
+                          </button>
+                        )}
+                        {isOpen && (
                           <div className="flex flex-col gap-2 rounded-lg bg-sky-soft px-3 py-2">
                             <TaskBody task={i.task} today={today} family={family} me={me} keep={keep} onAssign={onAssign} onDone={() => onDone([i.task.id])} noDone />
                           </div>
@@ -169,27 +192,38 @@ export function BirthTripCard({
         </div>
       ))}
 
-      <div className="flex flex-col gap-1">
-        <p className="text-sm font-semibold text-muted">{t("役所へ持って行く物（調べた分を合わせた物）")}</p>
-        {bring.length > 0 ? (
-          <ul className="flex flex-col gap-1">
-            {bring.map((b) => (
-              <li key={b.item} className="flex flex-col text-base">
-                {/* 持ち物の名前は、町のページから取った日本語のまま（窓口で見る字） */}
-                <span>□ {b.item}</span>
-                <span className="text-sm text-muted">{t("{what}の分", { what: listOf(b.for.map(msWords)) })}</span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-muted">{t("まだ町の窓口を調べていません。")}</p>
-        )}
-        {notYet.length > 0 && (
-          <p className="text-sm text-muted">
-            {t("まだ調べていない届け: {list}（行の「窓口・書く事を見る」から町で調べられます）", { list: listOf(notYet.map((i) => msWords(i.task.plain))) })}
-          </p>
-        )}
-      </div>
+      {/* 持って行く物は1行に畳む（家族の声①への直し A。押せば全部） */}
+      <details className="group">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm font-semibold text-muted">
+          <span>
+            {t("役所へ持って行く物（調べた分を合わせた物）")}
+            {bring.length > 0 && <span className="ml-1 font-normal">{t("{n}件", { n: bring.length })}</span>}
+          </span>
+          <span className="shrink-0 transition-transform group-open:rotate-90" aria-hidden>
+            ›
+          </span>
+        </summary>
+        <div className="flex flex-col gap-1 pb-1">
+          {bring.length > 0 ? (
+            <ul className="flex flex-col gap-1">
+              {bring.map((b) => (
+                <li key={b.item} className="flex flex-col text-base">
+                  {/* 持ち物の名前は、町のページから取った日本語のまま（窓口で見る字） */}
+                  <span>□ {b.item}</span>
+                  <span className="text-sm text-muted">{t("{what}の分", { what: listOf(b.for.map(msWords)) })}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted">{t("まだ町の窓口を調べていません。")}</p>
+          )}
+          {notYet.length > 0 && (
+            <p className="text-sm text-muted">
+              {t("まだ調べていない届け: {list}（行の「窓口・書く事を見る」から町で調べられます）", { list: listOf(notYet.map((i) => msWords(i.task.plain))) })}
+            </p>
+          )}
+        </div>
+      </details>
 
       {trip.items.length > 1 && (
         <div>

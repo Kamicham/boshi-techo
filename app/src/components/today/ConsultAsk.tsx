@@ -19,48 +19,16 @@
 //   （外国人在留支援センター FRESC は東京・四谷の、在留・労働・法律の国の窓口の集まり。子育ての相談先ではないので出さない
 //     https://www.moj.go.jp/isa/support/fresc/fresc01.html ）
 import { useEffect, useState } from "react";
-import { addDays, addMonths, clockAt, lmpFromDue } from "@/lib/clock";
+import { addDays } from "@/lib/clock";
 import type { Family } from "@/lib/demo-family";
 import { t } from "@/lib/i18n";
 import { CONSULT_AFTER_NOTE, consultWaitsFirstDay } from "@/lib/consult-first-day";
 import { CONSULT_QUESTION, type TechoEntry } from "@/lib/techo";
 import { api } from "../FamilyProvider";
 import { Notice, plainError, Why } from "../ui";
-import { consultAnswerFor, consultValues, needsBridge, type ConsultAnswer } from "./consult-answer";
+import { consultAnswerFor, consultPeriod, consultValues, needsBridge, type ConsultAnswer } from "./consult-answer";
 import { HelpPlaces } from "./HelpPlaces";
 
-/** 聞く区切り（手帳のページの時期）。from〜to の間に答えがあれば、その区切りは聞かない。label は手帳に残す日本語（出す時に t() で訳す） */
-interface Period {
-  key: string;
-  label: string;
-  from: string;
-  to: string;
-}
-
-/** 今日がどの区切りにいるか（授かる前・2歳を過ぎた後は聞かない） */
-export function consultPeriod(family: Family, today: string): Period | null {
-  const c = clockAt(family, today);
-  if (c.phase === "pregnant") {
-    // 妊娠を届けて手帳をもらうころ（8週ごろ）から聞く
-    if ((c.pregnancyWeek ?? 0) < 8) return null;
-    const lmp = lmpFromDue(family.dueDate);
-    return { key: "pregnancy", label: "妊娠中", from: lmp, to: addDays(family.birthDate ?? addDays(family.dueDate, 14), -1) };
-  }
-  if (c.phase !== "child" || !family.birthDate) return null;
-  const b = family.birthDate;
-  const cuts: [string, string, number, number][] = [
-    ["2w", "産後2週ごろ", 0, 1],
-    ["1m", "1か月", 1, 3],
-    ["3m", "3〜4か月", 3, 6],
-    ["6m", "6〜7か月", 6, 12],
-    ["12m", "1歳", 12, 18],
-    ["18m", "1歳6か月", 18, 24],
-  ];
-  const m = c.ageMonths ?? 0;
-  const hit = cuts.find(([, , a, z]) => m >= a && m < z);
-  if (!hit) return null;
-  return { key: hit[0], label: hit[1], from: addMonths(b, hit[2]), to: addDays(addMonths(b, hit[3]), -1) };
-}
 
 /** GET /api/techo の返り（{ techo: Doc<TechoEntry>[] }）から記録を取り出す（中身が data に入っていなくても読める） */
 function entriesOf(j: unknown): TechoEntry[] {
@@ -69,7 +37,11 @@ function entriesOf(j: unknown): TechoEntry[] {
   return raw.map((x) => ((x && typeof x === "object" && "data" in x ? x.data : x) as TechoEntry)).filter((e) => e && typeof e === "object" && e.page);
 }
 
-export function ConsultAsk({ family, today, meName }: { family: Family; today: string; meName?: string }) {
+/**
+ * hold: 大きな札の日（お祝い・ようこそ・届けの束・手帳の気づき。now-fold.ts の bigCardDay）。問いを出さない
+ * （前の時期に「いない」「頼みにくい」と答えた人の、小さな頼れる所の1行だけは残す）
+ */
+export function ConsultAsk({ family, today, meName, hold }: { family: Family; today: string; meName?: string; hold?: boolean }) {
   // 使い始めた日は聞かない（初めての日は手帳に慣れるだけ。見本の家族は今までどおり。lib/consult-first-day.ts）
   const period = consultWaitsFirstDay(family, today) ? null : consultPeriod(family, today);
   // undefined = 読み込み中、null = この人はこの区切りでまだ答えていない
@@ -121,6 +93,7 @@ export function ConsultAsk({ family, today, meName }: { family: Family; today: s
   // 「いない」「頼みにくい」と答えた後は、開き直しても小さく出し続ける
   if (needsBridge(answered)) return <HelpPlaces family={family} compact label={t("頼れる所（いつでも開けます）")} />;
   if (answered !== null) return null;
+  if (hold) return needsBridge(earlier) ? <HelpPlaces family={family} compact label={t("頼れる所（いつでも開けます）")} /> : null;
 
   const answer = async (a: ConsultAnswer) => {
     setSaving(true);
@@ -145,48 +118,66 @@ export function ConsultAsk({ family, today, meName }: { family: Family; today: s
   };
 
   const btn = "min-h-11 rounded-full border border-ink/20 bg-card px-4 text-base font-semibold disabled:opacity-50";
-  return (
-    <section aria-label={t("相談できる人")} className="flex flex-col gap-2 rounded-2xl border border-line bg-card px-4 py-3">
-      <p className="text-base">
-        <span className="mr-2 text-xs font-semibold text-muted">{t("手帳から1つ聞きます")}</span>
-        <br />
-        {t(CONSULT_QUESTION)}
-      </p>
-      <p className="text-sm text-muted">{t(CONSULT_AFTER_NOTE)}</p>
-      <div className="grid grid-cols-2 gap-2">
-        <button type="button" disabled={saving} onClick={() => void answer("yes")} className={btn}>
-          {t("いる")}
+  // 問いは1行に畳み、押すと4つの答えが出る（家族の声①への直し A。紙の手帳と同じ問いの全文は、開いた中に）
+  const ask = (
+    <details aria-label={t("相談できる人")} className="group rounded-2xl border border-line bg-card px-4">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 py-1">
+        <span className="min-w-0 text-base">
+          <span className="mr-2 text-xs font-semibold text-muted">{t("手帳から1つ聞きます")}</span>
+          {t("相談できる人はいますか")}
+        </span>
+        <span className="shrink-0 text-muted transition-transform group-open:rotate-90" aria-hidden>
+          ›
+        </span>
+      </summary>
+      <div className="flex flex-col gap-2 pb-3">
+        <p className="text-base">{t(CONSULT_QUESTION)}</p>
+        <p className="text-sm text-muted">{t(CONSULT_AFTER_NOTE)}</p>
+        <div className="grid grid-cols-2 gap-2">
+          <button type="button" disabled={saving} onClick={() => void answer("yes")} className={btn}>
+            {t("いる")}
+          </button>
+          <button type="button" disabled={saving} onClick={() => void answer("no")} className={btn}>
+            {t("いない")}
+          </button>
+          <button type="button" disabled={saving} onClick={() => void answer("hard")} className={`${btn} col-span-2`}>
+            {t("いるけど頼みにくい")}
+          </button>
+        </div>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => void answer("skip")}
+          className="inline-flex min-h-11 items-center self-start text-sm text-muted underline underline-offset-2 disabled:opacity-50"
+        >
+          {t("今は答えない")}
         </button>
-        <button type="button" disabled={saving} onClick={() => void answer("no")} className={btn}>
-          {t("いない")}
-        </button>
-        <button type="button" disabled={saving} onClick={() => void answer("hard")} className={`${btn} col-span-2`}>
-          {t("いるけど頼みにくい")}
-        </button>
+        {error && <Notice title={t("まだ手帳に残せていません")} safe={t("もう一度押してください")} detail={error} />}
+        <Why>
+          <p>{t("紙の母子手帳も、健診のたびに同じことを聞きます。一人で抱えないための問いです。答えは手帳の「相談した記録」に残ります。家族の一人ひとりに聞きます。")}</p>
+        </Why>
       </div>
-      <button
-        type="button"
-        disabled={saving}
-        onClick={() => void answer("skip")}
-        className="inline-flex min-h-11 items-center self-start text-sm text-muted underline underline-offset-2 disabled:opacity-50"
-      >
-        {t("今は答えない")}
-      </button>
-      {error && <Notice title={t("まだ手帳に残せていません")} safe={t("もう一度押してください")} detail={error} />}
-      {needsBridge(earlier) && <HelpPlaces family={family} compact label={t("頼れる所（いつでも開けます）")} />}
-      <Why>
-        <p>{t("紙の母子手帳も、健診のたびに同じことを聞きます。一人で抱えないための問いです。答えは手帳の「相談した記録」に残ります。家族の一人ひとりに聞きます。")}</p>
-      </Why>
-    </section>
+    </details>
+  );
+  // 前の時期に「いない」「頼みにくい」と答えた人には、畳んだ問いの下に頼れる所の1行を出したままにする
+  if (!needsBridge(earlier)) return ask;
+  return (
+    <div className="flex flex-col gap-2">
+      {ask}
+      <HelpPlaces family={family} compact label={t("頼れる所（いつでも開けます）")} />
+    </div>
   );
 }
 
-/** 「いない」「頼みにくい」と答えた時の橋（責めない。連絡先だけを短く。中身は HelpPlaces と共通） */
+/**
+ * 「いない」「頼みにくい」と答えた時の橋（責めない。連絡先だけを短く。中身は HelpPlaces と共通）。
+ * 町のこども家庭センターの1行だけを出し、ほかは「ほかの頼れる所（9か所）›」に畳む（家族の声①への直し A）
+ */
 function Bridge({ family }: { family: Family }) {
   return (
     <section aria-label={t("相談できる所")} className="flex flex-col gap-2 rounded-2xl border border-line bg-card px-4 py-3">
       <p className="text-base">{t("答えてくれてありがとう。一人で抱えずに頼れる所が、町にあります。")}</p>
-      <HelpPlaces family={family} />
+      <HelpPlaces family={family} lead />
     </section>
   );
 }

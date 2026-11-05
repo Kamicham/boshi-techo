@@ -34,6 +34,7 @@ import { BornPrompt, WelcomeBaby } from "./today/WelcomeBaby";
 import { FamilyNews } from "./today/FamilyNews";
 import { doneWords, familyNewsFor, type Thanks } from "@/lib/done-words";
 import { byDays, daysLeft, planToday, whoLabel, withAssignee, type Task } from "./today/task";
+import { bigCardDay, foldNow, type NowRow } from "./today/now-fold";
 import { VisitToday, visitIsTop } from "./today/VisitToday";
 import { canLocalFor, prepAhead, type Prepared } from "./today/prep";
 import { PrepAhead, PrepNote } from "./today/PrepAhead";
@@ -349,8 +350,7 @@ export function Techo() {
   // 「このあと」は、あと何日の順だけ（次の健診の1行も同じ並びに入れる）
   // 妊婦健診の予約がまだで、国の標準の目安が7日以内なら「予約を」の1行（第1波⑧。病院が言った日が正）
   const guess = !nextVisit && visit?.guess && diffDays(visit.guess, today) >= 0 && diffDays(visit.guess, today) <= 7 ? visit.guess : null;
-  type Row = { kind: "task"; task: Task } | { kind: "visit" } | { kind: "prenatal" };
-  const rows = byDays<Row>(
+  const rows = byDays<NowRow>(
     [
       ...restTasks.map((task) => ({ kind: "task" as const, task })),
       ...(visitRow ? [{ kind: "visit" as const }] : []),
@@ -359,6 +359,8 @@ export function Techo() {
     ],
     (r) => (r.kind === "visit" ? daysUntil(today, visitRow!.date) : r.kind === "prenatal" ? daysUntil(today, guess!) : daysLeft(r.task, today)),
   );
+  // 自分の番は3行まで・ほかの人の番は人ごとに1行（家族の声①への直し A。法の期限が明日までの事は畳まない）
+  const nowFold = foldNow(rows, me, today);
   const upcoming = plan.upcoming;
   const onAssign = (milestoneId: string, who: string) => {
     // 先に画面へ（押した手応えを待たせない）。覚えるのは裏で
@@ -398,7 +400,8 @@ export function Techo() {
   const loading = !(doneReady && sentReady && advisorOpen !== null);
   const quiet = family.situation?.quiet;
   // 気をつける事の札を出さない日: お祝いの日・届けの束を全部出す日・手帳の気づきが開いている日（大きな札を重ねない）
-  const cautionBusy = festive || tripShown || (advisorOpen ?? 0) > 0;
+  // 大きな札の日は、相談の問いも出さず、近づいたらを1行に畳む（家族の声①への直し A）
+  const cautionBusy = bigCardDay({ festive, tripShown, advisorOpen });
 
   // 手帳が先に用意する事（UX の見直し C07）: 一番上の札が用意する1件を含めて3件まで。残りは裏で用意する（本物の家族だけ。PrepAhead）
   const firstPrep = loading || (visitTop && nextVisit) ? null : top;
@@ -452,6 +455,41 @@ export function Techo() {
       }}
     />
   ) : null;
+
+  // 「ほかに今やる事」の1行（予定の事・妊婦健診の予約・次の健診）
+  const rowEl = (r: NowRow) =>
+    r.kind === "task" ? (
+      <TaskRow key={`${family.id}:${r.task.id}`} task={r.task} {...common} onDone={() => void setDone(r.task, true)} />
+    ) : r.kind === "prenatal" ? (
+      <Link key="prenatal" href="/visit" className="flex min-h-12 items-center justify-between gap-3 border-b border-line py-2 last:border-b-0">
+        <span className="min-w-0">
+          <span className="block text-base font-semibold">
+            {t("次の妊婦健診を予約する")}
+            {me?.role === "パートナー" && <span className="text-sm font-normal text-muted">{t("（{who}の番）", { who: whoLabel(MOTHER, family, me) })}</span>}
+          </span>
+          <span className="block text-sm text-muted">{t("国の目安では今ごろです。病院で日を言われていたら、そちらに合わせてください")}</span>
+        </span>
+        <span className="flex shrink-0 items-center gap-2">
+          <span className="tabular text-sm font-semibold">{daysUntil(today, guess!) === 0 ? t("今日ごろ") : t("あと{n}日ごろ", { n: daysUntil(today, guess!) })}</span>
+          <span className="text-muted" aria-hidden>
+            ›
+          </span>
+        </span>
+      </Link>
+    ) : (
+      <Link key="visit" href="/visit" className="flex min-h-12 items-center justify-between gap-3 border-b border-line py-2 last:border-b-0">
+        <span className="text-base font-semibold">
+          {t("次の健診")}
+          {visitRow!.time ? ` ${visitRow!.time}` : ""}
+        </span>
+        <span className="flex shrink-0 items-center gap-2">
+          <span className="tabular text-sm font-semibold">{t("あと{n}日", { n: daysUntil(today, visitRow!.date) })}</span>
+          <span className="text-muted" aria-hidden>
+            ›
+          </span>
+        </span>
+      </Link>
+    );
 
   return (
     <main className="flex flex-col gap-5 px-4 pt-4 pb-8">
@@ -598,40 +636,16 @@ export function Techo() {
       {!loading && rows.length > 0 && (
         <section aria-label={t("ほかに今やる事")} className="flex flex-col">
           <h2 className="text-sm font-semibold text-muted">{t("ほかに今やる事")}</h2>
-          {rows.map((r) =>
-            r.kind === "task" ? (
-              <TaskRow key={`${family.id}:${r.task.id}`} task={r.task} {...common} onDone={() => void setDone(r.task, true)} />
-            ) : r.kind === "prenatal" ? (
-              <Link key="prenatal" href="/visit" className="flex min-h-12 items-center justify-between gap-3 border-b border-line py-2 last:border-b-0">
-                <span className="min-w-0">
-                  <span className="block text-base font-semibold">
-                    {t("次の妊婦健診を予約する")}
-                    {me?.role === "パートナー" && <span className="text-sm font-normal text-muted">{t("（{who}の番）", { who: whoLabel(MOTHER, family, me) })}</span>}
-                  </span>
-                  <span className="block text-sm text-muted">{t("国の目安では今ごろです。病院で日を言われていたら、そちらに合わせてください")}</span>
-                </span>
-                <span className="flex shrink-0 items-center gap-2">
-                  <span className="tabular text-sm font-semibold">{daysUntil(today, guess!) === 0 ? t("今日ごろ") : t("あと{n}日ごろ", { n: daysUntil(today, guess!) })}</span>
-                  <span className="text-muted" aria-hidden>
-                    ›
-                  </span>
-                </span>
-              </Link>
-            ) : (
-              <Link key="visit" href="/visit" className="flex min-h-12 items-center justify-between gap-3 border-b border-line py-2 last:border-b-0">
-                <span className="text-base font-semibold">
-                  {t("次の健診")}
-                  {visitRow!.time ? ` ${visitRow!.time}` : ""}
-                </span>
-                <span className="flex shrink-0 items-center gap-2">
-                  <span className="tabular text-sm font-semibold">{t("あと{n}日", { n: daysUntil(today, visitRow!.date) })}</span>
-                  <span className="text-muted" aria-hidden>
-                    ›
-                  </span>
-                </span>
-              </Link>
-            ),
+          {/* 自分の番は3行まで。残りと、ほかの人の番は1行に畳む（法の期限が明日までの事は畳まない。components/today/now-fold.ts） */}
+          {nowFold.shown.map(rowEl)}
+          {nowFold.more.length > 0 && (
+            <RowFold label={t("ほかに{n}件", { n: nowFold.more.length })}>{nowFold.more.map(rowEl)}</RowFold>
           )}
+          {nowFold.others.map((g) => (
+            <RowFold key={g.who} label={t("{who}さんの番 {n}件", { who: whoLabel({ who: g.who as Task["who"] }, family, me), n: g.rows.length })}>
+              {g.rows.map(rowEl)}
+            </RowFold>
+          ))}
         </section>
       )}
 
@@ -645,10 +659,21 @@ export function Techo() {
       {!loading && <BumpMoment key={`${family.id}:bump`} family={family} today={today} reportedOn={appliedOn["pregnancy-report"]} />}
 
       {/* 手帳の毎回の問い「相談できる人はいますか」（時期ごとに1回。答えた時期は出さない） */}
-      {!loading && <ConsultAsk key={`${family.id}:consult`} family={family} today={today} meName={me?.name} />}
+      {!loading && <ConsultAsk key={`${family.id}:consult`} family={family} today={today} meName={me?.name} hold={cautionBusy} />}
+
+      {/* 大きな札の日は、近づいたらを1行に畳む（開けば同じ並びで全部） */}
+      {!loading && cautionBusy && upcoming.length > 0 && (
+        <section aria-label={t("近づいたら出す事")} className="flex flex-col">
+          <RowFold label={t("近づいたら出す事 {n}件", { n: upcoming.length })}>
+            {upcoming.map((t) => (
+              <TaskRow key={`${family.id}:${t.id}`} task={t} {...common} muted onDone={() => void setDone(t, true)} />
+            ))}
+          </RowFold>
+        </section>
+      )}
 
       {/* 先の事は近い3つだけ。残りは数だけ言い、開けば見られる（2032年まで30行の壁を見せない） */}
-      {!loading && upcoming.length > 0 && (
+      {!loading && !cautionBusy && upcoming.length > 0 && (
         <section aria-label={t("近づいたら出す事")} className="flex flex-col">
           <h2 className="text-sm font-semibold text-muted">{t("近づいたら、ここに出します")}</h2>
           {upcoming.slice(0, 3).map((t) => (
@@ -797,7 +822,7 @@ function QuietDay({ family, quiet, onShowAll }: { family: Family; quiet: "loss" 
         </ul>
       </section>
 
-      <HelpPlaces family={family} loss={loss} />
+      <HelpPlaces family={family} loss={loss} compact />
 
       <div className="flex flex-wrap gap-2">
         <Btn kind="quiet" onClick={onShowAll}>
@@ -808,5 +833,20 @@ function QuietDay({ family, quiet, onShowAll }: { family: Family; quiet: "loss" 
         </Btn>
       </div>
     </main>
+  );
+}
+
+/** 一覧の中の1行の畳み（「ほかに◯件 ›」「◯◯さんの番 ◯件 ›」「近づいたら出す事 ◯件 ›」）。開くと同じ並びで全部出る */
+function RowFold({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <details className="group border-b border-line last:border-b-0">
+      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 py-2 text-base text-muted">
+        <span className="underline underline-offset-2">{label}</span>
+        <span className="shrink-0 transition-transform group-open:rotate-90" aria-hidden>
+          ›
+        </span>
+      </summary>
+      <div className="flex flex-col">{children}</div>
+    </details>
   );
 }

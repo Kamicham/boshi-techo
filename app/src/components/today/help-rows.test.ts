@@ -1,4 +1,6 @@
 // 頼れる所の #8000 の行に、「#」の番号につながらない時のふつうの番号を添える（急ぎの時の画面と同じ番号。表は lib/emergency-lines.ts の N8000）。
+import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { N8000 } from "@/lib/emergency-lines";
 import { helpRows } from "./help-rows";
@@ -28,5 +30,19 @@ describe("頼れる所の #8000 の行（つながらない時のふつうの番
 
   it("つらい別れのあと（loss）は、#8000 の行ごと出さない", () => {
     expect(row8000("東京都", "世田谷区", true)).toBeUndefined();
+  });
+});
+
+describe("頼れる所は畳んで出す（家族の声①への直し A）", () => {
+  // 畳まずに10行を並べる形は無くした。画面のどこで使っても、1行＋件数（compact）か、町の窓口の1行＋ほか（lead）
+  const src = path.resolve(__dirname, "../..");
+  const files = (dir: string): string[] =>
+    fs.readdirSync(dir, { withFileTypes: true }).flatMap((d) => (d.isDirectory() ? files(path.join(dir, d.name)) : /\.tsx$/.test(d.name) ? [path.join(dir, d.name)] : []));
+  it("<HelpPlaces …> はどれも compact か lead", () => {
+    const uses = files(src).flatMap((f) => [...fs.readFileSync(f, "utf8").matchAll(/<HelpPlaces\b[^>]*>/g)].map((m) => ({ f: path.relative(src, f), tag: m[0] })));
+    expect(uses.length).toBeGreaterThan(3);
+    // 手帳のタブの相談先は、手帳のタブの訳（同じファイル）を取り込んだ後に畳む（11/5 15:00 ごろ。済んだらこの一覧から外す）
+    const LATER = ["app/techo/page.tsx"];
+    expect(uses.filter((u) => !/\b(compact|lead)\b/.test(u.tag) && !LATER.includes(u.f))).toEqual([]);
   });
 });

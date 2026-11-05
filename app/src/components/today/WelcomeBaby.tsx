@@ -13,7 +13,7 @@ import { useEffect, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn, plainError } from "@/components/ui";
 import type { Family, Member } from "@/lib/demo-family";
-import { t } from "@/lib/i18n";
+import { currentLang, t } from "@/lib/i18n";
 import { nameIn } from "@/lib/i18n/names";
 import type { ClientLetter } from "@/lib/letters-shared";
 import { birthNewsText } from "@/lib/media-shared";
@@ -175,7 +175,8 @@ export function WelcomeBaby({
       </div>
       {line && (
         <p className="text-base">
-          {tripBelow && reg?.status !== "済み" ? t("届けの準備は、手帳が下の1枚にまとめました。") : ""}
+          {/* English は文の間を1字空ける（日本語・中文は続けて書く） */}
+          {tripBelow && reg?.status !== "済み" ? t("届けの準備は、手帳が下の1枚にまとめました。") + (currentLang() === "en" ? " " : "") : ""}
           {line}
         </p>
       )}

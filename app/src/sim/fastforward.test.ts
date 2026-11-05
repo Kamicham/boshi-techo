@@ -37,6 +37,7 @@ import { hasOlderChildren, motherEmployed, partnerEmployed, partnerTakesLeave } 
 import { detectTriggers, BIRTH_SHIFT_DAYS, BIRTH_WINDOW_DAYS, MOVED_WINDOW_DAYS, type TriggerKind } from "../lib/advisor";
 import { briefingDay } from "../lib/visit";
 import { NOW, planToday, shownDays, whenDate, whoLabel, type Task } from "../components/today/task";
+import { foldNow, mustShow } from "../components/today/now-fold";
 import { SIM_FAMILIES } from "./families";
 import type { SimFamily } from "./types";
 import { getPopulation, type PopFamily } from "./population";
@@ -81,6 +82,7 @@ const RULES = {
   r: "引っ越しの行: 町を変えた家族だけに、引っ越した日から出る。転入届の期限は引っ越した日の14日後（住民基本台帳法第22条）・児童手当は15日後（児童手当法第8条第3項）で、児童手当と医療証は引っ越した時に子がいた家族だけ、受診券は妊娠中に引っ越した家族だけ（見直し C10①）",
   s: "早く生まれた時: 予定日より7日以上早く生まれ、育休を取るかもしれないパートナーがいる家族だけに「育休の始まりを早める」が、生まれた日から予定日の前日まで出る（遅く生まれた時・6日以内は出さない。見直し C10②）",
   t: "気をつける事の札（lib/cautions.ts）: 1日に1枚まで。静かにする家族・生まれた日・母の画面の生後14日まで・お祝いや届けの束や手帳の気づきの日には出ず、読んだ札は同じ端末に二度出ない。引用ごとに出典があり、労基法の引用は働く母の家族だけ。出生届出済証明は36週の札と、届けの束の出生届の行で伝える（2026-11-05 総点検の札）",
+  u: "ほかに今やる事は畳んで出す（家族の声①「要らないのに、ずらっと並ぶ。疲れる」への直し A・2026-11-05）: 自分の番は3行まで・ほかの人の番は人ごとに1行・法の期限が明日までの事は誰の番でも畳まない。畳んだ後の行は6行まで（components/today/now-fold.ts。画面と同じ関数）",
 } as const;
 type Rule = keyof typeof RULES;
 const RULE_IDS = Object.keys(RULES) as Rule[];
@@ -91,6 +93,8 @@ const PREG_ONLY = PREGNANCY_ONLY;
 const MAX_PLAIN = 20;
 const MAX_HINT = 40;
 const MAX_OVERDUE = 2;
+/** 「ほかに今やる事」の畳んだ後の行の上限（自分の番3行＋「ほかに◯件」＋ほかの人ごとに1行。決まり u） */
+const MAX_NOW_LINES = 6;
 
 /** 家族の一人ずつが何日おきに開いて一番上を済ませるか（無ければ毎日） */
 const PACE: Record<string, Record<string, number>> = {
@@ -565,6 +569,15 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
       const s = screenFor(tasks, day, me, nextVisit, fv);
       // a
       if (s.top && !(s.top.who === "家族" || s.top.who === me.role)) push("a", `${me.id}:${s.top.id}`, `${me.name}（${me.role}）の一番上が「${s.top.plain}」（${s.top.who}の番）`, me.id);
+      // u: ほかに今やる事を畳む（画面と同じ foldNow）。法の期限が明日までの事は畳まず、畳んだ後も6行まで
+      {
+        const nr = s.rows.map((task) => ({ kind: "task" as const, task }));
+        const fd = foldNow(nr, me, day);
+        const lines = fd.shown.length + (fd.more.length ? 1 : 0) + fd.others.length;
+        if (lines > MAX_NOW_LINES) push("u", `lines:${me.id}`, `${me.name}の「ほかに今やる事」が、畳んでも${lines}行`, me.id);
+        for (const r of nr) if (mustShow(r.task, day) && !fd.shown.includes(r)) push("u", `keep:${me.id}:${r.task.id}`, `法の期限が明日までの「${r.task.plain}」が畳まれる`, me.id);
+        if (fd.shown.length + fd.more.length + fd.others.reduce((n, g) => n + g.rows.length, 0) !== nr.length) push("u", `lost:${me.id}`, `${me.name}の「ほかに今やる事」の行が、畳むと消える`, me.id);
+      }
       // j（使う人の画面）: 束を一番上の1枚に出す日は、束の届けを「このあと」に重ねない（期限切れの届けは束に入らず、ふり返りが受け持つ）
       if (s.trip?.full && !s.visitTop) {
         for (const t of s.rows) if (BIRTH_TRIP_IDS.has(t.id) && t.status !== "期限切れ") push("j", `twice:${me.id}:${t.id}`, `束の「${t.plain}」が、${me.name}の「このあと」にも出る`, me.id);

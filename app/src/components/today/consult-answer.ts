@@ -8,6 +8,8 @@
 //   頼みにくい     → { has: false, text: "いるけど頼みにくい" }（紙の手帳の「はい／いいえ」では、頼れない＝いいえの側）
 //   今は答えない   → { text: "今は答えない" }（その時期は二度と聞かない印）
 // 話して残した「保健師さんに相談した」などの記録（whom・text だけ）は、相談できる人がいる側に数える。
+import { addDays, addMonths, clockAt, lmpFromDue } from "@/lib/clock";
+import type { Family } from "@/lib/demo-family";
 import type { TechoEntry } from "@/lib/techo";
 
 export type ConsultAnswer = "yes" | "hard" | "no" | "skip";
@@ -65,3 +67,44 @@ export function consultAnswerFor(entries: TechoEntry[], period: { from: string; 
 
 /** 頼れる所を出し続ける答え（いない・頼みにくい） */
 export const needsBridge = (a: ConsultAnswer | null) => a === "no" || a === "hard";
+
+/** 聞く区切り（手帳のページの時期）。from〜to の間に答えがあれば、その区切りは聞かない。label は手帳に残す日本語（出す時に t() で訳す） */
+export interface ConsultPeriod {
+  key: string;
+  label: string;
+  from: string;
+  to: string;
+}
+
+/** 産後の最初の問いを始める日（生まれた日から数えて）。府令様式の保護者の記録「2週間頃」（p.18）に合わせる（家族の声①への直し A・2026-11-05） */
+export const CONSULT_FIRST_AFTER_BIRTH_DAYS = 14;
+
+/**
+ * 今日がどの区切りにいるか（授かる前・2歳を過ぎた後は聞かない）。
+ * 生まれてから14日の間（ようこそ・届けの束の日）は聞かない。産後の最初の区切りは生後14日から1か月の前の日まで。
+ */
+export function consultPeriod(family: Family, today: string): ConsultPeriod | null {
+  const c = clockAt(family, today);
+  if (c.phase === "pregnant") {
+    // 妊娠を届けて手帳をもらうころ（8週ごろ）から聞く
+    if ((c.pregnancyWeek ?? 0) < 8) return null;
+    const lmp = lmpFromDue(family.dueDate);
+    return { key: "pregnancy", label: "妊娠中", from: lmp, to: addDays(family.birthDate ?? addDays(family.dueDate, 14), -1) };
+  }
+  if (c.phase !== "child" || !family.birthDate) return null;
+  const b = family.birthDate;
+  const first = addDays(b, CONSULT_FIRST_AFTER_BIRTH_DAYS);
+  if (today < first) return null;
+  const cuts: [string, string, number, number][] = [
+    ["2w", "産後2週ごろ", 0, 1],
+    ["1m", "1か月", 1, 3],
+    ["3m", "3〜4か月", 3, 6],
+    ["6m", "6〜7か月", 6, 12],
+    ["12m", "1歳", 12, 18],
+    ["18m", "1歳6か月", 18, 24],
+  ];
+  const m = c.ageMonths ?? 0;
+  const hit = cuts.find(([, , a, z]) => m >= a && m < z);
+  if (!hit) return null;
+  return { key: hit[0], label: hit[1], from: hit[0] === "2w" ? first : addMonths(b, hit[2]), to: addDays(addMonths(b, hit[3]), -1) };
+}

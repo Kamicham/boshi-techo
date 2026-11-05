@@ -269,6 +269,13 @@ export default {
   // ── 頼れる所（HelpPlaces・help-rows.ts） ──
   頼れる所: { zh: "可以求助的地方", en: "Places you can turn to" },
   "頼れる所（いつでも開けます）": { zh: "可以求助的地方（随时都能打开）", en: "Places you can turn to (open anytime)" },
+  // 畳んだ1行（家族の声①への直し A・2026-11-05）
+  "{n}か所": { zh: "{n}处", en: "{n} {n:place|places}" },
+  "ほかの頼れる所（{n}か所）": { zh: "其他可以求助的地方（{n}处）", en: "Other places you can turn to ({n})" },
+  相談できる人はいますか: { zh: "有可以商量的人吗？", en: "Do you have someone to talk to?" },
+  "ほかに{n}件": { zh: "另外还有{n}件", en: "{n} more" },
+  "{who}さんの番 {n}件": { zh: "轮到{who}的事 {n}件", en: "{who}'s turn: {n} {n:thing|things}" },
+  "近づいたら出す事 {n}件": { zh: "临近时会显示的事 {n}件", en: "Coming up later: {n} {n:thing|things}" },
   "{city}のこども家庭センター・保健センター": { zh: "{city}的儿童家庭中心（こども家庭センター）、保健中心", en: "{city} Children and Families Center (こども家庭センター) / health center" },
   "妊娠中から子育てまで、何でも聞ける町の窓口です（保健師さんがいます）": {
     zh: "从怀孕到育儿，什么都可以咨询的市区町村窗口（有保健师）",
