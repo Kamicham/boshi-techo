@@ -426,6 +426,84 @@ export default {
   "次の健診の日までに取り替えが済むよう、窓口へ行く日を決める": { zh: "决定去窗口的日子，以便在下次健康检查前换好", en: "Pick a day to go to the counter so the exchange is done before the next checkup" },
   "転入の届けの時に、子どもの手続きも一緒にできるか聞く": { zh: "办迁入申报时，问问能否一起办孩子的手续", en: "When you submit the moving-in notification, ask if you can do your child's procedures at the same time" },
   "転入の届けが済んだか確かめる（引っ越した日から14日以内）": { zh: "确认迁入申报是否已办（搬家之日起14天内）", en: "Check that the moving-in notification is done (within 14 days of the move)" },
+  // 決まりの気づきの、名前・日付の入る文（サーバが頼みの言葉で組み直す＝app/api/advisor/_lib/in-lang.ts。日付は English だけ Jun 22 の形）
+  "{name}の職場に、育休の始まりを{date}に直すと伝える": { zh: "告诉{name}的单位，把育儿休假的开始日改为{date}", en: "Tell {name}'s workplace that childcare leave now starts on {date}" },
+  "職場に、育休の始まりを{date}に直すと伝える": { zh: "告诉单位，把育儿休假的开始日改为{date}", en: "Tell the workplace that childcare leave now starts on {date}" },
+  "{name}の育休を予定日で申し出ていたら、1回だけ早められる（職場に確かめる）": {
+    zh: "如果{name}是按预产期申请的育儿休假，可以提前一次（向单位确认）",
+    en: "If {name} applied for childcare leave from the due date, it can be moved earlier once (check with the workplace)",
+  },
+  "{title}: {date}まで（ほか{n}件も数え直し）": { zh: "{title}：{date}前（另有{n}件也已重新计算）", en: "{title}: by {date} ({n} more {n:deadline|deadlines} recounted too)" },
+  "{title}: {date}まで": { zh: "{title}：{date}前", en: "{title}: by {date}" },
+  "育休の始まりを{date}に数え直しました": { zh: "已把育儿休假的开始日重新算为{date}", en: "Childcare leave now starts on {date}" },
+  "{name}の育休の始まりを{date}に数え直しました": { zh: "已把{name}的育儿休假开始日重新算为{date}", en: "{name}'s childcare leave now starts on {date}" },
+  "予定日より{n}日早く生まれました。": { zh: "比预产期早{n}天出生。", en: "Born {n} {n:day|days} before the due date." },
+  "予定日より{n}日遅く生まれました。": { zh: "比预产期晚{n}天出生。", en: "Born {n} {n:day|days} after the due date." },
+  "産後休業は、生まれた日の翌日から8週間（労働基準法第65条）で、{date}まで。": {
+    zh: "产后休假（産後休業）从出生次日起共8周（劳动基准法第65条），到{date}为止。",
+    en: "Postpartum leave (産後休業) lasts 8 weeks from the day after the birth (Labor Standards Act, Article 65), until {date}.",
+  },
+  "その翌日の{date}から育休が始まります（予定日で数えると{due}で、{n}日早まります）。": {
+    zh: "育儿休假从次日{date}开始（按预产期算是{due}，提前了{n}天）。",
+    en: "Childcare leave starts the next day, {date} ({due} if counted from the due date, so {n} {n:day|days} earlier).",
+  },
+  "その翌日の{date}から育休が始まります（予定日で数えると{due}で、{n}日遅くなります）。": {
+    zh: "育儿休假从次日{date}开始（按预产期算是{due}，推迟了{n}天）。",
+    en: "Childcare leave starts the next day, {date} ({due} if counted from the due date, so {n} {n:day|days} later).",
+  },
+  転入の届けと健診の券の取り替え: { zh: "迁入申报和更换健康检查券", en: "Moving-in notification and checkup vouchers" },
+  "転入の届けと医療証・予防接種": { zh: "迁入申报和医疗证、预防接种", en: "Moving-in notification, medical card and vaccinations" },
+  転入の届け: { zh: "迁入申报", en: "Moving-in notification" },
+  "{from}から{to}へ: {what}": { zh: "从{from}搬到{to}：{what}", en: "From {from} to {to}: {what}" },
+  "{to}へ: {what}": { zh: "搬到{to}：{what}", en: "To {to}: {what}" },
+  "転入の届け: {date}まで（引っ越した日から14日以内）": { zh: "迁入申报：{date}前（搬家之日起14天内）", en: "Moving-in notification: by {date} (within 14 days of the move)" },
+  "{city}の窓口で、健診の券（受診票）の取り替えを確かめる": { zh: "在{city}的窗口确认如何更换健康检查券（受诊票）", en: "At the {city} office, ask about exchanging your checkup vouchers (受診票)" },
+  "{city}の窓口で、子どもの医療証と予防接種の予診票を確かめる": {
+    zh: "在{city}的窗口确认孩子的医疗证和预防接种的预诊表",
+    en: "At the {city} office, ask about your child's medical card and vaccination screening forms",
+  },
+  "{date}に{city}から引っ越しました。": { zh: "{date}从{city}搬了家。", en: "You moved from {city} on {date}." },
+  // 機械で確かめた事（lib/advisor.ts の birthShift・moved が日本語で残した文。factsIn が今の言葉にする）
+  "予定日 {due}、生まれた日 {birth}（予定日との差 {n}日。生まれた日に合わせて日付を数え直す）": {
+    zh: "预产期 {due}，出生日 {birth}（与预产期相差{n}天。按出生日重新计算日期）",
+    en: "Due date {due}, born {birth} ({n} {n:day|days} from the due date; dates are recounted from the birth date)",
+  },
+  "産後休業（労働基準法第65条・生まれた日の翌日から8週間）は {date} まで（予定日で数えると {due} だった）": {
+    zh: "产后休假（劳动基准法第65条，出生次日起8周）到{date}为止（按预产期算是到{due}）",
+    en: "Postpartum leave (Labor Standards Act, Article 65; 8 weeks from the day after the birth) runs until {date} (it would have been {due} counted from the due date)",
+  },
+  "母の育休が始まる日は {date}（予定日で数えると {due}。{n}日早まる）。職場へ伝えた日付の直しが要る": {
+    zh: "妈妈的育儿休假从{date}开始（按预产期算是{due}，提前{n}天）。需要更正告诉单位的日期",
+    en: "Mother's childcare leave starts {date} ({due} counted from the due date; {n} {n:day|days} earlier). The date given to the workplace needs correcting",
+  },
+  "母の育休が始まる日は {date}（予定日で数えると {due}。{n}日遅くなる）。職場へ伝えた日付の直しが要る": {
+    zh: "妈妈的育儿休假从{date}开始（按预产期算是{due}，推迟{n}天）。需要更正告诉单位的日期",
+    en: "Mother's childcare leave starts {date} ({due} counted from the due date; {n} {n:day|days} later). The date given to the workplace needs correcting",
+  },
+  "- {title}（担当の目安: {who}）: {date}まで（あと{n}日）": { zh: "- {title}（大致由{who}负责）：{date}前（还有{n}天）", en: "- {title} (usually {who}): by {date} ({n} {n:day|days} left)" },
+  "{date}に {from} から {to} へ引っ越した（その時: {phase}）": { zh: "{date}从{from}搬到{to}（当时：{phase}）", en: "Moved from {from} to {to} on {date} (at the time: {phase})" },
+  "今日は引っ越して{n}日目": { zh: "今天是搬家后的第{n}天", en: "Today is day {n} since the move" },
+  "産後パパ育休・育休の始まりを予定日で申し出ていた時: 予定日より早く生まれたら、始まる日を1回だけ早められる（育児・介護休業法。申し出は原則1週間前まで。職場に確かめる）": {
+    zh: "如果按预产期申请了产后爸爸育儿休假（出生时育儿休假）或育儿休假：比预产期早出生时，可以把开始日提前一次（育儿·护理休业法。原则上须在1周前提出。向单位确认）",
+    en: "If paternity leave after birth or childcare leave was requested from the due date: when the baby is born early, the start can be moved earlier once (Child Care and Family Care Leave Act; as a rule, ask at least 1 week ahead; check with the workplace)",
+  },
+  "パートナーの育休の申し出は、まだ済みになっていない": { zh: "伴侣的育儿休假申请还没有标为已办", en: "The partner's childcare leave request is not marked done yet" },
+  "生まれた日で数え直した期限:": { zh: "按出生日重新计算的期限：", en: "Deadlines recounted from the birth date:" },
+  母: { zh: "妈妈", en: "Mother" },
+  家族: { zh: "家人", en: "Family" },
+  // 理由の後ろに足す一言（lib/samples.ts の advice）
+  "この体験版では Claude を呼ばず、予定表の決まりだけで書いています。": { zh: "这个体验版不调用 Claude，只按日程表的规则来写。", en: "This trial doesn't call Claude; it is written from the schedule's rules only." },
+  "今日の体験で Claude を使える上限に達したので、予定表の決まりだけで書きました。明日はここを Claude が書きます。": {
+    zh: "今天的体验已达到可使用 Claude 的上限，所以只按日程表的规则来写。明天这里会由 Claude 来写。",
+    en: "Today's Claude limit for the trial has been reached, so this was written from the schedule's rules only. Tomorrow Claude will write this.",
+  },
+  "Claude の鍵を入れると、家族の形（働き方・上の子）も見て、ここを Claude が書きます。": {
+    zh: "放入 Claude 的密钥后，Claude 会结合家庭情况（工作方式、哥哥姐姐）来写这里。",
+    en: "With a Claude key, Claude writes this, also looking at the family's situation (work, older siblings).",
+  },
+  // 文面の相手（AdvisorCard の toIn）と、文面が日本語のままである事の一言
+  "{city}の子育ての窓口": { zh: "{city}的育儿窗口", en: "the {city} childcare office" },
+  "文面は、相手が読む日本語のままです": { zh: "文稿保持日语原文，方便对方阅读", en: "The message stays in Japanese for the person reading it" },
 
   // ── 家族から・手紙・誕生日・1000日（FamilyNews・LetterNews・BirthdayCard・ThousandDays・MilestoneDay） ──
   家族から: { zh: "来自家人", en: "From your family" },

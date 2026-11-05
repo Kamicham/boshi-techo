@@ -9,6 +9,7 @@ import type { Advice } from "@/lib/advisor";
 import { t } from "@/lib/i18n";
 import { Fold } from "../ui";
 import { ADVICE_CLOSED, AdviceDetails } from "./AdvisorCard";
+import { whyParts } from "./why-parts";
 
 interface Closed {
   advice: Advice;
@@ -17,11 +18,7 @@ interface Closed {
 }
 
 /** 理由の1文目（上の札と同じ切り方） */
-const whyHead = (why: string) =>
-  why
-    .split(/(?<=。)|\n/)
-    .map((x) => x.trim())
-    .find(Boolean) ?? "";
+const whyHead = (why: string) => whyParts(why)[0] ?? "";
 
 export function ClosedAdvice({ familyId }: { familyId: string }) {
   const [items, setItems] = useState<Closed[]>([]);
