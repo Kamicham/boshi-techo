@@ -4,7 +4,8 @@
 //  早めに return する書き方だと消えずに edge へ束ねられ、next build が落ちた。2026-11-05）
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    const { sweepTrials } = await import("./instrumentation-node");
+    const { checkMode, sweepTrials } = await import("./instrumentation-node");
+    checkMode();
     sweepTrials();
   }
 }

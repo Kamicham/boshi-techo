@@ -22,7 +22,7 @@ export const POST = route(async (req: Request) => {
   // 聞き取った言葉は Claude に送るので、文字起こし（時間がかかる）の前に同意を確かめる
   assertConsent(h.who);
   const names = [family.childName, ...family.members.map((m) => m.name)].filter(Boolean).join("、");
-  const t = await transcribe(audio, `母子手帳の記録。${names}。妊婦健診、つわり、胎動、母子健康手帳、出生届、保育園。`);
+  const t = await transcribe(audio, `母子手帳の記録。${names}。妊婦健診、つわり、胎動、母子健康手帳、出生届、保育園。`, "note", family.id);
   const text = t.text.trim();
   if (!text) throw new HttpError(422, "声が聞き取れませんでした。もう一度話してみてください");
   try {
