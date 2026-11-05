@@ -3,6 +3,7 @@
 // - ファイルは世帯の鍵で暗号にしてから置く（aad は "<id>:<形>"）
 // - 画像を Claude に渡せるのは、このファイルの mediaForClaude だけ（試験で grep して守る）。家族が1枚ずつ印を付け、同意がある時だけ
 // - 呼ぶ前に必ず lib/access.ts の withHousehold を通す（ctx を受け取る関数は、その世帯の中だけに触れる）
+import { CONSENT_VERSION } from "@/components/settings/consent-texts";
 import "server-only";
 import { execFile } from "node:child_process";
 import fs from "node:fs";
@@ -506,7 +507,7 @@ export function relinkForDate(family: Family | null, data: MediaData, date: stri
  * 通る条件（すべて）:
  * - claude:send の権限がある
  * - その写真に、家族が「Claude に見せる」の印（shareWithClaude）を付けている
- * - 本物の世帯: 写真の本人（無ければ世帯の本人の全員）に、Claude に送る同意（claude_us）がある
+ * - 本物の世帯: 写真の本人（無ければ世帯の本人の全員）に、Claude に送る同意（claude_us）が今の版である（lib/claude.ts の assertConsent と同じ）
  *   作った家族の世帯: 作った写真（made）だけ
  * 渡すのは画面用（長い辺 1568px 以下・メタデータなし）。原本は渡さない。渡した事は操作の記録に残す。
  */
@@ -517,7 +518,7 @@ export async function mediaForClaude(ctx: HouseholdCtx, id: string): Promise<Ant
   if (!row.data.shareWithClaude) throw new HttpError(403, "この写真には「Claude に見せる」の印が付いていません");
   if (ctx.household.kind === "real") {
     const sids = row.subjectId ? [row.subjectId] : ctx.subjects.map((s) => s.id);
-    if (!allConsented(ctx.household.id, sids, "claude_us")) throw new HttpError(403, "Claude に送る同意がまだありません");
+    if (!allConsented(ctx.household.id, sids, "claude_us", CONSENT_VERSION.claude_us)) throw new HttpError(403, "Claude に送る同意がまだありません");
   } else if (!row.data.made) {
     throw new HttpError(403, "作った家族の世帯では、作った写真だけを見せられます");
   }
