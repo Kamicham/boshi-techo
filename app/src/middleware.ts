@@ -2,6 +2,7 @@
 // BOSHI_LOGIN_GATE=1 の時は、ログインの札を持つ人も通し、ログインの画面と API は門の前でも開ける（lib/gate.ts）。
 // 合言葉（BOSHI_PASSCODE）が空なら、今までどおり門は開いたまま。
 import { NextResponse, type NextRequest } from "next/server";
+import { bodyTooBig } from "@/lib/body-limit";
 import { GATE_COOKIE, gateToken, hasSessionCookie, isLoginPath, loginGateOn } from "@/lib/gate";
 import { newTrialId, publicOn, TRIAL_COOKIE, TRIAL_DAYS, trialIdFromCookie } from "@/lib/trial-cookie";
 
@@ -18,6 +19,9 @@ function publicGate(req: NextRequest): NextResponse {
   if (pathname.startsWith("/api/visit") && req.method !== "GET")
     return NextResponse.json({ error: "体験版の健診の録音は準備中です。健診の日の流れは、録音の無い形で見られます" }, { status: 403 });
   if (CLOSED_PAGE.some((r) => r.test(pathname))) return NextResponse.redirect(new URL("/", req.url));
+  // 送る中身の大きさ（写真と声は 32MB、ほかは 1MB）。超えたら中身を読まずに 413（lib/body-limit.ts）
+  const tooBig = bodyTooBig(req.method, pathname, req.headers.get("content-length"));
+  if (tooBig) return NextResponse.json({ error: tooBig }, { status: 413 });
   if (trialIdFromCookie(req.headers.get("cookie"))) return NextResponse.next();
   // 札が無ければ配る。この1回の頼みにも札を付けて通す（サーバが同じ頼みの中で写しを作れるように）
   const id = newTrialId();

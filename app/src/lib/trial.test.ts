@@ -222,6 +222,37 @@ describe("公開版の門", () => {
     expect(again.cookies.get("boshi_try")).toBeUndefined();
   });
 
+  it("送る中身が上限を超えたら、中身を読まずに 413（写真と声は 32MB・ほかは 1MB。技術監査 (5)①）", async () => {
+    const { middleware } = await import("@/middleware");
+    const send = (url: string, n: number) =>
+      middleware(new NextRequest(`${BASE}${url}`, { method: "POST", headers: { cookie: `boshi_try=${A}`, "content-length": String(n) } }));
+    expect((await send("/api/done", 1024 * 1024 + 1)).status).toBe(413);
+    expect((await send("/api/done", 1024 * 1024)).status).toBe(200);
+    expect((await send("/api/media", 32 * 1024 * 1024)).status).toBe(200);
+    const r = await send("/api/media", 32 * 1024 * 1024 + 1);
+    expect(r.status).toBe(413);
+    expect(((await r.json()) as { error: string }).error).toContain("32MB");
+  });
+
+  it("写真と声の手紙は、関所を通ってから中身を読む（よその写しの id なら、中身が壊れていても 404）", async () => {
+    const media = await import("@/app/api/media/route");
+    const letters = await import("@/app/api/letters/route");
+    const broken = (url: string) =>
+      new Request(`${BASE}${url}`, {
+        method: "POST",
+        headers: { "content-type": "multipart/form-data; boundary=x", origin: BASE, "fly-client-ip": "203.0.113.1", cookie: `boshi_try=${A}` },
+        body: "壊れた中身",
+      });
+    // 道に familyId があれば先に関所: 札の持ち主でない写しは 404（中身は読まない）
+    expect((await media.POST(broken(`/api/media?familyId=${B}`))).status).toBe(404);
+    expect((await letters.POST(broken(`/api/letters?familyId=${B}`))).status).toBe(404);
+    // 自分の写し（見本の家族）なら、関所を通ってから中身を読む → 壊れた中身は 400
+    expect((await media.POST(broken("/api/media?familyId=demo-sato"))).status).toBe(400);
+    expect((await letters.POST(broken("/api/letters?familyId=demo-sato"))).status).toBe(400);
+    // 道に familyId の無い古い画面は、今までどおり中身を読んでから関所へ
+    expect((await media.POST(broken("/api/media"))).status).toBe(400);
+  });
+
   it("アカウント・招待・書き出し・シミュレーションの口は閉じ、健診は読むだけ", async () => {
     for (const p of ["/api/auth/sign-in/email-otp", "/api/account/consent", "/api/household", "/api/export", "/api/sim/login"]) expect((await mw(p, { method: "POST", cookie: `boshi_try=${A}` })).status).toBe(404);
     expect((await mw("/api/auth/get-session", { cookie: `boshi_try=${A}` })).status).toBe(200);

@@ -1,6 +1,6 @@
 // 写真を残す: 一覧（GET）と受け取り（POST・multipart）。Claude には何も送らない。
 // 関所は土台の withHousehold（ログイン → 世帯 → 権限）。公開の世帯（作った家族）はログインなしで通る。
-import { route } from "@/lib/api";
+import { formAfterGate, route } from "@/lib/api";
 import { withHousehold } from "@/lib/access";
 import { HttpError } from "@/lib/http-error";
 import { contributorFrom, existingTechoIds, photoDate, purgeExpired, saveUpload, starKey, toClient, type MediaData } from "@/lib/media";
@@ -40,16 +40,9 @@ export const GET = route(async (req: Request) => {
 });
 
 export const POST = route(async (req: Request) => {
-  const q = new URL(req.url).searchParams;
-  let form: FormData;
-  try {
-    form = await req.formData();
-  } catch {
-    throw new HttpError(400, "送られた写真が読めません");
-  }
-  const familyId = form.get("familyId") ?? q.get("familyId");
-  // 家族の記録を書ける人と、みんなの章に足せる人（祖父母など）が通る。足せるだけの人には名乗りを必ず付ける
-  const ctx = await withHousehold(req, familyId, "media:contribute");
+  // 家族の記録を書ける人と、みんなの章に足せる人（祖父母など）が通る。足せるだけの人には名乗りを必ず付ける。
+  // 関所（?familyId=）を通ってから写真を読む（lib/api.ts の formAfterGate）
+  const { ctx, form } = await formAfterGate(req, (id) => withHousehold(req, id, "media:contribute"), "送られた写真が読めません");
   const from = contributorFrom(ctx, typeof form.get("relation") === "string" ? String(form.get("relation")) : null);
   const file = form.get("file");
   if (!(file instanceof Blob) || file.size === 0) throw new HttpError(400, "写真がありません");
