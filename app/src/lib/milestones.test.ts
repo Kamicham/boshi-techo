@@ -81,6 +81,23 @@ describe("家族の形で予定を組み替える", () => {
     expect(s.find((m) => m.id === "birth-registration")?.plain).toBe("出生届を出す（2人分）");
     expect(s.find((m) => m.id === "maternity-leave")?.startDate).toBe("2027-02-02");
   });
+
+  it("双子: 産休の前に済ませる目安（お金の手続きを頼む・退職の日を決める）は、双子の産休（予定日の97日前）より前に締める", () => {
+    const plan = (situation: Situation) => scheduleFor({ dueDate: due, situation, members: both });
+    const at = (s: ReturnType<typeof plan>, id: string) => s.find((m) => m.id === id)!;
+    const twins = plan({ babies: 2, motherWork: "会社員・公務員" });
+    const twinsQuit = plan({ babies: 2, motherWork: "出産で辞める" });
+    const leave = at(twins, "maternity-leave").startDate;
+    expect(leave).toBe("2027-02-02");
+    expect(at(twins, "leave-money-request").deadlineDate).toBe("2027-02-01");
+    expect(at(twins, "leave-money-request").startDate < "2027-02-01").toBe(true);
+    expect(at(twinsQuit, "mother-quit-date").deadlineDate! < at(twinsQuit, "maternity-leave").startDate).toBe(true);
+    // 一言は40字まで（早送りの決まり d）
+    for (const s of [twins, twinsQuit]) for (const m of s) expect(m.hint.length).toBeLessThanOrEqual(40);
+    // 1人の家族は今までどおり（予定日の42日前・妊娠28週）
+    expect(at(plan({ motherWork: "会社員・公務員" }), "leave-money-request").deadlineDate).toBe("2027-03-29");
+    expect(at(plan({ motherWork: "出産で辞める" }), "mother-quit-date").deadlineDate).toBe("2027-02-15");
+  });
 });
 
 describe("時期", () => {
