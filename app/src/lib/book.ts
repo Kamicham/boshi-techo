@@ -83,6 +83,8 @@ export interface Book extends BookContent {
   rules?: number;
   /** 見本の家族に同梱した、Claude が前に書いた一冊（lib/demo-books.json）。作り直すまで出す */
   bundled?: boolean;
+  /** 同梱した一冊を書いた者。API を呼ばずに Claude Code が書いた時だけ（demo-books.json の writer）。無ければ API で Claude が書いた */
+  writer?: string;
   /** 読む時に付ける: 前の決まりで作られ、今は入れない記録（気がかり）が入っているかもしれない */
   outdated?: boolean;
 }
