@@ -313,4 +313,27 @@ export default {
     zh: "错误次数太多，请等10分钟左右再输入",
     en: "Too many wrong tries. Please wait about 10 minutes and try again",
   },
+
+  // ── 急ぎの時の画面で引く、ほかの画面と同じ鍵（2026-11-05 に today.ts から移した。訳は前のまま）──
+  // この画面は作る時に1回だけ組み立てる（通信が無くても開けるよう）ので、根の layout はクッキーを読めず日本語の辞書で描く。
+  // 画面の側で端末の言葉を読み、lib/i18n/emergency-dict.ts（core.ts とこの辞書の分だけ）で描き直す（app/emergency/EmergencyLang.tsx）。
+  // そのため、この画面で引く鍵は、今日の画面の札・頼れる所と同じ鍵もここに置く（試験 emergency-dict.test.ts）。
+  電話する: { zh: "打电话", en: "Call" },
+  "赤ちゃんが泣きやまない時": { zh: "宝宝哭个不停时", en: "When your baby won't stop crying" },
+  "子どもの事で、受診するか迷う時（夜や休みの日）": { zh: "孩子的事拿不准要不要就医时（晚上或休息日）", en: "When you're unsure whether your child needs to see a doctor (nights and days off)" },
+  "「出産や子育てに悩んだ時は、こちらにお電話ください。」（こども家庭庁・無料）": {
+    zh: "“生育或育儿有烦恼时，请拨打这个电话。”（儿童家庭厅，免费）",
+    en: "“If you are struggling with childbirth or raising a child, please call here.” (Children and Families Agency, free)",
+  },
+  "{instead} につながらない時は、{tel}（{where}の窓口）にかける": { zh: "{instead} 打不通时，拨打 {tel}（{where}的窗口）", en: "If {instead} doesn't connect, call {tel} ({where} line)" },
+  つながらない時は: { zh: "打不通时", en: "If it doesn't connect:" },
+  妊娠中: { zh: "孕期", en: "Pregnancy" },
+  "赤ちゃんが泣いても、誰が悪いわけでもないのです。": { zh: "宝宝哭，并不是谁的错。", en: "When a baby cries, it is no one's fault." },
+  "これまでの研究で、関わり方によらず生後1-2か月に泣きのピークがあることがわかりました。": { zh: "以往的研究发现，无论怎样照顾，宝宝的哭闹都会在出生后1-2个月时达到高峰。", en: "Research so far has found that crying peaks at 1-2 months after birth, no matter how the baby is cared for." },
+  "いろいろ試しても泣きやまない。それでも問題ありません。": { zh: "试了各种办法还是哭个不停。即使这样也没有问题。", en: "You try all sorts of things, and the crying still won't stop. Even so, that's not a problem." },
+  "その時は、赤ちゃんを安全な場所に寝かせて、その場を離れましょう。": { zh: "这时，把宝宝放在安全的地方躺好，离开那里吧。", en: "When that happens, lay your baby down in a safe place and step away." },
+  "そして自分がリラックスしましょう。": { zh: "然后让自己放松一下吧。", en: "Then let yourself relax." },
+  "少ししたら、戻って赤ちゃんの様子を確認しましょう。": { zh: "过一会儿，再回去看看宝宝的情况吧。", en: "After a little while, go back and check on your baby." },
+  "無理に泣きやませようと激しく揺さぶらないでください。": { zh: "请不要为了强行让宝宝停止哭泣而剧烈摇晃宝宝。", en: "Please do not shake your baby violently to try to force them to stop crying." },
+  "また、泣き声が周囲に聞こえないようにと赤ちゃんの口をふさがないでください。": { zh: "另外，请不要为了不让周围听到哭声而捂住宝宝的嘴。", en: "Also, please do not cover your baby's mouth to keep others from hearing the crying." },
 } satisfies Entries;
