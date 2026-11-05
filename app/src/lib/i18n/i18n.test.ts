@@ -35,7 +35,14 @@ describe("言葉の選び方", () => {
     // クッキーはいつも先
     expect(detectLang("en", "ja,zh", true)).toBe("en");
   });
-  it("ブラウザの言葉に従わない間は、選んだ人（クッキー）だけ", () => {
+  it("既定ではブラウザの言葉にも従う（健診の訳が入った 11/5 夕から。クッキーが先・日本語が一覧にあれば日本語）", () => {
+    expect(detectLang(undefined, "zh-CN,zh;q=0.9")).toBe("zh");
+    expect(detectLang(undefined, "en-US,en;q=0.9")).toBe("en");
+    expect(detectLang(undefined, "zh-Hans-JP,ja-JP;q=0.9")).toBe("ja");
+    expect(detectLang("ja", "zh-CN")).toBe("ja");
+    expect(detectLang(undefined, null)).toBe("ja");
+  });
+  it("ブラウザの言葉に従わない時（followBrowser = false）は、選んだ人（クッキー）だけ", () => {
     expect(detectLang(undefined, "zh-CN", false)).toBe("ja");
     expect(detectLang("en", "zh-CN", false)).toBe("en");
   });
