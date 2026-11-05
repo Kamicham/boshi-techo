@@ -160,10 +160,11 @@ export default {
     zh: "母子健康手册的大便颜色卡上写着：“{note}”",
     en: "The stool color card in the Maternal and Child Health Handbook says: “{note}”",
   },
+  // 便色カードの全文。答えでは「母子手帳の便色カードには「{note}」と…」の中に入るので、中の引用は ‘ ’（日本語の『』と同じ入れ子）
   "『1番～3番に近い色だと思う』『4番～7番だったのが1番～3番に近くなった』どちらかが当てはまるときは、胆道閉鎖症などの病気の可能性がありますので、1日も早く小児科医、小児外科医等の診察を受けてください。生後4か月くらいまでは、うんちの色に注意が必要です。生後2週を過ぎても皮膚や白目(しろめ)が黄色い場合、おしっこが濃い黄色の場合にも、すぐに医師等に相談しましょう。":
     {
-      zh: "“我觉得颜色接近1号到3号”“原来是4号到7号，现在变得接近1号到3号”，只要符合其中一项，就有可能是胆道闭锁症等疾病，请尽早到儿科医生、小儿外科医生等处就诊。出生后4个月左右以前，要注意大便的颜色。出生满2周后，如果皮肤或眼白仍然发黄，或者小便是深黄色，也请马上向医生等咨询。",
-      en: "If either “I think the color is close to No. 1 to 3” or “It was No. 4 to 7 but has become close to No. 1 to 3” applies, it may be a disease such as biliary atresia, so see a pediatrician, pediatric surgeon, or similar doctor as soon as possible. Until about 4 months after birth, pay attention to the color of the stool. If the skin or the whites of the eyes are still yellow after 2 weeks of age, or if the urine is dark yellow, also consult a doctor right away.",
+      zh: "‘我觉得颜色接近1号到3号’‘原来是4号到7号，现在变得接近1号到3号’，只要符合其中一项，就有可能是胆道闭锁症等疾病，请尽早到儿科医生、小儿外科医生等处就诊。出生后4个月左右以前，要注意大便的颜色。出生满2周后，如果皮肤或眼白仍然发黄，或者小便是深黄色，也请马上向医生等咨询。",
+      en: "If either ‘I think the color is close to No. 1 to 3’ or ‘It was No. 4 to 7 but has become close to No. 1 to 3’ applies, it may be a disease such as biliary atresia, so see a pediatrician, pediatric surgeon, or similar doctor as soon as possible. Until about 4 months after birth, pay attention to the color of the stool. If the skin or the whites of the eyes are still yellow after 2 weeks of age, or if the urine is dark yellow, also consult a doctor right away.",
     },
   "迷う時は #8000。": { zh: "拿不准时，请拨打 #8000。", en: "If you're unsure, call #8000." },
   "話してくれてありがとう。ひとりで抱えなくていいです。今すぐ危ない時は110番。DV相談＋は24時間、電話で話せます（通話料はかかりません）。": {
