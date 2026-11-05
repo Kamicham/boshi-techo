@@ -25,9 +25,10 @@ import {
   type GrowthSex,
 } from "@/lib/growth";
 import { t } from "@/lib/i18n";
+import { isMadeId } from "@/lib/i18n/names";
 import { GROWTH_NOTE } from "@/lib/techo";
 import { GrowthLines, type GrowthLine } from "./GrowthLines";
-import { jpDay } from "./labels";
+import { jpDay, whoIn } from "./labels";
 import { PhotoSlot } from "./TechoPhotos";
 import type { TechoItem } from "./useTecho";
 
@@ -140,15 +141,18 @@ export function GrowthChart({ items, onAdd }: { items: TechoItem[]; onAdd: (valu
   const beforeZero = drawn.reduce((n, l) => n + l.points.filter((p) => p.month < 0).length, 0);
   // 下の一覧（日付の順。双子などは誰の点かを添える）
   const twins = lines.length > 1;
+  // 線と一覧と選び札に出す子の呼び名（「ゆい・りん（1人目）」の形も）は、今の言葉で。保存する who は日本語のまま
+  const made = isMadeId(family.id);
+  const shownLines = useMemo(() => drawn.map((l) => ({ ...l, label: whoIn(l.label, made) })), [drawn, made]);
   const listed = useMemo(() => lines.flatMap((l) => l.points.map((p) => ({ ...p, who: l.label }))).sort((a, b) => a.date.localeCompare(b.date)), [lines]);
 
   if (!birth) {
-    return <p className="text-base text-muted">生まれた日が入ると、ここに曲線が出ます（設定の「生まれた日」）。</p>;
+    return <p className="text-base text-muted">{t("生まれた日が入ると、ここに曲線が出ます（設定の「生まれた日」）。")}</p>;
   }
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex gap-2" role="tablist" aria-label="何の曲線を見るか">
+      <div className="flex gap-2" role="tablist" aria-label={t("何の曲線を見るか")}>
         {(["weight", "height", "head"] as const).map((m) => (
           <button
             key={m}
@@ -158,14 +162,14 @@ export function GrowthChart({ items, onAdd }: { items: TechoItem[]; onAdd: (valu
             onClick={() => setMeasure(m)}
             className={`min-h-11 flex-1 rounded-full border text-base font-semibold ${measure === m ? "border-rose bg-rose-soft text-rose" : "border-line bg-card text-muted"}`}
           >
-            {GROWTH_LABELS[m]}
+            {t(GROWTH_LABELS[m])}
           </button>
         ))}
       </div>
 
       {preterm && (
         <div className="flex flex-col gap-1 rounded-xl bg-paper p-3">
-          <div className="flex gap-2" role="tablist" aria-label="月齢の数え方">
+          <div className="flex gap-2" role="tablist" aria-label={t("月齢の数え方")}>
             {([false, true] as const).map((c) => (
               <button
                 key={String(c)}
@@ -175,19 +179,19 @@ export function GrowthChart({ items, onAdd }: { items: TechoItem[]; onAdd: (valu
                 onClick={() => setCorrected(c)}
                 className={`min-h-11 flex-1 rounded-full border text-base font-semibold ${corrected === c ? "border-rose bg-rose-soft text-rose" : "border-line bg-card text-muted"}`}
               >
-                {c ? "修正月齢で見る" : "生まれた日から"}
+                {c ? t("修正月齢で見る") : t("生まれた日から")}
               </button>
             ))}
           </div>
           <p className="text-sm text-muted">
-            出産の記録の週数（{Math.floor(gest)}週{Math.round((gest % 1) * 7) ? `${Math.round((gest % 1) * 7)}日` : ""}）から、予定日より早かった分を引いて数えます。{CORRECTED_NOTE}
+            {t("出産の記録の週数（{weeks}）から、予定日より早かった分を引いて数えます。{note}", { weeks: gestWords(gest), note: t(CORRECTED_NOTE) })}
           </p>
-          {corrected && beforeZero > 0 && <p className="text-sm text-muted">予定日より前の{beforeZero}件は曲線の外です（下の一覧には出ます）。</p>}
+          {corrected && beforeZero > 0 && <p className="text-sm text-muted">{t("予定日より前の{n}件は曲線の外です（下の一覧には出ます）。", { n: beforeZero })}</p>}
         </div>
       )}
 
       {/* 帯の男女がまだ決まっていない時（読んでいる間も）は、帯なしで点と線を描く（選ばせない） */}
-      <GrowthLines measure={measure} sex={sex ?? null} lines={drawn} corrected={shift > 0} showMid={showMid} />
+      <GrowthLines measure={measure} sex={sex ?? null} lines={shownLines} corrected={shift > 0} showMid={showMid} />
       {sex === null && (
         <p className="flex flex-wrap items-center gap-x-3 text-sm text-muted">
           <span>{t("帯を見る:")}</span>
@@ -203,27 +207,26 @@ export function GrowthChart({ items, onAdd }: { items: TechoItem[]; onAdd: (valu
         <>
           <label className="flex min-h-11 items-center gap-2 self-start text-sm text-muted">
             <input type="checkbox" checked={showMid} onChange={(e) => setShowMid(e.target.checked)} className="size-5" />
-            真ん中の線も見る
+            {t("真ん中の線も見る")}
           </label>
           <p className="flex flex-wrap items-center gap-x-3 text-sm text-muted">
-            <span>{sex === "boy" ? "男の子" : "女の子"}の帯</span>
+            <span>{t(sex === "boy" ? "男の子の帯" : "女の子の帯")}</span>
             <button type="button" className="min-h-11 underline" onClick={() => chooseSex(sex === "boy" ? "girl" : "boy")}>
-              {sex === "boy" ? "女の子" : "男の子"}の帯にする
+              {t(sex === "boy" ? "女の子の帯にする" : "男の子の帯にする")}
             </button>
           </p>
         </>
       )}
 
-      <p className="rounded-xl bg-sky-soft px-3 py-2 text-base">{GROWTH_NOTE}</p>
+      <p className="rounded-xl bg-sky-soft px-3 py-2 text-base">{t(GROWTH_NOTE)}</p>
 
       {listed.length > 0 && (
         <ul className="flex flex-col gap-0.5 text-base">
           {listed.map((p) => (
             <li key={`${p.who}-${p.date}-${p.value}`} className="flex min-h-11 items-center justify-between gap-2">
               <span>
-                {twins && <span className="text-muted">{p.who} </span>}
-                {jpDay(p.date)}　{GROWTH_LABELS[measure]} {Math.round(p.value * 100) / 100}
-                {GROWTH_UNITS[measure]}
+                {twins && <span className="text-muted">{whoIn(p.who, made)} </span>}
+                {jpDay(p.date)}　{t("{label} {value}", { label: t(GROWTH_LABELS[measure]), value: `${Math.round(p.value * 100) / 100}${GROWTH_UNITS[measure]}` })}
               </span>
               <PhotoSlot
                 techoIds={items
@@ -236,16 +239,20 @@ export function GrowthChart({ items, onAdd }: { items: TechoItem[]; onAdd: (valu
         </ul>
       )}
 
-      <AddFromPaper today={today} onAdd={onAdd} whos={twins ? lines.map((l) => l.label) : []} />
+      <AddFromPaper today={today} onAdd={onAdd} whos={twins ? lines.map((l) => l.label) : []} made={made} />
 
-      <Why label="帯の出どころ">
+      <Why label={t("帯の出どころ")}>
         <p>
-          {GROWTH_SOURCE.title}（{GROWTH_SOURCE.year}年調査・{GROWTH_SOURCE.published.slice(0, 4)}年公表）の、3・50・97 パーセンタイル値。帯は、同じ月齢の子の94%が入る幅（3〜97パーセンタイル）です。小さく生まれた子は、その子の線の伸びで見ます。
+          {t("{title}（{year}年調査・{published}年公表）の、3・50・97 パーセンタイル値。帯は、同じ月齢の子の94%が入る幅（3〜97パーセンタイル）です。小さく生まれた子は、その子の線の伸びで見ます。", {
+            title: t(GROWTH_SOURCE.title),
+            year: GROWTH_SOURCE.year,
+            published: GROWTH_SOURCE.published.slice(0, 4),
+          })}
         </p>
-        <p>{GROWTH_APPROX_NOTE}</p>
+        <p>{t(GROWTH_APPROX_NOTE)}</p>
         <p>
           <a href={GROWTH_SOURCE.url} target="_blank" rel="noreferrer" className="underline">
-            こども家庭庁のページ
+            {t("こども家庭庁のページ")}
           </a>
         </p>
       </Why>
@@ -258,11 +265,14 @@ function AddFromPaper({
   today,
   onAdd,
   whos,
+  made,
 }: {
   today: string;
   onAdd: (values: Record<string, number>, date: string, who?: string) => Promise<void>;
   /** 双子などの時の子の呼び名（どの子の数字かを選ぶ。1人の時は空） */
   whos: string[];
+  /** 作った家族か（子の呼び名を今の言葉で出す時に使う） */
+  made: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState(today);
@@ -278,10 +288,10 @@ function AddFromPaper({
     return (
       <div className="grid grid-cols-2 gap-2">
         <Btn kind="secondary" full onClick={() => setOpen(true)}>
-          打って入れる
+          {t("打って入れる")}
         </Btn>
         <Btn kind="secondary" full href="/capture">
-          話す・撮る
+          {t("話す・撮る")}
         </Btn>
       </div>
     );
@@ -296,7 +306,7 @@ function AddFromPaper({
     if (phd > 0) values.headCm = phd;
     if (Object.keys(values).length === 0) {
       setFailed(false);
-      setError("数字を1つ以上入れてください");
+      setError(t("数字を1つ以上入れてください"));
       return;
     }
     if (whos.length > 1 && !whos.includes(who)) {
@@ -323,7 +333,7 @@ function AddFromPaper({
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-line p-3">
       <label className="flex flex-col gap-1 text-sm text-muted">
-        測った日
+        {t("測った日")}
         <input type="date" value={date} max={today} onChange={(e) => setDate(e.target.value)} className={field} />
       </label>
       {whos.length > 1 && (
@@ -333,7 +343,7 @@ function AddFromPaper({
             {whos.map((w) => (
               <label key={w} className={`flex min-h-11 items-center gap-2 rounded-full border px-3 text-base ${who === w ? "border-rose bg-rose-soft" : "border-line bg-card"}`}>
                 <input type="radio" name="growth-who" value={w} checked={who === w} onChange={() => setWho(w)} className="size-4" />
-                {w}
+                {whoIn(w, made)}
               </label>
             ))}
           </div>
@@ -341,33 +351,45 @@ function AddFromPaper({
       )}
       <div className="grid grid-cols-3 gap-2">
         <label className="flex flex-col gap-1 text-sm text-muted">
-          体重（kg）
-          <input inputMode="decimal" value={w} onChange={(e) => setW(e.target.value)} className={field} placeholder="例 6.2" />
+          {withUnit(t("体重"), "kg")}
+          <input inputMode="decimal" value={w} onChange={(e) => setW(e.target.value)} className={field} placeholder={t("例 6.2")} />
         </label>
         <label className="flex flex-col gap-1 text-sm text-muted">
-          身長（cm）
+          {withUnit(t("身長"), "cm")}
           <input inputMode="decimal" value={h} onChange={(e) => setH(e.target.value)} className={field} />
         </label>
         <label className="flex flex-col gap-1 text-sm text-muted">
-          頭囲（cm）
+          {withUnit(t("頭囲"), "cm")}
           <input inputMode="decimal" value={hd} onChange={(e) => setHd(e.target.value)} className={field} />
         </label>
       </div>
-      <p className="text-sm text-muted">紙に書いてある数字だけを入れてください。分からない欄は空のままで。</p>
+      <p className="text-sm text-muted">{t("紙に書いてある数字だけを入れてください。分からない欄は空のままで。")}</p>
       {error &&
         (failed ? (
-          <Notice title="手帳に届きませんでした" safe="入れた数字は消えていません。もう一度「入れる」を押してください。" detail={error} />
+          <Notice title={t("手帳に届きませんでした")} safe={t("入れた数字は消えていません。もう一度「入れる」を押してください。")} detail={error} />
         ) : (
           <p className="text-sm font-semibold">{error}</p>
         ))}
       <div className="flex gap-2">
         <Btn onClick={() => void save()} disabled={busy}>
-          {busy ? "入れています…" : "入れる"}
+          {busy ? t("入れています…") : t("入れる")}
         </Btn>
         <Btn kind="quiet" onClick={() => setOpen(false)}>
-          やめる
+          {t("やめる")}
         </Btn>
       </div>
     </div>
   );
+}
+
+/** 在胎週（35.4 など）を「35週3日」の言い方に（0日は書かない） */
+function gestWords(gest: number): string {
+  const w = Math.floor(gest);
+  const d = Math.round((gest % 1) * 7);
+  return d ? t("{w}週{d}日", { w, d }) : t("{w}週", { w });
+}
+
+/** 「体重（kg）」の札（欄の名前は訳した物を渡す。単位は記号のまま） */
+function withUnit(label: string, unit: string): string {
+  return `${label}${t("（{x}）", { x: unit })}`;
 }
