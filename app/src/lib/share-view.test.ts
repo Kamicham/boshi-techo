@@ -175,6 +175,9 @@ describe("健診で見せる1枚の決まり（lib/share-view.ts）", () => {
       expect(shareView(MANUAL, { viewer, bundles: ["next"] }).next, viewer).toEqual({ date: "2026-11-20", time: "10:30" });
     }
     expect(JSON.stringify(shareView(INPUT, { viewer: "mother", bundles: ALL }))).not.toContain("2026-11-20");
+    // 本人が結果の画面で確かめた日（口が nextChecked を付ける）は出る。印が false・無い時は出ない
+    expect(shareView({ ...INPUT, nextChecked: true }, { viewer: "mother", bundles: ["next"] }).next).toEqual({ date: "2026-11-20", time: "10:30" });
+    expect(shareView({ ...INPUT, nextChecked: false }, { viewer: "mother", bundles: ["next"] }).next).toBeNull();
   });
 
   it("つらい別れの家族には、週数を出さない（体の図の束は空・RS の回の妊娠週数も出さない）", () => {

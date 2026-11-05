@@ -1,9 +1,12 @@
 "use client";
 
 // 前日と当日の「今やる1つ」: 明日 11:30 健診。持ち物と聞く事は件数だけ出し、押すと開く。
+// 録音から聞こえただけで、まだ本人が確かめていない日（next.heard）も声かけは出す。「録音から聞こえた日・まだ確かめていません」と［確かめる］を添える
+// （2026-11-05 作り手の決め: 確かめなくても手帳は止まらない。カレンダー・LINE・共有の文は「大丈夫」の後だけ）
 import { clockAt } from "@/lib/clock";
 import type { Family } from "@/lib/demo-family";
-import { NextStep, Why } from "@/components/ui";
+import { t } from "@/lib/i18n";
+import { Btn, NextStep, Why } from "@/components/ui";
 import { bringList, briefingDay, type AgendaItem, type VisitPlan } from "@/lib/visit";
 
 export function Briefing({
@@ -31,7 +34,13 @@ export function Briefing({
     <NextStep
       eyebrow={[when === "eve" ? "前の日" : "今日", week, whose].filter(Boolean).join("・")}
       title={`${when === "eve" ? "明日" : "今日"}${next.time ? ` ${next.time}` : ""} 健診`}
+      sub={next.heard ? t("録音から聞こえた日・まだ確かめていません") : undefined}
     >
+      {next.heard && next.visitId && (
+        <Btn kind="secondary" href={`/visit/${next.visitId}`}>
+          {t("確かめる")}
+        </Btn>
+      )}
       {children}
       <div className="flex w-full flex-wrap gap-x-4">
         <Why label={`持ち物 ${bring.length}`}>

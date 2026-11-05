@@ -70,8 +70,13 @@ export interface VisitData {
   takes?: Take[];
   transcript?: VisitTranscript;
   result?: Organized;
-  /** 結果から計算した次の予約日 */
+  /**
+   * 次の予約日。整理の直後は録音から聞こえた日（result.nextAppointment から計算）。
+   * 本人が確かめた後は確かめた日（直した日）、「言われていない」なら null（lib/visit-next.ts）
+   */
   nextDate?: string | null;
+  /** 次の健診の日を本人が確かめたか（無い＝まだ確かめていない。2026-11-05 作り手の方針「最後の確かめと OK は本人」） */
+  nextCheck?: NextCheck;
   agenda?: AgendaItem[];
   guide?: { steps: GuideStep[]; done: number[]; at: string; unsure?: string | null };
   demo?: boolean;
@@ -79,13 +84,30 @@ export interface VisitData {
   carried?: { prevCarriedFrom?: string; concerns: VisitPlan["concerns"] };
 }
 
-/** 画面が受け取る健診1回分 */
-export type VisitView = VisitData & { id: string; familyId: string; running?: boolean };
+/**
+ * 次の健診の日の確かめ（結果の画面の1問の答え）。
+ * - ok: 聞こえた日で大丈夫 / fixed: 本人が直した / none: 次の日は言われていない
+ * - date・time は ok・fixed の時の、本人が確かめた日と時刻（整理をやり直しても上書きしない）
+ * - by は端末で選んだ人の名前（わが家の置き場はアカウントが無く、サーバには誰が押したか分からないため）。account はアカウントがある時だけ
+ */
+export interface NextCheck {
+  state: "ok" | "fixed" | "none";
+  date?: string | null;
+  time?: string | null;
+  /** 押した時刻（ISO） */
+  at: string;
+  by?: string | null;
+  account?: string | null;
+}
+
+/** 画面が受け取る健診1回分（canWrite: 確かめのボタンを出してよいか） */
+export type VisitView = VisitData & { id: string; familyId: string; running?: boolean; canWrite?: boolean };
 
 /** 次の予約と、家族の気がかり（家族ごとに1つ。id = visit-plan:<家族>） */
 export interface VisitPlan {
   kind: "plan";
-  next?: { date: string; time?: string | null; source: "manual" | "visit"; visitId?: string; said?: string } | null;
+  /** heard: 録音から聞こえた日で、まだ本人が確かめていない（読む時に付ける印。保存しない＝lib/visit-next.ts の withHeard） */
+  next?: { date: string; time?: string | null; source: "manual" | "visit"; visitId?: string; said?: string; heard?: boolean } | null;
   /** for: "child" は子の健診で聞く事（ママの健診の聞く事には入れない。健診のタブの子の欄に並ぶ） */
   concerns: { id: string; text: string; date: string; for?: "child" | "mother" }[];
   /** 前回の質問を、どの健診まで持ち越したか */
@@ -422,12 +444,33 @@ export function autoStage(v: Pick<VisitData, "status" | "takes" | "guide" | "tra
   return "arrive";
 }
 
-/** 家族へ送る短い文（3行のまとめ＋次の予約）。評価は足さない */
-export function familyMessage(v: Pick<VisitData, "date" | "label" | "result" | "nextDate">, jp: (d: string) => string): string {
+/** 本人が「大丈夫」か「直す」で確かめたか（「言われていない」は日が無いので入れない） */
+export function isChecked(c: NextCheck | null | undefined): c is NextCheck & { state: "ok" | "fixed"; date: string } {
+  return !!c && (c.state === "ok" || c.state === "fixed") && !!c.date;
+}
+
+/**
+ * この健診から出た次の健診の日と時刻。checked: 本人が確かめた日か（false は録音から聞こえただけの日）。
+ * 確かめた日は nextCheck、まだなら nextDate と聞こえた時刻。「言われていない」は null
+ */
+export function nextOfVisit(v: Pick<VisitData, "nextDate" | "nextCheck" | "result">): { date: string; time: string | null; checked: boolean } | null {
+  const c = v.nextCheck;
+  if (c?.state === "none") return null;
+  if (isChecked(c)) return { date: c.date, time: c.time ?? null, checked: true };
+  if (!v.nextDate) return null;
+  return { date: v.nextDate, time: v.result?.nextAppointment?.time ?? null, checked: false };
+}
+
+/**
+ * 家族へ送る短い文（3行のまとめ＋次の予約）。評価は足さない。
+ * 次の予約は、本人が確かめた日だけ入れる（録音から聞こえただけの日を家族へ広げない。2026-11-05 作り手の方針）
+ */
+export function familyMessage(v: Pick<VisitData, "date" | "label" | "result" | "nextDate" | "nextCheck">, jp: (d: string) => string): string {
   const r = v.result;
   const lines = [`${jp(v.date)}の健診（${v.label}）`];
   for (const s of (r?.summary ?? []).slice(0, 3)) lines.push(`・${s}`);
-  if (v.nextDate) lines.push(`次の健診: ${jp(v.nextDate)}${r?.nextAppointment?.time ? ` ${r.nextAppointment.time}` : ""}`);
+  const n = nextOfVisit(v);
+  if (n?.checked) lines.push(`次の健診: ${jp(n.date)}${n.time ? ` ${n.time}` : ""}`);
   return lines.join("\n");
 }
 
@@ -442,13 +485,14 @@ export function clip(s: string, n: number): string {
   return t.length > n ? `${t.slice(0, n - 1)}…` : t;
 }
 
-/** LINE に渡す、さらに短い文: 「11/5 健診（妊娠28週）」＋まとめ2行（40字まで）＋次の健診 */
-export function lineMessage(v: Pick<VisitData, "date" | "label" | "result" | "nextDate">): string {
+/** LINE に渡す、さらに短い文: 「6/10 健診（妊娠28週）」＋まとめ2行（40字まで）＋次の健診（本人が確かめた日だけ） */
+export function lineMessage(v: Pick<VisitData, "date" | "label" | "result" | "nextDate" | "nextCheck">): string {
   const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
   const r = v.result;
   const lines = [`${md(v.date)} 健診（${v.label}）`];
   for (const s of (r?.summary ?? []).slice(0, 2)) lines.push(clip(s, SUMMARY_LINE));
-  if (v.nextDate) lines.push(`次は ${md(v.nextDate)}${r?.nextAppointment?.time ? ` ${r.nextAppointment.time}` : ""}`);
+  const n = nextOfVisit(v);
+  if (n?.checked) lines.push(`次は ${md(n.date)}${n.time ? ` ${n.time}` : ""}`);
   return lines.join("\n");
 }
 

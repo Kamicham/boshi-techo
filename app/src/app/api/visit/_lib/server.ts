@@ -29,10 +29,14 @@ import {
   takeDirName,
   transcriptForPrompt,
   visitLabel,
+  nextOfVisit,
+  type NextCheck,
   type Take,
   type VisitData,
   type VisitPlan,
 } from "@/lib/visit";
+import { afterCheck, afterOrganize, planNextAfterDelete } from "@/lib/visit-next";
+import { fromDay, toDay } from "@/lib/clock";
 import { recordViewerOf } from "@/lib/mother-records";
 import { familyFor, type FamilyAccess, type HouseholdAccess } from "../../_lib/household";
 
@@ -265,19 +269,15 @@ async function runPipeline(id: string, reuseTranscript: boolean, who: SendWho) {
       who,
       task: "visit-organize",
     });
-    const nextDate = result.nextAppointment ? resolveAppointmentDate(v.data.date, result.nextAppointment) : null;
-    patch<VisitData>(id, { result, nextDate, status: "done", processingSince: undefined, failedAt: undefined });
-    if (nextDate) {
-      const plan = getPlan(v.familyId);
-      const n = plan.next;
-      // 手で入れた先の予約は残す。前の健診で決まった予約（今日以前）なら、今日の話で置き換える
-      if (!n || n.date <= v.data.date || n.visitId === id) {
-        savePlan(v.familyId, {
-          ...plan,
-          next: { date: nextDate, time: result.nextAppointment?.time ?? null, source: "visit", visitId: id, said: result.nextAppointment?.said },
-        });
-      }
-    }
+    // 録音から聞こえた次の予約日。本人が確かめた日は上書きしない・聞こえなくなったら確かめていない予約は外す（lib/visit-next.ts の afterOrganize）
+    const heardDate = result.nextAppointment ? resolveAppointmentDate(v.data.date, result.nextAppointment) : null;
+    const heard = heardDate ? { date: heardDate, time: result.nextAppointment?.time ?? null, said: result.nextAppointment?.said } : null;
+    // 整理の間に家族が確かめたかもしれないので、書く直前に読み直す
+    const cur = requireVisit(id);
+    const plan = getPlan(v.familyId);
+    const out = afterOrganize({ id, date: cur.data.date, nextDate: cur.data.nextDate, nextCheck: cur.data.nextCheck }, heard, plan.next);
+    patch<VisitData>(id, { result, nextDate: out.nextDate, nextCheck: out.nextCheck, status: "done", processingSince: undefined, failedAt: undefined });
+    if (out.planNext !== (plan.next ?? null)) savePlan(v.familyId, { ...plan, next: out.planNext });
   } catch (e) {
     console.error("[visit]", e);
     const msg = friendlyError(e);
@@ -308,7 +308,7 @@ const ORGANIZE_SYSTEM = `あなたの役目: 妊婦健診・乳幼児健診の�
 - terms: 家族が分からなかったかもしれない専門用語（子宮頸管長・頭位・推定体重など）。plain は「それが何か／何を測るものか」だけを、中学生に話すような言葉で1〜2文。今回の値が良いか悪いか、心配かどうかは書かない。
 - questions: 話の中で意味が残った所（説明が途中で終わった・理由が言われなかった・家族が聞き返しそびれた）を、次に家族が先生へ聞ける質問の形にする。体の判断を求める形ではなく「〜はどういう意味ですか」「〜の時はどうすればいいですか」のように。
 - answered: 「今日聞く予定だった事」の一つずつに、録音の中の先生の答えを対応させる。答えが無ければ answer と quote を null に。
-- summary: 家族への3行（3つまで）。1行目=何をした健診か、2行目=先生が伝えた一番大事な事、3行目=次までにやる事（無ければ次の予約）。1つは一文で40字まで（スマホで1行）。数値を並べない。専門の言葉（子宮頸管長・頭位・尿蛋白など）は使わず「赤ちゃんは頭が下」「子宮の出口の長さ」のように言い換える（元の言葉は terms に入れる）。安心させる言葉や評価（順調・問題なし など）は、先生がそう言った時だけ、引用として書く。`;
+- summary: 家族への3行（3つまで）。1行目=何をした健診か、2行目=先生が伝えた一番大事な事、3行目=次までにやる事（無ければ2行でよい）。次の予約の日付は summary に書かない（nextAppointment に入れる。家族が確かめてから画面に出す）。1つは一文で40字まで（スマホで1行）。数値を並べない。専門の言葉（子宮頸管長・頭位・尿蛋白など）は使わず「赤ちゃんは頭が下」「子宮の出口の長さ」のように言い換える（元の言葉は terms に入れる）。安心させる言葉や評価（順調・問題なし など）は、先生がそう言った時だけ、引用として書く。`;
 
 function organizePrompt(v: VisitData, members: string[]): string {
   const t = v.transcript!;
@@ -357,20 +357,67 @@ export function keptGuideFor(v: VisitDoc): VisitData["guide"] | null {
   return { steps: k.steps, done: [], at: new Date().toISOString(), unsure: k.unsure ?? null };
 }
 
-/** 健診を消す（録音のファイルも）。まだ整理していない健診なら、持ち越した聞く事を元へ戻す */
+/**
+ * 健診を消す（録音のファイルも）。まだ整理していない健診なら、持ち越した聞く事を元へ戻す。
+ * この健診から入った次の予約は、まだ確かめていなければ一緒に外し、本人が確かめた日は手で入れた予定として残す（lib/visit-next.ts）
+ */
 export function deleteVisit(v: VisitDoc) {
   if (running.has(v.id)) throw new HttpError(409, "いま整理している最中です。終わってから消してください");
   fs.rmSync(visitDir(v), { recursive: true, force: true });
   remove(v.id);
-  if (v.data.carried && v.data.status !== "done") {
-    const plan = getPlan(v.familyId);
-    const known = new Set(plan.concerns.map((c) => c.id));
-    savePlan(v.familyId, {
-      ...plan,
-      carriedFrom: v.data.carried.prevCarriedFrom,
-      concerns: [...v.data.carried.concerns.filter((c) => !known.has(c.id)), ...plan.concerns],
-    });
+  const plan = getPlan(v.familyId);
+  const next = planNextAfterDelete(plan.next ?? null, { id: v.id, date: v.data.date, nextCheck: v.data.nextCheck });
+  const carried = v.data.carried && v.data.status !== "done" ? v.data.carried : null;
+  if (!carried && next === (plan.next ?? null)) return;
+  const known = new Set(plan.concerns.map((c) => c.id));
+  savePlan(v.familyId, {
+    ...plan,
+    next,
+    ...(carried ? { carriedFrom: carried.prevCarriedFrom, concerns: [...carried.concerns.filter((c) => !known.has(c.id)), ...plan.concerns] } : {}),
+  });
+}
+
+/** 確かめのボタンを出してよいか（書ける人だけ。公開版は健診の書く口を middleware.ts が閉じているので出さない＝押しても保存しない形は 11/6） */
+export function canWriteVisit(h: HouseholdAccess): boolean {
+  return h.can("record:write") && process.env.BOSHI_PUBLIC !== "1";
+}
+
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const HM = /^\d{2}:\d{2}$/;
+
+/**
+ * 結果の画面の1問の答え（大丈夫・直す・言われていない）。押した人と時刻を残し、次の予約日と次の予約（plan.next）を本人の日にそろえる。
+ * 大丈夫は、画面に出ていた日（date）を一緒に受け、ほかの家族が先に別の日へ直していたら 409（古い画面のまま上書きしない）
+ */
+export function answerNext(v: VisitDoc, input: unknown, account: string | null): Partial<VisitData> {
+  const b = (input && typeof input === "object" ? input : {}) as { state?: unknown; date?: unknown; time?: unknown; by?: unknown };
+  const state = b.state;
+  if (state !== "ok" && state !== "fixed" && state !== "none") throw new HttpError(400, "確かめの答えが読めません");
+  const result = v.data.result;
+  if (v.data.status !== "done" || !result) throw new HttpError(409, "まとめができてから確かめられます");
+  const by = typeof b.by === "string" && b.by.trim() ? b.by.trim().slice(0, 40) : null;
+  const at = new Date().toISOString();
+  let check: NextCheck;
+  if (state === "ok") {
+    const cur = nextOfVisit(v.data);
+    if (!cur) throw new HttpError(409, "確かめる日がありません。日付を入れてください");
+    if (typeof b.date === "string" && b.date !== cur.date) throw new HttpError(409, "ほかの家族が、先に別の日で確かめました。開き直してください");
+    check = { state, date: cur.date, time: cur.time, at, by };
+  } else if (state === "fixed") {
+    if (typeof b.date !== "string" || !DAY.test(b.date) || fromDay(toDay(b.date)) !== b.date) throw new HttpError(400, "日付が読めません");
+    if (b.time != null && b.time !== "" && (typeof b.time !== "string" || !HM.test(b.time))) throw new HttpError(400, "時刻が読めません");
+    if (b.date < v.data.date) throw new HttpError(400, "健診の日より前の日は入れられません");
+    check = { state, date: b.date, time: typeof b.time === "string" && b.time ? b.time : null, at, by };
+  } else {
+    check = { state, at, by };
   }
+  if (account) check.account = account;
+  const plan = getPlan(v.familyId);
+  // この健診より後の日の「できた」健診があれば、この答えでその健診の予約を上書きしない
+  const newest = !visitsOf(v.familyId).some((d) => d.id !== v.id && d.data.status === "done" && d.data.date > v.data.date);
+  const out = afterCheck({ id: v.id, date: v.data.date }, result.nextAppointment?.said, plan.next ?? null, check, newest);
+  if (out.planNext !== (plan.next ?? null)) savePlan(v.familyId, { ...plan, next: out.planNext });
+  return { nextCheck: check, nextDate: out.nextDate };
 }
 
 export const newId = () => randomUUID();

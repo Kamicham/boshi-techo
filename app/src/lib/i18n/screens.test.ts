@@ -89,6 +89,8 @@ const DONE: readonly string[] = [
   "app/techo/page.tsx",
   "components/techo/",
   "app/techo/share/", // 健診で見せる記録（上の段は画面の言葉・下の1枚は病院あてなので日本語＝「訳さない」の注。プランの C）
+  // 健診の結果の画面の1問（次の健診の日の確かめ・2026-11-05 夕）。最初から t() で書いた。健診の画面のほかの所は UX が訳す
+  "components/visit/NextCheck.tsx",
 ];
 
 /** 体験の筋（③）。I18N_LEFT=1 で残りを数える */

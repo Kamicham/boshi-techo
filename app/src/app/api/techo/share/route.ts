@@ -6,7 +6,8 @@ import { route } from "@/lib/api";
 import { get } from "@/lib/db";
 import { SHARE_BUNDLES, shareChoices, shareView, shareViewerOf, type ShareBundle } from "@/lib/share-view";
 import { listTecho } from "@/lib/techo-store";
-import { planId, type VisitPlan } from "@/lib/visit";
+import { planId, type VisitData, type VisitPlan } from "@/lib/visit";
+import { withHeard } from "@/lib/visit-next";
 import { familyFor } from "../../_lib/household";
 import { todayOf } from "../../capture/shared";
 
@@ -24,5 +25,12 @@ export const GET = route(async (req: Request) => {
   const bundles = asked === null ? choices.filter((c) => c.on).map((c) => c.id) : asked.split(",").filter((x): x is ShareBundle => IDS.has(x));
   const entries = listTecho(family.id, { family, today }).map((d) => d.data);
   const plan = get<VisitPlan>(planId(family.id))?.data ?? null;
-  return { viewer, choices, sheet: shareView({ entries, plan, family, today }, { viewer, bundles }) };
+  // 次の予約が録音から聞こえた日なら、本人が確かめたか（ok・fixed）を、その家族の健診の記録で見る（健診のタブと同じ withHeard）。
+  // 確かめる前の日は1枚・共有の文に出さない（lib/share-view.ts）
+  const next = withHeard(plan?.next ?? null, (id) => {
+    const d = get<VisitData>(id);
+    return d && d.familyId === family.id ? d.data : undefined;
+  });
+  const nextChecked = next?.source === "visit" && !next.heard;
+  return { viewer, choices, sheet: shareView({ entries, plan, family, today, nextChecked }, { viewer, bundles }) };
 });

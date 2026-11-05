@@ -152,6 +152,11 @@ export interface ShareInput {
   family: Pick<Family, "dueDate" | "birthDate" | "childName" | "situation">;
   /** 今日（YYYY-MM-DD）。これより後の記録は出さない */
   today: string;
+  /**
+   * 次の予約（source "visit"＝録音から聞こえた日）を、本人が結果の画面の1問で確かめたか（ok・fixed）。
+   * 口が健診の記録から作る（lib/visit-next.ts の withHeard。健診のタブと同じ決まり）。無ければ確かめていない扱い
+   */
+  nextChecked?: boolean;
 }
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -267,11 +272,12 @@ export function shareView(input: ShareInput, opts: { viewer: ShareViewer; bundle
   }
 
   if (want.has("next")) {
-    // 次の予約は、本人が入れた日（source "manual"）だけ。録音から聞こえた日（"visit"）は聞き違えがあり得るので、
-    // 手帳の外（1枚・印刷・共有の文）へは出さない（2026-11-05 聞き違いの件・プラン第4版「手帳の外へは、本人の［大丈夫］の後だけ」）
+    // 次の予約は、本人が入れた日（source "manual"）か、録音から聞こえた日（"visit"）を本人が確かめた（ok・fixed）時だけ。
+    // 聞き違えがあり得るので、確かめる前の日は手帳の外（1枚・印刷・共有の文）へ出さない（2026-11-05 聞き違いの件・プラン第4版）
     const n = input.plan?.next;
+    const confirmed = n?.source === "manual" || (n?.source === "visit" && input.nextChecked === true);
     sheet.next =
-      n && n.source === "manual" && typeof n.date === "string" && DATE.test(n.date) && n.date >= today ? compact({ date: n.date, time: text(n.time, 10) }) : null;
+      n && confirmed && typeof n.date === "string" && DATE.test(n.date) && n.date >= today ? compact({ date: n.date, time: text(n.time, 10) }) : null;
   }
 
   if (want.has("questions")) {

@@ -1,7 +1,7 @@
 # シミュレーションの結果
 
 > **English summary**
-> We test every change against 1,000 synthetic families built from 42 Japanese public statistics, fast-forwarded through 1,000 days (all 20 rules a–t pass; 18 situations the app still cannot represent, fully or in part, are listed with national estimates).
+> We test every change against 1,000 synthetic families built from 42 Japanese public statistics, fast-forwarded through 1,000 days (all 22 rules a–v pass; 18 situations the app still cannot represent, fully or in part, are listed with national estimates).
 > Claude (Opus) role-played families on an iPhone-sized screen in 6 recorded rounds (36 family sessions, 377 findings), and the fixes are traceable to specific commits.
 > Two 1,000-family surveys answered by Claude (Sonnet) moved SUS from 57.8 to 59.1 and "would keep using" from 68% to 84%. All families are synthetic approximations, not real people.
 
@@ -21,7 +21,7 @@
 - ほかに、珍しい型の見本の30家族（`app/src/sim/families.ts`）を毎日通します。のべ 28,767日
 - ×（新しい破れ）が出るとテストが落ちます
 
-### 決まり a〜t（20・1000組）
+### 決まり a〜v（22・1000組）
 
 並びは出力のとおりです（n は o・p の後）。
 
@@ -47,10 +47,12 @@
 | r | 引っ越しの行: 町を変えた家族だけに、引っ越した日から出る。転入届の期限は引っ越した日の14日後（住民基本台帳法第22条）・児童手当は15日後（児童手当法第8条第3項）で、児童手当と医療証は引っ越した時に子がいた家族だけ、受診券は妊娠中に引っ越した家族だけ（見直し C10①） | 1000 | 0 | 0 | 約0家族 |
 | s | 早く生まれた時: 予定日より7日以上早く生まれ、育休を取るかもしれないパートナーがいる家族だけに「育休の始まりを早める」が、生まれた日から予定日の前日まで出る（遅く生まれた時・6日以内は出さない。見直し C10②） | 1000 | 0 | 0 | 約0家族 |
 | t | 気をつける事の札（lib/cautions.ts）: 1日に1枚まで。静かにする家族・生まれた日・母の画面の生後14日まで・お祝いや届けの束や手帳の気づきの日には出ず、読んだ札は同じ端末に二度出ない。引用ごとに出典があり、労基法の引用は働く母の家族だけ。出生届出済証明は36週の札と、届けの束の出生届の行で伝える（2026-11-05 総点検の札） | 1000 | 0 | 0 | 約0家族 |
+| u | ほかに今やる事は畳んで出す（家族の声①「要らないのに、ずらっと並ぶ。疲れる」への直し A・2026-11-05）: 自分の番は3行まで・ほかの人の番は人ごとに1行・法の期限が明日までの事は誰の番でも畳まない。畳んだ後の行は6行まで（components/today/now-fold.ts。画面と同じ関数） | 1000 | 0 | 0 | 約0家族 |
+| v | 健診の録音から聞こえた次の健診の日（2026-11-05 作り手の方針「聞き違いは0にできない。最後の確かめと OK は本人」・lib/visit-next.ts）: 国の標準の間隔で正しく聞こえた日には機械の印が付かず（本当に年をまたぐ日だけ「年をまたいだ」）、月を聞き違えて翌年に回った日には印が付く。確かめる前は送る文（LINE・共有）に日が入らず、予定に heard の印が付き、前日の声かけは出る。確かめた後は送る文に入り、heard が外れる | 1000 | 0 | 0 | 約0家族 |
 
-30家族でも a〜t はすべて 30／0／0 です。既知の穴（△として登録した物）は今は0件です。決まり h は、アンケート1回目の後に足しました（コミット `b68a84b`。その時に既知の穴7つが消えました）。気をつける事の札（決まり t）は、1000組のすべての家族に出ました（1家族に出た札の種類は中央値13）。
+30家族でも a〜v はすべて 30／0／0 です。既知の穴（△として登録した物）は今は0件です。決まり h は、アンケート1回目の後に足しました（コミット `b68a84b`。その時に既知の穴7つが消えました）。気をつける事の札（決まり t）は、1000組のすべての家族に出ました（1家族に出た札の種類は中央値13）。
 
-### 手帳の記録の決まり t1〜t8
+### 手帳の記録の決まり t1〜t9
 
 デモ・30家族・1000組の 1031家族に、統計から作った手帳の記録を混ぜ、授かって2か月・予定日・生まれて100日・9か月・2歳の誕生日・使い始めた日で確かめています。破れはすべて0です。
 
@@ -64,6 +66,7 @@
 | t6 | 判定の言葉（異常・正常・大丈夫）を含まない | 0 |
 | t7 | みな source が seed で、候補（pending）ではない | 0 |
 | t8 | 本物の世帯（kind = real・わが家の mine・アカウントで作った世帯）には何も無い | 0 |
+| t9 | からだの記録の図（lib/body-series.ts。手帳の画面と同じ関数・家族の声②・プランの B）: 健診の表の行＝今日までの妊婦健診の日の数・今日より後の点が無い・生まれた後は子ごとに線が分かれる（双子は2本）・つらい別れの家族には図を作らない | 0 |
 
 ### 今のアプリが表せない状況（1000組の人数と全国換算）
 

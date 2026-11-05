@@ -13,6 +13,7 @@ import { DEMO_AGENDA, DEMO_TRANSCRIPT, DEMO_VISIT_WEEKS } from "@/components/vis
 import { addDays, lmpFromDue } from "@/lib/clock";
 import { deadlineKindOf, scheduleFor, statusOf, type Milestone, type Status } from "@/lib/milestones";
 import type { PrenatalState } from "@/lib/prenatal";
+import { t } from "@/lib/i18n";
 import { briefingDay, concernSide, visitLabel, type AgendaItem, type VisitPlan, type VisitStatus } from "@/lib/visit";
 
 interface Row {
@@ -108,10 +109,19 @@ export default function VisitList() {
   const daysToNext = next ? daysUntil(today, next.date) : null;
   // 3日前〜前日は「聞きたい事を書く」が今やる1つ（前日は持ち物も一緒に）
   const soon = daysToNext != null && daysToNext >= 1 && daysToNext <= 3;
-  const calendar = next ? { title: `健診（${visitLabel(family, next.date)}）`, date: next.date, time: next.time ?? null, minutes: 60 } : null;
+  // 録音から聞こえただけで、まだ本人が確かめていない日（heard）: 手帳の中では添え書きをして出し、カレンダーへは確かめた後だけ（2026-11-05 作り手の方針）
+  const heard = !!next?.heard;
+  const calendar = next && !heard ? { title: `健診（${visitLabel(family, next.date)}）`, date: next.date, time: next.time ?? null, minutes: 60 } : null;
+  const heardSub = heard ? t("録音から聞こえた日・まだ確かめていません") : undefined;
+  const checkBtn =
+    heard && next?.visitId ? (
+      <Btn kind="secondary" href={`/visit/${next.visitId}`}>
+        {t("確かめる")}
+      </Btn>
+    ) : null;
   const askAndCalendar = (
     <>
-      <AskQuick count={agendaCount} onAdd={(t) => void savePlan({ concern: t })} />
+      <AskQuick count={agendaCount} onAdd={(text) => void savePlan({ concern: text })} />
       {calendar && <HandoffRow calendar={calendar} />}
     </>
   );
@@ -156,7 +166,9 @@ export default function VisitList() {
         title={`${visitLabel(family, next.date)}の健診`}
         days={daysToNext}
         dateLabel={`${jpDate(next.date)}${next.time ? ` ${next.time}` : ""}`}
+        sub={heardSub}
       >
+        {checkBtn}
         {askAndCalendar}
       </NextStep>
     );
@@ -167,7 +179,9 @@ export default function VisitList() {
         title={`${visitLabel(family, next.date)}の健診`}
         days={daysToNext}
         dateLabel={`${jpDate(next.date)}${next.time ? ` ${next.time}` : ""}`}
+        sub={heardSub}
       >
+        {checkBtn}
         {startQuiet}
       </NextStep>
     );
@@ -262,7 +276,7 @@ export default function VisitList() {
 
       {data && (
         <Fold title={data.agendaFor === "today" ? "今日、先生に聞く事" : "先生に聞く事"} count={agenda.length}>
-          <AskList agenda={agenda} onAdd={(t) => void savePlan({ concern: t })} onRemove={(id) => void savePlan({ removeConcern: id })} />
+          <AskList agenda={agenda} onAdd={(text) => void savePlan({ concern: text })} onRemove={(id) => void savePlan({ removeConcern: id })} />
         </Fold>
       )}
 
@@ -319,7 +333,11 @@ function NextAppointment({ next, onSave }: { next: VisitPlan["next"]; onSave: (n
           {jpDate(next.date)}
           {next.time && <span className="ml-2">{next.time}</span>}
         </span>
-        {next.source === "visit" && next.said && <Pill tone="sky">先生「{next.said}」</Pill>}
+        {next.heard ? (
+          <Pill tone="sky">{t("聞こえた日・確かめ待ち")}</Pill>
+        ) : (
+          next.source === "visit" && next.said && <Pill tone="sky">{t("聞こえた「{said}」", { said: next.said })}</Pill>
+        )}
         <Btn kind="quiet" onClick={() => setEditing(true)}>
           直す
         </Btn>
