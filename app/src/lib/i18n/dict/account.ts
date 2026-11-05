@@ -300,7 +300,7 @@ export default {
     zh: "想按纸质母子健康手册的顺序查看时，可以在“手册”→“成长书”里打印成 PDF。",
     en: "To see it in the same order as the paper Maternal and Child Health Handbook, print it to PDF from “Handbook” → “Book”.",
   },
-  // 消す（確かめの「消す」はサーバが日本語で見る＝どの言葉でも「消す」と入れてもらう）
+  // 消す（確かめの言葉は画面の言葉で打ってもらい、サーバへはいつも「消す」を送る＝lib/delete-word.ts。{word} は 消す・删除・delete）
   "{who}の分": { zh: "{who}的数据", en: "Data for {who}" },
   "世帯の全部（家族全員の分）": { zh: "整个家庭（全体家人的数据）", en: "The whole household (everyone's data)" },
   消しました: { zh: "已删除", en: "Deleted" },
@@ -326,7 +326,7 @@ export default {
     zh: "服务器备份里的副本，会一直保留到备份被替换为止（天数还没有决定）",
     en: "Copies in the server's backups remain until those backups are replaced (the number of days hasn't been decided yet)",
   },
-  "確かめのため「消す」と入れてください": { zh: "为了确认，请原样输入日文的“删除”（消す）", en: "To confirm, type the Japanese word for “delete” exactly as shown (消す)" },
+  "確かめのため「{word}」と入れてください": { zh: "为了确认，请输入“{word}”", en: "To confirm, type “{word}”" },
 
   // ── 世帯を作る（app/account/new/page.tsx。あなたは？・赤ちゃんの呼び名・おなかの子・入れた事はどこに？は settings.ts） ──
   "先にログインしてください。": { zh: "请先登录。", en: "Please sign in first." },

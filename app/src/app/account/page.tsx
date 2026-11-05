@@ -11,6 +11,7 @@ import { Box, field, jpDateTime, Msg, ROLE_WORD, useHouseholdDetail, type Househ
 import { subjectLabel, useQuery } from "@/components/settings/ConsentScreen";
 import { CONSENT_NAME } from "@/components/settings/consent-texts";
 import { currentLang, t } from "@/lib/i18n";
+import { DELETE_WORD, deleteConfirmed, deleteWordShown } from "@/lib/delete-word";
 
 /** English の「あなた」は文の中の形（you）なので、見出しでは頭を大文字に（日本語・中文は変わらない） */
 const head = (s: string) => (currentLang() === "en" && s ? s[0].toUpperCase() + s.slice(1) : s);
@@ -295,7 +296,7 @@ function Export({ familyId }: { familyId: string }) {
   );
 }
 
-/** 消す: 本人の分・世帯の全部。「消す」と入れてから押す（確かめの「消す」はサーバが日本語で見るので、どの言葉の画面でも「消す」のまま） */
+/** 消す: 本人の分・世帯の全部。確かめの言葉を入れてから押す（画面の言葉で打ってもらい、サーバへはいつも「消す」を送る＝lib/delete-word.ts） */
 function Delete({ data, onDone }: { data: HouseholdDetail; onDone: (all: boolean) => Promise<void> }) {
   const [target, setTarget] = useState<string>("");
   const [confirm, setConfirm] = useState("");
@@ -313,8 +314,8 @@ function Delete({ data, onDone }: { data: HouseholdDetail; onDone: (all: boolean
     setBusy(true);
     setMsg(null);
     try {
-      if (target === "__all__") await api("/api/account/household", { method: "DELETE", body: { familyId: hid, confirm } });
-      else await api("/api/account/subject", { method: "DELETE", body: { familyId: hid, subjectId: target, confirm } });
+      if (target === "__all__") await api("/api/account/household", { method: "DELETE", body: { familyId: hid, confirm: DELETE_WORD } });
+      else await api("/api/account/subject", { method: "DELETE", body: { familyId: hid, subjectId: target, confirm: DELETE_WORD } });
       setMsg({ ok: true, text: t("消しました") });
       setConfirm("");
       await onDone(target === "__all__");
@@ -351,12 +352,12 @@ function Delete({ data, onDone }: { data: HouseholdDetail; onDone: (all: boolean
             <li>{t("サーバのバックアップに残る写しは、バックアップが入れ替わるまで残ります（日数はまだ決めていません）")}</li>
           </ul>
           <label className="flex flex-col gap-1 text-base">
-            {t("確かめのため「消す」と入れてください")}
-            <input className={field} value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="off" />
+            {t("確かめのため「{word}」と入れてください", { word: deleteWordShown() })}
+            <input className={field} value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="off" autoCapitalize="none" />
           </label>
           <button
             type="button"
-            disabled={busy || confirm !== "消す"}
+            disabled={busy || !deleteConfirmed(confirm)}
             onClick={() => void run()}
             className="min-h-12 rounded-full bg-alert px-5 text-base font-bold text-white disabled:opacity-50"
           >
