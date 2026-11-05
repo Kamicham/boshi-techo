@@ -2,6 +2,7 @@
 // 画面の部品からは読まない（全部の言葉の辞書が画面の荷物に入る。画面は LocaleProvider が渡す今の言葉の分だけを使う）。
 // 辞書の場所を足したら AREAS に並べる。同じ鍵が2つの場所にあると試験が落ちる（i18n.test.ts）
 import { detectLang, langFromCookieHeader, translate, type Dict, type Entries, type Lang, type Vars } from ".";
+import account from "./dict/account";
 import album from "./dict/album";
 import answers from "./dict/answers";
 import ask from "./dict/ask";
@@ -15,6 +16,7 @@ import emergency from "./dict/emergency";
 import memories from "./dict/memories";
 import milestones from "./dict/milestones";
 import now from "./dict/now";
+import settings from "./dict/settings";
 import shell from "./dict/shell";
 import stages from "./dict/stages";
 import start from "./dict/start";
@@ -22,7 +24,7 @@ import techo from "./dict/techo";
 import today from "./dict/today";
 import welcome from "./dict/welcome";
 
-export const AREAS: Readonly<Record<string, Entries>> = { core, shell, welcome, start, stages, now, today, draft, milestones, ask, answers, album, book, memories, emergency, capture, techo, basis, body };
+export const AREAS: Readonly<Record<string, Entries>> = { core, shell, welcome, start, stages, now, today, draft, milestones, ask, answers, album, book, memories, emergency, capture, techo, basis, body, settings, account };
 
 function build(lang: "zh" | "en"): Dict {
   const out: Record<string, string> = {};
