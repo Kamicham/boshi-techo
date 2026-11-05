@@ -6,16 +6,20 @@
 // 電話の道（#8000 と県のふつうの番号・0120-189-783・中毒110番）は、この部品の中に置く（Techo.tsx の /emergency の数の試験のため）。
 // 手帳の「できた日」（寝返り・はいはい・つかまり立ち・ひとり歩き）は、月齢の事故の札が来る頃（生後3か月〜1歳2か月）だけ読む。
 // 色: ふだんは白い札。赤は命の橋の1行（揺さぶらない）だけ（今の手帳の約束）。
+// 静かにする（家族の声①への直し A）: 表に出す引用は最初の2つと、強く注意する引用（赤＝命の橋・太字＝「絶対に使用しないでください」など）だけ。
+// 残りは「全部読む（N）›」で、同じ並びのまま全部開く。
+// 引用ごとの出典の括弧は表に並べず、「なぜ今？」に1回まとめる（言い換えない引用はそのまま）。
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api } from "@/components/FamilyProvider";
 import { CAUTION_LABEL, POISON_LINES, POISON_NOTE, cautionFor, cautionInLang, cautionShareText, devDatesOf, nestQuote, type CautionCtx, type CautionSeen } from "@/lib/cautions";
 import { addMonths } from "@/lib/clock";
 import type { Family } from "@/lib/demo-family";
-import { t } from "@/lib/i18n";
+import { listOf, t } from "@/lib/i18n";
 import { line8000, telLink } from "@/lib/emergency-lines";
 import { mapUrl } from "@/lib/handoff";
 import { Btn, ShareButton, useDevice, Why } from "../ui";
+import { foldQuotes } from "./caution-fold";
 
 const keyOf = (fid: string) => `boshi.caution.${fid}`;
 
@@ -39,6 +43,8 @@ function writeSeen(fid: string, s: CautionSeen) {
 export function CautionCard({ family, today, role, busy }: { family: Family; today: string; role: CautionCtx["role"]; busy: boolean }) {
   const [seen, setSeen] = useState<CautionSeen | null>(null);
   const [dev, setDev] = useState<CautionCtx["dev"] | null>(null);
+  // 「全部読む」を押した札の id（ほかの札に替わったら閉じた形に戻る）
+  const [allOf, setAllOf] = useState<string | null>(null);
   const { apple } = useDevice();
   const b = family.birthDate;
   const wantDev = !!b && today >= addMonths(b, 3) && today < addMonths(b, 14) && !family.situation?.quiet;
@@ -66,6 +72,12 @@ export function CautionCard({ family, today, role, busy }: { family: Family; tod
   };
   const alt = c.calls.includes("8000") ? line8000(family.prefecture) : null;
   const label = t(CAUTION_LABEL[c.kind]);
+  // 表に出す引用: 最初の2つと、強く注意する引用（components/today/caution-fold.ts）。「全部読む」で、元の並びのまま全部
+  const all = allOf === c.id;
+  const { shown, folded } = foldQuotes(c.quotes);
+  const quotes = all ? c.quotes : shown;
+  // 引用の出典（名・年・頁）は「なぜ今？」に1回ずつ
+  const froms = [...new Set(c.quotes.map((q) => q.from))];
 
   return (
     <section aria-label={`${label}: ${c.title}`} className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-4">
@@ -75,13 +87,18 @@ export function CautionCard({ family, today, role, busy }: { family: Family; tod
       </div>
       {c.lead && <p className="text-base">{c.lead}</p>}
       <ul className="flex flex-col gap-2 text-base leading-relaxed">
-        {c.quotes.map((q) => (
+        {quotes.map((q) => (
           <li key={q.text} className={q.tone === "alert" ? "font-semibold text-alert" : q.tone === "bold" ? "font-semibold" : undefined}>
             {t("「{text}」", { text: nestQuote(q.text) })}
-            <span className="text-xs font-normal text-muted">{t("（{x}）", { x: q.from })}</span>
           </li>
         ))}
       </ul>
+      {!all && folded > 0 && (
+        <button type="button" onClick={() => setAllOf(c.id)} className="flex min-h-11 items-center gap-1 self-start px-1 text-sm text-muted">
+          <span className="underline underline-offset-2">{t("全部読む（{n}）", { n: c.quotes.length })}</span>
+          <span aria-hidden>›</span>
+        </button>
+      )}
       {c.after && <p className="text-base">{c.after}</p>}
 
       {(c.calls.length > 0 || c.emergency || c.center) && (
@@ -169,6 +186,7 @@ export function CautionCard({ family, today, role, busy }: { family: Family; tod
         {c.why.map((w) => (
           <p key={w}>{w}</p>
         ))}
+        <p>{t("引用: {list}", { list: listOf(froms) })}</p>
         <p>
           {t("出典:")}{" "}
           {c.sources.map((s, i) => (
