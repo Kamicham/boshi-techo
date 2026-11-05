@@ -11,6 +11,8 @@
 // 番号の表と出典は lib/emergency-lines.ts。家族の県が分からない時は添えない）。
 //
 // 言葉（2026-11-05 多言語化）: 画面の字は useT()（サーバでも描かれる所。lib/i18n の頭）で訳す。辞書は lib/i18n/dict/emergency.ts（訳の出典もそこ）。
+// 作る時に1回だけ組み立てるので、根の layout は日本語の辞書で描く。描いた後に端末の言葉で描き直す（EmergencyLang.tsx。この画面で引く鍵は
+// dict/emergency.ts か core.ts に置く＝試験 lib/i18n/emergency-dict.test.ts）。
 // 画面の言葉で描くため "use client" にした。題（metadata）と「作る時に1回だけ組み立てる」（force-static）は "use client" のページから出せないので、layout.tsx に置く。
 // 日本語の画面は前と1字も変えない（太字・リンクの前後で文を分けて t() で引く）。番号・時間・数は訳でもそのまま。
 //
@@ -41,6 +43,7 @@ import Link from "next/link";
 import { useLang, useT } from "@/components/LocaleProvider";
 import { CRY_LINES } from "@/lib/cautions";
 import { Alt8000, ChokeOrder, Line7119, MamaUrgent } from "./ChokeOrder";
+import { EmergencyLang } from "./EmergencyLang";
 
 // label は辞書の鍵（描く所で t() で引く）
 const SOURCES = [
@@ -98,7 +101,16 @@ function Card({
   );
 }
 
+// 作る時に1回だけ組み立てたページを、端末の言葉で描き直す（EmergencyLang。根の layout は日本語の辞書で描くため）
 export default function EmergencyPage() {
+  return (
+    <EmergencyLang>
+      <EmergencyBody />
+    </EmergencyLang>
+  );
+}
+
+function EmergencyBody() {
   const t = useT();
   const lang = useLang();
   return (

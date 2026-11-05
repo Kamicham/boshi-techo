@@ -216,7 +216,6 @@ export default {
   },
   "📷 はじめましての写真・🎙 声を残す": { zh: "📷 留下初次见面的照片、🎙 声音", en: "📷 Save a first photo and 🎙 voice" },
   家族に知らせる: { zh: "告诉家人", en: "Tell the family" },
-  "「{text}」": { zh: "“{text}”", en: "“{text}”" },
   "文を写しました。LINE などに貼れます": { zh: "已复制。可以粘贴到 LINE 等", en: "Copied. You can paste it into LINE and more" },
   "届けは下の1枚に。あなたは、休む事を一番に。": { zh: "各项申报都在下面这张卡片里。你先好好休息。", en: "The paperwork is in the card below. Put your rest first." },
   "出生届は済みました。": { zh: "出生登记（出生届）已经办好了。", en: "The birth registration (出生届) is done." },
@@ -261,7 +260,6 @@ export default {
     en: "Thank you for answering. You don't have to carry it alone: there are places in your city you can turn to.",
   },
   // 聞く時期の名前（手帳に残す題は日本語のまま。出す時に訳す。「1歳6か月」は思い出の辞書 memories.ts）
-  妊娠中: { zh: "孕期", en: "Pregnancy" },
   産後2週ごろ: { zh: "产后约2周", en: "About 2 weeks after birth" },
   "1か月": { zh: "1个月", en: "1 month" },
   "3〜4か月": { zh: "3～4个月", en: "3–4 months" },
@@ -300,7 +298,7 @@ export default {
     zh: "会接通你所在都道府县或市的心理电话咨询（需付通话费；时间因都道府县而异）",
     en: "Connects you to your prefecture's or city's mental health phone line (call charges apply; hours vary by prefecture)",
   },
-  電話する: { zh: "打电话", en: "Call" },
+  // 「電話する」「つながらない時は」など、急ぎの時の画面でも引く鍵は dict/emergency.ts（同じ鍵は2か所に置かない）
   "子育てがつらい時に話せる電話 0120-189-783": { zh: "育儿感到辛苦时可以倾诉的电话 0120-189-783", en: "A phone line for when raising a child feels hard 0120-189-783" },
   "無料。近くの相談の窓口につながります": { zh: "免费。会接通附近的咨询窗口", en: "Free. Connects you to a nearby support office" },
   "DV相談＋ 0120-279-889": { zh: "DV咨询＋（DV相談＋） 0120-279-889", en: "DV Soudan Plus (DV相談＋) 0120-279-889" },
@@ -333,8 +331,6 @@ export default {
     en: "A phone relay service lets you call using sign language or text (24 hours, including 110 and 119). There is also NET119 for reporting to 119 by text (you need to register with your city's fire department)",
   },
   見る: { zh: "查看", en: "View" },
-  "{instead} につながらない時は、{tel}（{where}の窓口）にかける": { zh: "{instead} 打不通时，拨打 {tel}（{where}的窗口）", en: "If {instead} doesn't connect, call {tel} ({where} line)" },
-  つながらない時は: { zh: "打不通时", en: "If it doesn't connect:" },
   命に関わる時は: { zh: "危及生命时，请拨", en: "If a life is at risk, call" },
   "。妊娠中・産後の体の急ぎは、かかっている産院へ（夜間も）。": {
     zh: "。怀孕期间或产后身体有紧急情况，请联系你就诊的产科医院（夜间也可以）。",
@@ -366,11 +362,6 @@ export default {
   },
 
   // ── 気をつける事の札の枠（CautionCard・lib/cautions.ts の時期の行と家族に送る文） ──
-  "子どもの事で、受診するか迷う時（夜や休みの日）": { zh: "孩子的事拿不准要不要就医时（晚上或休息日）", en: "When you're unsure whether your child needs to see a doctor (nights and days off)" },
-  "「出産や子育てに悩んだ時は、こちらにお電話ください。」（こども家庭庁・無料）": {
-    zh: "“生育或育儿有烦恼时，请拨打这个电话。”（儿童家庭厅，免费）",
-    en: "“If you are struggling with childbirth or raising a child, please call here.” (Children and Families Agency, free)",
-  },
   "中毒110番（日本中毒情報センター・24時間対応）": { zh: "中毒110热线（日本中毒信息中心，24小时）", en: "Poison 110 Hotline (Japan Poison Information Center, 24 hours)" },
   "町の保健センター（地図で探す）": { zh: "所在市区町村的保健中心（在地图上找）", en: "Your city's health center (find on map)" },
   読んだ: { zh: "读过了", en: "I've read it" },
@@ -610,19 +601,11 @@ export default {
   "こども家庭庁 報道発表（令和8年10月）": { zh: "儿童家庭厅 新闻发布（令和8年10月）", en: "Children and Families Agency press release, October, Reiwa 8 (2026)" },
   "赤ちゃんの過度な保温によって、SIDSの発症率が上がります。赤ちゃんの胸元を触ってみて、汗ばんでいる場合には、着るものや室温で調整しましょう。": { zh: "给宝宝保暖过度，会使 SIDS 的发病率上升。摸一摸宝宝的胸口，如果有点出汗，要通过穿的衣服或室温来调整。", en: "Keeping a baby too warm raises the rate of SIDS. Feel your baby's chest, and if it's sweaty, adjust their clothing or the room temperature." },
   "こども家庭庁「11月は乳幼児突然死症候群（SIDS）の対策強化月間です」（令和8年10月）": { zh: "儿童家庭厅“11月是婴儿猝死综合征（SIDS）对策强化月”（令和8年10月）", en: "Children and Families Agency, “November is sudden infant death syndrome (SIDS) prevention month,” October, Reiwa 8 (2026)" },
-  "赤ちゃんが泣きやまない時": { zh: "宝宝哭个不停时", en: "When your baby won't stop crying" },
-  "赤ちゃんが泣いても、誰が悪いわけでもないのです。": { zh: "宝宝哭，并不是谁的错。", en: "When a baby cries, it is no one's fault." },
+  // 泣きやまない時の見出しと引用（lib/cautions.ts の CRY_LINES の says）は dict/emergency.ts（急ぎの時の画面が、自分の辞書だけで描けるよう。2026-11-05）
   "ガイドブック「赤ちゃんが泣きやまない」p.3": { zh: "指南手册“宝宝哭个不停”p.3", en: "Guidebook “Baby won't stop crying,” p.3" },
-  "これまでの研究で、関わり方によらず生後1-2か月に泣きのピークがあることがわかりました。": { zh: "以往的研究发现，无论怎样照顾，宝宝的哭闹都会在出生后1-2个月时达到高峰。", en: "Research so far has found that crying peaks at 1-2 months after birth, no matter how the baby is cared for." },
   "ガイドブック「赤ちゃんが泣きやまない」p.2": { zh: "指南手册“宝宝哭个不停”p.2", en: "Guidebook “Baby won't stop crying,” p.2" },
-  "いろいろ試しても泣きやまない。それでも問題ありません。": { zh: "试了各种办法还是哭个不停。即使这样也没有问题。", en: "You try all sorts of things, and the crying still won't stop. Even so, that's not a problem." },
   "ガイドブック「赤ちゃんが泣きやまない」p.9": { zh: "指南手册“宝宝哭个不停”p.9", en: "Guidebook “Baby won't stop crying,” p.9" },
-  "その時は、赤ちゃんを安全な場所に寝かせて、その場を離れましょう。": { zh: "这时，把宝宝放在安全的地方躺好，离开那里吧。", en: "When that happens, lay your baby down in a safe place and step away." },
-  "そして自分がリラックスしましょう。": { zh: "然后让自己放松一下吧。", en: "Then let yourself relax." },
-  "少ししたら、戻って赤ちゃんの様子を確認しましょう。": { zh: "过一会儿，再回去看看宝宝的情况吧。", en: "After a little while, go back and check on your baby." },
-  "無理に泣きやませようと激しく揺さぶらないでください。": { zh: "请不要为了强行让宝宝停止哭泣而剧烈摇晃宝宝。", en: "Please do not shake your baby violently to try to force them to stop crying." },
   "ガイドブック「赤ちゃんが泣きやまない」p.10": { zh: "指南手册“宝宝哭个不停”p.10", en: "Guidebook “Baby won't stop crying,” p.10" },
-  "また、泣き声が周囲に聞こえないようにと赤ちゃんの口をふさがないでください。": { zh: "另外，请不要为了不让周围听到哭声而捂住宝宝的嘴。", en: "Also, please do not cover your baby's mouth to keep others from hearing the crying." },
   "ガイドブックの全文（欲しがっているものをたしかめる・高熱が出ていたら受診する、も）は、急ぎの時の画面にあります。": { zh: "指南手册的全文（也包括确认宝宝想要什么、发高烧时去医院就诊）在“紧急情况”页面上。", en: "The full text of the guidebook (including checking what your baby wants, and seeing a doctor if there's a high fever) is on the Emergency screen." },
   "こども家庭庁「赤ちゃんが泣きやまない」": { zh: "儿童家庭厅“宝宝哭个不停”", en: "Children and Families Agency, “Baby won't stop crying”" },
   "急ぎの時の画面（泣きやまない時の全文）": { zh: "紧急情况页面（宝宝哭个不停时的全文）", en: "Emergency screen (full text for when your baby won't stop crying)" },
