@@ -38,6 +38,18 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: app/package-lock.json
+      # 台本の書き間違いで、本番の組み直し（release-prod.sh）や自動の出し直し（sync-deploy.sh）が途中で止まらないように
+      # （2026-11-05 全体監査。流れるのは出すコミットの中の台本なので、main に入る前に文法だけは見る）
+      - name: 台本の文法
+        run: |
+          command -v zsh >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq zsh >/dev/null; }
+          for f in scripts/*.sh ../scripts/*.sh; do
+            case "$(head -1 "$f")" in
+              *zsh*) zsh -n "$f" ;;
+              *bash*) bash -n "$f" ;;
+              *) sh -n "$f" ;;
+            esac || { echo "台本の文法の誤り: $f"; exit 1; }
+          done
       - name: 部品を入れる
         run: npm ci --no-audit --no-fund
       - name: 型
