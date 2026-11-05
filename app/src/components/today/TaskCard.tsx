@@ -282,7 +282,8 @@ export function TaskBody({
           {t.title}（{[t.kind, whoLabel(t, family, me)].filter(Boolean).join("・")}）
         </span>
         <span>根拠: {t.basis}</span>
-        {t.retimeNote && <span>打てる最短日: {jpShort(t.startDate, today)}（{t.retimeNote}。回数や間隔が標準と違う時は小児科で確かめる）</span>}
+        {/* 公費の年齢を越える見込みの時は、retimeNote に確かめる先（小児科・保健センター）が入っているので重ねない */}
+        {t.retimeNote && <span>打てる最短日: {jpShort(t.startDate, today)}（{t.retimeNote}{t.beyondPublic ? "" : "。回数や間隔が標準と違う時は小児科で確かめる"}）</span>}
         {t.deadlineDate && (
           <span>
             始まり {jpShort(t.startDate, today)}・{isGuide(t) ? "目安" : "期限"} {jpShort(t.deadlineDate, today)}

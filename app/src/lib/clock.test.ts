@@ -52,8 +52,8 @@ describe("期限", () => {
     expect(get("child-allowance").deadlineDate).toBe("2027-05-23");
   });
 
-  it("産前休業は予定日の42日前から", () => {
-    expect(get("maternity-leave").startDate).toBe("2027-03-29");
+  it("産前休業は予定日を含めて42日（出産の当日は産前に入る）。1日目は予定日の41日前", () => {
+    expect(get("maternity-leave").startDate).toBe("2027-03-30");
   });
 
   it("状態の移り変わり", () => {

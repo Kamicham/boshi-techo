@@ -76,10 +76,10 @@ describe("家族の形で予定を組み替える", () => {
     expect(ids({ satogaeri: false })).not.toContain("satogaeri-hospital");
   });
 
-  it("双子: 見出しに（2人分）。産休は14週前から", () => {
+  it("双子: 見出しに（2人分）。産休は予定日を含めて14週（98日）＝予定日の97日前から", () => {
     const s = scheduleFor({ dueDate: due, situation: { babies: 2 }, members: both });
     expect(s.find((m) => m.id === "birth-registration")?.plain).toBe("出生届を出す（2人分）");
-    expect(s.find((m) => m.id === "maternity-leave")?.startDate).toBe("2027-02-01");
+    expect(s.find((m) => m.id === "maternity-leave")?.startDate).toBe("2027-02-02");
   });
 });
 
