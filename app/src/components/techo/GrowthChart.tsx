@@ -6,6 +6,7 @@
 // 帯の男女は家族ごとに覚える（/api/keep の childSex）。早く生まれた子は、修正月齢で見る切り替えを出す。
 // からだの記録（家族の声②・プランの B の7・2026-11-05）: 男女を選ぶ前も帯なしで点と線を描く（選ばせない）。横軸は記録の範囲に合わせる
 // （最短3か月〜最長24か月）。双子などは who で線を分ける。描く所は props だけの部品 GrowthLines（健診で見せる1枚でも使う）。
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn, Notice, plainError, Why } from "@/components/ui";
@@ -284,14 +285,12 @@ function AddFromPaper({
   const [error, setError] = useState("");
   // 通信・保存の失敗か（入れ忘れの声かけとは見せ方を分ける）
   const [failed, setFailed] = useState(false);
+  // 閉じた形は［＋ 入れる］1つ（家族の声①への直し A。手帳のほかのページの components/techo/EntryForm.tsx と同じ）。話す・撮るは開いた欄の頭に
   if (!open) {
     return (
-      <div className="grid grid-cols-2 gap-2">
-        <Btn kind="secondary" full onClick={() => setOpen(true)}>
-          {t("打って入れる")}
-        </Btn>
-        <Btn kind="secondary" full href="/capture">
-          {t("話す・撮る")}
+      <div>
+        <Btn kind="secondary" onClick={() => setOpen(true)}>
+          {t("＋ 入れる")}
         </Btn>
       </div>
     );
@@ -332,6 +331,10 @@ function AddFromPaper({
   const field = "min-h-11 w-full rounded-lg border border-line bg-card px-3 text-base";
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-line p-3">
+      <Link href="/capture" className="inline-flex min-h-11 items-center gap-1 self-start text-sm font-semibold text-sky">
+        <span className="underline underline-offset-2">{t("話す・撮るで入れる")}</span>
+        <span aria-hidden>›</span>
+      </Link>
       <label className="flex flex-col gap-1 text-sm text-muted">
         {t("測った日")}
         <input type="date" value={date} max={today} onChange={(e) => setDate(e.target.value)} className={field} />
