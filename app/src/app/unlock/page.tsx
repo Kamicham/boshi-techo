@@ -37,7 +37,10 @@ export default function Unlock() {
           id="passcode"
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          inputMode="numeric"
+          // 合言葉は英字も入る（iPhone で数字だけのキーボードにしない）。頭の字を大文字にしない・直さない
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
           autoComplete="off"
           className="rounded-lg border border-line bg-card px-3 py-3 text-base tracking-widest"
           aria-label="合言葉"
