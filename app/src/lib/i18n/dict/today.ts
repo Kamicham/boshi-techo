@@ -505,6 +505,24 @@ export default {
   "{city}の子育ての窓口": { zh: "{city}的育儿窗口", en: "the {city} childcare office" },
   "文面は、相手が読む日本語のままです": { zh: "文稿保持日语原文，方便对方阅读", en: "The message stays in Japanese for the person reading it" },
 
+  // ── 妊娠中の思い出の誘い（BumpMoment・表は lib/media-shared.ts の BUMP_MOMENTS。「おなかに話しかける」は memories.ts、「未来の手紙」は album.ts） ──
+  エコーの写真: { zh: "B超照片", en: "Ultrasound photo" },
+  "健診でもらったエコーの写真を、手帳に残せます": { zh: "可以把产检时拿到的B超照片存进手册", en: "You can keep the ultrasound photo from your checkup in the handbook" },
+  "紙の写真は、年月で薄くなります。撮っておくと、ずっと見られます": { zh: "纸质照片会随着岁月褪色。拍下来，就能一直看。", en: "Paper photos fade over the years. Take a picture of it and you can look at it for good." },
+  "📷 写真を残す": { zh: "📷 保存照片", en: "📷 Save a photo" },
+  妊娠5か月: { zh: "怀孕5个月", en: "5 months pregnant" },
+  "妊娠5か月。安産祈願（戌の日）に行く家族もいます": { zh: "怀孕5个月。有的家庭会去祈求平安生产（戌日）。", en: "5 months pregnant. Some families visit a shrine to pray for a safe birth (on the Day of the Dog, 戌の日)." },
+  "行った日の写真や、おなかの写真を残せます": { zh: "可以保存去的那天的照片，或者肚子的照片", en: "You can save photos from that day, or of your bump" },
+  "おなかに話しかける声を、残してみませんか": { zh: "要不要把对肚子说的话录下来？", en: "Why not record your voice talking to the bump?" },
+  "生まれたあと、一緒に聞けます": { zh: "出生以后，可以一起听。", en: "You can listen together after the baby is born." },
+  "🎙 声を残す": { zh: "🎙 录下声音", en: "🎙 Record your voice" },
+  名前のこと: { zh: "关于名字", en: "About the name" },
+  "名前の候補や由来を、声で残せます（任意）": { zh: "可以用声音记下名字的候选和由来（可选）", en: "You can record name ideas and what they mean (optional)" },
+  "決まる前の迷いも、いつか一緒に聞けます": { zh: "决定之前的犹豫，以后也能一起听。", en: "Even the back-and-forth before you decide is something you can listen to together someday." },
+  "1歳の誕生日に開く手紙を、書いてみませんか": { zh: "要不要写一封在1岁生日时打开的信？", en: "Why not write a letter to open on the first birthday?" },
+  "封をして、その日まで手帳が守ります": { zh: "封好后，手册会保管到那一天。", en: "Seal it, and the handbook will keep it safe until that day." },
+  "💌 手紙を書く": { zh: "💌 写信", en: "💌 Write a letter" },
+
   // ── 家族から・手紙・誕生日・1000日（FamilyNews・LetterNews・BirthdayCard・ThousandDays・MilestoneDay） ──
   家族から: { zh: "来自家人", en: "From your family" },
   "🌷 {name}から、ありがとう": { zh: "🌷 {name}说：谢谢", en: "🌷 Thanks from {name}" },
