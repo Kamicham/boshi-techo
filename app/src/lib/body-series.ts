@@ -195,11 +195,12 @@ export function bodySeries(entries: readonly TechoEntry[], family: BodyFamily, t
 // ───────── 体重の目安（40週の所に1本だけ置く括弧） ─────────
 
 /**
- * 妊娠中の体重の増え方の目安（日本産科婦人科学会「妊娠中の体重増加の目安について」2021年3月8日）。
+ * 妊娠中の体重の増え方の目安（日本産科婦人科学会「妊娠中の体重増加指導の目安」2021年3月8日。表と注の文は、厚生労働省 子母発0331第5号
+ * 〈2021年3月31日〉の表8で確かめた。学会の研究の案内〈2026年6月30日〉も同じ4つの幅）。
  * 妊娠前の BMI で決まる、出産までの合計。週ごとの値は公に無いので、週ごとの帯は作らない。区分の名前（やせ・肥満）は画面に出さない。
  * BMI 30 以上は幅が無く「個別対応（上限5kgまでが目安）」の文だけ。双子など（多胎）は公の値が無いので出さない
  */
-export const GAIN_GUIDE_SOURCE = { title: "日本産科婦人科学会「妊娠中の体重増加の目安について」", date: "2021-03-08", year: 2021 } as const;
+export const GAIN_GUIDE_SOURCE = { title: "日本産科婦人科学会「妊娠中の体重増加指導の目安」", date: "2021-03-08", year: 2021 } as const;
 
 export type GainGuide = { kind: "range"; lowKg: number; highKg: number } | { kind: "individual" };
 
