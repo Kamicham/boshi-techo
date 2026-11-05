@@ -3,7 +3,9 @@
 import { formAfterGate, route } from "@/lib/api";
 import { withHousehold } from "@/lib/access";
 import { HttpError } from "@/lib/http-error";
+import { langOf } from "@/lib/i18n/dicts";
 import { contributorFrom, existingTechoIds, photoDate, purgeExpired, saveUpload, starKey, toClient, type MediaData } from "@/lib/media";
+import { localizeMadeMedia } from "@/lib/sample-media-i18n";
 import { listTecho } from "@/lib/techo-store";
 
 export const maxDuration = 120;
@@ -29,7 +31,9 @@ export const GET = route(async (req: Request) => {
   // 消えた手帳の記録への結びは出さない（写真は残す）
   const live = new Set(listTecho(ctx.household.id, { family: ctx.family ?? undefined, today }).map((d) => d.id));
   const me = starKey(ctx.account?.id, q.get("by"));
-  const media = rows.map((r) => toClient(ctx.household.id, r, me, live));
+  // 作った写真（見本の家族）の一言と続柄の注は、頼みの言葉で返す（lib/sample-media-i18n.ts。日本語・本物の家族は1字も変わらない）
+  const lang = langOf(req);
+  const media = rows.map((r) => toClient(ctx.household.id, localizeMadeMedia(r, lang), me, live));
   return {
     media,
     usage: { count: media.length, bytes: media.reduce((n, m) => n + m.bytes, 0) },
