@@ -24,3 +24,11 @@ export function registrationLine(family: Family, me: Member | null, reg: (Task &
   if (me && person.id === me.id) return t("出生届は、あなたの番です（{until}）。{rest}", { until, rest: me.role === "母" ? "" : rest });
   return t("出生届は、{name}の番です（{until}）。{rest}", { name: nameIn(person.name), until, rest: person.role === "母" ? "" : rest });
 }
+
+/**
+ * 届けの束（BirthTripCard）がすぐ下に出ている日の一言（家族の声①への直し A）。出生届の期限と担当は束が言うので、ここでは繰り返さない。
+ * 産んだ人にだけ、休む事を先に言う（ほかの家族には何も足さない）
+ */
+export function tripBelowLine(me: Member | null): string {
+  return me?.role === "母" ? t("届けは下の1枚に。あなたは、休む事を一番に。") : "";
+}

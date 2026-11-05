@@ -544,7 +544,8 @@ export function Techo() {
       {/* 節目の日は、その日から2日の間、一番上に節目の1枚（写真・声・手紙の入口）。やる事はすぐ下 */}
       {!loading && celebration && <MilestoneDay key={`${family.id}:${celebration.id}`} family={family} today={today} m={celebration} />}
       {/* 見本の「もしも」の札・生まれた翌日の札から開いた時は、手帳が気づいた事（組み直し）を一番上の札より上に（UX の見直し C36） */}
-      {!loading && advisorFirst && advisorOpen! > 0 && <AdvisorCard key={`${family.id}:${today}`} familyId={family.id} today={today} meId={me?.id} />}
+      {/* ようこその日は、気づいた事を題の1行に畳む（押すと開く。札から見に来た時は開いて始める。家族の声①への直し A） */}
+      {!loading && advisorFirst && advisorOpen! > 0 && <AdvisorCard key={`${family.id}:${today}`} familyId={family.id} today={today} meId={me?.id} line={welcome !== null} defaultOpen />}
       {loading ? (
         <div className="h-40 rounded-2xl bg-rose-soft/60" aria-hidden />
       ) : visitTop && nextVisit ? (
@@ -621,7 +622,7 @@ export function Techo() {
       )}
 
       {/* 手帳が見渡して気づいた事は、一番上の1枚の次に（大きな札を2枚並べない） */}
-      {!loading && !advisorFirst && advisorOpen! > 0 && <AdvisorCard key={`${family.id}:${today}`} familyId={family.id} today={today} meId={me?.id} />}
+      {!loading && !advisorFirst && advisorOpen! > 0 && <AdvisorCard key={`${family.id}:${today}`} familyId={family.id} today={today} meId={me?.id} line={welcome !== null} />}
 
       {/* 家族から: ほかの家族が済ませた事にありがとうを送り、自分に届いたありがとうを見る（家族が2人以上の手帳だけ） */}
       {!loading && (

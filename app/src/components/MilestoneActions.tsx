@@ -12,6 +12,7 @@ import { msWords } from "@/lib/i18n/milestone-words";
 import type { Milestone } from "@/lib/milestones";
 import type { LocalInfo } from "@/lib/local";
 import type { DraftKind, DraftView } from "@/lib/drafts";
+import { actionsOf } from "./actions-of";
 import { api, settledError, useFamily } from "./FamilyProvider";
 import { Btn } from "./ui";
 import { DraftPanel, doneWord, type DraftBusy } from "./draft/DraftPanel";
@@ -49,6 +50,15 @@ type Props = {
   compact?: boolean;
   /** 下書きの印で、その事の済みが変わった時（今日の画面が済んだ事を読み直す） */
   onDoneChange?: (done: boolean) => void;
+  /**
+   * 「くわしく ›」に畳む中身（届けの束の1件目・家族の声①への直し A「その時に1つ、聞かれたら全部」）。
+   * 渡すと、1つ目のボタン（主）だけを出したままにし、2つ目からのボタンとこの中身を「くわしく ›」の中へ入れる。ボタンが1つも無い事でも「くわしく ›」は出す
+   */
+  more?: React.ReactNode;
+  /** 「くわしく ›」の中で、2つ目からのボタンより先に出す中身（理由など。読んでから動けるように） */
+  moreLead?: React.ReactNode;
+  /** 「くわしく ›」の右に添える一言（「手帳が用意しておきました」など） */
+  moreNote?: string | null;
 };
 
 export function MilestoneActions(props: Props) {
@@ -66,9 +76,11 @@ function SmallLink({ children, onClick, ariaLabel }: { children: React.ReactNode
   );
 }
 
-function Actions({ milestone, today, primary, compact, onDoneChange }: Props) {
+function Actions({ milestone, today, primary, compact, onDoneChange, more, moreLead, moreNote }: Props) {
   const { family, me } = useFamily();
   const [open, setOpen] = useState<Open>(null);
+  // 「くわしく ›」の開け閉め（同意の画面から戻って下書きを開く時は、こちらも開く）
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const [local, setLocal] = useState<LocalInfo | null>(null);
   const [localBusy, setLocalBusy] = useState(false);
@@ -80,9 +92,7 @@ function Actions({ milestone, today, primary, compact, onDoneChange }: Props) {
   const [draftErr, setDraftErr] = useState("");
   const [draftSettled, setDraftSettled] = useState(false);
 
-  // 役所の窓口を調べるのは、役所に出す手続きだけ（産院・職場に出す物を役所で調べると、違う行き先が出る＝sim-14 の直接支払制度）
-  const canLocal = milestone.needsLocal && !!family.city && !(milestone.kind === "仕事" || /産院|職場/.test(`${milestone.title}${milestone.plain}`));
-  const canDraft = milestone.id in DRAFTABLE;
+  const { canLocal, canDraft } = actionsOf(milestone, family.city);
   const title = msWords(milestone.plain || milestone.title);
 
   // 前に作った下書き・調べた結果があるかだけ先に見る（作り・調べには行かない）
@@ -172,6 +182,7 @@ function Actions({ milestone, today, primary, compact, onDoneChange }: Props) {
       .then(readConsentState, () => null)
       .then((state) => {
         setOpen("draft");
+        setMoreOpen(true);
         if (afterDraftConsentReturn({ raw, milestoneId: milestone.id, now: Date.now(), state }) === "make") void openDraft();
         else {
           setDraftErr(CONSENT_REQUIRED_TEXT);
@@ -183,7 +194,7 @@ function Actions({ milestone, today, primary, compact, onDoneChange }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!canLocal && !canDraft) return null;
+  if (!canLocal && !canDraft && !more) return null;
 
   const draft = view?.draft ?? null;
   // ボタンの言葉は、押す前と同じ種類で呼ぶ（表に無い事だけ、作った下書きの種類で呼ぶ）
@@ -205,54 +216,86 @@ function Actions({ milestone, today, primary, compact, onDoneChange }: Props) {
     canDraft && { id: "draft" as const, label: draftLabel, aria: t("{title}の{label}", { title, label: draftLabel }) },
   ].filter((x): x is { id: Exclude<Open, null>; label: string; aria: string } => !!x);
 
+  // 2つ目からのボタン（と、すべて小さくする時・畳む時）は小さな文字のリンク
+  const button = (b: (typeof buttons)[number], i: number) =>
+    compact || ((primary || !!more) && i > 0) ? (
+      <SmallLink key={b.id} onClick={() => toggle(b.id)} ariaLabel={b.aria}>
+        {b.label}
+      </SmallLink>
+    ) : (
+      <Btn key={b.id} kind={primary ? "primary" : "secondary"} onClick={() => toggle(b.id)} ariaLabel={b.aria}>
+        {b.label}
+      </Btn>
+    );
+  // 開いた中身（押したボタンの下に出す）
+  const panel = (id: Exclude<Open, null>) =>
+    id === "draft" ? (
+      <DraftPanel
+        key="draft"
+        familyId={family.id}
+        milestoneId={milestone.id}
+        meId={me?.id ?? null}
+        today={today}
+        view={view}
+        busy={draftBusy}
+        err={draftErr}
+        settled={draftSettled}
+        onView={(v) => {
+          const was = view?.draft?.status === "ok";
+          setView(v);
+          const now = v.draft?.status === "ok";
+          if (was !== now) onDoneChange?.(now);
+        }}
+        onRemake={() => void makeDraft()}
+        onRetry={() => void (draft ? makeDraft() : openDraft())}
+      />
+    ) : (
+      <LocalPanel
+        key="local"
+        city={family.city}
+        title={title}
+        local={local}
+        busy={localBusy}
+        err={localErr}
+        settled={localSettled}
+        onRetry={() => void loadLocal(!!local)}
+        onRefresh={() => void loadLocal(true)}
+      />
+    );
+
+  // 畳む形（届けの束の1件目）: 主ボタン1つだけを出したまま、2つ目からと中身は「くわしく ›」の中
+  if (more) {
+    const [head, ...rest] = buttons;
+    return (
+      <div ref={box} className="flex flex-col gap-2">
+        {head && <div className="flex flex-wrap items-center gap-2">{button(head, 0)}</div>}
+        {head && open === head.id && panel(head.id)}
+        <details className="group/more" open={moreOpen} onToggle={(e) => setMoreOpen(e.currentTarget.open)}>
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm text-muted">
+            <span className="inline-flex shrink-0 items-center gap-1 px-1">
+              <span className="underline underline-offset-2">{t("くわしく")}</span>
+              <span className="transition-transform group-open/more:rotate-90" aria-hidden>
+                ›
+              </span>
+            </span>
+            {moreNote && <span className="min-w-0 truncate font-semibold text-sky">{moreNote}</span>}
+          </summary>
+          <div className="flex flex-col gap-2 pt-1">
+            {moreLead}
+            {rest.length > 0 && <div className="flex flex-wrap items-center gap-x-2">{rest.map((b, i) => button(b, i + 1))}</div>}
+            {rest.map((b) => (open === b.id ? panel(b.id) : null))}
+            {more}
+          </div>
+        </details>
+      </div>
+    );
+  }
+
   return (
     <div ref={box} className="flex flex-col gap-3">
-      <div className={`flex flex-wrap items-center ${compact ? "gap-x-2" : "gap-2"}`}>
-        {buttons.map((b, i) =>
-          compact || (primary && i > 0) ? (
-            <SmallLink key={b.id} onClick={() => toggle(b.id)} ariaLabel={b.aria}>
-              {b.label}
-            </SmallLink>
-          ) : (
-            <Btn key={b.id} kind={primary ? "primary" : "secondary"} onClick={() => toggle(b.id)} ariaLabel={b.aria}>
-              {b.label}
-            </Btn>
-          ),
-        )}
-      </div>
-
-      {open === "draft" && (
-        <DraftPanel
-          familyId={family.id}
-          milestoneId={milestone.id}
-          meId={me?.id ?? null}
-          today={today}
-          view={view}
-          busy={draftBusy}
-          err={draftErr}
-          settled={draftSettled}
-          onView={(v) => {
-            const was = view?.draft?.status === "ok";
-            setView(v);
-            const now = v.draft?.status === "ok";
-            if (was !== now) onDoneChange?.(now);
-          }}
-          onRemake={() => void makeDraft()}
-          onRetry={() => void (draft ? makeDraft() : openDraft())}
-        />
-      )}
-      {open === "local" && (
-        <LocalPanel
-          city={family.city}
-          title={title}
-          local={local}
-          busy={localBusy}
-          err={localErr}
-          settled={localSettled}
-          onRetry={() => void loadLocal(!!local)}
-          onRefresh={() => void loadLocal(true)}
-        />
-      )}
+      <div className={`flex flex-wrap items-center ${compact ? "gap-x-2" : "gap-2"}`}>{buttons.map(button)}</div>
+      {open === "draft" && panel("draft")}
+      {open === "local" && panel("local")}
     </div>
   );
 }

@@ -26,6 +26,7 @@ export default {
   同意の画面へ: { zh: "去同意页面", en: "Go to consent" },
   "自分の手帳は、3つの質問に答えると作れます": { zh: "回答3个问题，就能创建自己的手册", en: "Answer 3 questions to make your own handbook" },
   // 体験版（lib/trial-words.ts）
+  体験版: { zh: "体验版", en: "Trial" },
   "体験版です。家族はすべて作った家族で、今は AI（Claude）を呼ばず、前に Claude が書いた一冊と見本の答えで動いています": {
     zh: "这是体验版。所有家庭都是虚构的。现在不调用 AI（Claude），而是用 Claude 之前写好的成长书和示例回答来运行",
     en: "This is a trial version. Every family here is fictional. It isn't calling the AI (Claude) right now; it runs on a book Claude wrote earlier and on sample answers",

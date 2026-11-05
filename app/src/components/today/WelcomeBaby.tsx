@@ -5,7 +5,7 @@
 //   設定と同じ口（/api/account/profile・わが家は /api/family）へ保存する。作った家族（見本・シミュレーション）は保存せず、時計を生まれた日へ進める。
 //   保存できない役（読むだけの祖父母など）には出さない。
 // - WelcomeBaby: 生まれた日からお七夜の前の日まで（生後0〜5日）、一番上に「ようこそ、{名前}」の1枚。はじめましての写真・声、家族へ知らせる文、
-//   届けの一言（出生届は誰の番か。産んだ人には、休む事を先に）。届けの束（BirthTripCard）はその下。
+//   届けの一言（出生届は誰の番か。産んだ人には、休む事を先に）。届けの束（BirthTripCard）はその下（束がすぐ下にある日は、届けの事は束に任せる）。
 // - どちらも静かにする（つらい別れ・入院）間は出さない（lib/media-shared.ts の bornPromptFor・welcomeFor）。体の事（体重・時刻・様子）は聞かない・書かない。
 // 出生届の根拠: 戸籍法第49条（生まれた日を含めて14日以内）。署名した届書を窓口へ持っていくのは、ほかの家族でもよい（使者。lib/milestones.ts）。
 import Link from "next/link";
@@ -13,13 +13,13 @@ import { useEffect, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn, plainError } from "@/components/ui";
 import type { Family, Member } from "@/lib/demo-family";
-import { currentLang, t } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 import { nameIn } from "@/lib/i18n/names";
 import type { ClientLetter } from "@/lib/letters-shared";
 import { birthNewsText } from "@/lib/media-shared";
 import { jpDate } from "./dates";
 import type { Task } from "./task";
-import { registrationLine } from "./welcome";
+import { registrationLine, tripBelowLine } from "./welcome";
 
 const field = "min-h-12 w-full rounded-xl border border-line bg-card px-3 text-base";
 
@@ -149,7 +149,8 @@ export function WelcomeBaby({
       setCopied(false);
     }
   };
-  const line = registrationLine(family, me, reg);
+  // 届けの束がすぐ下にある日は、出生届の期限と担当を束に任せる（産んだ人には、休む事だけ）
+  const line = tripBelow && reg && reg.status !== "済み" ? tripBelowLine(me) : registrationLine(family, me, reg);
   const link = "flex min-h-12 items-center justify-between gap-3 rounded-xl bg-card px-4 text-base font-semibold";
   return (
     <section aria-label={t("ようこそ")} className="flex flex-col gap-3 rounded-2xl border border-rose/40 bg-rose-soft p-4">
@@ -173,13 +174,7 @@ export function WelcomeBaby({
           </span>
         </button>
       </div>
-      {line && (
-        <p className="text-base">
-          {/* English は文の間を1字空ける（日本語・中文は続けて書く） */}
-          {tripBelow && reg?.status !== "済み" ? t("届けの準備は、手帳が下の1枚にまとめました。") + (currentLang() === "en" ? " " : "") : ""}
-          {line}
-        </p>
-      )}
+      {line && <p className="text-base">{line}</p>}
     </section>
   );
 }
