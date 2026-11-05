@@ -100,7 +100,7 @@ export default function NewInvite() {
               ))}
             </div>
             <p className="text-sm text-muted">
-              {role === "admin" ? "共同の管理: 記録を見て、足して、家族を招けます" : "読むだけ: 子の記録を見られます。足す・直すはできません"}
+              {role === "admin" ? "共同の管理: 記録を見て、足して、家族を招けます" : "読むだけ: 手帳の記録と子の写真・声を見られます（今は母の記録も見えます）。足す・直すはできません"}
             </p>
             <label className="flex flex-col gap-1 text-base">
               相手のメール（このメールのコードで入った人だけが受けられます）
@@ -112,7 +112,7 @@ export default function NewInvite() {
             <Box title="母の記録から、見せる物">
               {iAmMother ? (
                 <>
-                  <p className="text-base">何も選ばなければ、子の記録だけを見せます。</p>
+                  <p className="text-base">何も選ばなければ、写真と声は子の分だけを見せます（1つでも選ぶと、母の写真と声も見せます）。手帳の文字の記録は、今は母の分も見えます（項目ごとに選ぶ仕組みは準備中です）。</p>
                   {SHARE_ITEMS.map((it) => (
                     <label key={it.id} className="flex min-h-11 items-center gap-3 text-base">
                       <input
@@ -131,7 +131,7 @@ export default function NewInvite() {
                   ))}
                 </>
               ) : (
-                <p className="text-base">母の記録を見せる範囲は、母本人が選びます。この招待では、子の記録だけを見せます。</p>
+                <p className="text-base">母の記録を見せる範囲は、母本人が選びます。この招待では、写真と声は子の分だけを見せます（手帳の文字の記録は、今は母の分も見えます）。</p>
               )}
             </Box>
           )}

@@ -755,23 +755,23 @@ const gapsOf = (rs: Result[]) =>
 /** 全国に直す（1000組の1組 = 年に約671家族） */
 const nation = (n: number) => `約${(n * PER_FAMILY).toLocaleString("ja-JP")}`;
 
-/** 今のアプリ（Family 型・期限表）が表せない状況。profile から数える */
+/**
+ * 今のアプリ（Family 型・期限表）が表せない状況。profile から数える。
+ * 表せるようになった物は外す（2026-11-05: 上の子＝決まり l・里帰り＝決まり o・自営で育休が無い＝決まり h・n・p と国保・国民年金の産前産後の免除）
+ */
 const UNREPRESENTABLE: { label: string; why: string; hit: (f: PopFamily) => boolean }[] = [
-  { label: "上の子がいる（第2子以降）", why: "Family 型に上の子が無い。入院中の預け先・きょうだいの健診や保育園と重なる事を表せない", hit: (f) => f.profile.order !== "第1子" },
-  { label: "里帰り出産をする", why: "里帰り先の町・期間を持てない。里帰り先での健診（補助券の償還）・出生届の出し先を表せない", hit: (f) => !!f.profile.satogaeri },
   { label: "近くに祖父母がいない（同居・同じ市区町村のどちらにもいない）", why: "家族は母とパートナーだけで、祖父母を持たない。手を借りられない家族を区別できない", hit: (f) => !["同居", "同じ市区町村"].includes(f.profile.grandma.mother) && !["同居", "同じ市区町村"].includes(f.profile.grandma.father ?? "") },
-  { label: "母が育休なしで働き続ける・自営", why: "期限表の「産休」「育休を職場に伝える」が全員に出る。育休の無い働き方を表せない", hit: (f) => f.profile.motherWork.after === "育休なしで継続" },
+  { label: "母が育休なしで働き続ける・自営", why: "自営・フリーの母には、職場の事・出産手当金・育休の給付が出ない（決まり h・n・p）。雇われて育休を取らずに働き続ける母は持てず、「産休」「育休を職場に伝える」が出る", hit: (f) => f.profile.motherWork.after === "育休なしで継続" },
   { label: "帝王切開", why: "入院が長い・退院後に動けない期間を、担当の割り振りに入れられない", hit: (f) => f.profile.cesarean },
   { label: "父に夜勤がある", why: "パートナーが動ける時間帯を持てない（夜勤明けに窓口へ行けない等）", hit: (f) => !!f.profile.father?.nightShift },
   { label: "同じ市区町村の中で引っ越す", why: "住所が変わっても町は同じなので、Family 型では引っ越しにならない（転居届・郵便・保険証の住所変更が出ない）", hit: (f) => f.profile.move?.kind === "同じ市区町村の中" },
   { label: "体外受精など（生殖補助医療）", why: "授かる前・妊娠初期の治療と、クリニックから産院への移り方を表せない", hit: (f) => f.profile.art },
-  { label: "妊娠37週未満で生まれる", why: "生まれた日は持てるが、早産に合わせた健診・予防接種の数え方（修正月齢）を持てない", hit: (f) => f.profile.weeks < 37 },
-  { label: "自営（母か父）で育休が無い", why: "自営の家族に「職場に伝える」「育休」がそのまま出る。国民健康保険の産前産後の免除などを表せない", hit: (f) => f.profile.motherWork.atPregnancy === "自営など" || f.profile.father?.work === "自営など" },
+  { label: "妊娠37週未満で生まれる", why: "生まれた日と週数は持てる。発育曲線は修正月齢で見て（lib/growth.ts）、育休の始まりを早める事（決まり s）・低出生体重児の届出・未熟児養育医療も出る。乳幼児健診の時期を修正月齢で数える事は持てない", hit: (f) => f.profile.weeks < 37 },
   { label: "父母のどちらかが外国籍", why: "親の国の大使館への出生の届け・在留資格の手続きを表せない", hit: (f) => f.profile.nationality.mother !== "日本" || (!!f.profile.nationality.father && f.profile.nationality.father !== "日本") },
-  { label: "NICU に入る", why: "入院中の出生届・医療費（未熟児養育医療）・面会の段取りを表せない", hit: (f) => f.profile.nicu },
+  { label: "NICU に入る", why: "未熟児養育医療・低出生体重児の届出は出て、入院の間は「静かにする」（nicu）を選べる。面会の段取りと退院の日は持てない", hit: (f) => f.profile.nicu },
   { label: "日本語に不安がある親がいる", why: "言葉の力を Family 型に持てない（やさしい日本語・母語への切り替えができない）", hit: (f) => f.profile.japaneseAnxious.mother || f.profile.japaneseAnxious.father },
   { label: "ひとり親", why: "パートナーの担当は母へ移り、児童扶養手当などを足した（members から）。事実婚・離婚の途中など、ひとり親の形の違いは持てない", hit: (f) => f.profile.marital === "ひとり親" },
-  { label: "双子", why: "子が1人の前提。出生届・児童手当・健診・予防接種が2人分にならない", hit: (f) => f.profile.twins },
+  { label: "双子", why: "生まれる子の数は持てる（出生届・児童手当・保険証・医療費助成・出生通知に「2人分」、産前休業は14週）。健診・予防接種の予定は1人分の言い方のまま", hit: (f) => f.profile.twins },
   { label: "単身赴任", why: "パートナーが離れて暮らす事を持てない（担当を振り直す根拠が無い）", hit: (f) => !!f.profile.father?.tanshin },
   { label: "事実婚（婚姻届を出していない）", why: "認知の届け・親権・児童手当の受け取る人を表せない", hit: (f) => f.profile.marital === "事実婚" },
   { label: "祖父母がだれもいない・国外（両方の母が亡くなっている・国外）", why: "外の手（産前産後ヘルパー・ファミサポ）へ振る根拠が無い", hit: (f) => ["亡くなっている", "国外"].includes(f.profile.grandma.mother) && (!f.profile.grandma.father || ["亡くなっている", "国外"].includes(f.profile.grandma.father)) },

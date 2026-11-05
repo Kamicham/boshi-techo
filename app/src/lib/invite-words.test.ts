@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { inviteCanLines, inviteHeadline, inviteSeeLine, inviteShareText, lineShareUrl, maskEmail, periodWord } from "./invite-words";
+import { inviteCanLines, inviteHeadline, inviteMotherItemsLine, inviteSeeLine, inviteShareText, lineShareUrl, maskEmail, periodWord } from "./invite-words";
 
 const BODY = /大丈夫|正常|異常|心配(ない|いらない)/;
 
@@ -31,13 +31,28 @@ describe("招待の言葉", () => {
     expect(inviteCanLines("admin")).toHaveLength(3);
     expect(inviteCanLines("admin")[0]).toContain("二人で分け");
     expect(inviteCanLines("member").join()).toContain("足す・直すはできません");
+    // 読むだけの人にも手帳の記録が見える（「子の記録だけ」と少なく言わない）
+    expect(inviteCanLines("member")[0]).toBe("手帳の記録と子の写真を見られます");
     for (const l of [...inviteCanLines("admin"), ...inviteCanLines("member")]) expect(l).not.toMatch(BODY);
   });
 
-  it("受ける画面の見られる物: 共同の管理は母の記録も含めて全部、読むだけは子の記録と選んだ項目", () => {
+  it("受ける画面の見られる物: 共同の管理は全部。読むだけにも、今は母の記録を含む文字の記録が見える事を隠さない", () => {
     expect(inviteSeeLine("admin", [])).toContain("母の記録も");
-    expect(inviteSeeLine("member", [])).toBe("見られる物: 子の記録（足す・直すはできません）");
-    expect(inviteSeeLine("member", ["母の写真"])).toContain("子の記録、母の写真");
+    expect(inviteSeeLine("member", [])).toBe("見られる物: 手帳の文字の記録（今は母の記録も見えます）と、子の写真・声（記録を足す・直すはできません）");
+    // 母が項目を1つでも選ぶと、写真・声は母の分も見える（lib/access.ts の visibleSubjects）
+    expect(inviteSeeLine("member", ["母の写真"])).toContain("子と母の写真・声");
+    // 「子の記録だけ」「選んだ項目だけ」と約束しない
+    for (const l of [inviteSeeLine("member", []), inviteSeeLine("member", ["母の写真"])]) {
+      expect(l).not.toMatch(/子の記録だけ|選んだ項目だけを見/);
+      expect(l).not.toMatch(BODY);
+    }
+  });
+
+  it("母が選んだ項目の注: 選び分けはまだ効かないので「準備中」。共同の管理・項目なしには出さない", () => {
+    expect(inviteMotherItemsLine("member", ["母の手帳の記録（妊娠中の経過など）", "母の写真"])).toBe("母が選んだ「母の手帳の記録（妊娠中の経過など）」「母の写真」だけを見せる仕組みは準備中です");
+    expect(inviteMotherItemsLine("member", [])).toBeNull();
+    expect(inviteMotherItemsLine("admin", ["母の写真"])).toBeNull();
+    expect(inviteMotherItemsLine("owner", ["母の写真"])).toBeNull();
   });
 
   it("送る文: 相手のメール・48時間・リンクを入れ、LINE の URL に包める", () => {

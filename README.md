@@ -1,5 +1,7 @@
 # 母子手帳を、再発明する
 
+[![検査（型・lint・試験・早送り・組み立て）](https://github.com/Kamicham/boshi-techo/actions/workflows/check.yml/badge.svg?branch=main)](https://github.com/Kamicham/boshi-techo/actions/workflows/check.yml)
+
 > 1948年、日本は母子手帳を発明した。それは世界約40か国に広がった。
 > 2026年、その次の形を作る。「読む手帳」から、「一緒に動く手帳」へ。
 
@@ -74,10 +76,28 @@
 
 ## Claude の使い方
 
-- **Claude Opus 5.5** が7つの役を担う: 声と写真の読み取り（画像入力）、記録の構造化（Structured Outputs＋zod）、自治体の制度の調査（web 検索ツール・出典つき）、下書き、生まれた日や町が変わった時の組み直し（参謀の気づき）、健診の整理、一冊の執筆
-- **手帳に聞く**（どの画面からも右下の「聞く」）: Opus 5.5 が道具（予定・手帳の記録・町の公式ページ・画面の地図・下書き・済みにする・健診で聞く・記録する・渡す文）を自分で選んで使い、答えるだけでなく返事の下に動きを添える。書き込む動きは家族が押すまで何も変えない。体・心・栄養は判断せず、記録・健診で聞く事・連絡先への橋に変える（急ぎ・心の危機の言葉には機械で必ず電話の案内を付け、返事は Haiku 5.5 の見張りが判断の言葉を探して書き直させる）
-- 軽い整形と見張りは **Claude Haiku 5.5**
+仕事ごとにモデルを分けています。毎日の仕事は Sonnet、深く読む仕事は Opus、見張りと整えは Haiku です。
+
+| 仕事 | モデル | 理由 |
+|---|---|---|
+| 撮る・話す（声と写真の読み取り → 記録の候補。紙の手帳のページを見分ける） | Sonnet 5.5（`EVERYDAY_MODEL`） | 毎日の仕事。単価は Opus の半分 |
+| 下書き（職場へのメール・出生届の記入メモなど） | Sonnet 5.5（`EVERYDAY_MODEL`） | 毎日の仕事 |
+| 手帳に聞く（道具を自分で選ぶ。最大8手）と、見張りに言われた時の書き直し | Sonnet 5.5（`EVERYDAY_MODEL`） | 毎日の仕事 |
+| 調べ物（町の窓口・持ち物・期限。手帳に聞くの公式ページの検索と、引っ越しの時の前の町との差も） | Sonnet 5.5（`RESEARCH_MODEL`） | 1回に検索の結果を約8万トークン読む。書き出した文は後で整え、出典の URL も残すので、Sonnet で質を保てる |
+| 参謀の気づき（早く・遅く生まれた・町が変わった時の組み直し）と、時期ごとの見渡し | Opus 5.5（`MODEL`） | 深い仕事。家族の形・予定・記録を突き合わせて、決まりに無い事を見つける |
+| 健診の整理（先生が言った事・次までにやる事・次に聞く質問）と、院内の案内図から回る順番 | Opus 5.5（`MODEL`） | 深い仕事。先生の言葉を崩さずに分ける |
+| 一冊（1000日の記録と家族の言葉から、子どもへの本） | Opus 5.5（`MODEL`） | 深い仕事。一度きりの長い文 |
+| 手帳に聞くの見張り（体・心・栄養の判断の言葉を探す） | Haiku 5.5（`LIGHT_MODEL`） | 返事のたびに1回。軽い仕事 |
+| 調べ物の整え（調べた文を、窓口・持ち物・期限の形に） | Haiku 5.5（`LIGHT_MODEL`） | 形を整えるだけの軽い仕事 |
+
+正本は [`app/src/lib/claude.ts`](app/src/lib/claude.ts) の4つの定数（`MODEL`・`EVERYDAY_MODEL`・`LIGHT_MODEL`・`RESEARCH_MODEL`）です。Opus の仕事だけ、断られた時の呼び直し（server-side fallbacks）を付けています。
+
+- 決まった形は Structured Outputs と zod で受け取る。写真は画像入力。調べ物は web 検索のツールで、答えの中で引用されたページを出典に残す（市区町村の公式サイトを優先するよう頼む）
+- **手帳に聞く**（どの画面からも右下の「聞く」）: 道具（予定・手帳の記録・町の公式ページ・画面の地図・下書き・済みにする・健診で聞く・記録する・渡す文）を自分で選んで使い、答えるだけでなく返事の下に動きを添える。書き込む動きは家族が押すまで何も変えない。体・心・栄養は判断せず、記録・健診で聞く事・連絡先への橋に変える（急ぎ・心の危機の言葉には機械で必ず電話の案内を付け、返事は Haiku の見張りが判断の言葉を探し、あれば書き直させる）
 - 体の判断をしない約束を、すべての呼び出しの共通の決まり（`CHARTER`）として持つ
+- 使い過ぎ止め: 呼ぶたびに使った額を記録し（`lib/spend.ts`）、`BOSHI_DAILY_USD`（サーバ全体の1日）と `BOSHI_HOUSEHOLD_DAILY_USD`（1つの世帯の1日）を超えた日は、Claude の仕事だけを止める。予定表・期限・急ぎの時はそのまま使える
+- 鍵が無い時と、上限に達した日は、見本の家族は [`lib/samples.ts`](app/src/lib/samples.ts) の「見本の答え」（札つき）で動く。町の調べ物だけは見本を作らない
+- 公開版（体験）は、ハッカソンの間は Claude を呼ばない（鍵が入っていても呼ばない歯止めが `lib/claude.ts` にある）。体験の写しは、1つの住所から1日に作れる数（`BOSHI_TRIALS_PER_IP_DAY`。既定 10・公開版の設定は 100）と、1つの写しに置ける写真と声（20件・50MB）に上限がある
 - 作る過程は **Claude Code** で進めた（計画 → 承認 → 実装を、機能ごとに並列のエージェントで）。コミットの履歴がその記録
 
 ## 動かし方
@@ -85,21 +105,23 @@
 ```bash
 cd app
 npm install
-cp .env.example .env.local   # ANTHROPIC_API_KEY と ASR_URL を書く
-echo 'BOSHI_DATA_DIR=./try-data' >> .env.local   # 試す時の置き場。書かないと app/data/ を本物の家族の置き場として守り、思い出・手紙・映画が止まる
+cp .env.example .env.local   # 頭の BOSHI_DATA_DIR=./try-data が試す時の置き場。ANTHROPIC_API_KEY と ASR_URL は空でも動く
 npm run dev                  # http://localhost:3000
 ```
 
+- `BOSHI_DATA_DIR` を消すと、`app/data/` を本物の家族の置き場として守り、アカウント・思い出・手紙・映画が止まる（作り手の家族の本番だけの形）
+- **動かし方は4つ**: わが家の本番（home）・公開版の体験（public）・シミュレーション（sim）・手元の試し（dev）。置き場と環境変数の表は [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#動かし方)。公開版やシミュレーションが本物の家族の置き場を開くなど、危ない組み合わせはサーバが立つ時に止まる（`app/src/lib/mode.ts`）
 - **鍵が無くても動く**: `ANTHROPIC_API_KEY` が空の時、予定表・期限・急ぎの時の連絡先はそのまま動き、デモの家族は Claude の仕事（撮る・下書き・気づき・聞く・一冊）を「見本の答え」で一通り触れる。町の窓口を調べる所だけは鍵が要る
 - Claude の使い過ぎ止め: `BOSHI_DAILY_USD`（サーバ全体の1日）と `BOSHI_HOUSEHOLD_DAILY_USD`（1つの世帯の1日）。鍵は月の上限を付けたワークスペースで作る
 - 文字起こし（健診の録音）は [asr/](asr/) の小さなサーバ（faster-whisper large-v3）を GPU の機械で動かし、`ASR_URL` で指す。音声は家のネットワークの外に出ない
-- `ASR_URL` が無い時は、用意したデモの文字起こしに自動で切り替わる（画面に「デモの文字起こし」と出る）。GPU が無くても、健診の1日を最後まで試せる
+- `ASR_URL` が無い時、見本の家族（作った家族）は用意したデモの文字起こしに切り替わる（画面に「デモの文字起こし」と出る）。GPU が無くても、健診の1日を最後まで試せる。本物の世帯の「話す」の記録は、デモの文を入れずに止める（`lib/asr.ts`）。わが家の本番は `ASR_URL` が無いと立たない
 - スマホのマイクは https でないと使えない。家の機械で動かす時は Tailscale Serve などで https の住所を付ける
-- 家族が毎日使う時は、組み立て済みの本番で動かす（`app/scripts/serve-prod.sh`・更新は `app/scripts/deploy-local.sh`）。開発サーバのままだと、コードを直した時に録音中の画面が読み直される
+- 家族が毎日使う時は、組み立て済みの本番で動かす（`app/scripts/serve-prod.sh`）。更新は `app/scripts/release-prod.sh`: GitHub の main のきれいな写しから組み立て、3211番で確かめてから差し替え、だめなら前の版に戻す。開発サーバのままだと、コードを直した時に録音中の画面が読み直される
 - デモの家族（すべて架空・町だけ実在のさいたま市）は上の切り替えで選べる。時計を早送りできる
 
 ```bash
-npm test          # 時計・期限・健診の処理の単体テスト
+npm test          # 試験のすべて（Claude は呼ばない・鍵も使わない）
+npm run sim       # 早送りの検査（1000組＋30家族 × 1000日）
 npm run typecheck
 ```
 
@@ -126,7 +148,13 @@ fly deploy --remote-only   # 組み立ては Fly の機械で。像は、きれ�
 
 ## しくみ
 
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)（層の図・4つの動かし方・記録の種類・全国へ広げる時の置き場）
+
+### 確かめ方
+
+- **試験 79ファイル・945件**（2026-11-05 時点・`npm test`）。Claude は呼ばず、鍵も使わない。main への push と PR のたびに、GitHub Actions（`.github/workflows/check.yml`）が型・lint・試験・早送り・組み立て（next build）を回す
+- **早送り: 20の決まり（a〜t）× 1030家族 × 1000日**（`npm run sim`）。公的な統計から作った1000組（のべ 1,035,345日）と、珍しい型の30家族（のべ 28,767日）の毎日を、「今日」の画面と同じ関数に通す。手帳の記録の決まり t1〜t8 は、見本の家族を足した1031家族で確かめる。今はすべて守れている
+- **世帯をまたぐ試験**: 家族Aのログインで家族Bの記録・済んだ事・手帳・写真の id を叩くと、どれも 404（`app/src/sim/cross-household.test.ts`）。API の口が（健診の録音を除いて）すべて、関所（`withHousehold`）か理由つきの公開の口を通るかを、コードを読んで確かめる（`app/src/sim/api-guard.test.ts`）
 
 修正のたびに、公的な統計の割合から作った1000家族（すべて作った家族）でアプリの1000日を早送りしています。使った割合と出典: [docs/SIM_STATS.md](docs/SIM_STATS.md)
 
@@ -192,13 +220,41 @@ The author is user #1, using it at a family member's real prenatal checkups (rea
 
 ## How Claude is used
 
-Claude Opus 5.5 plays seven roles (vision, structured outputs with zod, web search with citations, drafting, replanning when the baby comes early or late or the family moves, checkup structuring, book writing); "Ask the handbook" (the floating button on every screen) is a tool-using agent: Opus 5.5 looks up the family's schedule, records, official town pages and an in-app screen map, then answers and attaches actions (open the right screen, draft, mark done, add a checkup question, record, a ready-to-send message). Nothing is written until the family taps. Body, mental-health and nutrition questions get no judgment, only a bridge: a dated record, a question for the doctor, and phone numbers; urgent words always add 119/#8000 by rule, and a Haiku guard rewrites any judgment it finds. Claude Haiku 5.5 handles light formatting. A shared charter forbids medical judgment in every call. The whole project was built with Claude Code, with parallel agents per feature; the commit history is the record.
+Each job uses the model that fits it: everyday jobs run on Sonnet, deep reading runs on Opus, and the guard and formatting run on Haiku.
 
-Every change is fast-forwarded through 1,000 days with 1,000 synthetic families drawn from Japanese public statistics (sources: [docs/SIM_STATS.md](docs/SIM_STATS.md), in Japanese). Results: [docs/SIMULATION_RESULTS.md](docs/SIMULATION_RESULTS.md). How it was built with Claude Code: [docs/BUILT_WITH_CLAUDE_CODE.md](docs/BUILT_WITH_CLAUDE_CODE.md).
+| Job | Model | Why |
+|---|---|---|
+| Capture: turn voice and photos into proposed entries; identify a page of the paper handbook | Sonnet 5.5 (`EVERYDAY_MODEL`) | Everyday job; half Opus's price |
+| Drafts (the email to the employer, birth-registration notes, ...) | Sonnet 5.5 (`EVERYDAY_MODEL`) | Everyday job |
+| "Ask the handbook" agent (picks its own tools, up to 8 steps) and rewrites when the guard flags a reply | Sonnet 5.5 (`EVERYDAY_MODEL`) | Everyday job |
+| Research with web search (city offices, what to bring, deadlines; also the agent's official-page search and the old-vs-new city comparison after a move) | Sonnet 5.5 (`RESEARCH_MODEL`) | Each call reads about 80k tokens of search results; the text is reshaped afterwards and the source URLs are kept, so Sonnet holds the quality |
+| Advisor: replanning when the baby comes early or late or the family moves, and a once-per-stage look across the family's records | Opus 5.5 (`MODEL`) | Deep work: cross-checks the family's situation, schedule and records to find what no fixed rule covers |
+| Checkup notes (what the doctor said, what to do next, questions for next time) and a route from a hospital floor map | Opus 5.5 (`MODEL`) | Deep work: keeps the doctor's own words intact |
+| The book for the child (1,000 days of records and the family's words) | Opus 5.5 (`MODEL`) | Deep work: one long piece of writing |
+| Guard on every "Ask" reply (looks for medical, mental-health and nutrition judgments) | Haiku 5.5 (`LIGHT_MODEL`) | Light job, once per reply |
+| Reshaping research into office / what to bring / deadline fields | Haiku 5.5 (`LIGHT_MODEL`) | Light job, formatting only |
+
+The source of truth is the four constants in [`app/src/lib/claude.ts`](app/src/lib/claude.ts) (`MODEL`, `EVERYDAY_MODEL`, `LIGHT_MODEL`, `RESEARCH_MODEL`). Only the Opus jobs add server-side fallbacks for refusals.
+
+- Structured outputs with zod, image input for photos, and the web search tool with citations (the pages cited in the answer are kept as sources).
+- "Ask the handbook" (the floating button on every screen) looks up the family's schedule, records, official town pages and an in-app screen map, then answers and attaches actions (open the right screen, draft, mark done, add a checkup question, record, a ready-to-send message). Nothing is written until the family taps. Body, mental-health and nutrition questions get no judgment, only a bridge: a dated record, a question for the doctor, and phone numbers; urgent words always add 119/#8000 by rule, and the Haiku guard has any judgment rewritten.
+- A shared charter (`CHARTER`) forbids medical judgment in every call.
+- Spend caps: every call is metered (`lib/spend.ts`); past `BOSHI_DAILY_USD` (whole server per day) or `BOSHI_HOUSEHOLD_DAILY_USD` (one household per day), only the Claude jobs stop. The schedule, deadlines and emergency page keep working.
+- Without an API key, or once a cap is reached, the demo family answers with clearly labeled sample answers ([`lib/samples.ts`](app/src/lib/samples.ts)); city research has no samples.
+- The public trial does not call Claude during the hackathon, and it limits trial copies per IP address per day (`BOSHI_TRIALS_PER_IP_DAY`, default 10, 100 in the public config) and photos and voice per copy (20 items, 50 MB).
+- The whole project was built with Claude Code, with parallel agents per feature; the commit history is the record.
+
+## Tests
+
+- **945 tests in 79 files** (as of 2026-11-05, `npm test`). No Claude calls and no keys. GitHub Actions (`.github/workflows/check.yml`) runs types, lint, tests, the fast-forward and `next build` on every push to main and every PR.
+- **Fast-forward: 20 rules (a–t) × 1,030 families × 1,000 days** (`npm run sim`). 1,000 synthetic families drawn from public statistics (1,035,345 family-days) and 30 hand-made rare cases (28,767 family-days) pass every day through the same functions as the Today screen. The 8 handbook-record rules (t1–t8) are checked on 1,031 families (adding the demo family). All pass today.
+- **Cross-household tests**: with family A's login, every record, done item, handbook entry and photo id of family B returns 404 (`app/src/sim/cross-household.test.ts`). A source-reading test checks that every API route (except the checkup recording) goes through the household gate (`withHousehold`) or is a public route with a stated reason (`app/src/sim/api-guard.test.ts`).
+
+Every change is fast-forwarded through 1,000 days with 1,000 synthetic families drawn from Japanese public statistics (sources: [docs/SIM_STATS.md](docs/SIM_STATS.md), in Japanese). Results: [docs/SIMULATION_RESULTS.md](docs/SIMULATION_RESULTS.md). How it was built with Claude Code: [docs/BUILT_WITH_CLAUDE_CODE.md](docs/BUILT_WITH_CLAUDE_CODE.md). Architecture, run modes and where it would live at national scale: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (in Japanese). After the hackathon it would move to a major cloud (Google Cloud or AWS) together with a rewrite to a managed database, object storage and KMS; of the docs we checked on 2026-11-05, only Amazon Bedrock (Tokyo and Osaka) confirms in-Japan processing for Claude, and it has no web search tool, so city research would need rework there.
 
 ## Run
 
-See the Japanese section above (`cd app && npm install && npm run dev`, with `ANTHROPIC_API_KEY`, `ASR_URL` and `BOSHI_DATA_DIR=./try-data` in `.env.local`; without `BOSHI_DATA_DIR` the app treats `app/data/` as a real family's store and keeps memories, letters and films closed). Without `ANTHROPIC_API_KEY`, the schedule, deadlines and emergency contacts still work, and the demo family shows clearly labeled sample answers for the Claude features. `BOSHI_DAILY_USD` and `BOSHI_HOUSEHOLD_DAILY_USD` cap daily Claude spend for the server and per household. Without `ASR_URL`, a bundled demo transcript is used so the whole visit flow still works without a GPU.
+See the Japanese section above (`cd app && npm install && cp .env.example .env.local && npm run dev`). `.env.example` starts with `BOSHI_DATA_DIR=./try-data`; without it the app treats `app/data/` as a real family's store and keeps accounts, memories, letters and films closed. Without `ANTHROPIC_API_KEY`, the schedule, deadlines and emergency contacts still work, and the demo family shows clearly labeled sample answers for the Claude features. Without `ASR_URL`, the demo families use a bundled demo transcript, so the whole visit flow still works without a GPU; a real household's voice notes get an error instead of demo text, and the home server refuses to start without `ASR_URL`. There are four run modes (home production, public trial, simulation, local dev; `app/src/lib/mode.ts`), and unsafe combinations, such as the public trial or the simulation opening the real family's store, stop the server at startup. The home production server is rebuilt from a clean checkout of main, checked on port 3211, then swapped in, with rollback (`app/scripts/release-prod.sh`).
 
 ## Public trial
 

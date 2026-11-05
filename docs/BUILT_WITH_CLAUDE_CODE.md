@@ -3,7 +3,7 @@
 > **English summary**
 > The app was built with Claude Code in one continuous loop: 42 public statistics → 1,000 synthetic families → a 1,000-day fast-forward test on every change → Opus role-playing families on an iPhone-sized screen → Sonnet answering a survey as all 1,000 families → findings → commits.
 > So far: 6 recorded role-play rounds (36 family sessions, 377 findings) and 2 surveys (1,007 answers each), with fixes traceable in the git history.
-> API spend is metered per call (`app/scripts/spend.mjs`, a $5 cap per simulation run), and only synthetic families are used — the maker's real family records never enter any test.
+> API spend is metered per call (`app/scripts/spend.mjs`, by default a $21 cap per simulation run and $3 per family), and only synthetic families are used — the maker's real family records never enter any test.
 
 作り手は、自分の家族が使う1号目です。でも、2人だけで確かめても、日本で子を迎える家族の多くは見えません。そこで、Claude Code で「作った家族の国」を作り、修正のたびにその中でアプリを使ってもらいました。
 
@@ -15,7 +15,7 @@
 flowchart TD
   S["公的な統計 42項目<br/>出典と年つき<br/>app/src/sim/stats.ts"] --> P["1000組の家族を作る<br/>1組 = 年に約671家族<br/>population.ts"]
   F["珍しい型の30家族<br/>families.ts"] --> FF
-  P --> FF["早送りの検査<br/>1000組 × 1000日・決まり a〜h<br/>npm run sim（修正のたびに毎回）"]
+  P --> FF["早送りの検査<br/>1000組 × 1000日・決まり a〜t<br/>npm run sim（修正のたびに毎回）"]
   P --> R["なりきり<br/>Opus が家族になって iPhone 幅で画面を触る<br/>Workflow simulate・drive.mjs"]
   FF --> D["日記<br/>1000組が1000日に見た物"]
   D --> Q["アンケート<br/>Sonnet が1000組として答える<br/>/survey"]
@@ -39,9 +39,9 @@ flowchart TD
 ## 2. 早送りの検査（どんな修正でも毎回）
 
 - `cd app && npm run sim` で、1000組と30家族の1000日を「今日」の画面と同じ関数に通します
-- 1000組で、のべ 1,035,345日。決まり a〜h（一番上に出す事・期限切れが積み上がらない・家族に合わない項目が出ないなど）と、手帳の記録の決まり t1〜t8 を確かめます
+- 1000組で、のべ 1,035,345日。決まり a〜t の20（一番上に出す事・期限切れが積み上がらない・家族に合わない項目が出ない・出生届の期限・引っ越し・気をつける事の札など）と、手帳の記録の決まり t1〜t8 を確かめます
 - 新しい破れが出るとテストが落ちます。今はすべて守れています
-- 決まりが守れていても、アプリが持てない状況があります。それを「表せない状況」として全国の家族数に直して出し、次に作る物の順番を決めています（上の子がいる 約35万家族・里帰り 約34万家族など）
+- 決まりが守れていても、アプリが持てない状況があります。それを「表せない状況」として全国の家族数に直して出し、次に作る物の順番を決めています（今の上位は、近くに祖父母がいない 約29万家族・帝王切開 約15万家族など。上の子がいる 約35万家族・里帰り 約34万家族は、その後に作って表せるようになりました）
 - Claude の API は使わないので、無料です
 
 ## 3. なりきり（画面や流れを直した後）
@@ -85,7 +85,7 @@ flowchart TD
 
 - Claude の API を呼ぶたびに、使った額を記録します（`app/src/lib/spend.ts`）
 - 検査やシミュレーションの後は、毎回 `node app/scripts/spend.mjs` で「今回・今日・残り」を出します。回す前に `app/sim-data/run-start` に時刻を書いて区切ります
-- シミュレーションのサーバは、1回で `BOSHI_SIM_BUDGET_USD`（既定 $5）を超えたら止まります。意地悪な問いの検査も既定 $5、アンケートは既定 $50 が上限です
+- シミュレーションのサーバは、1回で `BOSHI_SIM_BUDGET_USD`（既定 $21＝7家族×$3）を、1つの家族で `BOSHI_SIM_HOUSEHOLD_USD`（既定 $3）を超えたら止まります。意地悪な問いの検査も既定 $5、アンケートは既定 $50 が上限です
 - なりきり役の Claude（Claude Code）は、API の残高ではなく Claude Code の枠で動きます
 
 ## 本物の記録に触れない約束

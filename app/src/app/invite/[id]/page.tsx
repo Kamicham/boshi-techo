@@ -8,7 +8,7 @@ import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn, Why } from "@/components/ui";
 import { Box, jpDateTime, Msg } from "@/components/settings/account-ui";
 import { SHARE_ITEMS } from "@/components/settings/consent-texts";
-import { inviteCanLines, inviteHeadline, inviteSeeLine } from "@/lib/invite-words";
+import { inviteCanLines, inviteHeadline, inviteMotherItemsLine, inviteSeeLine } from "@/lib/invite-words";
 
 type Inv = { id: string; headline: string; role: string; relation: string | null; maskedEmail: string; expiresAt: string; signedIn: boolean; showMother?: string[] };
 
@@ -53,6 +53,9 @@ export default function AcceptInvite({ params }: { params: Promise<{ id: string 
   const here = `/invite/${encodeURIComponent(id)}`;
   const preview = inv && !inv.signedIn ? inv : null;
   const full = inv && inv.signedIn ? inv : null;
+  // 母が選んだ見せる項目（読むだけの招待）。項目ごとの選び分けはまだ効かないので、項目の名前は「準備中」の注に入れる（lib/invite-words.ts）
+  const motherItems = (full?.showMother ?? []).map((x) => SHARE_ITEMS.find((s) => s.id === x)?.label ?? x);
+  const motherNote = full ? inviteMotherItemsLine(full.role, motherItems) : null;
   return (
     <main className="flex flex-col gap-4 px-4 pt-10 pb-10">
       <div className="flex flex-col gap-1">
@@ -82,7 +85,8 @@ export default function AcceptInvite({ params }: { params: Promise<{ id: string 
 
       {full && (
         <Box>
-          <p className="text-base">{inviteSeeLine(full.role, (full.showMother ?? []).map((x) => SHARE_ITEMS.find((s) => s.id === x)?.label ?? x))}</p>
+          <p className="text-base">{inviteSeeLine(full.role, motherItems)}</p>
+          {motherNote && <p className="text-sm text-muted">{motherNote}</p>}
           <p className="text-sm text-muted">{jpDateTime(full.expiresAt)}まで</p>
           <Btn onClick={() => void accept()} disabled={busy} full>
             {busy ? "受けています…" : "招待を受ける"}

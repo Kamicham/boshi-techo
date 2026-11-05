@@ -32,13 +32,25 @@ export function maskEmail(email: string | null | undefined): string {
 export function inviteCanLines(role: string): string[] {
   if (role === "admin" || role === "owner")
     return ["やる事を二人で分けられます", "あなたの番の手続き（育休など）を、手帳が先に用意します", "健診の日と、先生に聞く事が見られます"];
-  return ["子の記録と写真を見られます", "みんなの章に、写真・声・手紙を足せます", "記録を足す・直すはできません"];
+  // 読むだけの人にも、今は母の記録を含む文字の記録が見える（inviteSeeLine の注を見る）。見える物を少なく言わない
+  return ["手帳の記録と子の写真を見られます", "みんなの章に、写真・声・手紙を足せます", "記録を足す・直すはできません"];
 }
 
-/** 受ける画面の「見られる物」。共同の管理は全部（lib/access.ts: owner・admin は本人を全員見られる）。読むだけは子の記録と母が選んだ項目 */
+/**
+ * 受ける画面の「見られる物」。今のコードで本当に見える物だけを書く（2026-11-05 に確かめ直した）。
+ * - 共同の管理（admin・owner）は全部（lib/access.ts: owner・admin は本人を全員見られる）
+ * - 読むだけ（member）: 文字の記録（手帳・健診・記録など）には本人（subject_id）が付かないので、母の記録も含めて見える。
+ *   写真・声は本人ごとに絞る（子の分。母が項目を1つでも選ぶと、母の分も全部。lib/access.ts の visibleSubjects は proxies.scope を見ない）
+ */
 export function inviteSeeLine(role: string, motherItems: readonly string[]): string {
   if (role === "admin" || role === "owner") return "手帳の全部（母の記録も）を見て、足して、家族を招けます";
-  return `見られる物: 子の記録${motherItems.length ? `、${motherItems.join("、")}` : ""}（足す・直すはできません）`;
+  return `見られる物: 手帳の文字の記録（今は母の記録も見えます）と、${motherItems.length ? "子と母" : "子"}の写真・声（記録を足す・直すはできません）`;
+}
+
+/** 母が選んだ見せる項目の注記（読むだけの招待で、母が項目を選んだ時だけ）。項目ごとの選び分けはまだ効かないので「準備中」と書く */
+export function inviteMotherItemsLine(role: string, motherItems: readonly string[]): string | null {
+  if (role === "admin" || role === "owner" || !motherItems.length) return null;
+  return `母が選んだ${motherItems.map((x) => `「${x}」`).join("")}だけを見せる仕組みは準備中です`;
 }
 
 /** 母が相手にそのまま送る文（リンクは最後の行に） */
