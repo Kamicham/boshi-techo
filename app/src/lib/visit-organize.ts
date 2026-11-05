@@ -5,7 +5,7 @@
 // 作り手の決め事②「健診のまとめを、家族の言葉（简体中文・English）でも書く」は、切り替えの印 CLAUDE_LANG.visit（lib/i18n/claude-lang.ts・今は off）の裏。
 // on で、整理を頼んだ人の画面の言葉が zh・en の時だけ、頼みの最後に organizeLangNote を足し、受け取る形に family を足す（lib/visit.ts の FamilyWordsSchema）。
 import type { Lang } from "./i18n";
-import { CLAUDE_LANG, claudeLangOf, organizeLangNote } from "./i18n/claude-lang";
+import { claudeLangOf, claudeLangOn, organizeLangNote } from "./i18n/claude-lang";
 import {
   OrganizedSchema,
   OrganizedWithFamilySchema,
@@ -51,7 +51,7 @@ export type OrganizeCall =
  * 日本語の画面・印が off の時は、受け取る形は OrganizedSchema そのもの・頼みは organizePrompt の字のまま（前と1字も同じ）。
  * zh・en で印が on の時だけ、受け取る形に family を足し、頼みの最後に家族の言葉の段（organizeLangNote）を足す
  */
-export function organizeCall(v: VisitData, members: string[], lang: Lang | null | undefined, on: boolean = CLAUDE_LANG.visit): OrganizeCall {
+export function organizeCall(v: VisitData, members: string[], lang: Lang | null | undefined, on: boolean = claudeLangOn("visit")): OrganizeCall {
   const prompt = organizePrompt(v, members);
   const l = claudeLangOf(lang, on);
   if (!l) return { schema: OrganizedSchema, prompt, lang: null };

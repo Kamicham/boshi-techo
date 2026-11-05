@@ -7,9 +7,9 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterAll, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import type { Lang } from "./i18n";
-import { CALL_119, CLAUDE_LANG, LANG_FOR_CLAUDE, captureLangNote } from "./i18n/claude-lang";
+import { CALL_119, CLAUDE_LANG, LANG_FOR_CLAUDE, captureLangNote, claudeLangOn, organizeLangNote } from "./i18n/claude-lang";
 
 vi.mock("server-only", () => ({}));
 
@@ -162,6 +162,33 @@ describe("口（API）が頼みの言葉を渡す", () => {
       const src = read(f);
       expect(src, f).toMatch(/import \{[^}]*\blangOf\b[^}]*\} from "@\/lib\/i18n\/dicts";/);
       expect(src, f).toContain("lang: langOf(req) }");
+    }
+  });
+});
+
+describe("確かめの時だけ、その場の環境変数で印を on にできる（scripts/lang-check.mts）", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("BOSHI_CLAUDE_LANG の capture は話す・撮る・書くだけ、visit は健診のまとめだけ。無ければ off。日本語の画面はいつも足さない", () => {
+    vi.stubEnv("BOSHI_CLAUDE_LANG", "");
+    expect([claudeLangOn("capture"), claudeLangOn("visit")]).toEqual([false, false]);
+    expect(captureLangNote("zh")).toBe("");
+    vi.stubEnv("BOSHI_CLAUDE_LANG", "capture");
+    expect(captureLangNote("zh")).toBe(captureLangNote("zh", true));
+    expect(organizeLangNote("zh")).toBe("");
+    vi.stubEnv("BOSHI_CLAUDE_LANG", "visit");
+    expect(captureLangNote("en")).toBe("");
+    expect(organizeLangNote("en")).toBe(organizeLangNote("en", true));
+    vi.stubEnv("BOSHI_CLAUDE_LANG", " capture , visit ");
+    expect([claudeLangOn("capture"), claudeLangOn("visit")]).toEqual([true, true]);
+    expect(captureLangNote("ja")).toBe("");
+    expect(organizeLangNote("ja")).toBe("");
+  });
+
+  it("本番・体験版・なりきりの置き場には入れない（入るのは確かめの台本の中だけ）", () => {
+    const app = (f: string) => fs.readFileSync(path.join(__dirname, "..", "..", f), "utf8");
+    for (const f of ["Dockerfile", "fly.toml", "scripts/serve-prod.sh", "scripts/deploy-local.sh", "scripts/release-prod.sh", "scripts/sync-deploy.sh", "scripts/sim-server.sh"]) {
+      expect(app(f), f).not.toContain("BOSHI_CLAUDE_LANG");
     }
   });
 });

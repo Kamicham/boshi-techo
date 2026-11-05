@@ -10,6 +10,18 @@ import type { Lang } from ".";
 /** 切り替えの印（API で3つの言葉を確かめたら true）。capture＝話す・撮る・書く、visit＝健診のまとめ */
 export const CLAUDE_LANG: Readonly<{ capture: boolean; visit: boolean }> = { capture: false, visit: false };
 
+/**
+ * 印が on か。確かめの時だけ、その場の環境変数でも on にできる（BOSHI_CLAUDE_LANG=capture,visit。scripts/lang-check.mts が自分の中だけで入れる）。
+ * 本番・体験版の置き場（Dockerfile・fly.toml・本番の台本）には入れない（試験が見る）。呼ぶたびに読む
+ */
+export function claudeLangOn(k: keyof typeof CLAUDE_LANG): boolean {
+  if (CLAUDE_LANG[k]) return true;
+  return (process.env.BOSHI_CLAUDE_LANG ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .includes(k);
+}
+
 type Other = Exclude<Lang, "ja">;
 
 /** Claude に伝える言葉の名前 */
@@ -30,7 +42,7 @@ export function claudeLangOf(lang: Lang | null | undefined, on: boolean): Other 
  * ① 話す・撮る・書くの頼み（lib/capture.ts）の最後に足す段。日本語の画面・印が off の時は空（頼みは前と1字も同じ）。
  * 母子手帳のページに入る候補（techo）は、紙の母子手帳の欄に合わせるので前のまま（日本語）。
  */
-export function captureLangNote(lang: Lang | null | undefined, on: boolean = CLAUDE_LANG.capture): string {
+export function captureLangNote(lang: Lang | null | undefined, on: boolean = claudeLangOn("capture")): string {
   const l = claudeLangOf(lang, on);
   if (!l) return "";
   const name = LANG_FOR_CLAUDE[l];
@@ -49,7 +61,7 @@ export function captureLangNote(lang: Lang | null | undefined, on: boolean = CLA
  * ② 健診の整理の頼み（app/api/visit/_lib/server.ts）の最後に足す段。日本語の画面・印が off の時は空（頼みは前と1字も同じ）。
  * 足した時だけ、受け取る形に family（lib/visit.ts の FamilyWordsSchema）を足す。
  */
-export function organizeLangNote(lang: Lang | null | undefined, on: boolean = CLAUDE_LANG.visit): string {
+export function organizeLangNote(lang: Lang | null | undefined, on: boolean = claudeLangOn("visit")): string {
   const l = claudeLangOf(lang, on);
   if (!l) return "";
   const name = LANG_FOR_CLAUDE[l];
