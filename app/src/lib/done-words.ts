@@ -5,35 +5,36 @@
 //   誰が済ませたか分からない記録（11/5 より前の記録・下書きや始める前の事から付いた済み）は並べない。
 import { diffDays } from "./clock";
 import type { Family, Member } from "./demo-family";
+import { t } from "./i18n";
 
 const WORDS: Record<string, (child: string) => string> = {
   // 母子保健法第15条・第16条（妊娠の届出をした人に、市町村が母子健康手帳を交付する）
-  "pregnancy-report": (c) => `母子手帳が、${c}の最初の持ち物になりました`,
+  "pregnancy-report": (c) => t("母子手帳が、{c}の最初の持ち物になりました", { c }),
   // 健康保険法第63条・第101条の運用（出産育児一時金を健康保険から産院へ直接払う制度）
-  "direct-payment": () => "出産のお金は、健康保険から産院へ直接払われます",
+  "direct-payment": () => t("出産のお金は、健康保険から産院へ直接払われます"),
   // 戸籍法第49条（出生の届出で、子が戸籍に記載される）
-  "birth-registration": (c) => `${c}の名前が、戸籍にのります`,
+  "birth-registration": (c) => t("{c}の名前が、戸籍にのります", { c }),
   // 健康保険法第3条第7項（被扶養者）・国民健康保険法第5条（住所のある人は国保の被保険者）
-  "health-insurance": (c) => `${c}が、健康保険に入ります`,
+  "health-insurance": (c) => t("{c}が、健康保険に入ります", { c }),
   // 児童手当法第8条（申請した月の翌月分から支給）
-  "child-allowance": (c) => `${c}の児童手当は、申し込んだ月の次の月の分からです`,
+  "child-allowance": (c) => t("{c}の児童手当は、申し込んだ月の次の月の分からです", { c }),
   // 母子保健法第11条（新生児の訪問指導）・児童福祉法第6条の3第4項（乳児家庭全戸訪問事業）
-  "birth-notice": (c) => `町の保健師さんに、${c}が生まれた事が届きます`,
-  "home-visit": (c) => `町の保健師さんたちが、${c}に会いに来てくれました`,
+  "birth-notice": (c) => t("町の保健師さんに、{c}が生まれた事が届きます", { c }),
+  "home-visit": (c) => t("町の保健師さんたちが、{c}に会いに来てくれました", { c }),
   // 健診は「通った」事だけを言う（結果や体の事には触れない）
-  "one-month-checkup": () => "1か月、おつかれさまでした",
-  "checkup-3-4m": () => "3〜4か月、おつかれさまでした",
-  "checkup-9-10m": () => "9〜10か月、おつかれさまでした",
-  "checkup-18m": () => "1歳6か月、おつかれさまでした",
+  "one-month-checkup": () => t("1か月、おつかれさまでした"),
+  "checkup-3-4m": () => t("3〜4か月、おつかれさまでした"),
+  "checkup-9-10m": () => t("9〜10か月、おつかれさまでした"),
+  "checkup-18m": () => t("1歳6か月、おつかれさまでした"),
   // 予防接種法（定期接種。生後2か月から始まる）
-  "vaccines-start": (c) => `${c}の予防接種が、始まりました`,
-  "return-to-work": () => "ここまでの育休、おつかれさまでした",
+  "vaccines-start": (c) => t("{c}の予防接種が、始まりました", { c }),
+  "return-to-work": () => t("ここまでの育休、おつかれさまでした"),
 };
 
-/** 済んだにした事の意味の一言（無い事は null） */
+/** 済んだにした事の意味の一言（無い事は null。画面の言葉で返す＝サーバではいつも日本語） */
 export function doneWords(milestoneId: string, childName?: string): string | null {
   const w = WORDS[milestoneId];
-  return w ? w(childName?.trim() || "赤ちゃん") : null;
+  return w ? w(childName?.trim() || t("赤ちゃん")) : null;
 }
 
 /** 意味の一言を持つ事の id（試験から使う） */

@@ -40,6 +40,11 @@ import { PrepAhead, PrepNote } from "./today/PrepAhead";
 import { urgentNear } from "./today/urgent";
 import { focusFor, useStageFocus } from "./today/stage-focus";
 import { calmWords } from "./today/calm";
+import { currentLang, t } from "@/lib/i18n";
+import { msWords } from "@/lib/i18n/milestone-words";
+
+// 訳さない: 続柄の値（whoLabel が画面の言葉の呼び名にする）
+const MOTHER = { who: "母" } as const;
 import { DRAFTABLE } from "./MilestoneActions";
 
 /** 「済んだにしました・もどす」を出しておく長さ */
@@ -249,7 +254,8 @@ export function Techo() {
       setMarked(new Set([...marked, ...ids]));
       const one = ids.length === 1 ? schedule.find((x) => x.id === ids[0]) : undefined;
       // まとめて済んだにした時も「もどす」を出す（安心のデザイン #6）
-      setLastDone(one ? { id: one.id, title: one.plain } : ids.length > 1 ? { id: ids[0], title: `${ids.length}つ`, ids } : null);
+      // まとめての時の言葉は、描く所で ids の数から作る（「{n}つを済んだにしました」）
+      setLastDone(one ? { id: one.id, title: one.plain } : ids.length > 1 ? { id: ids[0], title: "", ids } : null);
       try {
         for (const id of ids) await api("/api/done", { body: { familyId: family.id, milestoneId: id, today, ...(me ? { by: me.id } : {}) } });
         if (me) setDoneBy((d) => ({ ...d, ...Object.fromEntries(ids.map((id) => [id, me.id])) }));
@@ -272,7 +278,7 @@ export function Techo() {
         await api("/api/done", { method: "PATCH", body: { familyId: family.id, milestoneId, by: me.id, today } });
       } catch (e) {
         setThanks(prev);
-        setDoneError(`ありがとうを、まだ送れていません（${(e as Error).message}）`);
+        setDoneError(t("ありがとうを、まだ送れていません（{reason}）", { reason: (e as Error).message }));
       }
     },
     [me, thanks, family.id, today],
@@ -332,6 +338,7 @@ export function Techo() {
   // 始める前の事で「まだ」と答えた事は、見本の家族の一番上と同じ札に上げる（どこへ行くか・書く事のメモ・カレンダー）。
   // 目安は過ぎているので「今からでも」の形（期限切れ）で出す。届けの束・健診の日・押して来た事がある時は、そちらが先（UX 2026-11-04）
   const lateTask = lateOpen.length && !visitTop && !trip && !focus ? tasks.find((t) => t.id === lateOpen[0]) : undefined;
+  // 訳さない: 札の種類の値（描く所で訳す）
   const lifted: ShownTask | null = lateTask ? { ...lateTask, status: "期限切れ" } : null;
   const top = visitTop ? null : (focus ?? lifted ?? baseTop);
   // 健診が一番上の日は、一番上に出すはずだった事も「このあと」へ（あと何日の順に入れ直す）
@@ -455,12 +462,12 @@ export function Techo() {
       {!loading && bornPrompt && <BornPrompt key={`${family.id}:born`} family={family} today={today} />}
 
       {doneError && (
-        <Notice title="済んだの印を、まだ保存できていません" safe="押した印は元に戻しました。電波のある所で、もう一度押してください。" detail={doneError} />
+        <Notice title={t("済んだの印を、まだ保存できていません")} safe={t("押した印は元に戻しました。電波のある所で、もう一度押してください。")} detail={doneError} />
       )}
       {loadError && (
-        <Notice title="済んだの印を、読み込めませんでした" safe="記録は消えていません。電波のある所で、もう一度読んでください。" detail={loadError}>
+        <Notice title={t("済んだの印を、読み込めませんでした")} safe={t("記録は消えていません。電波のある所で、もう一度読んでください。")} detail={loadError}>
           <Btn kind="secondary" onClick={() => setReload((n) => n + 1)}>
-            もう一度読む
+            {t("もう一度読む")}
           </Btn>
         </Notice>
       )}
@@ -469,7 +476,7 @@ export function Techo() {
         <div className="pointer-events-none fixed inset-x-0 bottom-20 z-20 flex justify-center px-4" style={{ marginBottom: "env(safe-area-inset-bottom, 0px)" }}>
           <p role="status" className="pointer-events-auto flex w-full max-w-md items-center justify-between gap-3 rounded-xl bg-ink px-4 text-base text-white shadow-lg">
             <span className="min-w-0 py-3">
-              {lastDone.ids ? `${lastDone.title}を済んだにしました` : `「${lastDone.title}」を済んだにしました`}
+              {lastDone.ids ? t("{n}つを済んだにしました", { n: lastDone.ids.length }) : t("「{title}」を済んだにしました", { title: msWords(lastDone.title) })}
               {!lastDone.ids && doneWords(lastDone.id, family.childName) && <span className="block text-sm text-white/80">{doneWords(lastDone.id, family.childName)}</span>}
             </span>
             <button
@@ -483,7 +490,7 @@ export function Techo() {
               }}
               className="min-h-11 shrink-0 px-2 font-semibold underline underline-offset-2"
             >
-              もどす
+              {t("もどす")}
             </button>
           </p>
         </div>
@@ -518,16 +525,20 @@ export function Techo() {
         />
       ) : tripFold && me ? (
         // 届けはパートナーの番で、母が今やる事が無い日（UX の見直し C08）
-        <NextStep tone="ok" title={`${me.name}さんが今やる事はありません`} sub="体を休めてください。" />
+        <NextStep tone="ok" title={t("{name}さんが今やる事はありません", { name: me.name })} sub={t("体を休めてください。")} />
       ) : guess ? (
         // 今やる事が無く、妊婦健診の予約の目安が近い日は「今すぐやる事はありません」と言わず、予約を一番上に（UX 2026-11-04: 大きな箱の真下に「今日ごろ」が出て、言う事が食い違っていた）
         <NextStep
           tone="rose"
-          eyebrow={me?.role === "パートナー" ? `いま、いちばん先の事（${whoLabel({ who: "母" }, family, me)}の番）` : "いま、いちばん先の事"}
-          title="次の妊婦健診を予約する"
-          sub={`国の目安では${daysUntil(today, guess) === 0 ? "今ごろ" : `あと${daysUntil(today, guess)}日ごろ`}です。病院で日を言われていたら、そちらに合わせてください。`}
+          eyebrow={me?.role === "パートナー" ? t("いま、いちばん先の事（{who}の番）", { who: whoLabel(MOTHER, family, me) }) : t("いま、いちばん先の事")}
+          title={t("次の妊婦健診を予約する")}
+          sub={
+            daysUntil(today, guess) === 0
+              ? t("国の目安では今ごろです。病院で日を言われていたら、そちらに合わせてください。")
+              : t("国の目安ではあと{n}日ごろです。病院で日を言われていたら、そちらに合わせてください。", { n: daysUntil(today, guess) })
+          }
         >
-          <Btn href="/visit">予約した日を入れる</Btn>
+          <Btn href="/visit">{t("予約した日を入れる")}</Btn>
         </NextStep>
       ) : (
         <Calm
@@ -544,8 +555,8 @@ export function Techo() {
       {!loading && urgentNear(family.birthDate, today) && (
         <a href="/emergency" className="flex min-h-11 items-center gap-2 rounded-xl border border-line bg-card px-4 py-2 text-ink">
           <span aria-hidden className="inline-block size-1.5 shrink-0 rounded-full bg-alert" />
-          <span className="shrink-0 text-base font-semibold">急ぎの時</span>
-          <span className="min-w-0 truncate text-sm text-muted">119・#8000・手当の手順</span>
+          <span className="shrink-0 text-base font-semibold">{t("急ぎの時")}</span>
+          <span className="min-w-0 truncate text-sm text-muted">{t("119・#8000・手当の手順")}</span>
           <span aria-hidden className="ml-auto shrink-0 text-muted">
             ›
           </span>
@@ -584,19 +595,22 @@ export function Techo() {
       )}
 
       {!loading && rows.length > 0 && (
-        <section aria-label="ほかに今やる事" className="flex flex-col">
-          <h2 className="text-sm font-semibold text-muted">ほかに今やる事</h2>
+        <section aria-label={t("ほかに今やる事")} className="flex flex-col">
+          <h2 className="text-sm font-semibold text-muted">{t("ほかに今やる事")}</h2>
           {rows.map((r) =>
             r.kind === "task" ? (
               <TaskRow key={`${family.id}:${r.task.id}`} task={r.task} {...common} onDone={() => void setDone(r.task, true)} />
             ) : r.kind === "prenatal" ? (
               <Link key="prenatal" href="/visit" className="flex min-h-12 items-center justify-between gap-3 border-b border-line py-2 last:border-b-0">
                 <span className="min-w-0">
-                  <span className="block text-base font-semibold">次の妊婦健診を予約する{me?.role === "パートナー" && <span className="text-sm font-normal text-muted">（{whoLabel({ who: "母" }, family, me)}の番）</span>}</span>
-                  <span className="block text-sm text-muted">国の目安では今ごろです。病院で日を言われていたら、そちらに合わせてください</span>
+                  <span className="block text-base font-semibold">
+                    {t("次の妊婦健診を予約する")}
+                    {me?.role === "パートナー" && <span className="text-sm font-normal text-muted">{t("（{who}の番）", { who: whoLabel(MOTHER, family, me) })}</span>}
+                  </span>
+                  <span className="block text-sm text-muted">{t("国の目安では今ごろです。病院で日を言われていたら、そちらに合わせてください")}</span>
                 </span>
                 <span className="flex shrink-0 items-center gap-2">
-                  <span className="tabular text-sm font-semibold">{daysUntil(today, guess!) === 0 ? "今日ごろ" : `あと${daysUntil(today, guess!)}日ごろ`}</span>
+                  <span className="tabular text-sm font-semibold">{daysUntil(today, guess!) === 0 ? t("今日ごろ") : t("あと{n}日ごろ", { n: daysUntil(today, guess!) })}</span>
                   <span className="text-muted" aria-hidden>
                     ›
                   </span>
@@ -604,9 +618,12 @@ export function Techo() {
               </Link>
             ) : (
               <Link key="visit" href="/visit" className="flex min-h-12 items-center justify-between gap-3 border-b border-line py-2 last:border-b-0">
-                <span className="text-base font-semibold">次の健診{visitRow!.time ? ` ${visitRow!.time}` : ""}</span>
+                <span className="text-base font-semibold">
+                  {t("次の健診")}
+                  {visitRow!.time ? ` ${visitRow!.time}` : ""}
+                </span>
                 <span className="flex shrink-0 items-center gap-2">
-                  <span className="tabular text-sm font-semibold">あと{daysUntil(today, visitRow!.date)}日</span>
+                  <span className="tabular text-sm font-semibold">{t("あと{n}日", { n: daysUntil(today, visitRow!.date) })}</span>
                   <span className="text-muted" aria-hidden>
                     ›
                   </span>
@@ -631,15 +648,15 @@ export function Techo() {
 
       {/* 先の事は近い3つだけ。残りは数だけ言い、開けば見られる（2032年まで30行の壁を見せない） */}
       {!loading && upcoming.length > 0 && (
-        <section aria-label="近づいたら出す事" className="flex flex-col">
-          <h2 className="text-sm font-semibold text-muted">近づいたら、ここに出します</h2>
+        <section aria-label={t("近づいたら出す事")} className="flex flex-col">
+          <h2 className="text-sm font-semibold text-muted">{t("近づいたら、ここに出します")}</h2>
           {upcoming.slice(0, 3).map((t) => (
             <TaskRow key={`${family.id}:${t.id}`} task={t} {...common} muted onDone={() => void setDone(t, true)} />
           ))}
           {upcoming.length > 3 && (
             <details className="group">
               <summary className="flex min-h-12 cursor-pointer list-none items-center gap-1 text-base text-muted">
-                <span className="underline underline-offset-2">ほかに{upcoming.length - 3}件あります</span>
+                <span className="underline underline-offset-2">{t("ほかに{n}件あります", { n: upcoming.length - 3 })}</span>
                 <span className="transition-transform group-open:rotate-90" aria-hidden>›</span>
               </summary>
               <div className="flex flex-col">
@@ -653,17 +670,17 @@ export function Techo() {
       )}
 
       {!loading && finished.length > 0 && (
-        <Fold title="済んだ事" count={finished.length}>
+        <Fold title={t("済んだ事")} count={finished.length}>
           <ul className="flex flex-col">
-            {finished.map((t) => (
-              <li key={t.id} className="flex min-h-12 items-center justify-between gap-3 border-b border-line last:border-b-0">
-                <span className="min-w-0 text-base text-muted">✓ {t.plain}</span>
-                {fromTecho.has(t.id) ? (
-                  <span className="shrink-0 rounded-full bg-ok/10 px-2 py-0.5 text-sm text-ok">手帳で済み</span>
+            {finished.map((task) => (
+              <li key={task.id} className="flex min-h-12 items-center justify-between gap-3 border-b border-line last:border-b-0">
+                <span className="min-w-0 text-base text-muted">✓ {msWords(task.plain)}</span>
+                {fromTecho.has(task.id) ? (
+                  <span className="shrink-0 rounded-full bg-ok/10 px-2 py-0.5 text-sm text-ok">{t("手帳で済み")}</span>
                 ) : (
-                  marked.has(t.id) && (
-                  <button type="button" onClick={() => void setDone(t, false)} className="min-h-11 shrink-0 px-2 text-sm text-muted underline underline-offset-2">
-                    もどす
+                  marked.has(task.id) && (
+                  <button type="button" onClick={() => void setDone(task, false)} className="min-h-11 shrink-0 px-2 text-sm text-muted underline underline-offset-2">
+                    {t("もどす")}
                   </button>
                   )
                 )}
@@ -678,14 +695,14 @@ export function Techo() {
 
       {/* 健診のタブを無くしたので、健診の予定と記録への入口はここ（前の日と当日は一番上の1枚になる） */}
       <Link href="/visit" className="inline-flex min-h-11 items-center gap-1 self-start text-base text-ink underline-offset-2 hover:underline">
-        健診と予防接種 ›
+        {t("健診と予防接種")} ›
       </Link>
 
       {/* 急ぎの時（窒息・心肺蘇生・119）。通信が無くても開けるよう、ふつうのリンクで開く（sw.js がこのページだけ取っておく） */}
       {/* 赤は命の橋だけ。ふだんは墨色の字と小さな赤い点（安心のデザイン #3） */}
       <a href="/emergency" className="inline-flex min-h-11 items-center gap-2 self-start text-base font-semibold text-ink underline-offset-2 hover:underline">
         <span className="inline-block h-1.5 w-1.5 rounded-full bg-alert" aria-hidden />
-        急ぎの時 ›
+        {t("急ぎの時")} ›
       </a>
 
       {/* 見本の家族の時期は、上の帯の「時期を変える」から（最初の1分 2026-11-04） */}
@@ -704,14 +721,14 @@ function WeekBand({ family, today }: { family: Family; today: string }) {
       {pos != null && (
         <div
           className="flex items-center gap-2 text-xs text-muted"
-          aria-label={walked ? "妊娠から2歳までを、歩き終えたところ" : `妊娠から2歳までの${Math.round(pos * 100)}%のところ`}
+          aria-label={walked ? t("妊娠から2歳までを、歩き終えたところ") : t("妊娠から2歳までの{pct}%のところ", { pct: Math.round(pos * 100) })}
         >
-          <span aria-hidden>妊娠</span>
+          <span aria-hidden>{t("妊娠")}</span>
           <span className="relative h-1 flex-1 rounded-full bg-line" aria-hidden>
             <span className="absolute inset-y-0 left-0 rounded-full bg-rose/60" style={{ width: `${pos * 100}%` }} />
             <span className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card bg-rose" style={{ left: `${pos * 100}%` }} />
           </span>
-          <span aria-hidden>2歳</span>
+          <span aria-hidden>{t("2歳")}</span>
         </div>
       )}
     </header>
@@ -730,14 +747,15 @@ function Calm({ upcoming, today, others = 0, before = 0, advisor }: { upcoming: 
   if (!next) return <NextStep tone="ok" title={title} sub={lead || undefined} />;
   // 日付は下の一覧と同じ「11/19（木）ごろから」の形。先の事の一覧は下の「近づいたら、ここに出します」1か所だけ
   // （UX 2026-11-04: ここの「見張っている事」と下の一覧に、同じ事が2回・2つの日付の形で出ていた）
-  const when = (t: Task) => (t.awaitingPregnancy ? "授かったら" : t.awaitingBirth ? "生まれたら" : `${jpShort(t.startDate, today)}ごろから`);
-  return (
-    <NextStep
-      tone="ok"
-      title={title}
-      sub={`${lead}次は ${when(next)}、「${next.plain}」。近づいたら、ここの一番上に出します。`}
-    />
-  );
+  // English は一言の頭（lead）と次の文の間に空きを入れる
+  const head = lead && currentLang() === "en" ? `${lead.trimEnd()} ` : lead;
+  const what = msWords(next.plain);
+  const sub = next.awaitingPregnancy
+    ? t("{lead}次は 授かったら、「{what}」。近づいたら、ここの一番上に出します。", { lead: head, what })
+    : next.awaitingBirth
+      ? t("{lead}次は 生まれたら、「{what}」。近づいたら、ここの一番上に出します。", { lead: head, what })
+      : t("{lead}次は {date}ごろから、「{what}」。近づいたら、ここの一番上に出します。", { lead: head, date: jpShort(next.startDate, today), what });
+  return <NextStep tone="ok" title={title} sub={sub} />;
 }
 
 /**
@@ -751,28 +769,28 @@ function QuietDay({ family, quiet, onShowAll }: { family: Family; quiet: "loss" 
   return (
     <main className="flex flex-col gap-5 px-4 pt-4 pb-8">
       <section className="flex flex-col gap-3 rounded-2xl border border-line bg-card p-5">
-        <h1 className="font-display text-2xl leading-snug font-bold">今は、何もしなくて大丈夫です</h1>
+        <h1 className="font-display text-2xl leading-snug font-bold">{t("今は、何もしなくて大丈夫です")}</h1>
         <p className="text-base">
           {loss
-            ? "手帳の予定とお知らせは止めています。記録はそのまま残っています。"
-            : "今は赤ちゃんと、ご自分の体を一番に。手帳の予定とお知らせは止めています。"}
+            ? t("手帳の予定とお知らせは止めています。記録はそのまま残っています。")
+            : t("今は赤ちゃんと、ご自分の体を一番に。手帳の予定とお知らせは止めています。")}
         </p>
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold text-muted">要る手続き（今日でなくて大丈夫です）</h2>
+        <h2 className="text-sm font-semibold text-muted">{t("要る手続き（今日でなくて大丈夫です）")}</h2>
         <ul className="flex flex-col gap-2 text-base">
           {loss ? (
             <>
-              <li>妊娠12週を過ぎてからの時は、7日以内に役所へ死産の届け出があります。多くは病院が書類を用意し、家族の代わりの人が出せます。</li>
-              <li>妊娠12週（85日）を過ぎてからの時は、出産育児一時金と、働いている人は産後の休業の対象です。健康保険と職場に聞いてください。</li>
-              <li>分からない事は、病院の相談の窓口（医療ソーシャルワーカー）に聞けます。</li>
+              <li>{t("妊娠12週を過ぎてからの時は、7日以内に役所へ死産の届け出があります。多くは病院が書類を用意し、家族の代わりの人が出せます。")}</li>
+              <li>{t("妊娠12週（85日）を過ぎてからの時は、出産育児一時金と、働いている人は産後の休業の対象です。健康保険と職場に聞いてください。")}</li>
+              <li>{t("分からない事は、病院の相談の窓口（医療ソーシャルワーカー）に聞けます。")}</li>
             </>
           ) : (
             <>
-              <li>出生届は、生まれた日から14日以内です。赤ちゃんが入院中でも出せます。家族が代わりに出せます。</li>
-              <li>入院の費用を助ける制度（養育医療）があります。病院の相談の窓口（医療ソーシャルワーカー）に聞いてください。</li>
-              <li>健診や予防接種の時期は、退院の時に病院と相談して決めます。</li>
+              <li>{t("出生届は、生まれた日から14日以内です。赤ちゃんが入院中でも出せます。家族が代わりに出せます。")}</li>
+              <li>{t("入院の費用を助ける制度（養育医療）があります。病院の相談の窓口（医療ソーシャルワーカー）に聞いてください。")}</li>
+              <li>{t("健診や予防接種の時期は、退院の時に病院と相談して決めます。")}</li>
             </>
           )}
         </ul>
@@ -782,10 +800,10 @@ function QuietDay({ family, quiet, onShowAll }: { family: Family; quiet: "loss" 
 
       <div className="flex flex-wrap gap-2">
         <Btn kind="quiet" onClick={onShowAll}>
-          いつもの今日の画面を見る
+          {t("いつもの今日の画面を見る")}
         </Btn>
         <Btn kind="quiet" href="/settings">
-          静かにするのをやめる
+          {t("静かにするのをやめる")}
         </Btn>
       </div>
     </main>

@@ -4,8 +4,9 @@
 // - 生まれた後は名前と月齢。2歳の誕生日の後は「1000日を一緒に歩きました」（通り過ぎた事ではなく、家族で歩いた事として言う。総点検 1-6・2026-11-04）
 // - 1000日の線は、2歳の誕生日の後も消さずに端まで満ちた形で残す
 // - つらい別れの間（lib/situation.ts の hideCounts）は帯を出さない
-import { clockAt, diffDays, totalDays } from "./clock";
+import { clockAt, clockShort, diffDays, totalDays } from "./clock";
 import type { Family } from "./demo-family";
+import { t } from "./i18n";
 import { hideCounts } from "./situation";
 
 export interface WeekBandText {
@@ -25,22 +26,23 @@ export function weekBand(family: Pick<Family, "dueDate" | "birthDate" | "childNa
   if (c.phase === "pregnant") {
     const toDue = diffDays(family.dueDate, today);
     const name = family.childName?.trim();
+    // 言葉は画面の言葉で（lib/i18n。サーバと試験はいつも日本語＝前と同じ）。週は clockShort（37週・37周・Week 37）
     const due = name
       ? toDue > 0
-        ? `${name}の予定日まで あと${toDue}日`
+        ? t("{name}の予定日まで あと{n}日", { name, n: toDue })
         : toDue === 0
-          ? `今日が${name}の予定日`
-          : `${name}の予定日のころ`
+          ? t("今日が{name}の予定日", { name })
+          : t("{name}の予定日のころ", { name })
       : toDue > 0
-        ? `予定日まであと${toDue}日`
+        ? t("予定日まであと{n}日", { n: toDue })
         : toDue === 0
-          ? "今日が予定日"
-          : "予定日のころ";
-    main = `${c.pregnancyWeek}週 ・ ${due}`;
+          ? t("今日が予定日")
+          : t("予定日のころ");
+    main = `${clockShort(c, true)} ・ ${due}`;
   } else if (c.phase === "trying") {
-    main = "授かる前";
+    main = c.label;
   } else if (walked) {
-    main = `${c.label} ・ 1000日を一緒に歩きました`;
+    main = `${c.label} ・ ${t("1000日を一緒に歩きました")}`;
   } else {
     main = family.childName ? `${family.childName} ・ ${c.label}` : c.label;
   }

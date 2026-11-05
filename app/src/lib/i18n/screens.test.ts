@@ -24,7 +24,12 @@ const DONE: readonly string[] = [
   "components/Welcome.tsx", // 入口の1枚（多言語化③の1・9424bad）
   "components/Shell.tsx", // 上の帯と下のタブ
   "components/today/StagePicker.tsx", // 時期の札
-  // 言葉の切り替え（LangSwitch.tsx）は、言葉の名前をそれぞれの言葉で書く。LABEL と SHORT に「// 訳さない: …」を付けてから足す
+  "components/LangSwitch.tsx", // 言葉の切り替え（言葉の名前は、それぞれの言葉で書く＝「訳さない」の注）
+  "components/Techo.tsx", // いま（今やる1つ・ほかに今やる事・近づいたら・済んだ事・静かにする家族の今日）
+  "components/ui.tsx", // どの画面でも使う部品（期限・なぜ？・コピー・共有・地図など）
+  "components/countdown.ts", // あと◯日
+  "lib/week-band.ts", // 週数の帯
+  "lib/done-words.ts", // 済んだの意味の一言
 ];
 
 /** 体験の筋（③）。I18N_LEFT=1 で残りを数える */

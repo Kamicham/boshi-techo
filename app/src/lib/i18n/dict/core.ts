@@ -14,6 +14,8 @@ export default {
   赤ちゃん: { zh: "宝宝", en: "the baby" },
   わが家: { zh: "我家", en: "Our family" },
   作る: { zh: "创建", en: "Create" },
+  /** 通信の失敗（components/ui.tsx の plainError。どの画面でも出る） */
+  通信できませんでした: { zh: "无法连接网络", en: "Couldn't connect" },
 
   // ── API の言葉 ──
   "Claude が混み合っています。少し待ってもう一度": {

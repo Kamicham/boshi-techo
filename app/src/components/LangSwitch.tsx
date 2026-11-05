@@ -6,8 +6,10 @@
 import { HTML_LANG, LANG_NAMES, LANGS, type Lang } from "@/lib/i18n";
 import { switchLang, useLang } from "./LocaleProvider";
 
+// 訳さない: 言葉の名前は、それぞれの言葉で書く（どの言葉の画面でも、自分の言葉を見つけられるように）
 const LABEL = "言葉 / 语言 / Language";
 /** 上の帯の短い札（English は2文字で足りる） */
+// 訳さない: 言葉の名前は、それぞれの言葉で書く
 const SHORT: Readonly<Record<Lang, string>> = { ja: "日本語", zh: "中文", en: "EN" };
 
 /** onSwitch: 読み直す前に呼ぶ（開き直した入口の1枚を、読み直した後も開いたままにする時など） */

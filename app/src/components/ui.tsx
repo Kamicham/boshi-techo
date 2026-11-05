@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
 import { countdownLook } from "./countdown";
 import { canShare, googleCalendarUrl, icsText, isAppleDevice, lineUrl, mailtoUrl, mapUrl } from "@/lib/handoff";
+import { t } from "@/lib/i18n";
 
 const noop = () => () => {};
 const SERVER_DEVICE = { apple: false, share: false };
@@ -73,7 +74,7 @@ export function Countdown({
   return (
     <p className="flex flex-wrap items-baseline gap-x-2">
       <span className={`font-display font-bold ${color} ${big}`}>{text}</span>
-      {dateLabel && <span className="text-sm text-muted">{kind === "deadline" && days < 0 ? `期限は${dateLabel}でした` : dateLabel}</span>}
+      {dateLabel && <span className="text-sm text-muted">{kind === "deadline" && days < 0 ? t("期限は{date}でした", { date: dateLabel }) : dateLabel}</span>}
     </p>
   );
 }
@@ -89,7 +90,7 @@ export function Notice({ title, safe, detail, children }: { title: string; safe?
       {safe && <p className="text-base">{safe}</p>}
       {children && <div className="flex flex-wrap gap-2 pt-1">{children}</div>}
       {detail && (
-        <Why label="くわしく">
+        <Why label={t("くわしく")}>
           <p>{detail}</p>
         </Why>
       )}
@@ -100,8 +101,8 @@ export function Notice({ title, safe, detail, children }: { title: string; safe?
 /** エラーの原文を、家族に分かる言葉に（Safari の「Load failed」・Chrome の「Failed to fetch」など） */
 export function plainError(e: unknown): string {
   const m = e instanceof Error ? e.message : String(e ?? "");
-  if (e instanceof TypeError || /load failed|failed to fetch|networkerror|network request failed/i.test(m)) return "通信できませんでした";
-  return m || "うまくいきませんでした";
+  if (e instanceof TypeError || /load failed|failed to fetch|networkerror|network request failed/i.test(m)) return t("通信できませんでした");
+  return m || t("うまくいきませんでした");
 }
 
 /** 大きなボタン（主）・枠だけのボタン（副）。押せる所は 44px 以上 */
@@ -145,11 +146,12 @@ export function Btn({
 }
 
 /** 「なぜ？」: 根拠・出典は表に出さず、押すと開く */
-export function Why({ children, label = "なぜ？" }: { children: React.ReactNode; label?: string }) {
+export function Why({ children, label }: { children: React.ReactNode; label?: string }) {
   return (
     <details className="group text-sm">
       <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-muted">
-        <span className="underline underline-offset-2">{label}</span>
+        {/* 札は渡す側が t() で訳す（無ければ「なぜ？」） */}
+        <span className="underline underline-offset-2">{label ?? t("なぜ？")}</span>
         <span className="transition-transform group-open:rotate-90" aria-hidden>›</span>
       </summary>
       <div className="mt-1 flex flex-col gap-1 rounded-lg bg-paper px-3 py-2 text-muted">{children}</div>
@@ -164,7 +166,7 @@ export function Fold({ title, count, children, open, note }: { title: string; co
       <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-4 font-display text-lg font-bold">
         <span>
           {title}
-          {count != null && <span className="ml-2 text-sm font-normal text-muted">{count}件</span>}
+          {count != null && <span className="ml-2 text-sm font-normal text-muted">{t("{n}件", { n: count })}</span>}
           {note && <span className="block text-sm font-normal text-muted">{note}</span>}
         </span>
         <span className="text-muted transition-transform group-open:rotate-90" aria-hidden>›</span>
@@ -188,7 +190,7 @@ export function Pill({ children, tone = "muted" }: { children: React.ReactNode; 
 }
 
 /** ワンタップでコピー。押したら「コピーしました」 */
-export function CopyButton({ text, label = "コピー" }: { text: string; label?: string }) {
+export function CopyButton({ text, label }: { text: string; label?: string }) {
   const [done, setDone] = useState(false);
   const copy = async () => {
     try {
@@ -207,7 +209,7 @@ export function CopyButton({ text, label = "コピー" }: { text: string; label?
   };
   return (
     <button type="button" onClick={() => void copy()} className="inline-flex min-h-11 shrink-0 items-center rounded-full border border-ink/20 bg-card px-4 text-sm font-semibold">
-      {done ? "コピーしました" : label}
+      {done ? t("コピーしました") : (label ?? t("コピー"))}
     </button>
   );
 }
@@ -228,14 +230,14 @@ export function CopyField({ label, value, long }: { label: string; value: string
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm font-semibold text-muted">
           {label}
-          {blanks > 0 && <span className="ml-2 text-xs text-warn">【 】が{blanks}か所</span>}
+          {blanks > 0 && <span className="ml-2 text-xs text-warn">{t("【 】が{n}か所", { n: blanks })}</span>}
         </span>
         <CopyButton text={value} />
       </div>
       <p className="whitespace-pre-wrap rounded-lg bg-paper px-3 py-2 text-base">{highlightBlanks(all ? value : head)}</p>
       {long && !all && cut && (
         <button type="button" onClick={() => setAll(true)} className="self-start text-sm text-muted underline">
-          全部見る
+          {t("全部見る")}
         </button>
       )}
     </div>
@@ -248,21 +250,21 @@ function highlightBlanks(text: string): React.ReactNode {
 }
 
 /** 共有シート（iPhone のメール・LINE・メモ・Slack などへ）。共有できない機械では「全部コピー」に替える（隣に既にコピーがある所は fallback={false} で出さない） */
-export function ShareButton({ title, text, url, label = "共有…", kind = "secondary", fallback = true }: { title?: string; text: string; url?: string; label?: string; kind?: "primary" | "secondary"; fallback?: boolean }) {
+export function ShareButton({ title, text, url, label, kind = "secondary", fallback = true }: { title?: string; text: string; url?: string; label?: string; kind?: "primary" | "secondary"; fallback?: boolean }) {
   const [msg, setMsg] = useState("");
   const { share: can } = useDevice();
-  if (!can) return fallback ? <CopyButton text={text} label="全部コピー" /> : null;
+  if (!can) return fallback ? <CopyButton text={text} label={t("全部コピー")} /> : null;
   const share = async () => {
     try {
       await navigator.share({ title, text, url });
     } catch (e) {
-      if ((e as Error).name !== "AbortError") setMsg("共有できませんでした");
+      if ((e as Error).name !== "AbortError") setMsg(t("共有できませんでした"));
     }
   };
   return (
     <>
       <Btn kind={kind} onClick={() => void share()}>
-        {label}
+        {label ?? t("共有…")}
       </Btn>
       {msg && <span className="text-xs text-alert">{msg}</span>}
     </>
@@ -293,27 +295,27 @@ export function HandoffRow({
     <div className="flex flex-wrap gap-2">
       {mail && (
         <Btn href={mailtoUrl(mail)} kind="primary">
-          メールで開く
+          {t("メールで開く")}
         </Btn>
       )}
       {line && (
         <Btn href={lineUrl(line)} kind={mail ? "secondary" : "primary"}>
-          LINE で送る
+          {t("LINE で送る")}
         </Btn>
       )}
       {calendar &&
         (isApple ? (
           <Btn onClick={openIcs} kind="secondary">
-            カレンダーに入れる
+            {t("カレンダーに入れる")}
           </Btn>
         ) : (
           <Btn href={googleCalendarUrl(calendar)} kind="secondary">
-            カレンダーに入れる
+            {t("カレンダーに入れる")}
           </Btn>
         ))}
       {place && (
         <Btn href={mapUrl(place, isApple)} kind="secondary">
-          地図で開く
+          {t("地図で開く")}
         </Btn>
       )}
       {share && <ShareButton title={share.title} text={share.text} />}
