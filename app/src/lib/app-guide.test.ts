@@ -33,6 +33,12 @@ describe("画面の地図", () => {
     expect(guideText()).toContain("/techo#body");
   });
 
+  it("健診で見せる記録（/techo/share）へ飛べる。入れ子の画面も、ページがあれば地図にある（家族の声②・プランの C）", () => {
+    expect(isKnownHref("/techo/share")).toBe(true);
+    expect(fs.existsSync(path.join(APP, "techo", "share", "page.tsx"))).toBe(true);
+    expect(guideText()).toContain("健診で見せる記録（/techo/share）");
+  });
+
   it("地図に無い行き先は通さない", () => {
     expect(isKnownHref("https://example.com")).toBe(false);
     expect(isKnownHref("/api/ask")).toBe(false);

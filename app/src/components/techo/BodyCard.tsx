@@ -4,6 +4,8 @@
 // 妊娠中はママの体重（健診の日と家で測った日）、生まれた後は赤ちゃんの体重（双子などは子ごとに1行）。押すと図へ飛ぶ。
 // 「いま」の画面には足さない。読むだけの家族（member）には、ママの体の1枚を出さない。つらい別れの家族には出さない（bodySeries が null）。
 // 小さな線は、軸も目盛りも色の塗り分けも無い（形を見るだけ。良し悪しを言わない）。
+// 1枚の下に「健診で見せる記録 ›」（/techo/share・プランの C）。数がまだ無くても、聞きたい事・次の予約を見せられるので、いつも置く。
+import Link from "next/link";
 import { useMemo } from "react";
 import { useFamily } from "@/components/FamilyProvider";
 import { bodySeries } from "@/lib/body-series";
@@ -43,28 +45,42 @@ export function BodyCard({ items }: { items: TechoItem[] }) {
       }))
       .filter((r) => r.pts.length > 0);
   }, [s, born, readOnly, family]);
-  if (!rows.length) return null;
   const href = born ? "#page-growth" : "#page-pregnancy-checkup";
+  const share = (
+    <Link href="/techo/share" className="inline-flex min-h-11 items-center gap-1 self-end text-sm text-muted underline-offset-2 hover:underline">
+      {t("健診で見せる記録")}
+      <span aria-hidden>›</span>
+    </Link>
+  );
+  if (!rows.length)
+    return (
+      <div id="body" className="flex scroll-mt-4 flex-col">
+        {share}
+      </div>
+    );
   return (
-    <a id="body" href={href} className="flex scroll-mt-4 flex-col gap-1.5 rounded-2xl border border-line bg-card p-4">
-      <span className="flex items-center justify-between gap-2">
-        <span className="font-display text-lg font-bold">{t("からだの記録")}</span>
-        <span className="text-sm text-muted" aria-hidden>
-          ›
-        </span>
-      </span>
-      {rows.map((r) => {
-        const last = r.pts[r.pts.length - 1];
-        return (
-          <span key={r.key} className="flex items-center justify-between gap-3">
-            <span className="min-w-0 text-base tabular-nums">
-              {r.label} <b className="font-semibold">{kg1(last.kg)}kg</b> <span className="text-sm text-muted">{t("（{x}）", { x: md(last.date) })}</span>
-            </span>
-            <Spark pts={r.pts} />
+    <div id="body" className="flex scroll-mt-4 flex-col gap-0.5">
+      <a href={href} className="flex flex-col gap-1.5 rounded-2xl border border-line bg-card p-4">
+        <span className="flex items-center justify-between gap-2">
+          <span className="font-display text-lg font-bold">{t("からだの記録")}</span>
+          <span className="text-sm text-muted" aria-hidden>
+            ›
           </span>
-        );
-      })}
-    </a>
+        </span>
+        {rows.map((r) => {
+          const last = r.pts[r.pts.length - 1];
+          return (
+            <span key={r.key} className="flex items-center justify-between gap-3">
+              <span className="min-w-0 text-base tabular-nums">
+                {r.label} <b className="font-semibold">{kg1(last.kg)}kg</b> <span className="text-sm text-muted">{t("（{x}）", { x: md(last.date) })}</span>
+              </span>
+              <Spark pts={r.pts} />
+            </span>
+          );
+        })}
+      </a>
+      {share}
+    </div>
   );
 }
 

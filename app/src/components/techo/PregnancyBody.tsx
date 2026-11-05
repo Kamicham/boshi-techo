@@ -8,11 +8,13 @@
 // 目安の幅（日本産科婦人科学会 2021年3月8日）は 40週の所に括弧を1本だけ。内か外かで点の色・形・文を変えない。区分の名前は出さない。
 // 読むだけの家族（member）とつらい別れの家族には出さない（作り手が決めた・lib/body-series.ts）。
 // 図の下に、家で測った体重・血圧を1行で入れる口（HomeEntry・プランの B の6）。妊娠中だけ。空の時は1行で案内する（入力を促す言葉は使わない）。
+// 表と線（CheckupTable・WeightLine）は、健診で見せる1枚（/techo/share・プランの C）でも使う。1枚は病院あてなので日本語で描く
+// （LocaleScope で囲む。表と線は useT() で言葉を引く）。
 import { useMemo, type ReactNode } from "react";
 import { useFamily } from "@/components/FamilyProvider";
 import { Why } from "@/components/ui";
-import { bodySeries, GAIN_GUIDE_SOURCE, gainGuide, type GainGuide, type MotherBody } from "@/lib/body-series";
-import { clockAt, clockShort } from "@/lib/clock";
+import { useT } from "@/components/LocaleProvider";
+import { bodySeries, GAIN_GUIDE_SOURCE, gainGuide, type CheckupRow, type GainGuide, type MotherBody } from "@/lib/body-series";
 import { t } from "@/lib/i18n";
 import { HomeEntry } from "./HomeEntry";
 import type { TechoItem } from "./useTecho";
@@ -21,6 +23,14 @@ import type { TechoEntry } from "@/lib/techo";
 /** 家族のデータの数を、そのまま出す（小数は書いてあるまで。0 を足さない） */
 const n = (v: number | undefined) => (v === undefined ? "" : String(Math.round(v * 10) / 10));
 const md = (date: string) => `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}`;
+
+/**
+ * 表と線が読む形。手帳の bodySeries の MotherBody も、健診で見せる1枚の ShareBody（lib/share-view.ts）も渡せる
+ * （1枚の週と日は、つらい別れの家族には無い）
+ */
+export type BodyRows = Pick<MotherBody, "preWeightKg" | "bmi" | "multiple" | "home"> & {
+  checkups: (Omit<CheckupRow, "week" | "day"> & { week?: number; day?: number })[];
+};
 
 /** 読むだけの家族か（ママの体の図は出さない） */
 export function useReadOnly(): boolean {
@@ -66,7 +76,7 @@ export function PregnancyBody({
   }
   return (
     <div className="flex flex-col gap-3">
-      <CheckupTable mother={m} dueDate={family.dueDate} />
+      <CheckupTable mother={m} />
       <WeightLine mother={m} />
       {entry}
       {children && (
@@ -84,25 +94,25 @@ export function PregnancyBody({
   );
 }
 
-/** 紙と同じ表。腹囲は今の記録の形に無いので、列だけ置いて空のまま */
-function CheckupTable({ mother, dueDate }: { mother: MotherBody; dueDate: string }) {
+/** 紙と同じ表。腹囲は今の記録の形に無いので、列だけ置いて空のまま。週数は記録の日と予定日から数えた週（bodySeries） */
+export function CheckupTable({ mother }: { mother: BodyRows }) {
+  const tt = useT();
   if (!mother.checkups.length) return null;
-  const week = (date: string) => clockShort(clockAt({ dueDate }, date), true);
   const head = [
-    [t("診察月日"), ""],
-    [t("週数"), ""],
-    [t("子宮底長"), "cm"],
-    [t("腹囲"), "cm"],
-    [t("体重"), "kg"],
-    [t("血圧"), "mmHg"],
-    [t("むくみ"), ""],
-    [t("尿蛋白"), ""],
-    [t("尿糖"), ""],
+    [tt("診察月日"), ""],
+    [tt("週数"), ""],
+    [tt("子宮底長"), "cm"],
+    [tt("腹囲"), "cm"],
+    [tt("体重"), "kg"],
+    [tt("血圧"), "mmHg"],
+    [tt("むくみ"), ""],
+    [tt("尿蛋白"), ""],
+    [tt("尿糖"), ""],
   ];
   return (
     <div className="-mx-4 overflow-x-auto px-4">
       <table className="min-w-max border-collapse text-base">
-        <caption className="pb-1 text-left text-sm text-muted">{t("紙の手帳と同じ並び（妊娠中の経過）")}</caption>
+        <caption className="pb-1 text-left text-sm text-muted">{tt("紙の手帳と同じ並び（妊娠中の経過）")}</caption>
         <thead>
           <tr>
             {head.map(([label, unit]) => (
@@ -119,7 +129,7 @@ function CheckupTable({ mother, dueDate }: { mother: MotherBody; dueDate: string
               <th scope="row" className="px-2 py-1.5 text-left font-normal tabular-nums">
                 {md(r.date)}
               </th>
-              <td className="px-2 py-1.5 tabular-nums">{week(r.date)}</td>
+              <td className="px-2 py-1.5 tabular-nums">{r.week === undefined ? "" : tt("{w}週", { w: r.week })}</td>
               <td className="px-2 py-1.5 tabular-nums">{n(r.fundusCm)}</td>
               <td className="px-2 py-1.5" />
               <td className="px-2 py-1.5 tabular-nums">{n(r.weightKg)}</td>
@@ -145,8 +155,12 @@ function stepOf(span: number): number {
   return 20;
 }
 
-/** 体重の線（週を横に）。健診の日は大きな点、家で測った日は小さな点、妊娠前は週0の白抜き */
-export function WeightLine({ mother }: { mother: MotherBody }) {
+/**
+ * 体重の線（週を横に）。健診の日は大きな点、家で測った日は小さな点、妊娠前は週0の白抜き。
+ * plain＝病院あての1枚（図の下の一言と、目安の出どころの畳みを出さない。1枚の足元に出典と年を書く）
+ */
+export function WeightLine({ mother, plain = false }: { mother: BodyRows; plain?: boolean }) {
+  const tt = useT();
   const guide: GainGuide | null = gainGuide(mother.bmi, mother.multiple);
   const pre = mother.preWeightKg;
   const weekOf = (r: { week?: number; day?: number }) => (r.week ?? 0) + (r.day ?? 0) / 7;
@@ -174,7 +188,7 @@ export function WeightLine({ mother }: { mother: MotherBody }) {
         viewBox={`0 0 ${W} ${H}`}
         className="w-full"
         role="img"
-        aria-label={t("体重の線。横は妊娠週、点は入れた体重（{n}件）", { n: all.length })}
+        aria-label={tt("体重の線。横は妊娠週、点は入れた体重（{n}件）", { n: all.length })}
       >
         {yTicks.map((v) => (
           <g key={v}>
@@ -190,7 +204,7 @@ export function WeightLine({ mother }: { mother: MotherBody }) {
           </text>
         ))}
         <text x={W - PAD.r} y={H - 4} textAnchor="end" fontSize={9} fill="currentColor" className="text-muted">
-          {t("妊娠週")}
+          {tt("妊娠週")}
         </text>
         <text x={4} y={PAD.t - 14} fontSize={9} fill="currentColor" className="text-muted">
           kg
@@ -199,7 +213,7 @@ export function WeightLine({ mother }: { mother: MotherBody }) {
           <g className="text-muted">
             <polyline points={`${bx - 6},${y(range.hi)} ${bx},${y(range.hi)} ${bx},${y(range.lo)} ${bx - 6},${y(range.lo)}`} fill="none" stroke="currentColor" strokeWidth={1.5} />
             <text x={bx} y={y(range.hi) - 6} textAnchor="end" fontSize={9} fill="currentColor">
-              {t("出産の頃の目安 +{lo}〜{hi}kg", { lo: range.low, hi: range.high })}
+              {tt("出産の頃の目安 +{lo}〜{hi}kg", { lo: range.low, hi: range.high })}
             </text>
           </g>
         )}
@@ -210,31 +224,32 @@ export function WeightLine({ mother }: { mother: MotherBody }) {
         ))}
       </svg>
       <figcaption className="flex flex-wrap gap-x-3 text-sm text-muted">
-        {checkups.length > 0 && <span>{t("● 健診の日の体重")}</span>}
-        {home.length > 0 && <span>{t("・ 家で測った体重")}</span>}
-        {pre !== undefined && <span>{t("○ 妊娠前の体重")}</span>}
-        {range && <span>{t("］ 出産の頃の目安")}</span>}
-        {guide?.kind === "individual" && <span>{t("出産の頃の目安: 個別対応（上限5kgまでが目安）")}</span>}
+        {checkups.length > 0 && <span>{tt("● 健診の日の体重")}</span>}
+        {home.length > 0 && <span>{tt("・ 家で測った体重")}</span>}
+        {pre !== undefined && <span>{tt("○ 妊娠前の体重")}</span>}
+        {range && <span>{tt("］ 出産の頃の目安")}</span>}
+        {guide?.kind === "individual" && <span>{tt("出産の頃の目安: 個別対応（上限5kgまでが目安）")}</span>}
       </figcaption>
-      <p className="rounded-xl bg-sky-soft px-3 py-2 text-base">{t("線は入れた数字をつないだだけです。気になる事は健診で聞いてください。")}</p>
-      {guide && <GuideSource />}
+      {!plain && <p className="rounded-xl bg-sky-soft px-3 py-2 text-base">{tt("線は入れた数字をつないだだけです。気になる事は健診で聞いてください。")}</p>}
+      {guide && !plain && <GuideSource />}
     </figure>
   );
 }
 
 /** 目安の幅の出どころ（注の原文と出典。畳んでおく） */
 function GuideSource() {
+  const tt = useT();
   return (
-    <Why label={t("目安の出どころ")}>
+    <Why label={tt("目安の出どころ")}>
       <p>
-        {t("{title}（{year}年3月8日）。妊娠前の体重と身長から出した BMI ごとの、出産までに増える量の目安です。赤ちゃんが1人の時の値なので、双子などの時は出していません。週ごとの目安は公に無いので、40週の所に1本だけ置いています。", {
-          title: t(GAIN_GUIDE_SOURCE.title),
+        {tt("{title}（{year}年3月8日）。妊娠前の体重と身長から出した BMI ごとの、出産までに増える量の目安です。赤ちゃんが1人の時の値なので、双子などの時は出していません。週ごとの目安は公に無いので、40週の所に1本だけ置いています。", {
+          title: tt(GAIN_GUIDE_SOURCE.title),
           year: GAIN_GUIDE_SOURCE.year,
         })}
       </p>
       {/* 訳さない: 注の原文の引用（句読点も原文のまま）。中文・English の意味は下の行の訳に書く */}
       <p lang="ja">「増加量を厳格に指導する根拠は必ずしも十分ではないと認識し，個人差を考慮したゆるやかな指導を心がける．」</p>
-      <p>{t("上の文は、表に付いた注の原文です（産婦人科診療ガイドライン産科編 2020 CQ 010。厚生労働省 子母発0331第5号〈2021年3月31日〉の表8）。")}</p>
+      <p>{tt("上の文は、表に付いた注の原文です（産婦人科診療ガイドライン産科編 2020 CQ 010。厚生労働省 子母発0331第5号〈2021年3月31日〉の表8）。")}</p>
     </Why>
   );
 }
