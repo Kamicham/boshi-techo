@@ -1,6 +1,7 @@
 // ⑤ 健診の1日: サーバ側の処理（録音のつなぎ・文字起こし・Claude で整理・道案内）。
 // 関所（2026-11-05 監査 #2）: どの口も visitFor（健診を id で引き、その健診の世帯で「セッション → 世帯 → 権限」）か、
 // familyFor（家族の id で世帯を指す口）を通る。よその世帯の健診は、在るかどうかも見せずに 404。
+// 読むだけの人（祖父母など・member）には、健診を開かない（403。notForReaders。2026-11-05 家族の声②の C の3）。
 import "server-only";
 import fs from "node:fs";
 import path from "node:path";
@@ -32,11 +33,21 @@ import {
   type VisitData,
   type VisitPlan,
 } from "@/lib/visit";
-import { familyFor, type FamilyAccess } from "../../_lib/household";
+import { recordViewerOf } from "@/lib/mother-records";
+import { familyFor, type FamilyAccess, type HouseholdAccess } from "../../_lib/household";
 
 export type VisitDoc = Doc<VisitData>;
 
 const NOT_FOUND = "この健診の記録が見つかりません";
+
+/**
+ * 読むだけの人（祖父母など・member）には、健診（一覧・1回分・次の予約・受診券・払った額・気がかり）を開かない。
+ * 作り手の決め（2026-11-05）「読むだけの人には、ママの記録を見せない」と、招く時の「母の健診の記録」が既定で見せない項目である事に合わせる
+ * （選んだ項目を読む所はまだ無いので、選んでも今は見せない）。子の健診も一緒に隠れる（祖父母が赤ちゃんの健診を見る形は、提出の後の案）
+ */
+export function notForReaders(h: HouseholdAccess): void {
+  if (recordViewerOf(h) === "reader") throw new HttpError(403, "健診の記録は、ママと、記録を書ける家族だけが開けます");
+}
 
 /** 健診を1つ引く（無ければ 404） */
 export function requireVisit(id: string): VisitDoc {
@@ -62,6 +73,7 @@ export async function visitFor(req: Request, id: string, perm: Perm | readonly P
     throw e;
   }
   if (h.id !== v.familyId) throw new HttpError(404, NOT_FOUND);
+  notForReaders(h);
   return { v, h };
 }
 
