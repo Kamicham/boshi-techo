@@ -72,5 +72,6 @@ export function demoBook(family: Family | string, today: string): Book | null {
     childName: f.childName ?? "あなた",
     rules: BOOK_RULES,
     bundled: true,
+    ...(seed.writer ? { writer: seed.writer } : {}),
   };
 }

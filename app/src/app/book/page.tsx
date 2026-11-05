@@ -2,7 +2,7 @@
 
 // ⑦ 子どもへの贈り物: 1000日の記録が、最後に一冊になる。
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn, CopyButton, Fold, NextStep, Pill, ShareButton, Why } from "@/components/ui";
 import type { Book } from "@/lib/book";
@@ -157,7 +157,12 @@ export default function BookPage() {
         <>
           {book.bundled && (
             <p className="text-sm text-muted">
-              見本の家族（作った家族）の{jpDay(book.asOf)}までの記録 {book.sourceCount} 件から、Claude が実際に書いた一冊です。あなたの手帳では、あなたの記録から書きます。
+              見本の家族（作った家族）の{jpDay(book.asOf)}までの記録 {book.sourceCount} 件から、
+              {book.writer
+                ? // API を呼ばずに Claude Code が書いた一冊は、そう書く（demo-books.json の writer の頭。例「Claude Code（Claude Opus 5.5）」）
+                  `${book.writer.split("。")[0]}が、本番と同じ書き方の決まりで実際に書いた一冊です`
+                : "Claude が実際に書いた一冊です"}
+              。あなたの手帳では、あなたの記録から書きます。
             </p>
           )}
           <Reader book={book} page={page} setPage={setPage} />
@@ -310,6 +315,21 @@ function Binding({ child }: { child: string }) {
   );
 }
 
+/**
+ * 表紙の題を、全角の空きの所で折り返す（「1歳になるまで」の「で」の1字だけが次の行に残る、のような折れ方を避ける）。
+ * 空きで分けた言葉を1つずつ折れない箱にし、間は折れる普通の空き（行の終わりで消えるので、折れても中寄せがずれない）。
+ * 空きの幅は h2 の word-spacing で全角ほどに。箱より長い言葉だけは、箱の中で折れる（text-balance で行の長さをそろえる）
+ */
+function TitleLines({ text }: { text: string }) {
+  const words = text.split(/[\u3000 ]+/).filter(Boolean);
+  return words.map((w, i) => (
+    <Fragment key={i}>
+      {i > 0 && " "}
+      <span className="inline-block">{w}</span>
+    </Fragment>
+  ));
+}
+
 function Reader({ book, page, setPage }: { book: Book; page: number; setPage: (n: number) => void }) {
   const photos = usePhotos();
   const pages = pagesOf(book);
@@ -426,7 +446,9 @@ function PageBody({ book, page, photos }: { book: Book; page: Page; photos: Phot
           <img src={cover.urls.view} alt="" className="max-h-64 w-full rounded-lg object-cover" />
         )}
         <p className="text-xs tracking-[0.4em] text-rose">1000 日 の 記 録</p>
-        <h2 className="font-display text-3xl font-bold leading-snug">{book.title}</h2>
+        <h2 className="font-display text-3xl font-bold leading-snug text-balance [word-spacing:0.6em]">
+          <TitleLines text={book.title} />
+        </h2>
         <div className="h-px w-16 bg-rose/40" />
         <p className="font-display text-lg">{book.childName}へ</p>
         <p className="tabular text-xs text-muted">
