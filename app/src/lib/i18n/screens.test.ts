@@ -30,6 +30,8 @@ const DONE: readonly string[] = [
   "components/countdown.ts", // あと◯日
   "lib/week-band.ts", // 週数の帯
   "lib/done-words.ts", // 済んだの意味の一言
+  "components/album/", // アルバム（写真・声・残す・みんなの章・未来の手紙・映画への入口と書き出し）
+  "app/book/", // 一冊（読む・映画・印刷）
 ];
 
 /** 体験の筋（③）。I18N_LEFT=1 で残りを数える */
@@ -81,16 +83,16 @@ function parse(abs: string, code = fs.readFileSync(abs, "utf8")): ts.SourceFile 
   return sf;
 }
 
-/** t と tFor の名前（import { t as x }・const x = useT() も） */
+/** t と tFor の名前（import { t as x }・const x = useT() も。太字の数などを差し込む tr()（i18n/rich）も t() と同じに読む） */
 function namesOf(sf: ts.SourceFile): Names {
   const names: Names = { t: new Set(["t"]), tFor: new Set(["tFor"]) };
   const walk = (n: ts.Node): void => {
-    if (ts.isImportDeclaration(n) && ts.isStringLiteral(n.moduleSpecifier) && /(^|\/)i18n(\/dicts)?$/.test(n.moduleSpecifier.text)) {
+    if (ts.isImportDeclaration(n) && ts.isStringLiteral(n.moduleSpecifier) && /(^|\/)i18n(\/dicts|\/rich)?$/.test(n.moduleSpecifier.text)) {
       const b = n.importClause?.namedBindings;
       if (b && ts.isNamedImports(b))
         for (const el of b.elements) {
           const orig = (el.propertyName ?? el.name).text;
-          if (orig === "t") names.t.add(el.name.text);
+          if (orig === "t" || orig === "tr") names.t.add(el.name.text);
           if (orig === "tFor") names.tFor.add(el.name.text);
         }
     }
@@ -404,6 +406,20 @@ describe("読み方の確かめ（わざと残した字を見落とさない・�
       "7 体験版です: 定数 BANNER の日本語が t() の外",
       "7 辞書に無い注: 辞書に無い鍵（zh・en の画面で日本語のまま出る）",
     ]);
+  });
+
+  it("tr()（太字の数などを差し込む）も t() と同じに読む", () => {
+    const code = [
+      'import { tr } from "@/lib/i18n/rich";',
+      "export const W = ({ n }: { n: number }) => (",
+      "  <p>",
+      '    {tr("あと{n}日", { n: <b>{n}</b> })}',
+      '    {tr("あと{n}日", {})}',
+      '    {tr("辞書に無い", {})}',
+      "  </p>",
+      ");",
+    ].join("\n");
+    expect(run(code)).toEqual(["5 あと{n}日: {n} を渡していない（画面に {n} のまま出る）", "6 辞書に無い: 辞書に無い鍵（zh・en の画面で日本語のまま出る）"]);
   });
 
   it("④ モジュールの頭の t() を拾う（関数・矢印の中は通す）", () => {

@@ -5,6 +5,7 @@
 // アカウントの仕組みをまだ動かしていない置き場（503）・ログインしていない（401）時は unavailable（写真の枠は出さない）。
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { useFamily } from "@/components/FamilyProvider";
+import { t } from "@/lib/i18n";
 import type { ClientMedia } from "@/lib/media-shared";
 
 export interface MediaList {
@@ -48,12 +49,12 @@ function load(key: string, url: string): Entry {
     promise: fetch(url)
       .then(async (r) => {
         const j = (await r.json().catch(() => ({}))) as MediaList & { error?: string };
-        if (!r.ok) throw new MediaError(r.status, j.error ?? `写真を読めませんでした（${r.status}）`);
+        if (!r.ok) throw new MediaError(r.status, j.error ?? t("写真を読めませんでした（{status}）", { status: r.status }));
         e.result = j;
         return j;
       })
       .catch((err: unknown) => {
-        e.error = err instanceof MediaError ? { status: err.status, message: err.message } : { status: 0, message: "通信できませんでした" };
+        e.error = err instanceof MediaError ? { status: err.status, message: err.message } : { status: 0, message: t("通信できませんでした") };
         throw err;
       }),
   };
@@ -103,7 +104,7 @@ export function useMedia(opts: { trash?: boolean; kind?: "audio" } = {}) {
 export async function patchMedia(familyId: string, id: string, p: Record<string, unknown>): Promise<ClientMedia> {
   const r = await fetch(`/api/media/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ familyId, ...p }) });
   const j = (await r.json().catch(() => ({}))) as { media?: ClientMedia; error?: string };
-  if (!r.ok || !j.media) throw new Error(j.error ?? `直せませんでした（${r.status}）`);
+  if (!r.ok || !j.media) throw new Error(j.error ?? t("直せませんでした（{status}）", { status: r.status }));
   invalidateMedia();
   return j.media;
 }
@@ -112,6 +113,6 @@ export async function patchMedia(familyId: string, id: string, p: Record<string,
 export async function trashMedia(familyId: string, id: string, purge = false): Promise<void> {
   const r = await fetch(`/api/media/${encodeURIComponent(id)}?familyId=${encodeURIComponent(familyId)}${purge ? "&purge=1" : ""}`, { method: "DELETE" });
   const j = (await r.json().catch(() => ({}))) as { error?: string };
-  if (!r.ok) throw new Error(j.error ?? `消せませんでした（${r.status}）`);
+  if (!r.ok) throw new Error(j.error ?? t("消せませんでした（{status}）", { status: r.status }));
   invalidateMedia();
 }

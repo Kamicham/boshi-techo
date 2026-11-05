@@ -8,7 +8,10 @@ import { useEffect, useMemo, useState } from "react";
 import { useFamily } from "@/components/FamilyProvider";
 import { Btn } from "@/components/ui";
 import { useTecho } from "@/components/techo/useTecho";
+import { t } from "@/lib/i18n";
 import { bytesLabel, groupForAlbum, milestoneById, TRASH_DAYS, type ClientMedia } from "@/lib/media-shared";
+import { dot } from "@/lib/memory-words";
+import { tr } from "@/lib/i18n/rich";
 import { KeepButtons } from "./KeepButtons";
 import { PhotoSheet } from "./PhotoSheet";
 import { VoiceItem } from "./VoiceItem";
@@ -22,7 +25,7 @@ export function AlbumScreen() {
   // 準備中の時は、仕組みの言葉（エラーの文）を家族に見せない
   const { items: techo } = useTecho();
   const [open, setOpen] = useState<string | null>(null);
-  const child = family.childName ?? "赤ちゃん";
+  const child = family.childName ?? t("赤ちゃん");
 
   // 手帳の写真の枠から来た時（/album?photo=<id>）は、その1枚を開く
   useEffect(() => {
@@ -41,43 +44,45 @@ export function AlbumScreen() {
     <main className="flex flex-col gap-4 px-4 pt-4">
       <div className="flex items-center justify-between">
         <Link href="/techo" className="inline-flex min-h-11 items-center text-sm text-muted underline-offset-2 hover:underline">
-          ‹ 手帳へ
+          {t("‹ 手帳へ")}
         </Link>
         <Link href="/book" className="inline-flex min-h-11 items-center text-sm font-semibold text-rose underline-offset-2 hover:underline">
-          一冊へ ›
+          {t("一冊へ ›")}
         </Link>
       </div>
       <header className="flex flex-col gap-1">
-        <h1 className="font-display text-2xl font-bold">{child}のアルバム</h1>
-        <p className="text-base text-muted">月ごとの「この1枚」は、手帳が仮に選んでおきます。★で選び直せます。残した声も、同じ月に並びます。</p>
+        <h1 className="font-display text-2xl font-bold">{t("{child}のアルバム", { child })}</h1>
+        <p className="text-base text-muted">{t("月ごとの「この1枚」は、手帳が仮に選んでおきます。★で選び直せます。残した声も、同じ月に並びます。")}</p>
       </header>
 
       {loading ? (
-        <p className="text-base text-muted">アルバムを開いています…</p>
+        <p className="text-base text-muted">{t("アルバムを開いています…")}</p>
       ) : unavailable ? (
         <div className="flex flex-col gap-2 rounded-2xl bg-sky-soft p-4">
-          <p className="text-base font-semibold">この手帳では、まだ写真を残せません</p>
-          <p className="text-sm text-muted">写真は家族のアカウント（ログイン）で守って残します。いまは準備中です。</p>
+          <p className="text-base font-semibold">{t("この手帳では、まだ写真を残せません")}</p>
+          <p className="text-sm text-muted">{t("写真は家族のアカウント（ログイン）で守って残します。いまは準備中です。")}</p>
         </div>
       ) : (
         <>
           {(canWrite || canContribute) && <KeepButtons />}
           {usage && (
             <p className="text-sm text-muted">
-              写真 <b className="tabular text-ink">{usage.count}</b> 枚{voices.length ? <>・声 <b className="tabular text-ink">{voices.length}</b> 本</> : null}・
-              <span className="tabular">{bytesLabel(usage.bytes + voices.reduce((n, v) => n + v.bytes, 0))}</span>（この家族の置き場だけ・鍵つき）
+              {tr("写真 {n} 枚", { n: <b className="tabular text-ink">{usage.count}</b> })}
+              {voices.length ? <>{dot()}{tr("声 {n} 本", { n: <b className="tabular text-ink">{voices.length}</b> })}</> : null}
+              {dot()}
+              {tr("{size}（この家族の置き場だけ・鍵つき）", { size: <span className="tabular">{bytesLabel(usage.bytes + voices.reduce((n, v) => n + v.bytes, 0))}</span> })}
             </p>
           )}
           {error && <p className="rounded-xl bg-alert/10 px-4 py-3 text-base text-alert">{error}</p>}
           {media.length === 0 && voices.length === 0 ? (
             <div className="flex flex-col items-center gap-3 rounded-2xl bg-card px-4 py-6 text-center">
-              <p className="text-base text-muted">まだ写真がありません。「🌸 残す」から足すと、月ごとに並びます。</p>
+              <p className="text-base text-muted">{t("まだ写真がありません。「🌸 残す」から足すと、月ごとに並びます。")}</p>
               {isDemo && canWrite && <SeedDemo />}
             </div>
           ) : (
             groups.map((g) => (
               <section key={g.period} className="flex flex-col gap-3">
-                <h2 className="font-display text-xl font-bold text-rose">{g.period}</h2>
+                <h2 className="font-display text-xl font-bold text-rose">{t(g.period)}</h2>
                 {g.months.map((mo) => (
                   <article key={mo.key} id={`m-${mo.key}`} className="flex flex-col gap-2 rounded-2xl border border-line bg-card p-3">
                     <h3 className="font-display text-lg font-bold">{mo.label}</h3>
@@ -88,7 +93,7 @@ export function AlbumScreen() {
                           .filter((m) => m.kind !== "audio" && m.id !== mo.pick?.id)
                           .map((m) => (
                             <li key={m.id}>
-                              <button type="button" onClick={() => setOpen(m.id)} className="relative block aspect-square w-full overflow-hidden rounded-md bg-paper" aria-label={`${m.date} の写真`}>
+                              <button type="button" onClick={() => setOpen(m.id)} className="relative block aspect-square w-full overflow-hidden rounded-md bg-paper" aria-label={t("{date} の写真", { date: m.date })}>
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={m.urls.thumb} alt="" loading="lazy" className={`h-full w-full object-cover ${m.hidden ? "opacity-40" : ""}`} />
                                 {m.star > 0 && <span className="absolute top-0.5 right-1 text-sm text-warn">★</span>}
@@ -99,7 +104,7 @@ export function AlbumScreen() {
                       </ul>
                     )}
                     {mo.items.some((m) => m.kind === "audio") && (
-                      <ul aria-label="声" className="flex flex-col gap-1.5">
+                      <ul aria-label={t("声")} className="flex flex-col gap-1.5">
                         {mo.items
                           .filter((m) => m.kind === "audio")
                           .map((m) => (
@@ -113,7 +118,7 @@ export function AlbumScreen() {
             ))
           )}
           {canWrite && <Trash />}
-          <p className="pb-4 text-sm text-muted">Claude には見せていません（声も聞かせていません）。一冊を作る時も、Claude に渡すのは日付・一言・結んだ記録・声の題と最初の一文の文字だけです。</p>
+          <p className="pb-4 text-sm text-muted">{t("Claude には見せていません（声も聞かせていません）。一冊を作る時も、Claude に渡すのは日付・一言・結んだ記録・声の題と最初の一文の文字だけです。")}</p>
         </>
       )}
       {shown && <PhotoSheet photo={shown} techo={techo} canWrite={canWrite} onClose={() => setOpen(null)} />}
@@ -129,12 +134,12 @@ function Pick({ m, titles, onOpen }: { m: ClientMedia; titles: Map<string, strin
       <span className="relative block overflow-hidden rounded-xl bg-paper">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={m.urls.view} alt={m.caption ?? ""} loading="lazy" className="max-h-96 w-full object-cover" />
-        <span className="absolute top-2 left-2 rounded-full bg-card/90 px-2 py-0.5 text-xs font-semibold text-warn">{m.star > 0 ? "★ この1枚" : "この1枚（仮）"}</span>
+        <span className="absolute top-2 left-2 rounded-full bg-card/90 px-2 py-0.5 text-xs font-semibold text-warn">{m.star > 0 ? t("★ この1枚") : t("この1枚（仮）")}</span>
       </span>
       <span className="text-sm text-muted">
         {Number(m.date.slice(5, 7))}/{Number(m.date.slice(8, 10))}
-        {ms ? `・${ms.label}` : ""}
-        {linked.length ? `・手帳「${linked.join("・")}」` : ""}
+        {ms ? `${dot()}${t(ms.label)}` : ""}
+        {linked.length ? `${dot()}${t("手帳「{titles}」", { titles: linked.join(dot()) })}` : ""}
       </span>
       {m.caption && <span className="text-base">{m.caption}</span>}
     </button>
@@ -155,16 +160,16 @@ function SeedDemo() {
           setBusy(true);
           fetch("/api/capture/seed", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ familyId: family.id, today }) })
             .then(async (r) => {
-              if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { error?: string }).error ?? `入れられませんでした（${r.status}）`);
+              if (!r.ok) throw new Error(((await r.json().catch(() => ({}))) as { error?: string }).error ?? t("入れられませんでした（{status}）", { status: r.status }));
               invalidateMedia();
             })
             .catch((e: Error) => setMsg(e.message))
             .finally(() => setBusy(false));
         }}
       >
-        {busy ? "入れています…" : "見本の写真と声を入れる"}
+        {busy ? t("入れています…") : t("見本の写真と声を入れる")}
       </Btn>
-      <p className="text-xs text-muted">見本の写真は画像生成、声は合成音声で作った物です（作った家族・実在の人ではありません）。</p>
+      <p className="text-xs text-muted">{t("見本の写真は画像生成、声は合成音声で作った物です（作った家族・実在の人ではありません）。")}</p>
       {msg && <p className="text-sm text-alert">{msg}</p>}
     </>
   );
@@ -176,7 +181,7 @@ function Trash() {
   return (
     <details className="group rounded-2xl border border-line bg-card" onToggle={(e) => setOpened(e.currentTarget.open)}>
       <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 px-4 font-display text-lg font-bold">
-        <span>ゴミ箱</span>
+        <span>{t("ゴミ箱")}</span>
         <span className="text-muted transition-transform group-open:rotate-90" aria-hidden>
           ›
         </span>
@@ -190,12 +195,12 @@ function TrashList() {
   const { family } = useFamily();
   const { media, loading, error } = useMedia({ trash: true });
   const [msg, setMsg] = useState("");
-  if (loading) return <p className="text-sm text-muted">読んでいます…</p>;
+  if (loading) return <p className="text-sm text-muted">{t("読んでいます…")}</p>;
   if (error) return <p className="text-sm text-alert">{error}</p>;
-  if (!media.length) return <p className="text-sm text-muted">ゴミ箱は空です。入れた写真は{TRASH_DAYS}日たつと消えます。</p>;
+  if (!media.length) return <p className="text-sm text-muted">{t("ゴミ箱は空です。入れた写真は{n}日たつと消えます。", { n: TRASH_DAYS })}</p>;
   return (
     <div className="flex flex-col gap-2">
-      <p className="text-sm text-muted">{TRASH_DAYS}日たつと、写真のファイルごと消えます。それまでは戻せます。</p>
+      <p className="text-sm text-muted">{t("{n}日たつと、写真のファイルごと消えます。それまでは戻せます。", { n: TRASH_DAYS })}</p>
       <ul className="flex flex-col gap-2">
         {media.map((m) => (
           <li key={m.id} className="flex items-center gap-3">
@@ -203,15 +208,15 @@ function TrashList() {
             <img src={m.urls.thumb} alt="" loading="lazy" className="h-14 w-14 rounded-md object-cover" />
             <span className="flex-1 text-sm text-muted">{m.date}</span>
             <Btn kind="secondary" onClick={() => void patchMedia(family.id, m.id, { restore: true }).catch((e: Error) => setMsg(e.message))}>
-              戻す
+              {t("戻す")}
             </Btn>
             <Btn
               kind="quiet"
               onClick={() => {
-                if (window.confirm("今すぐ消しますか？（戻せません）")) void trashMedia(family.id, m.id, true).catch((e: Error) => setMsg(e.message));
+                if (window.confirm(t("今すぐ消しますか？（戻せません）"))) void trashMedia(family.id, m.id, true).catch((e: Error) => setMsg(e.message));
               }}
             >
-              今すぐ消す
+              {t("今すぐ消す")}
             </Btn>
           </li>
         ))}

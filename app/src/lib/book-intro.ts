@@ -1,7 +1,10 @@
 // 一冊のタブの、本がまだ無い時の最初の箱の言葉（画面は app/book/page.tsx）。
 // 記録が少ない・0件の時は「一冊の本」を先に見せて、最初の1つを残す方へ。記録がある時は「記録を本にまとめる」。
 // 「一冊」の字は小見出しの1か所だけに置き、大見出しと重ねない。
+// 言葉は画面の言葉で返す（lib/i18n の t()。辞書は dict/memories.ts。サーバと試験では日本語）。
+// SAMPLE_BOOK_LABEL・SAMPLE_BOOK_LATER は日本語のまま持ち、出す所で訳す（LATER はサーバの文なので lib/api.ts の route() が訳す）。
 
+import { t } from "./i18n";
 import { PUBLIC_UI } from "./trial-words";
 
 /** これより少ない記録（妊娠中）は、まず記録を足す方を主にする */
@@ -30,39 +33,45 @@ export type BookIntro =
   | { kind: "read"; eyebrow: string; title: string; sub: string; cta: string };
 
 export function bookIntro(o: { childName?: string | null; count: number; born: boolean; isDemo: boolean; trial?: boolean }): BookIntro {
-  const child = o.childName?.trim() || "赤ちゃん";
+  const child = o.childName?.trim() || t("赤ちゃん");
   const n = Math.max(0, o.count);
   // 体験版は Claude を呼ばないので、ここでは本を作らない。記録がある日は、前に Claude が書いた見本の一冊の日へ（記録が0件なら、下の「見本の記録を入れる」）
   if ((o.trial ?? (PUBLIC_UI && o.isDemo)) && n > 0) {
     return {
       kind: "read",
-      eyebrow: `${child}への一冊`,
-      title: "記録を本にまとめる",
-      sub: "この体験版では Claude を呼ばないので、ここでは本を作りません。見本の家族の妊娠30週・生後2か月・1歳・2歳の日で、前に Claude がこの家族の記録から書いた一冊を読めます",
-      cta: "2歳の日の一冊を読む ›",
+      eyebrow: t("{child}への一冊", { child }),
+      title: t("記録を本にまとめる"),
+      sub: t("この体験版では Claude を呼ばないので、ここでは本を作りません。見本の家族の妊娠30週・生後2か月・1歳・2歳の日で、前に Claude がこの家族の記録から書いた一冊を読めます"),
+      cta: t("2歳の日の一冊を読む ›"),
     };
   }
   const few = !o.born && n > 0 && n < FEW_RECORDS;
   if ((n === 0 && !o.isDemo) || few) {
     return {
       kind: "gather",
-      title: `${child}に渡す、一冊の本`,
-      sub: `話した事・撮った写真・家族の声がたまると、ここで本の形にまとめられます。いまは${n}件`,
-      cta: n === 0 ? "最初の1つを残す" : "話す・撮るで足す",
+      title: t("{child}に渡す、一冊の本", { child }),
+      sub: t("話した事・撮った写真・家族の声がたまると、ここで本の形にまとめられます。いまは{n}件", { n }),
+      cta: n === 0 ? t("最初の1つを残す") : t("話す・撮るで足す"),
       tryMake: n > 0,
       // 0件の日は、たまった後の姿を先に見られるように（見本の家族の一冊）
       sample: n === 0,
     };
   }
   if (n === 0) {
-    return { kind: "seed", eyebrow: `${child}への一冊`, title: "記録を本にまとめる", sub: "見本の家族の記録を入れると、本の形にまとめられます", cta: "見本の記録を入れる" };
+    return {
+      kind: "seed",
+      eyebrow: t("{child}への一冊", { child }),
+      title: t("記録を本にまとめる"),
+      sub: t("見本の家族の記録を入れると、本の形にまとめられます"),
+      cta: t("見本の記録を入れる"),
+    };
   }
   return {
     kind: "make",
-    eyebrow: `${child}への一冊`,
-    title: "記録を本にまとめる",
-    sub: `${n}件の記録を、AI（Claude）が時期ごとの章に分けて、本の形にまとめます（数分かかります）。画面で読めて、何度でも作り直せます`,
-    cta: "本にまとめてみる",
+    eyebrow: t("{child}への一冊", { child }),
+    title: t("記録を本にまとめる"),
+    sub: t("{n}件の記録を、AI（Claude）が時期ごとの章に分けて、本の形にまとめます（数分かかります）。画面で読めて、何度でも作り直せます", { n }),
+    cta: t("本にまとめてみる"),
   };
 }
 
@@ -73,6 +82,6 @@ export function cameFromTecho(search: string): boolean {
 
 /** みんなの章の声の行: 見出しに名前があるので札は付けず「ばあばの声（17秒）」 */
 export function minnaVoiceLabel(name: string, sec?: number | null): string {
-  const s = sec && sec > 0 ? `（${Math.max(1, Math.round(sec))}秒）` : "";
-  return `${name}の声${s}`;
+  const s = sec && sec > 0 ? t("（{n}秒）", { n: Math.max(1, Math.round(sec)) }) : "";
+  return t("{name}の声", { name }) + s;
 }

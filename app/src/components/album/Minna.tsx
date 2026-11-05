@@ -9,14 +9,12 @@ import { Btn } from "@/components/ui";
 import { useMedia } from "./useMedia";
 import { VoiceItem } from "./VoiceItem";
 import { LetterSheet } from "./LetterKeeper";
-import { openLine, type ClientLetter } from "@/lib/letters-shared";
+import { opensLine, type ClientLetter } from "@/lib/letters-shared";
 import { childView } from "@/lib/call-name";
+import { t } from "@/lib/i18n";
 import type { ClientMedia } from "@/lib/media-shared";
-
-function jpDay(s: string) {
-  const [y, m, d] = s.split("-").map(Number);
-  return `${y}年${m}月${d}日`;
-}
+import { dayLong as jpDay, dot } from "@/lib/memory-words";
+import { tr } from "@/lib/i18n/rich";
 
 /** みんなの章: 足した人ごとに、写真と声と一言 */
 export function MinnaChapter() {
@@ -32,12 +30,12 @@ export function MinnaChapter() {
     // 赤ちゃんを亡くした家族には、ひと言を頼む入口を出さない
     if (!canInvite || family.situation?.quiet === "loss") return null;
     return (
-      <section aria-label="みんなの章" className="flex flex-col gap-2 rounded-2xl border border-line bg-card px-5 py-4">
-        <p className="text-xs tracking-[0.4em] text-rose">み ん な の 章</p>
-        <p className="text-base">家族や周りの人に、{family.childName ?? "赤ちゃん"}へのひと言を頼めます。招いた人が足した写真・声・手紙が、ここに並びます。</p>
+      <section aria-label={t("みんなの章")} className="flex flex-col gap-2 rounded-2xl border border-line bg-card px-5 py-4">
+        <p className="text-xs tracking-[0.4em] text-rose">{t("み ん な の 章")}</p>
+        <p className="text-base">{t("家族や周りの人に、{child}へのひと言を頼めます。招いた人が足した写真・声・手紙が、ここに並びます。", { child: family.childName ?? t("赤ちゃん") })}</p>
         <div>
           <Btn kind="secondary" href={inviteHref}>
-            家族に頼む（招く）
+            {t("家族に頼む（招く）")}
           </Btn>
         </div>
       </section>
@@ -46,10 +44,10 @@ export function MinnaChapter() {
   const byName = new Map<string, ClientMedia[]>();
   for (const m of items.sort((a, b) => a.date.localeCompare(b.date))) byName.set(m.from!.name, [...(byName.get(m.from!.name) ?? []), m]);
   return (
-    <section aria-label="みんなの章" className="flex flex-col gap-4 rounded-2xl border border-line bg-card px-5 py-5">
+    <section aria-label={t("みんなの章")} className="flex flex-col gap-4 rounded-2xl border border-line bg-card px-5 py-5">
       <div className="flex flex-col gap-1 text-center">
-        <p className="text-xs tracking-[0.4em] text-rose">み ん な の 章</p>
-        <h2 className="font-display text-xl font-bold">{family.childName ?? "あなた"}を待っていた人たち</h2>
+        <p className="text-xs tracking-[0.4em] text-rose">{t("み ん な の 章")}</p>
+        <h2 className="font-display text-xl font-bold">{t("{child}を待っていた人たち", { child: family.childName ?? t("あなた") })}</h2>
       </div>
       {[...byName].map(([name, xs]) => (
         <div key={name} className="flex flex-col gap-2 border-t border-line pt-3">
@@ -77,7 +75,7 @@ export function MinnaChapter() {
       ))}
       {canInvite && (
         <Link href={inviteHref} className="self-center text-sm text-muted underline-offset-2 hover:underline">
-          ほかの家族にも頼む ›
+          {t("ほかの家族にも頼む ›")}
         </Link>
       )}
     </section>
@@ -100,7 +98,7 @@ export function FutureLetters() {
     fetch(`/api/letters?${qs}`)
       .then(async (r) => {
         const j = (await r.json().catch(() => ({}))) as { letters?: ClientLetter[]; error?: string };
-        if (!r.ok) throw new Error(j.error ?? `手紙を読めませんでした（${r.status}）`);
+        if (!r.ok) throw new Error(j.error ?? t("手紙を読めませんでした（{status}）", { status: r.status }));
         setLetters(j.letters ?? []);
       })
       .catch((e: Error) => setError(e.message));
@@ -118,18 +116,18 @@ export function FutureLetters() {
   );
   const write = canLetter && (
     <Btn kind="secondary" full onClick={() => setWriting(true)}>
-      ✉ 手紙を書く
+      {t("✉ 手紙を書く")}
     </Btn>
   );
   if (!letters.length) {
     if (!canLetter) return null;
     return (
-      <section id="letters" aria-label="未来へ手紙" className="flex scroll-mt-4 flex-col gap-2 rounded-2xl border border-line bg-card px-5 py-4">
-        <p className="text-xs tracking-[0.4em] text-rose">未 来 へ 手 紙</p>
+      <section id="letters" aria-label={t("未来へ手紙")} className="flex scroll-mt-4 flex-col gap-2 rounded-2xl border border-line bg-card px-5 py-4">
+        <p className="text-xs tracking-[0.4em] text-rose">{t("未 来 へ 手 紙")}</p>
         <p className="text-base">
           {quiet
-            ? "伝えたい事がある時だけ、手紙にして残せます。封をせず、いつでも読める形にもできます。"
-            : `開く日を決めて封をする手紙です。例: ${family.childName ?? "赤ちゃん"}の1歳の誕生日に開く。開く日までは、書いた人も読めません。`}
+            ? t("伝えたい事がある時だけ、手紙にして残せます。封をせず、いつでも読める形にもできます。")
+            : t("開く日を決めて封をする手紙です。例: {child}の1歳の誕生日に開く。開く日までは、書いた人も読めません。", { child: family.childName ?? t("赤ちゃん") })}
         </p>
         {write}
         {sheet}
@@ -139,11 +137,12 @@ export function FutureLetters() {
   const sealed = letters.filter((l) => !l.opened);
   const opened = letters.filter((l) => l.opened);
   return (
-    <section id="letters" aria-label="未来の手紙" className="flex scroll-mt-4 flex-col gap-3 rounded-2xl border border-line bg-card px-5 py-5">
+    <section id="letters" aria-label={t("未来の手紙")} className="flex scroll-mt-4 flex-col gap-3 rounded-2xl border border-line bg-card px-5 py-5">
       <div className="flex flex-col gap-1 text-center">
-        <p className="text-xs tracking-[0.4em] text-rose">未 来 の 手 紙</p>
+        <p className="text-xs tracking-[0.4em] text-rose">{t("未 来 の 手 紙")}</p>
         <p className="text-sm text-muted">
-          封をした手紙 <b className="tabular">{sealed.length}</b> 通{opened.length ? `・開いた手紙 ${opened.length} 通` : ""}
+          {tr("封をした手紙 {n} 通", { n: <b className="tabular">{sealed.length}</b> })}
+          {opened.length ? `${dot()}${t("開いた手紙 {n} 通", { n: opened.length })}` : ""}
         </p>
       </div>
       <ul className="flex flex-col gap-2">
@@ -153,7 +152,7 @@ export function FutureLetters() {
       </ul>
       {write}
       {sheet}
-      <p className="text-xs text-muted">封をした手紙は、書いた人も開く日まで読めません。手紙の中身は AI（Claude）に渡していません。</p>
+      <p className="text-xs text-muted">{t("封をした手紙は、書いた人も開く日まで読めません。手紙の中身は AI（Claude）に渡していません。")}</p>
     </section>
   );
 }
@@ -176,18 +175,18 @@ function LetterRow({ l, onRemoved }: { l: ClientLetter; onRemoved: () => void })
     if (body !== null) return setBody(null);
     const r = await fetch(`/api/letters/${encodeURIComponent(l.id)}?${qs()}`);
     const j = (await r.json().catch(() => ({}))) as { letter?: ClientLetter; error?: string };
-    if (!r.ok || !j.letter || typeof j.letter.body !== "string") return setMsg(j.error ?? "読めませんでした");
+    if (!r.ok || !j.letter || typeof j.letter.body !== "string") return setMsg(j.error ?? t("読めませんでした"));
     setBody(j.letter.body);
     // 添えた声は、開いた後だけ届く（封の間は 403）。端末の中だけで流す
     if (l.voiceSec !== undefined && !voiceUrl) {
       const v = await fetch(`/api/letters/${encodeURIComponent(l.id)}/voice?${qs()}`);
       if (v.ok) setVoiceUrl(URL.createObjectURL(await v.blob()));
-      else setMsg("声を開けませんでした");
+      else setMsg(t("声を開けませんでした"));
     }
   };
   const remove = async () => {
     const r = await fetch(`/api/letters?${qs({ id: l.id })}`, { method: "DELETE" });
-    if (!r.ok) return setMsg(((await r.json().catch(() => ({}))) as { error?: string }).error ?? "消せませんでした");
+    if (!r.ok) return setMsg(((await r.json().catch(() => ({}))) as { error?: string }).error ?? t("消せませんでした"));
     onRemoved();
   };
 
@@ -198,33 +197,33 @@ function LetterRow({ l, onRemoved }: { l: ClientLetter; onRemoved: () => void })
           {l.opened ? "💌" : "✉️"}
         </span>
         <span className="flex min-w-0 flex-1 flex-col">
-          <span className="text-base font-semibold">
-            {childView(family, l.from)}から {l.to}へ
-          </span>
+          <span className="text-base font-semibold">{t("{from}から {to}へ", { from: childView(family, l.from), to: l.to })}</span>
           <span className="tabular text-xs text-muted">
-            {l.opened ? (l.openOn ? `${jpDay(l.openOn)}に開きました` : "いつでも読めます") : `${openLine(l)}開きます`}・{jpDay(l.sealedOn)}に書いた
-            {l.voiceSec !== undefined && `・🎙 声つき${l.voiceSec ? ` ${Math.floor(l.voiceSec / 60)}:${String(Math.floor(l.voiceSec % 60)).padStart(2, "0")}` : ""}`}
+            {l.opened ? (l.openOn ? t("{date}に開きました", { date: jpDay(l.openOn) }) : t("いつでも読めます")) : opensLine(l)}
+            {dot()}
+            {t("{date}に書いた", { date: jpDay(l.sealedOn) })}
+            {l.voiceSec !== undefined && `${dot()}${t("🎙 声つき")}${l.voiceSec ? ` ${Math.floor(l.voiceSec / 60)}:${String(Math.floor(l.voiceSec % 60)).padStart(2, "0")}` : ""}`}
           </span>
         </span>
-        {l.opened && <span className="text-sm font-bold text-rose">{body === null ? "読む" : "閉じる"}</span>}
+        {l.opened && <span className="text-sm font-bold text-rose">{body === null ? t("読む") : t("閉じる")}</span>}
       </button>
-      {body !== null && voiceUrl && <audio controls autoPlay src={voiceUrl} aria-label={`${childView(family, l.from)}の声`} className="w-full" />}
+      {body !== null && voiceUrl && <audio controls autoPlay src={voiceUrl} aria-label={t("{name}の声", { name: childView(family, l.from) })} className="w-full" />}
       {body !== null && body && <p className="whitespace-pre-wrap font-display text-base leading-loose">{body}</p>}
       {l.mine && (
         <div className="flex items-center gap-2 text-sm">
           {confirm ? (
             <>
-              <span className="text-muted">この手紙を消しますか？（戻せません）</span>
+              <span className="text-muted">{t("この手紙を消しますか？（戻せません）")}</span>
               <button type="button" className="min-h-10 rounded-lg border border-line px-3 text-alert" onClick={() => void remove()}>
-                消す
+                {t("消す")}
               </button>
               <button type="button" className="min-h-10 px-2 text-muted" onClick={() => setConfirm(false)}>
-                やめる
+                {t("やめる")}
               </button>
             </>
           ) : (
             <button type="button" className="min-h-10 text-muted underline-offset-2 hover:underline" onClick={() => setConfirm(true)}>
-              消す
+              {t("消す")}
             </button>
           )}
         </div>

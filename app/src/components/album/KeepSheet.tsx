@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { useFamily } from "@/components/FamilyProvider";
 import { Btn } from "@/components/ui";
 import { keepPhoto, type KeepResult } from "@/components/capture/media";
+import { t } from "@/lib/i18n";
 import { keptLine } from "@/lib/media-shared";
 import { invalidateMedia, patchMedia } from "./useMedia";
 
@@ -54,18 +55,16 @@ export function KeepSheet({ files, techoId, onClose }: { files: File[]; techoId?
   };
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="写真を残す" className="fixed inset-0 z-30 flex flex-col bg-paper">
+    <div role="dialog" aria-modal="true" aria-label={t("写真を残す")} className="fixed inset-0 z-30 flex flex-col bg-paper">
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-3 overflow-y-auto px-4 pt-4 pb-6">
         <header className="flex items-center justify-between gap-2">
-          <h2 className="font-display text-xl font-bold text-ok">🌸 残す</h2>
-          <span className="tabular text-sm text-muted">
-            {items.length}枚中 {done}枚
-          </span>
+          <h2 className="font-display text-xl font-bold text-ok">{t("🌸 残す")}</h2>
+          <span className="tabular text-sm text-muted">{t("{total}枚中 {done}枚", { total: items.length, done })}</span>
         </header>
         {sending && (
           <p role="status" className="flex items-center gap-2 rounded-2xl bg-ok/10 px-4 py-3 text-base font-semibold text-ok">
             <span className="inline-block h-3 w-3 animate-pulse rounded-full bg-ok" />
-            置き場に入れています…
+            {t("置き場に入れています…")}
           </p>
         )}
         <ul className="flex flex-col gap-3">
@@ -82,15 +81,15 @@ export function KeepSheet({ files, techoId, onClose }: { files: File[]; techoId?
             </li>
           ))}
         </ul>
-        <p className="rounded-xl bg-card px-3 py-2 text-sm text-muted">Claude には見せていません。写真はこの家族の置き場にだけ置き、鍵をかけてあります。</p>
+        <p className="rounded-xl bg-card px-3 py-2 text-sm text-muted">{t("Claude には見せていません。写真はこの家族の置き場にだけ置き、鍵をかけてあります。")}</p>
       </div>
       <div className="border-t border-line bg-card px-4 py-3" style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
         <div className="mx-auto flex max-w-md gap-2">
           <Btn href="/album" kind="secondary">
-            アルバムで見る
+            {t("アルバムで見る")}
           </Btn>
           <Btn onClick={onClose} disabled={sending} full>
-            {sending ? "置いています…" : "閉じる"}
+            {sending ? t("置いています…") : t("閉じる")}
           </Btn>
         </div>
       </div>
@@ -144,15 +143,15 @@ function KeptRow({
           <>
             <p className="text-base text-alert">{item.error}</p>
             <Btn kind="secondary" onClick={onRetry}>
-              もう一度送る
+              {t("もう一度送る")}
             </Btn>
           </>
         ) : !m ? (
-          <p className="text-base text-muted">{item.state === "send" ? "置いています…" : "待っています"}</p>
+          <p className="text-base text-muted">{item.state === "send" ? t("置いています…") : t("待っています")}</p>
         ) : (
           <>
             <p className="text-base font-semibold">
-              {item.result?.duplicate ? "もう残してありました。" : "残しました。"}
+              {item.result?.duplicate ? t("もう残してありました。") : t("残しました。")}
               <span className="font-normal">{line}</span>
             </p>
             <div className="flex flex-wrap items-center gap-2">
@@ -165,20 +164,20 @@ function KeptRow({
                 }}
                 className={`min-h-11 rounded-full border px-4 text-sm font-semibold ${starred ? "border-warn bg-warn/10 text-warn" : "border-line"}`}
               >
-                {starred ? "★ この1枚" : "☆ この1枚"}
+                {starred ? t("★ この1枚") : t("☆ この1枚")}
               </button>
             </div>
             <input
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
               onBlur={() => caption !== (m.caption ?? "") && void save({ caption })}
-              placeholder="一言（任意）"
-              aria-label="一言"
+              placeholder={t("一言（任意）")}
+              aria-label={t("一言")}
               className="min-h-11 w-full rounded-lg border border-line bg-paper px-3 text-base"
             />
             {(item.result?.candidates.length ?? 0) > 0 && (
               <div className="flex flex-col gap-1">
-                <p className="text-sm text-muted">この日の手帳の記録に結ぶ</p>
+                <p className="text-sm text-muted">{t("この日の手帳の記録に結ぶ")}</p>
                 <div className="flex flex-wrap gap-2">
                   {item.result!.candidates.map((c) => {
                     const on = linked.includes(c.id);
