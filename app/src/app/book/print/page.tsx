@@ -81,7 +81,7 @@ export default function BookPrintPage() {
               // eslint-disable-next-line @next/next/no-img-element
               <img src={img(book.cover)} alt="" style={{ maxHeight: "55%", width: "100%", objectFit: "cover", borderRadius: 6 }} />
             )}
-            <p style={{ fontSize: 10, letterSpacing: "0.4em", color: "#c2557a" }}>1000 日 の 記 録</p>
+            <p style={{ fontSize: 10, letterSpacing: "0.4em", color: "#a84468" }}>1000 日 の 記 録</p>
             <h2 className="font-display" style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.4 }}>
               {book.title}
             </h2>
@@ -103,7 +103,7 @@ export default function BookPrintPage() {
             return (
               <div key={i} className="contents">
                 <section className="sheet">
-                  <p style={{ fontSize: 10, letterSpacing: "0.3em", color: "#c2557a" }}>
+                  <p style={{ fontSize: 10, letterSpacing: "0.3em", color: "#a84468" }}>
                     第{i + 1}章・{ch.period}
                   </p>
                   <h2 className="font-display" style={{ fontSize: 19, fontWeight: 700 }}>
@@ -122,7 +122,7 @@ export default function BookPrintPage() {
                     <ol style={{ fontSize: 11, borderTop: "1px dashed #e4e1d8", paddingTop: 8 }}>
                       {ch.moments.map((m, j) => (
                         <li key={j}>
-                          <span style={{ color: "#3f7fa6" }}>{/^\d{4}-\d{2}-\d{2}$/.test(m.date) ? jpDay(m.date) : m.date}</span>　{m.text}
+                          <span style={{ color: "#336e93" }}>{/^\d{4}-\d{2}-\d{2}$/.test(m.date) ? jpDay(m.date) : m.date}</span>　{m.text}
                         </li>
                       ))}
                     </ol>
