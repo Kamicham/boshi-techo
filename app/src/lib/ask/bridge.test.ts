@@ -1,7 +1,7 @@
 // 橋の床: 急ぎ・心の危機の言葉に、必ず連絡先が付くか。ふつうの問いには付かないか。
 import { describe, expect, it } from "vitest";
 import { STOOL_ASIDE, STOOL_NOTE } from "../techo";
-import { bridgeFor, N8000_ALT_NOTE, stripLeadRepeats, telHref } from "./bridge";
+import { bridgeFor, N8000_ALT_NOTE, stripLeadRepeats, sureUrgent, telHref, urgentLead } from "./bridge";
 
 const tels = (text: string, phase: "pregnant" | "child" | "other" = "child") =>
   bridgeFor(text, phase).actions.filter((a) => a.type === "call").map((a) => (a.type === "call" ? a.tel : ""));
@@ -217,5 +217,78 @@ describe("日本語以外の床", () => {
     const b = bridgeFor(t, "child");
     expect(b.urgent).toBe(false);
     expect(b.crisis).toBe(false);
+  });
+});
+
+// 話す・撮るの床（2026-11-05 監査 llm-2）: 確度の高い言葉だけ。記録が急ぎになると次の健診の聞く事に並ばなくなるので、聞くの床より狭い
+describe("話す・撮るの床（確度の高い言葉だけ）", () => {
+  it.each([
+    "出血が少し",
+    "朝から少し出血がある",
+    "トイレで血が出た",
+    "破水したかもしれない",
+    "赤ちゃんがけいれんしている",
+    "手足がけいれんしている",
+    "息をしていない",
+    "胎動が少ない気がする",
+    "胎動を感じない",
+    "胎動が感じられない",
+    "強い痛みがある",
+    "つわりで水も飲めない",
+    "39度の熱が出た",
+    "熱が40度ある",
+    "高熱が続いている",
+    "熱があってぐったりしている",
+    "子どもがぐったりしている",
+    "唇が紫になっている",
+    "ボタン電池を飲み込んだ",
+    "のどに詰まらせた",
+    "産後の出血量が多い",
+    "悪露の出血が多い",
+    "悪露に塊がまじって出血が止まらない",
+    "生理のような出血があった",
+  ])("急ぎ: %s", (t) => {
+    expect(sureUrgent(t)).toBe(true);
+    // 聞くの床（広い表）も必ず拾う
+    expect(bridgeFor(t, "child").urgent).toBe(true);
+  });
+
+  it.each([
+    "少し眠い",
+    "夜に足がつる",
+    "足がけいれんする",
+    "まぶたがけいれんする",
+    "歯ぐきから血が出る",
+    "歯みがきの時に出血する",
+    "鼻から血が出た",
+    "出血はない",
+    "健診で出血もなかった",
+    "破水したらすぐ電話するように言われた",
+    "高熱ではない",
+    "誤飲しないように気をつける",
+    "誤飲防止のグッズを買った",
+    "胎動を感じた",
+    "胎動が感じられるようになった",
+    "寝不足で疲れてぐったり",
+    "お腹が張る",
+    "お腹が痛い",
+    "38度の熱",
+    "お風呂は40度にした",
+    "ベッドから落ちた",
+    "鼻が詰まった",
+    "出産の時の出血量は500mlだった",
+    "悪露の出血がまだ少しある",
+    "生理が来て出血がある",
+  ])("急ぎにしない: %s", (t) => {
+    expect(sureUrgent(t)).toBe(false);
+  });
+
+  it("聞くの床は今までどおり広い（落ちた・お腹が張って・38度も拾う）。話す・撮るの言葉（水も飲めない）も拾う", () => {
+    for (const t of ["ベッドから落ちた", "お腹が張って痛い", "38度の熱", "つわりで水も飲めない"]) expect(bridgeFor(t, "pregnant").urgent).toBe(true);
+  });
+
+  it("急ぎの頭の1文は、聞くと話す・撮るで同じ", () => {
+    expect(bridgeFor("出血がある", "pregnant").lead).toBe(urgentLead("pregnant"));
+    expect(bridgeFor("けいれんしている", "child").lead).toBe(urgentLead("child"));
   });
 });
