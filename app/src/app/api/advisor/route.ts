@@ -21,6 +21,8 @@ import { workOf } from "@/lib/whose";
 import { sendingAs } from "@/lib/claude";
 import { familyFor } from "../_lib/household";
 import { lookAround, writeAdvice } from "./_lib/write";
+import { adviceIn } from "./_lib/in-lang";
+import { langOf } from "@/lib/i18n/dicts";
 
 const adviceId = (familyId: string, key: string) => `advice:${familyId}:${key}`;
 const isDay = (s: unknown): s is string => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
@@ -71,7 +73,7 @@ export const GET = route(async (req: Request) => {
       .filter((a) => a.dismissedAt && !a.none)
       .sort((a, b) => (b.dismissedAt ?? "").localeCompare(a.dismissedAt ?? ""))
       .slice(0, 10)
-      .map((a) => shownAdvice(a, adviceSender(a.kind, family), family));
+      .map((a) => shownAdvice(adviceIn(a, family, langOf(req)), adviceSender(a.kind, family), family));
     return { closed };
   }
   const today = q.get("today");
@@ -104,7 +106,8 @@ export const GET = route(async (req: Request) => {
     cached = inflight.has(id);
     advice = await writeOnce(id, family.id, today, () => sendingAs(h.who, () => writeAdvice(t, input, getKeep(family.id))));
   }
-  return { ...shownAdvice(advice, t.from, family), cached, waiting: open.length - 1 };
+  // 決まりで書いた気づきは、頼みの言葉で組み直す（DB は日本語のまま）
+  return { ...shownAdvice(adviceIn(advice, family, langOf(req)), t.from, family), cached, waiting: open.length - 1 };
 });
 
 /**

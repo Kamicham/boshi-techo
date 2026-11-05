@@ -8,8 +8,9 @@
 import { useEffect, useState } from "react";
 import { api } from "@/components/FamilyProvider";
 import type { Advice } from "@/lib/advisor";
-import { t as tr } from "@/lib/i18n";
+import { currentLang, t as tr } from "@/lib/i18n";
 import { Btn, CopyField, HandoffRow, Why } from "../ui";
+import { whyParts } from "./why-parts";
 
 /** 「わかった」で閉じた時に出す合図（ClosedAdvice が読み直す） */
 export const ADVICE_CLOSED = "boshi:advice-closed";
@@ -80,10 +81,7 @@ export function AdvisorCard({ familyId, today, meId }: { familyId: string; today
 
   const m = a.message;
   // 表には1文目だけ、残りは「なぜ？」の奥へ
-  const [whyHead] = a.why
-    .split(/(?<=。)|\n/)
-    .map((x) => x.trim())
-    .filter(Boolean);
+  const [whyHead] = whyParts(a.why);
   return (
     <section aria-label={tr("手帳が気づいた事")} className={BOX}>
       {/* 主語は手帳（UX の見直し C07: 「気づいた事」だけでは、誰が気づいたのかが無かった） */}
@@ -104,13 +102,16 @@ export function AdvisorCard({ familyId, today, meId }: { familyId: string; today
   );
 }
 
+/** 文面の相手の役（「職場の上司」・「{町}の子育ての窓口」）を今の言葉で。町の名前は日本語のまま */
+const toIn = (to: string): string => {
+  const city = /^(.+)の子育ての窓口$/.exec(to)?.[1];
+  return city ? tr("{city}の子育ての窓口", { city }) : tr(to);
+};
+
 /** 畳んだ中身: 次にする事・渡す文面・なぜ（機械で確かめた事・調べたページ）。閉じた気づきを開き直す所（ClosedAdvice）でも使う */
 export function AdviceDetails({ a, res }: { a: Advice; res: Pick<Res, "mailTo" | "from"> | null }) {
   const m = a.message;
-  const [, ...whyRest] = a.why
-    .split(/(?<=。)|\n/)
-    .map((x) => x.trim())
-    .filter(Boolean);
+  const [, ...whyRest] = whyParts(a.why);
   // 宛先のメールアドレスが分からない時（町の窓口など）は、空の宛先の欄を出さず、町のページで調べる事を書く
   const mailTo = res?.mailTo && /@/.test(res.mailTo) ? res.mailTo : "";
   const isWork = !!m && /職場|上司|人事|会社/.test(m.to);
@@ -130,7 +131,7 @@ export function AdviceDetails({ a, res }: { a: Advice; res: Pick<Res, "mailTo" |
       {m && (
         <div className="flex flex-col gap-2 rounded-xl bg-card p-3">
           <p className="text-sm font-semibold text-muted">
-            {tr("{to}へ渡す文面", { to: tr(m.to) })}
+            {tr("{to}へ渡す文面", { to: toIn(m.to) })}
             {res?.from ? tr("（{from}から送る文）", { from: res.from }) : ""}
           </p>
           {m.via === "mail" &&
@@ -139,7 +140,8 @@ export function AdviceDetails({ a, res }: { a: Advice; res: Pick<Res, "mailTo" |
             ) : (
               <p className="text-sm text-muted">{isWork ? tr("宛先は、メールアプリで上司のアドレスを選んでください") : tr("宛先は町のページで（問い合わせのフォームやメールアドレス）")}</p>
             ))}
-          {/* 件名と本文は、職場・役所あての日本語の文書のまま */}
+          {/* 件名と本文は、職場・役所あての日本語の文書のまま（中文・English の画面では、そう一言） */}
+          {currentLang() !== "ja" && <p className="text-sm text-muted">{tr("文面は、相手が読む日本語のままです")}</p>}
           {m.subject && <CopyField label={tr("件名")} value={m.subject} />}
           <CopyField label={tr("本文")} value={m.body} long />
           <HandoffRow mail={m.via === "mail" ? { to: mailTo || undefined, subject: m.subject, body: m.body } : undefined} line={m.via === "line" ? m.body : undefined} />

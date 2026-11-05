@@ -85,19 +85,9 @@ const DONE: readonly string[] = [
   "components/techo/BodyCard.tsx", // 手帳のタブの一番上の「からだの記録」の1枚
   "components/capture/", // 話す・撮る・打つ
   "app/capture/",
-  // 手帳のタブ（多言語化④・エージェントが訳した）。GrowthChart.tsx は思い出の会話が書き換え中なので、その取り込みの後に置き場ごと（components/techo/）にする
+  // 手帳のタブ（多言語化④・エージェントが訳し、成長曲線は思い出の会話の書き換えの後に UX が訳した）
   "app/techo/page.tsx",
-  "components/techo/DevelopmentList.tsx",
-  "components/techo/EntryCard.tsx",
-  "components/techo/EntryForm.tsx",
-  "components/techo/FeelingList.tsx",
-  "components/techo/MoneyLine.tsx",
-  "components/techo/PendingBox.tsx",
-  "components/techo/StoolCard.tsx",
-  "components/techo/TechoPhotos.tsx",
-  "components/techo/VaccineList.tsx",
-  "components/techo/labels.ts",
-  "components/techo/useTecho.ts",
+  "components/techo/",
 ];
 
 /** 体験の筋（③）。I18N_LEFT=1 で残りを数える */

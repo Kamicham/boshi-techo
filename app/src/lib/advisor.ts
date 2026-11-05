@@ -3,8 +3,9 @@
 // きっかけは2つ: 予定より早く／遅く生まれた・町が変わった。
 // それとは別に、時期ごとに1回、Claude が家族の今（形・予定・記録）を見渡して、決まりに無い事に気づく（look。lookBucket で時期を決める）。
 import { z } from "zod";
-import { addDays, clockAt, diffDays } from "./clock";
+import { addDays, clockAt, diffDays, relabel } from "./clock";
 import type { Family, Member } from "./demo-family";
+import { currentLang, INTL_LOCALE, t } from "./i18n";
 import { EARLY_BIRTH_DAYS, scheduleFor, type Milestone } from "./milestones";
 import type { Situation } from "./situation";
 
@@ -248,6 +249,20 @@ type Find = (re: RegExp) => RegExpMatchArray | null;
 /** 「神奈川県横浜市」→「横浜市」（題を短くする。県の付かない町はそのまま） */
 const cityOnly = (s: string) => s.replace(/^.{2,3}?[都道府県](?=.)/, "");
 
+// 決まりの文は、今の言葉で組む（サーバは日本語で書いて DB に残し、画面へ返す時に app/api/advisor/_lib/in-lang.ts が頼みの言葉で組み直す）。
+// 日本語の出力は前と1字も変えない。町の名前は日本語のまま（窓口で使う）。職場・役所あての文面（message）は、相手が読む日本語のまま
+/** 「6月22日」を今の言葉で（English は Jun 22。日本語と中文はそのまま） */
+function md(s: string): string {
+  const m = currentLang() === "en" ? /^(\d{1,2})月(\d{1,2})日$/.exec(s) : null;
+  return m ? new Intl.DateTimeFormat(INTL_LOCALE.en, { month: "short", day: "numeric", timeZone: "UTC" }).format(Date.UTC(2000, Number(m[1]) - 1, Number(m[2]))) : s;
+}
+/** 文をつなぐ（English は文の間を1字空ける。日本語・中文は続けて書く） */
+const sentences = (parts: string[]) => parts.filter(Boolean).join(currentLang() === "en" ? " " : "");
+/** 題がカードの2行に収まる長さ（日本語・中文は24字ほど、English は48字ほど） */
+const titleFits = (s: string) => s.length <= (currentLang() === "en" ? 48 : 24);
+/** 予定の名前を今の言葉で、括弧の補いを外して（日本語は前と同じ） */
+const titleIn = (s: string) => (currentLang() === "ja" ? s.replace(/（.*?）/g, "") : t(s).replace(/（.*?）|\s*\([^)]*\)/g, ""));
+
 /**
  * 機械で確かめた事（birthShift・moved が書いた文）から、気づきを決まりで作る。形が読めない時は null。
  * today: 今日（YYYY-MM-DD・転入の届けの締切を数える）。partner: 文に入れてよいパートナーの名前（仕事の無い人は渡さない）。
@@ -269,19 +284,30 @@ function birthRule(lines: string[], find: Find, leave: RegExpMatchArray, partner
   const early = dir === "早まる";
   const born = find(new RegExp(`^予定日 ${MD}、生まれた日 ${MD}`));
   const post = find(new RegExp(`^産後休業.*?は ${MD} まで（予定日で数えると ${MD} だった）`));
-  const plan = [`${mother ? `${mother}の` : ""}職場に、育休の始まりを${start}に直すと伝える`];
+  const date = md(start);
+  const plan = [mother ? t("{name}の職場に、育休の始まりを{date}に直すと伝える", { name: mother, date }) : t("職場に、育休の始まりを{date}に直すと伝える", { date })];
   if (early && partner && lines.some((l) => l.startsWith("産後パパ育休・育休の始まりを予定日で申し出ていた時")))
-    plan.push(`${partner}の育休を予定日で申し出ていたら、1回だけ早められる（職場に確かめる）`);
+    plan.push(t("{name}の育休を予定日で申し出ていたら、1回だけ早められる（職場に確かめる）", { name: partner }));
   // 数え直した期限のうち、一番近い物を1つ（職場の事は1つ目と重なるので外す）
   const recount = lines
     .map((l) => l.match(new RegExp(`^- (.+?)（担当の目安: .+?）: ${MD}まで（あと(\\d+)日）$`)))
     .filter((m): m is RegExpMatchArray => m != null);
   const next = recount.filter((m) => !m[1].includes("職場")).sort((a, b) => Number(a[3]) - Number(b[3]))[0];
-  if (next) plan.push(`${next[1].replace(/（.*?）/g, "")}: ${next[2]}まで${recount.length > 1 ? `（ほか${recount.length - 1}件も数え直し）` : ""}`);
+  if (next) {
+    const vars = { title: titleIn(next[1]), date: md(next[2]), n: recount.length - 1 };
+    plan.push(recount.length > 1 ? t("{title}: {date}まで（ほか{n}件も数え直し）", vars) : t("{title}: {date}まで", vars));
+  }
+  const nameless = t("育休の始まりを{date}に数え直しました", { date });
   return {
     // 題はカードの2行（24字ほど）に収める。名前が長い時は名前を省く
-    title: [`${mother}の育休の始まりを${start}に数え直しました`, `育休の始まりを${start}に数え直しました`].find((t) => !!mother && t.length <= 24) ?? `育休の始まりを${start}に数え直しました`,
-    why: `予定日より${n}日${early ? "早く" : "遅く"}生まれました。産後休業は、生まれた日の翌日から8週間（労働基準法第65条）${post ? `で、${post[1]}まで` : ""}。その翌日の${start}から育休が始まります（予定日で数えると${startByDue}で、${n}日${early ? "早まります" : "遅くなります"}）。${RULE_MARK}`,
+    title: (mother ? [t("{name}の育休の始まりを{date}に数え直しました", { name: mother, date }), nameless].find(titleFits) : undefined) ?? nameless,
+    why: sentences([
+      t(early ? "予定日より{n}日早く生まれました。" : "予定日より{n}日遅く生まれました。", { n: Number(n) }),
+      post ? t("産後休業は、生まれた日の翌日から8週間（労働基準法第65条）で、{date}まで。", { date: md(post[1]) }) : t("産後休業は、生まれた日の翌日から8週間（労働基準法第65条）。"),
+      t(early ? "その翌日の{date}から育休が始まります（予定日で数えると{due}で、{n}日早まります）。" : "その翌日の{date}から育休が始まります（予定日で数えると{due}で、{n}日遅くなります）。", { date, due: md(startByDue), n: Number(n) }),
+      t("予定表から数えました。"),
+      t("Claude は使っていません。"),
+    ]),
     plan,
     message: {
       to: "職場の上司",
@@ -311,16 +337,16 @@ function movedRule(find: Find, mv: RegExpMatchArray, today?: string): AdviceFiel
   const to = cityOnly(toFull);
   const pregnant = phase.startsWith("妊娠");
   const born = /^生|歳/.test(phase);
-  const what = pregnant ? "転入の届けと健診の券の取り替え" : born ? "転入の届けと医療証・予防接種" : "転入の届け";
+  const what = t(pregnant ? "転入の届けと健診の券の取り替え" : born ? "転入の届けと医療証・予防接種" : "転入の届け");
   // 題はカードの2行（iPhone の幅で24字ほど）に収める。長い時は前の町を省く
-  const title = [`${from}から${to}へ: ${what}`, `${to}へ: ${what}`].find((t) => t.length <= 24) ?? what;
+  const title = [t("{from}から{to}へ: {what}", { from, to, what }), t("{to}へ: {what}", { to, what })].find(titleFits) ?? what;
   // 転入の届けは、引っ越した日の翌日から数えて14日以内（住民基本台帳法第22条・初日は数えない）
   const since = Number(find(/^今日は引っ越して(\d+)日目/)?.[1]);
   const by = today && Number.isFinite(since) && since <= 14 ? jp(addDays(today, 14 - since)) : null;
   const plan = [
-    by ? `転入の届け: ${by}まで（引っ越した日から14日以内）` : "転入の届けが済んだか確かめる（引っ越した日から14日以内）",
-    ...(pregnant ? [`${to}の窓口で、健診の券（受診票）の取り替えを確かめる`, "次の健診の日までに取り替えが済むよう、窓口へ行く日を決める"] : []),
-    ...(born ? [`${to}の窓口で、子どもの医療証と予防接種の予診票を確かめる`, "転入の届けの時に、子どもの手続きも一緒にできるか聞く"] : []),
+    by ? t("転入の届け: {date}まで（引っ越した日から14日以内）", { date: md(by) }) : t("転入の届けが済んだか確かめる（引っ越した日から14日以内）"),
+    ...(pregnant ? [t("{city}の窓口で、健診の券（受診票）の取り替えを確かめる", { city: to }), t("次の健診の日までに取り替えが済むよう、窓口へ行く日を決める")] : []),
+    ...(born ? [t("{city}の窓口で、子どもの医療証と予防接種の予診票を確かめる", { city: to }), t("転入の届けの時に、子どもの手続きも一緒にできるか聞く")] : []),
   ];
   const ask = pregnant
     ? `${from}でもらった妊婦健診の受診票の残りがあります。${to}の受診票への取り替えのやり方と、持って行く物を教えてください。`
@@ -329,7 +355,13 @@ function movedRule(find: Find, mv: RegExpMatchArray, today?: string): AdviceFiel
       : null;
   return {
     title,
-    why: `${movedOn}に${from}から引っ越しました。転入の届けは、引っ越した日から14日以内（住民基本台帳法第22条）。${pregnant ? "妊婦健診の券（受診票）は町ごとに出しているので、扱いを新しい町で確かめます。" : born ? "子どもの医療証と予防接種の予診票は町ごとに出しているので、新しい町で確かめます。" : ""}${RULE_MARK}`,
+    why: sentences([
+      t("{date}に{city}から引っ越しました。", { date: md(movedOn), city: from }),
+      t("転入の届けは、引っ越した日から14日以内（住民基本台帳法第22条）。"),
+      pregnant ? t("妊婦健診の券（受診票）は町ごとに出しているので、扱いを新しい町で確かめます。") : born ? t("子どもの医療証と予防接種の予診票は町ごとに出しているので、新しい町で確かめます。") : "",
+      t("予定表から数えました。"),
+      t("Claude は使っていません。"),
+    ]),
     plan,
     ...(ask
       ? {
@@ -342,4 +374,31 @@ function movedRule(find: Find, mv: RegExpMatchArray, today?: string): AdviceFiel
         }
       : {}),
   };
+}
+
+/**
+ * 機械で確かめた事（birthShift・moved が日本語で書いて残した文）を、今の言葉で（画面へ返す時だけ。形が読めない行はそのまま）。
+ * 日本語の時は何も変えない。予定の名前・担当の役は辞書で、町の名前は日本語のまま
+ */
+export function factsIn(facts: readonly string[]): string[] {
+  if (currentLang() === "ja") return [...facts];
+  const re = (s: string) => new RegExp(`^${s}$`);
+  return facts.map((l) => {
+    let m: RegExpMatchArray | null;
+    if ((m = l.match(re(`予定日 ${MD}、生まれた日 ${MD}（予定日との差 (\\d+)日。生まれた日に合わせて日付を数え直す）`))))
+      return t("予定日 {due}、生まれた日 {birth}（予定日との差 {n}日。生まれた日に合わせて日付を数え直す）", { due: md(m[1]), birth: md(m[2]), n: Number(m[3]) });
+    if ((m = l.match(re(`産後休業（労働基準法第65条・生まれた日の翌日から8週間）は ${MD} まで（予定日で数えると ${MD} だった）`))))
+      return t("産後休業（労働基準法第65条・生まれた日の翌日から8週間）は {date} まで（予定日で数えると {due} だった）", { date: md(m[1]), due: md(m[2]) });
+    if ((m = l.match(re(`母の育休が始まる日は ${MD}（予定日で数えると ${MD}。(\\d+)日(早まる|遅くなる)）。職場へ伝えた日付の直しが要る`)))) {
+      const key = m[4] === "早まる" ? "母の育休が始まる日は {date}（予定日で数えると {due}。{n}日早まる）。職場へ伝えた日付の直しが要る" : "母の育休が始まる日は {date}（予定日で数えると {due}。{n}日遅くなる）。職場へ伝えた日付の直しが要る";
+      return t(key, { date: md(m[1]), due: md(m[2]), n: Number(m[3]) });
+    }
+    if ((m = l.match(re(`- (.+?)（担当の目安: (.+?)）: ${MD}まで（あと(\\d+)日）`))))
+      return t("- {title}（担当の目安: {who}）: {date}まで（あと{n}日）", { title: t(m[1]), who: t(m[2]), date: md(m[3]), n: Number(m[4]) });
+    if ((m = l.match(re(`${MD}に (.+?) から (.+?) へ引っ越した（その時: (.+?)）`))))
+      return t("{date}に {from} から {to} へ引っ越した（その時: {phase}）", { date: md(m[1]), from: m[2], to: m[3], phase: relabel(m[4]) });
+    if ((m = l.match(/^今日は引っ越して(\d+)日目$/))) return t("今日は引っ越して{n}日目", { n: Number(m[1]) });
+    // 名前も日付も入らない行（産後パパ育休の決まり・まだ済みになっていない・数え直した期限の見出し）
+    return t(l);
+  });
 }

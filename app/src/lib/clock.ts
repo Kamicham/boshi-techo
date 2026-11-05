@@ -140,6 +140,23 @@ function bornLabel(ageDays: number, ageMonths: number): string {
   }
 }
 
+/**
+ * 日本語で残した label（lib/advisor.ts の「機械で確かめた事」など、サーバが日本語で書いて残した物）を、今の言葉の label にする。
+ * 画面へ返す時だけ使う。形が読めない時はそのまま返す（日本語の時は何も変えない）
+ */
+export function relabel(ja: string): string {
+  if (currentLang() === "ja") return ja;
+  const n = (s: string | undefined) => Number(s ?? 0);
+  let m: RegExpExecArray | null;
+  if ((m = /^妊娠(\d+)週(\d+)日$/.exec(ja))) return pregnantLabel(n(m[1]), n(m[2]));
+  if (ja === "生まれた日") return bornLabel(0, 0);
+  if ((m = /^生後(\d+)日$/.exec(ja))) return bornLabel(n(m[1]), 0);
+  // 28日を過ぎた子（か月で数える所）。日の数は、か月の言い方を選ぶためだけに使う
+  if ((m = /^生後(\d+)か月$/.exec(ja))) return bornLabel(28, n(m[1]));
+  if ((m = /^(\d+)歳(?:(\d+)か月)?$/.exec(ja))) return bornLabel(365, n(m[1]) * 12 + n(m[2]));
+  return ja;
+}
+
 /** 妊娠中: 妊娠24週3日（0日も書く＝医療の数え方）。English は 0 日を書かない（24 weeks pregnant） */
 function pregnantLabel(week: number, day: number): string {
   switch (currentLang()) {
