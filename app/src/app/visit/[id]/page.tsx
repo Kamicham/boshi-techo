@@ -13,8 +13,21 @@ import { lineUrl } from "@/lib/handoff";
 import { Guide } from "@/components/visit/Guide";
 import { Recorder } from "@/components/visit/Recorder";
 import { Results } from "@/components/visit/Results";
-import { t, withLang } from "@/lib/i18n";
-import { STAGES, autoStage, bringList, familyMessage, lineMessage, looksStuck, nextOfVisit, relabelVisit, type VisitStage, type VisitView } from "@/lib/visit";
+import { currentLang, HTML_LANG, LANG_NAMES, t, withLang, type Lang } from "@/lib/i18n";
+import {
+  STAGES,
+  autoStage,
+  bringList,
+  familyMessage,
+  familySendTexts,
+  lineMessage,
+  looksStuck,
+  nextOfVisit,
+  relabelVisit,
+  sendLangChoice,
+  type VisitStage,
+  type VisitView,
+} from "@/lib/visit";
 
 const STAGE_KEY = (id: string) => `boshi.visitStage:${id}`;
 
@@ -36,6 +49,8 @@ export default function VisitDay() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   /** 本人が選んだ段（記録の状態が変わったら、状態に合う段へ戻す） */
   const [picked, setPicked] = useState<{ stage: VisitStage; status: string } | null>(() => (typeof window === "undefined" ? null : readStage(id)));
+  /** 本人が選んだ送る文の言葉（家族の言葉でもまとめを書いた健診だけ選べる。選ぶ前は lib/visit.ts の sendLangChoice が決める） */
+  const [sendPick, setSendPick] = useState<Lang | null>(null);
   const recording = useSyncExternalStore(subscribeRecording, recordingBusy, recordingBusyServer);
 
   const load = useCallback(async () => {
@@ -136,6 +151,11 @@ export default function VisitDay() {
   const lineText = withLang("ja", () => lineMessage(visit));
   // 訳さない: 家族に送る文の題（上の送る文と同じく日本語）
   const shareTitle = `${visit.label}の健診`;
+  // 家族の言葉（作り手の決め事②・切り替えの印 CLAUDE_LANG.visit の裏）: まとめを家族の言葉でも書いた健診だけ、送る文の言葉を
+  // 日本語と家族の言葉から選べる。家族の言葉の文は、まとめの行も枠（日付・次の健診）もその言葉で組む（枠の言葉は健診の API の sendWords）
+  const familyText = familySendTexts(visit, visit.sendWords ?? {}, jpDate);
+  const sendLang = sendLangChoice(familyText?.lang, currentLang(), sendPick);
+  const out = sendLang.lang !== "ja" && familyText ? familyText : { message, line: lineText, title: shareTitle };
   const bring = bringList(family, visit.date);
   const unchecked = nextOfVisit(visit)?.checked === false || (!!visit.result?.nextAppointment && !visit.nextCheck);
 
@@ -271,12 +291,32 @@ export default function VisitDay() {
       {stage === "send" &&
         (visit.status === "done" && visit.result ? (
           <>
+            {/* 送る文の言葉（家族の言葉でもまとめを書いた健診だけ。日本語と家族の言葉の2つ。招待の「送る文の言葉」と同じ形） */}
+            {sendLang.choices.length > 0 && (
+              <fieldset className="flex flex-col gap-2">
+                <legend className="mb-2 text-base font-semibold">{t("送る文の言葉")}</legend>
+                <div className="flex flex-wrap gap-2">
+                  {sendLang.choices.map((l) => (
+                    <button
+                      key={l}
+                      type="button"
+                      lang={HTML_LANG[l]}
+                      aria-pressed={sendLang.lang === l}
+                      onClick={() => setSendPick(l)}
+                      className={`min-h-11 rounded-full px-5 text-base font-semibold ${sendLang.lang === l ? "bg-rose text-white" : "bg-rose-soft text-rose"}`}
+                    >
+                      {LANG_NAMES[l]}
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+            )}
             {/* 主は1つ（LINE）。共有とコピーは添えるだけ。LINE には短い文、共有・コピーは3行の全文 */}
             <NextStep title={t("一緒に読んでもらう")} tone="rose">
-              <Btn href={lineUrl(lineText)}>{t("LINE で家族に送る")}</Btn>
-              <ShareButton title={shareTitle} text={message} label={t("ほかのアプリで")} />
+              <Btn href={lineUrl(out.line)}>{t("LINE で家族に送る")}</Btn>
+              <ShareButton title={out.title} text={out.message} label={t("ほかのアプリで")} />
             </NextStep>
-            <CopyField label={t("3行の全文")} value={message} long />
+            <CopyField label={t("3行の全文")} value={out.message} long />
             {unchecked && (
               <p className="flex flex-wrap items-center gap-x-2 text-sm text-muted">
                 <span>{t("次の健診の日を確かめると、送る文にも入ります")}</span>

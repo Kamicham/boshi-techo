@@ -51,6 +51,13 @@ export default {
   "LINE で家族に送る": { zh: "用 LINE 发给家人", en: "Send to family with LINE" },
   ほかのアプリで: { zh: "用其他应用", en: "With another app" },
   "3行の全文": { zh: "3行全文", en: "Full 3-line text" },
+  // 家族の言葉で送る文の枠（lib/visit.ts の familySendTexts。まとめの行は Claude が家族の言葉で書いた物＝作り手の決め事②・切り替えの印 CLAUDE_LANG.visit の裏）。
+  // 送る文の言葉は画面の言葉と別に選べるので、健診の API がこの鍵（と「{label}の健診」today.ts・「妊娠{w}週」techo.ts・「妊娠の前」）だけを sendWords として画面へ渡す
+  "{date}の健診（{label}）": { zh: "{date}的健康检查（{label}）", en: "Checkup on {date} ({label})" },
+  "・{line}": { zh: "• {line}", en: "• {line}" },
+  "次の健診: {date}": { zh: "下次健康检查：{date}", en: "Next checkup: {date}" },
+  "{date} 健診（{label}）": { zh: "{date} 健康检查（{label}）", en: "{date} checkup ({label})" },
+  "次は {date}": { zh: "下次：{date}", en: "Next: {date}" },
   まとめができたら送れます: { zh: "总结生成后就能发送", en: "You can send it once the summary is ready" },
   戻る: { zh: "返回", en: "Back" },
   録音も一緒に消えます: { zh: "录音也会一起删除", en: "The recording will be deleted too" },

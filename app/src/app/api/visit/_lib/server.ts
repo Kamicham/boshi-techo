@@ -12,11 +12,13 @@ import type { Perm } from "@/lib/access";
 import { MODEL, structured, imageBlock, type SendWho } from "@/lib/claude";
 import { transcribe } from "@/lib/asr";
 import { getKeep, remember } from "@/lib/keep";
+import type { Dict, Lang } from "@/lib/i18n";
+import { DICTS } from "@/lib/i18n/dicts";
 import {
   ASR_HINT,
   GuideSchema,
-  OrganizedSchema,
   chunkName,
+  familyOf,
   isSafeExt,
   mergeTranscripts,
   concernSide,
@@ -26,8 +28,8 @@ import {
   planId,
   resolveAppointmentDate,
   segmentsFromText,
+  sendWordsFrom,
   takeDirName,
-  transcriptForPrompt,
   visitLabel,
   nextOfVisit,
   type NextCheck,
@@ -35,6 +37,7 @@ import {
   type VisitData,
   type VisitPlan,
 } from "@/lib/visit";
+import { ORGANIZE_SYSTEM, organizeCall, organizedResult } from "@/lib/visit-organize";
 import { afterCheck, afterOrganize, planNextAfterDelete } from "@/lib/visit-next";
 import { fromDay, toDay } from "@/lib/clock";
 import { recordViewerOf } from "@/lib/mother-records";
@@ -197,8 +200,12 @@ export function isRunning(id: string) {
   return running.has(id);
 }
 
-/** finish: すぐ返し、処理は裏で続ける。who は Claude に送る時の印（関所の h.who。同意と使った額の記録に使う） */
-export function startFinish(v: VisitDoc, who: SendWho, transcriptText?: string): VisitData {
+/**
+ * finish: すぐ返し、処理は裏で続ける。who は Claude に送る時の印（関所の h.who。同意と使った額の記録に使う）。
+ * lang は整理を頼んだ人の画面の言葉（finish の langOf(req)。やり直しは、やり直しを押した人の言葉）。家族の言葉でもまとめを書くかを決める
+ * （lib/visit-organize.ts の organizeCall。切り替えの印 CLAUDE_LANG.visit が off の間は、どの言葉でも日本語の頼みと同じ）
+ */
+export function startFinish(v: VisitDoc, who: SendWho, transcriptText?: string, lang: Lang = "ja"): VisitData {
   if (running.has(v.id)) return v.data;
   const now = new Date().toISOString();
   let reuse = false;
@@ -220,11 +227,11 @@ export function startFinish(v: VisitDoc, who: SendWho, transcriptText?: string):
     patch<VisitData>(v.id, { status: "transcribing", processingSince: now, error: undefined, failedAt: undefined });
   }
   running.add(v.id);
-  void runPipeline(v.id, reuse, who).finally(() => running.delete(v.id));
+  void runPipeline(v.id, reuse, who, lang).finally(() => running.delete(v.id));
   return requireVisit(v.id).data;
 }
 
-async function runPipeline(id: string, reuseTranscript: boolean, who: SendWho) {
+async function runPipeline(id: string, reuseTranscript: boolean, who: SendWho, lang: Lang) {
   let stage: "transcribe" | "organize" = "transcribe";
   try {
     let v = requireVisit(id);
@@ -263,12 +270,16 @@ async function runPipeline(id: string, reuseTranscript: boolean, who: SendWho) {
     }
     stage = "organize";
     const fam = requireFamily(v.familyId);
-    const result = await structured(OrganizedSchema, ORGANIZE_SYSTEM, organizePrompt(v.data, fam.members.map((m) => `${m.name}（${m.role}）`)), {
+    // 日本語の画面（と印が off の間のすべての言葉）は、前と同じ頼みと受け取る形。zh・en で印が on の時だけ家族の言葉（family）も頼み、
+    // 数が日本語の欄とそろう時だけ残す（lib/visit-organize.ts）
+    const call = organizeCall(v.data, fam.members.map((m) => `${m.name}（${m.role}）`), lang);
+    const answer = await structured(call.schema, ORGANIZE_SYSTEM, call.prompt, {
       model: MODEL,
       effort: "medium",
       who,
       task: "visit-organize",
     });
+    const result = organizedResult(answer, call.lang);
     // 録音から聞こえた次の予約日。本人が確かめた日は上書きしない・聞こえなくなったら確かめていない予約は外す（lib/visit-next.ts の afterOrganize）
     const heardDate = result.nextAppointment ? resolveAppointmentDate(v.data.date, result.nextAppointment) : null;
     const heard = heardDate ? { date: heardDate, time: result.nextAppointment?.time ?? null, said: result.nextAppointment?.said } : null;
@@ -297,29 +308,6 @@ function friendlyError(e: unknown): string {
   if (/overloaded|529|rate|429/i.test(m)) return "Claude が混み合っています。少し待ってから「もう一度やってみる」を押してください";
   if (/[ぁ-んァ-ン一-龥]/.test(m)) return m;
   return "うまくいきませんでした。少し待ってから「もう一度やってみる」を押してください";
-}
-
-const ORGANIZE_SYSTEM = `あなたの役目: 妊婦健診・乳幼児健診の録音の文字起こしを、家族があとで読み返せる形に整理する。
-- 文字起こしは機械によるもので、話し手の名前は付いていない。言い方から、先生・家族・看護師を見分ける。聞き間違いらしい所は前後から元の言葉を推し量るが、推し量った時は引用をそのまま残す。
-- said: 先生が言った事。point は短い要点、quote は文字起こしのままの引用（直さない）。
-- todo: 先生が「次までに」「〜してきてください」と言った物だけ。自分で足さない。
-- nextAppointment: 次の予約を言った時だけ。言われた形のまま、月日・「◯週間後」・曜日・時刻に分けて入れる（日付の計算はしない）。言っていなければ null。
-- numbers: 話に出た数値を、言われたとおりの値と単位で。正常・異常・多い・少ない・順調などの評価は書かない。
-- terms: 家族が分からなかったかもしれない専門用語（子宮頸管長・頭位・推定体重など）。plain は「それが何か／何を測るものか」だけを、中学生に話すような言葉で1〜2文。今回の値が良いか悪いか、心配かどうかは書かない。
-- questions: 話の中で意味が残った所（説明が途中で終わった・理由が言われなかった・家族が聞き返しそびれた）を、次に家族が先生へ聞ける質問の形にする。体の判断を求める形ではなく「〜はどういう意味ですか」「〜の時はどうすればいいですか」のように。
-- answered: 「今日聞く予定だった事」の一つずつに、録音の中の先生の答えを対応させる。答えが無ければ answer と quote を null に。
-- summary: 家族への3行（3つまで）。1行目=何をした健診か、2行目=先生が伝えた一番大事な事、3行目=次までにやる事（無ければ2行でよい）。次の予約の日付は summary に書かない（nextAppointment に入れる。家族が確かめてから画面に出す）。1つは一文で40字まで（スマホで1行）。数値を並べない。専門の言葉（子宮頸管長・頭位・尿蛋白など）は使わず「赤ちゃんは頭が下」「子宮の出口の長さ」のように言い換える（元の言葉は terms に入れる）。安心させる言葉や評価（順調・問題なし など）は、先生がそう言った時だけ、引用として書く。`;
-
-function organizePrompt(v: VisitData, members: string[]): string {
-  const t = v.transcript!;
-  const agenda = v.agenda?.length ? v.agenda.map((a) => `- ${a.text}`).join("\n") : "（なし）";
-  return `健診の日: ${v.date}（${v.label}）
-家族: ${members.join("、") || "（未設定）"}
-今日聞く予定だった事:
-${agenda}
-
-文字起こし${t.source === "asr" ? "（[分:秒] は録音の時刻）" : ""}:
-${transcriptForPrompt(t)}`;
 }
 
 // ───────── 院内の道案内 ─────────
@@ -380,6 +368,16 @@ export function deleteVisit(v: VisitDoc) {
 /** 確かめのボタンを出してよいか（書ける人だけ。公開版は健診の書く口を middleware.ts が閉じているので出さない＝押しても保存しない形は 11/6） */
 export function canWriteVisit(h: HouseholdAccess): boolean {
   return h.can("record:write") && process.env.BOSHI_PUBLIC !== "1";
+}
+
+/**
+ * 家族の言葉で送る文の枠の言葉（家族の言葉でもまとめを書いた健診だけ。ほかは undefined＝健診の返事は前と同じ）。
+ * 送る文の言葉は画面の言葉と別に選べ、画面は今の言葉の辞書しか持たないので、送る文に使う鍵だけを家族の言葉の辞書から渡す
+ * （画面の荷物に、ほかの辞書を入れない。鍵は lib/visit.ts の SEND_WORD_KEYS）
+ */
+export function sendWordsOf(d: Pick<VisitData, "result">): Dict | undefined {
+  const f = familyOf(d.result);
+  return f ? sendWordsFrom(DICTS[f.lang]) : undefined;
 }
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;

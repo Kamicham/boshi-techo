@@ -3,9 +3,11 @@
 // サーバの処理は app/api/visit/_lib/server.ts。
 // 画面に出す言葉（状態の札・段の名前・持ち物・呼び名）は日本語のまま返し、描く所で t() で訳す（鍵は lib/i18n/dict/visit-home.ts・visit-record.ts）。
 // 保存する値（label など）と比べに使う値は日本語のまま。訳した呼び名は visitLabelIn・relabelVisit（描く時だけ）。家族へ送る文（familyMessage・lineMessage）は日本語のまま
+// 家族の言葉（作り手の決め事②・切り替えの印 CLAUDE_LANG.visit の裏）: まとめを家族の言葉でも書いた健診（result.family）だけ、
+// 結果の画面は家族の言葉を大きく・日本語の元の文を小さく出し（resultLines）、送る文も家族の言葉を選べる（familySendTexts）。日本語の文と画面は前のまま
 import { z } from "zod";
 import { addDays, addMonths, clockAt, clockShort, diffDays, fromDay, relabel, toDay, type FamilyDates } from "./clock";
-import { currentLang, t } from "./i18n";
+import { currentLang, t, withLang, type Dict, type Lang } from "./i18n";
 import { motherEmployed, type Situation } from "./situation";
 
 // ───────── 記録の形（db の type = "visit"） ─────────
@@ -73,7 +75,8 @@ export interface VisitData {
   consent?: boolean;
   takes?: Take[];
   transcript?: VisitTranscript;
-  result?: Organized;
+  /** Claude の整理（家族の言葉でも書いた時は family と lang も。VisitResult） */
+  result?: VisitResult;
   /**
    * 次の予約日。整理の直後は録音から聞こえた日（result.nextAppointment から計算）。
    * 本人が確かめた後は確かめた日（直した日）、「言われていない」なら null（lib/visit-next.ts）
@@ -104,8 +107,11 @@ export interface NextCheck {
   account?: string | null;
 }
 
-/** 画面が受け取る健診1回分（canWrite: 確かめのボタンを出してよいか） */
-export type VisitView = VisitData & { id: string; familyId: string; running?: boolean; canWrite?: boolean };
+/**
+ * 画面が受け取る健診1回分（canWrite: 確かめのボタンを出してよいか）。
+ * sendWords: 家族の言葉で送る文の枠の言葉（家族の言葉でもまとめを書いた健診だけ。app/api/visit/_lib/server.ts の sendWordsOf）
+ */
+export type VisitView = VisitData & { id: string; familyId: string; running?: boolean; canWrite?: boolean; sendWords?: Dict };
 
 /** 次の予約と、家族の気がかり（家族ごとに1つ。id = visit-plan:<家族>） */
 export interface VisitPlan {
@@ -201,6 +207,70 @@ export const OrganizedSchema = z.object({
     .describe("今日聞く予定だった事それぞれへの答え。一覧が空なら空"),
 });
 export type Organized = z.infer<typeof OrganizedSchema>;
+
+// ───────── 家族の言葉（作り手の決め事②。頼みの段は lib/i18n/claude-lang.ts の organizeLangNote・組み立ては lib/visit-organize.ts） ─────────
+
+/** 家族の言葉（日本語の外の画面の言葉） */
+export type FamilyLang = Exclude<Lang, "ja">;
+
+/**
+ * 日本語の欄を、家族が読む言葉にした物。整理を頼んだ画面が zh・en で、切り替えの印 CLAUDE_LANG.visit が on の時だけ頼む。
+ * 日本語の欄と同じ順・同じ数（そろわない時は保存しない＝lib/visit-organize.ts の organizedResult）。引用（quote）は入れない
+ */
+export const FamilyWordsSchema = z
+  .object({
+    summary: z.array(z.string()).describe("summary の各行を、家族の言葉にした物（同じ順・同じ数）"),
+    said: z.array(z.string()).describe("said の point を、家族の言葉にした物（同じ順・同じ数）"),
+    todo: z
+      .array(
+        z.object({
+          what: z.string().describe("todo の what を、家族の言葉にした物"),
+          when: z.string().nullable().describe("todo の when を、家族の言葉にした物（null は null のまま）"),
+        }),
+      )
+      .describe("todo の what と when（同じ順・同じ数）"),
+    numbers: z
+      .array(
+        z.object({
+          name: z.string().describe("numbers の name を、家族の言葉にした物"),
+          value: z.string().describe("numbers の value を、家族の言葉にした物（数値と単位は変えない・評価しない）"),
+        }),
+      )
+      .describe("numbers の name と value（同じ順・同じ数）"),
+    terms: z.array(z.string()).describe("terms の plain を、家族の言葉にした物（同じ順・同じ数）"),
+    questions: z.array(z.string()).describe("questions の question を、家族の言葉にした物（同じ順・同じ数）"),
+    answered: z.array(z.string().nullable()).describe("answered の answer を、家族の言葉にした物（同じ順・同じ数。null は null のまま）"),
+  })
+  .describe("日本語の欄を、家族が読む言葉にした物。引用（quote）は入れない。評価（順調・問題なし など）は先生がそう言った時だけ。専門の言葉は日本語の欄と同じく言い換える");
+export type FamilyWords = z.infer<typeof FamilyWordsSchema>;
+
+/** 家族の言葉も頼む時の受け取る形（OrganizedSchema はそのまま。日本語の画面と、印が off の間は使わない） */
+export const OrganizedWithFamilySchema = OrganizedSchema.extend({ family: FamilyWordsSchema });
+
+/** 保存する整理の結果。family と lang（家族の言葉＝整理を頼んだ画面の言葉）は、家族の言葉を残した時だけ、いつも2つ一緒に入る */
+export type VisitResult = Organized & { family?: FamilyWords; lang?: FamilyLang };
+
+/** family の数が日本語の欄とそろうか（そろわない family は使わない） */
+export function familyFits(r: Organized, f: FamilyWords): boolean {
+  return (
+    f.summary.length === r.summary.length &&
+    f.said.length === r.said.length &&
+    f.todo.length === r.todo.length &&
+    f.numbers.length === r.numbers.length &&
+    f.terms.length === r.terms.length &&
+    f.questions.length === r.questions.length &&
+    f.answered.length === r.answered.length
+  );
+}
+
+/** 使える家族の言葉（無い・言葉が読めない・数がそろわない時は null） */
+export function familyOf(r: VisitResult | null | undefined): { lang: FamilyLang; words: FamilyWords } | null {
+  if (!r?.family || (r.lang !== "zh" && r.lang !== "en") || !familyFits(r, r.family)) return null;
+  return { lang: r.lang, words: r.family };
+}
+
+/** 家族の言葉の1行の長さの目安（訳すと字数が変わる: 中文は日本語とほぼ同じかやや長く、English はおよそ2〜3倍） */
+export const FAMILY_LINE: Readonly<Record<FamilyLang, number>> = { zh: SUMMARY_LINE + SUMMARY_LINE / 2, en: SUMMARY_LINE * 3 };
 
 export const GuideSchema = z.object({
   steps: z
@@ -526,6 +596,123 @@ export function lineMessage(v: Pick<VisitData, "date" | "label" | "result" | "ne
   const n = nextOfVisit(v);
   if (n?.checked) lines.push(`次は ${md(n.date)}${n.time ? ` ${n.time}` : ""}`);
   return lines.join("\n");
+}
+
+// ───────── 家族の言葉: 結果の画面と送る文（家族の言葉でもまとめを書いた健診だけ。ほかは前のまま） ─────────
+
+/** 結果の画面の1行: text を大きく出し、ja があればその下に小さく添える（家族の言葉で出す時の、日本語の元の文）。ほかの時は ja が null で、text は日本語のまま */
+export interface Shown {
+  text: string;
+  ja: string | null;
+}
+
+/** 結果の画面に出す行（components/visit/Results.tsx） */
+export interface ResultLines {
+  /** 家族の言葉で出す時のその言葉（出さない時は null＝前と同じ日本語だけ） */
+  lang: FamilyLang | null;
+  /** まとめの全部の行（画面は3行まで。長い時は「全部読む」の中に全部） */
+  summary: Shown[];
+  /** まとめが長い時（summaryTooLong）に先に見せる1行目（切った物） */
+  first: Shown;
+  said: Shown[];
+  todo: { what: Shown; when: Shown | null }[];
+  numbers: { name: Shown; value: Shown }[];
+  terms: Shown[];
+  questions: Shown[];
+  /** 答えが録れていない（answer が null）所は null */
+  answered: (Shown | null)[];
+}
+
+/**
+ * 結果の画面に出す行を選ぶ。家族の言葉があり、画面の言葉（screen）が整理を頼んだ言葉と同じ時だけ、家族の言葉を大きく・日本語の元の文を小さく。
+ * それ以外は日本語だけ（前と同じ字）。家族の言葉が空の行・日本語と同じ字の行は、日本語だけで出す。
+ * 引用（quote）・時刻・元の言葉（term）・聞く予定だった事（ask）・理由（why）は、ここを通さず日本語のまま出す
+ */
+export function resultLines(r: VisitResult, screen: Lang): ResultLines {
+  const f = familyOf(r);
+  const fam = f && f.lang === screen ? f : null;
+  const w = fam?.words;
+  const shown = (ja: string, other: string | null | undefined): Shown => (w && other?.trim() && other !== ja ? { text: other, ja } : { text: ja, ja: null });
+  const summary = r.summary.map((s, i) => shown(s, w?.summary[i]));
+  const s0 = summary[0];
+  return {
+    lang: fam?.lang ?? null,
+    summary,
+    first: fam && s0?.ja ? { text: clip(s0.text, FAMILY_LINE[fam.lang] * 2), ja: clip(s0.ja, SUMMARY_LINE * 2) } : { text: clip(r.summary[0] ?? "", SUMMARY_LINE * 2), ja: null },
+    said: r.said.map((x, i) => shown(x.point, w?.said[i])),
+    todo: r.todo.map((x, i) => {
+      const o = w?.todo[i];
+      if (!o?.what?.trim() || o.what === x.what) return { what: { text: x.what, ja: null }, when: x.when ? { text: x.when, ja: null } : null };
+      // 家族の言葉: いつまでに（when）は家族の言葉で横に出し、日本語の元の文には括弧で並べる
+      return { what: { text: o.what, ja: x.when ? `${x.what}（${x.when}）` : x.what }, when: x.when ? { text: o.when?.trim() ? o.when : x.when, ja: null } : null };
+    }),
+    numbers: r.numbers.map((n, i) => ({ name: shown(n.name, w?.numbers[i]?.name), value: shown(n.value, w?.numbers[i]?.value) })),
+    terms: r.terms.map((x, i) => shown(x.plain, w?.terms[i])),
+    questions: r.questions.map((q, i) => shown(q.question, w?.questions[i])),
+    answered: r.answered.map((a, i) => (a.answer ? shown(a.answer, w?.answered[i]) : null)),
+  };
+}
+
+/**
+ * 家族の言葉で送る文の枠に使う鍵（familySendTexts が t() で引く物すべて）。健診の API が、家族の言葉の辞書からこの鍵だけを sendWords として画面へ渡す
+ * （送る文の言葉は画面の言葉と別に選べ、画面は今の言葉の辞書しか持たないため。試験が、この鍵だけで組んだ文と辞書全部で組んだ文を比べる）
+ */
+export const SEND_WORD_KEYS: readonly string[] = [
+  "{date}の健診（{label}）",
+  "・{line}",
+  "次の健診: {date}",
+  "{date} 健診（{label}）",
+  "次は {date}",
+  "{label}の健診",
+  "妊娠{w}週",
+  "妊娠の前",
+];
+
+/** 言葉の辞書から、送る文の枠の鍵だけを取り出す（サーバが DICTS[家族の言葉] から作る） */
+export function sendWordsFrom(dict: Dict): Dict {
+  const out: Record<string, string> = {};
+  for (const k of SEND_WORD_KEYS) if (dict[k]) out[k] = dict[k];
+  return out;
+}
+
+/**
+ * 家族の言葉で送る文（3行の全文・LINE の短い文・共有の題）。まとめの行は family.summary、枠（日付・「の健診」・次の健診・呼び名）は
+ * その言葉の辞書（dict。画面では健診の API の sendWords、試験では DICTS）で組み、日付は jp をその言葉で書く（components/today/dates の jpDate）。
+ * 次の健診は、日本語の文と同じく本人が確かめた日だけ。家族の言葉が無い時・dict に枠の訳が無い時は null（送る文は日本語の familyMessage・lineMessage のまま）
+ */
+export function familySendTexts(
+  v: Pick<VisitData, "date" | "label" | "result" | "nextDate" | "nextCheck">,
+  dict: Dict,
+  jp: (d: string) => string,
+): { lang: FamilyLang; message: string; line: string; title: string } | null {
+  const f = familyOf(v.result);
+  if (!f || !dict["{date}の健診（{label}）"]) return null;
+  const { lang, words } = f;
+  return withLang(
+    lang,
+    () => {
+      const label = relabelVisit(v.label);
+      const n = nextOfVisit(v);
+      const time = n?.time ? ` ${n.time}` : "";
+      const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
+      const message = [t("{date}の健診（{label}）", { date: jp(v.date), label }), ...words.summary.slice(0, 3).map((s) => t("・{line}", { line: s }))];
+      if (n?.checked) message.push(t("次の健診: {date}", { date: `${jp(n.date)}${time}` }));
+      const line = [t("{date} 健診（{label}）", { date: md(v.date), label }), ...words.summary.slice(0, 2).map((s) => clip(s, FAMILY_LINE[lang]))];
+      if (n?.checked) line.push(t("次は {date}", { date: `${md(n.date)}${time}` }));
+      return { lang, message: message.join("\n"), line: line.join("\n"), title: t("{label}の健診", { label }) };
+    },
+    dict,
+  );
+}
+
+/**
+ * 送る文の言葉: 家族の言葉で送る文がある時だけ、日本語と家族の言葉の2つから選べる。
+ * 選ぶ前は、画面の言葉が家族の言葉ならそれ、ほかは日本語（picked は本人が押した言葉。選べない言葉なら選ぶ前と同じ）
+ */
+export function sendLangChoice(family: FamilyLang | null | undefined, screen: Lang, picked: Lang | null): { choices: Lang[]; lang: Lang } {
+  if (!family) return { choices: [], lang: "ja" };
+  const choices: Lang[] = ["ja", family];
+  return { choices, lang: picked && choices.includes(picked) ? picked : screen === family ? family : "ja" };
 }
 
 /** 文字起こしのヒント（専門用語） */

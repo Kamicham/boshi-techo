@@ -3,13 +3,14 @@
 import { body, route } from "@/lib/api";
 import { patch } from "@/lib/db";
 import type { VisitData } from "@/lib/visit";
-import { answerNext, canWriteVisit, deleteVisit, isRunning, keptGuideFor, visitFor } from "../_lib/server";
+import { answerNext, canWriteVisit, deleteVisit, isRunning, keptGuideFor, sendWordsOf, visitFor } from "../_lib/server";
 
 type P = { params: Promise<{ id: string }> };
 
+// sendWords: 家族の言葉で送る文の枠の言葉（家族の言葉でもまとめを書いた健診だけ。ほかは付かない＝前と同じ返事）
 export const GET = route(async (req: Request, { params }: P) => {
   const { v, h } = await visitFor(req, (await params).id, "record:read");
-  return { visit: { id: v.id, familyId: v.familyId, ...v.data, running: isRunning(v.id), canWrite: canWriteVisit(h) } };
+  return { visit: { id: v.id, familyId: v.familyId, ...v.data, running: isRunning(v.id), canWrite: canWriteVisit(h), sendWords: sendWordsOf(v.data) } };
 });
 
 export const PATCH = route(async (req: Request, { params }: P) => {
@@ -24,7 +25,7 @@ export const PATCH = route(async (req: Request, { params }: P) => {
   if (b.asked && v.data.agenda) partial.agenda = v.data.agenda.map((a) => (a.id === b.asked!.id ? { ...a, asked: b.asked!.asked } : a));
   if (b.guideDone && guide) partial.guide = { ...guide, done: b.guideDone.filter((n) => Number.isInteger(n)) };
   const d = patch<VisitData>(v.id, partial)!;
-  return { visit: { id: d.id, familyId: d.familyId, ...d.data, running: isRunning(d.id), canWrite: canWriteVisit(h) } };
+  return { visit: { id: d.id, familyId: d.familyId, ...d.data, running: isRunning(d.id), canWrite: canWriteVisit(h), sendWords: sendWordsOf(d.data) } };
 });
 
 export const DELETE = route(async (req: Request, { params }: P) => {

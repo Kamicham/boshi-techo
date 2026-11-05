@@ -2,7 +2,7 @@
 // ① 話す・撮る・書く: 返事（reply・oneQuestion）は画面の言葉、記録（records・deadlines）は家族が話した・書いた言葉のまま
 // ② 健診のまとめ: 日本語のまとめに加えて、家族の言葉のまとめも書く（引用＝録音から聞こえた先生の言葉は日本語のまま）
 // 統括の決まり（11/5 17:4x）:
-// - 日本語の画面の頼みと受け取る形（schema）は1字も変えない（本番のわが家は日本語の画面で Claude を使っている）。試験で守る（話す・撮る・書くは lib/capture-lang.test.ts）。
+// - 日本語の画面の頼みと受け取る形（schema）は1字も変えない（本番のわが家は日本語の画面で Claude を使っている）。試験で守る（話す・撮る・書くは lib/capture-lang.test.ts、健診のまとめは lib/visit-family-words.test.ts）。
 // - zh・en の頼みは、API で3つの言葉を確かめるまで off（FOLLOW_BROWSER と同じやり方）。確かめの API は作り手の OK の後に回す。
 //   ブラウザの言葉に従う形（①）が入ったので、本番でも、一覧に日本語の無い端末の家族は zh・en の道を通る。
 import type { Lang } from ".";
