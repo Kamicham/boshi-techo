@@ -3,6 +3,7 @@ import type { Family, Member } from "@/lib/demo-family";
 import { deadlineKindOf, endOf, type Milestone, type Status } from "../../lib/milestones";
 import { diffDays } from "../../lib/clock";
 import { t as tr } from "@/lib/i18n";
+import { nameIn } from "@/lib/i18n/names";
 
 const daysUntil = (today: string, date: string) => diffDays(date, today);
 
@@ -172,7 +173,7 @@ export function whoLabel(m: Pick<Milestone, "who">, family: Family, me: Member |
   if (m.who === "家族") return "";
   if (me && m.who === me.role) return tr("あなた");
   const person = family.members.find((x) => x.role === m.who);
-  if (person) return person.name;
+  if (person) return nameIn(person.name);
   return m.who === "母" ? tr("ママ") : tr("パートナー");
 }
 

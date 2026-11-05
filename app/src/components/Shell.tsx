@@ -10,6 +10,7 @@ import { hideCounts } from "@/lib/situation";
 import { recordingBusy, recordingBusyServer, subscribeRecording } from "@/lib/recording-state";
 import { TABS } from "@/lib/app-guide";
 import { listOf, t } from "@/lib/i18n";
+import { nameIn } from "@/lib/i18n/names";
 import { PUBLIC_UI, TRIAL_BANNER } from "@/lib/trial-words";
 import { AskButton } from "./ask/AskSheet";
 import { useFamily } from "./FamilyProvider";
@@ -37,7 +38,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const labelOf = (f: (typeof families)[number]) => {
     const h = households.find((x) => x.id === f.id);
     if (h) return h.name || t("わが家");
-    return f.id === "mine" ? t("わが家") : t("デモ（作った家族）: {names}", { names: listOf(f.members.map((m) => m.name)) });
+    return f.id === "mine" ? t("わが家") : t("デモ（作った家族）: {names}", { names: listOf(f.members.map((m) => nameIn(m.name))) });
   };
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col">
@@ -93,7 +94,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
                   ・<b className="font-semibold">{clockShort(clockAt(family, today))}</b>
                 </>
               )}
-              {me ? <span className="text-muted">{t("（{x}）", { x: me.name })}</span> : null}
+              {me ? <span className="text-muted">{t("（{x}）", { x: nameIn(me.name) })}</span> : null}
             </span>
             <span className="text-muted" aria-hidden>▾</span>
           </Link>
@@ -119,7 +120,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           >
             <span className="truncate">
               {t("見本")}
-              {me ? <span className="text-muted">{t("（{x}）", { x: me.name })}</span> : null} ・ <b className="font-semibold">{shortClock(family, today)}</b>
+              {me ? <span className="text-muted">{t("（{x}）", { x: nameIn(me.name) })}</span> : null} ・ <b className="font-semibold">{shortClock(family, today)}</b>
             </span>
             <span className="shrink-0 font-semibold whitespace-nowrap text-sky">{t("ほかの時期")} ▾</span>
           </button>

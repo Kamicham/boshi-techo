@@ -10,6 +10,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Family } from "@/lib/demo-family";
 import { t } from "@/lib/i18n";
+import { nameIn } from "@/lib/i18n/names";
 import { milestoneSay, type PhotoMilestone } from "@/lib/media-shared";
 import { useMedia } from "../album/useMedia";
 import { Btn } from "../ui";
@@ -36,7 +37,7 @@ export function MilestoneDay({ family, today, m }: { family: Family; today: stri
   useEffect(() => setClosed(readClosed(family.id)), [family.id]);
   if (!closed || closed.includes(m.id) || !family.birthDate) return null;
   const canKeep = !loading && !unavailable && (canWrite || !!canContribute);
-  const child = family.childName ?? t("赤ちゃん");
+  const child = nameIn(family.childName) ?? t("赤ちゃん");
   const close = () => {
     const next = [...closed, m.id];
     writeClosed(family.id, next);

@@ -7,6 +7,7 @@
 import { clockAt, clockShort, diffDays, totalDays } from "./clock";
 import type { Family } from "./demo-family";
 import { t } from "./i18n";
+import { nameIn } from "./i18n/names";
 import { hideCounts } from "./situation";
 
 export interface WeekBandText {
@@ -25,7 +26,7 @@ export function weekBand(family: Pick<Family, "dueDate" | "birthDate" | "childNa
   let main: string;
   if (c.phase === "pregnant") {
     const toDue = diffDays(family.dueDate, today);
-    const name = family.childName?.trim();
+    const name = nameIn(family.childName?.trim());
     // 言葉は画面の言葉で（lib/i18n。サーバと試験はいつも日本語＝前と同じ）。週は clockShort（37週・37周・Week 37）
     const due = name
       ? toDue > 0
@@ -44,7 +45,7 @@ export function weekBand(family: Pick<Family, "dueDate" | "birthDate" | "childNa
   } else if (walked) {
     main = `${c.label} ・ ${t("1000日を一緒に歩きました")}`;
   } else {
-    main = family.childName ? `${family.childName} ・ ${c.label}` : c.label;
+    main = family.childName ? `${nameIn(family.childName)} ・ ${c.label}` : c.label;
   }
   // 数字（「1000日の282日目」）は意味が通じなかったので、線の上の位置で見せる
   const pos = walked ? 1 : c.dayOf1000 > 0 ? Math.min(1, c.dayOf1000 / totalDays(family)) : null;

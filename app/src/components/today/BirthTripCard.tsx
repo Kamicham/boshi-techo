@@ -11,6 +11,7 @@ import type { Keep } from "@/lib/keep";
 import type { LocalInfo } from "@/lib/local";
 import { mergeBring, tripDue, type BirthTrip, type TripFold, type TripWhere } from "@/lib/birth-trip";
 import { listOf, t } from "@/lib/i18n";
+import { nameIn } from "@/lib/i18n/names";
 import { msWords } from "@/lib/i18n/milestone-words";
 import { api } from "../FamilyProvider";
 import { Btn, CopyButton, Pill } from "../ui";
@@ -211,7 +212,7 @@ function TripWho({ trip, family, onAssignMany }: { trip: BirthTrip<ShownTask>; f
   const picks = new Set(shared.map(pickOf));
   const current = picks.size === 1 ? [...picks][0] : "";
   const people = [...family.members].sort((a, b) => Number(a.role !== "パートナー") - Number(b.role !== "パートナー"));
-  const choices = [...people.map((m) => ({ id: m.id, label: m.name })), { id: "together", label: t("2人で") }];
+  const choices = [...people.map((m) => ({ id: m.id, label: nameIn(m.name) })), { id: "together", label: t("2人で") }];
   return (
     <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("生まれた届けを、誰が出しに行くか")}>
       <span className="text-sm text-muted">{current ? t("役所へ行く人") : t("役所へ行くのは？")}</span>

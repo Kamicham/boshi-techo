@@ -14,6 +14,7 @@ import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn, plainError } from "@/components/ui";
 import type { Family, Member } from "@/lib/demo-family";
 import { t } from "@/lib/i18n";
+import { nameIn } from "@/lib/i18n/names";
 import type { ClientLetter } from "@/lib/letters-shared";
 import { birthNewsText } from "@/lib/media-shared";
 import { jpDate } from "./dates";
@@ -133,7 +134,7 @@ export function WelcomeBaby({
   }, [family.id, today, by]);
   const birth = family.birthDate!;
   // 名前がまだ無い時は「ようこそ、赤ちゃん」（English で the baby と呼びかけないよう、文ごとに引く）
-  const welcome = family.childName != null ? t("ようこそ、{name}", { name: family.childName }) : t("ようこそ、赤ちゃん");
+  const welcome = family.childName != null ? t("ようこそ、{name}", { name: nameIn(family.childName) }) : t("ようこそ、赤ちゃん");
   const news = birthNewsText({ birthDate: birth, childName: family.childName });
   const share = async () => {
     try {

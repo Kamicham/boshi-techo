@@ -5,6 +5,7 @@
 // 画面からもサーバからも読まない純粋な決まり（試験は rule-answer.test.ts）。
 import { SCREENS } from "../app-guide";
 import { currentLang, listOf, t } from "../i18n";
+import { nameIn } from "../i18n/names";
 import { msWords } from "../i18n/milestone-words";
 import type { AskAction } from "./types";
 
@@ -119,7 +120,7 @@ const when = (r: PlanRow) => {
 const who = (r: PlanRow) => {
   if (/^(母|家族)/.test(r.担当)) return "";
   const named = r.担当.match(/（(.+)）$/)?.[1];
-  return t("（{who}の番）", { who: currentLang() === "ja" ? r.担当 : (named ?? t(r.担当)) });
+  return t("（{who}の番）", { who: currentLang() === "ja" ? r.担当 : named ? nameIn(named) : t(r.担当) });
 };
 const line = (r: PlanRow) => `${dot()}${msWords(r.やさしい題)}${who(r)}${when(r) ? ` — ${when(r)}` : ""}`;
 /** 期限・目安までの日数（「あと◯日」「◯日過ぎた」から。無ければ後ろ）。「いま」の画面と同じく近い順に並べる */

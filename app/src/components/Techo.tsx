@@ -41,6 +41,7 @@ import { urgentNear } from "./today/urgent";
 import { focusFor, useStageFocus } from "./today/stage-focus";
 import { calmWords } from "./today/calm";
 import { currentLang, t } from "@/lib/i18n";
+import { nameIn } from "@/lib/i18n/names";
 import { msWords } from "@/lib/i18n/milestone-words";
 
 // 訳さない: 続柄の値（whoLabel が画面の言葉の呼び名にする）
@@ -477,7 +478,7 @@ export function Techo() {
           <p role="status" className="pointer-events-auto flex w-full max-w-md items-center justify-between gap-3 rounded-xl bg-ink px-4 text-base text-white shadow-lg">
             <span className="min-w-0 py-3">
               {lastDone.ids ? t("{n}つを済んだにしました", { n: lastDone.ids.length }) : t("「{title}」を済んだにしました", { title: msWords(lastDone.title) })}
-              {!lastDone.ids && doneWords(lastDone.id, family.childName) && <span className="block text-sm text-white/80">{doneWords(lastDone.id, family.childName)}</span>}
+              {!lastDone.ids && doneWords(lastDone.id, nameIn(family.childName)) && <span className="block text-sm text-white/80">{doneWords(lastDone.id, nameIn(family.childName))}</span>}
             </span>
             <button
               type="button"
@@ -525,7 +526,7 @@ export function Techo() {
         />
       ) : tripFold && me ? (
         // 届けはパートナーの番で、母が今やる事が無い日（UX の見直し C08）
-        <NextStep tone="ok" title={t("{name}さんが今やる事はありません", { name: me.name })} sub={t("体を休めてください。")} />
+        <NextStep tone="ok" title={t("{name}さんが今やる事はありません", { name: nameIn(me.name) })} sub={t("体を休めてください。")} />
       ) : guess ? (
         // 今やる事が無く、妊婦健診の予約の目安が近い日は「今すぐやる事はありません」と言わず、予約を一番上に（UX 2026-11-04: 大きな箱の真下に「今日ごろ」が出て、言う事が食い違っていた）
         <NextStep

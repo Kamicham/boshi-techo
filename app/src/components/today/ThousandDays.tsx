@@ -12,6 +12,7 @@ import { useThanksLog } from "@/components/album/ThanksChapter";
 import { conceptionDate, totalDays } from "@/lib/clock";
 import type { Family } from "@/lib/demo-family";
 import { currentLang, t } from "@/lib/i18n";
+import { nameIn } from "@/lib/i18n/names";
 import type { ClientLetter } from "@/lib/letters-shared";
 import { jpDate } from "./dates";
 
@@ -30,7 +31,7 @@ export function ThousandDays({ family, today, letters }: { family: Family; today
       alive = false;
     };
   }, [family.id, today]);
-  const child = family.childName ?? t("赤ちゃん");
+  const child = nameIn(family.childName) ?? t("赤ちゃん");
   const days = totalDays(family);
   const counts = [
     { icon: "📝", label: "記録", n: records ?? 0, unit: "件" },

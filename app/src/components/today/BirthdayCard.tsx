@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Family } from "@/lib/demo-family";
 import { t } from "@/lib/i18n";
+import { nameIn } from "@/lib/i18n/names";
 import { recentlyOpened, type ClientLetter } from "@/lib/letters-shared";
 import { ThousandDays } from "./ThousandDays";
 import { childView } from "@/lib/call-name";
@@ -26,9 +27,9 @@ export function BirthdayCard({ family, today, by, age }: { family: Family; today
     };
   }, [family.id, today, by]);
   const opened = letters.filter((l) => recentlyOpened(l, today));
-  const name = family.childName ?? t("赤ちゃん");
+  const name = nameIn(family.childName) ?? t("赤ちゃん");
   // 名前がまだ無い時の呼びかけは、文ごとに引く（English で the baby と呼びかけないよう）
-  const cheer = family.childName != null ? t("🎂 {name}、{age}歳おめでとう", { name: family.childName, age }) : t("🎂 赤ちゃん、{age}歳おめでとう", { age });
+  const cheer = family.childName != null ? t("🎂 {name}、{age}歳おめでとう", { name: nameIn(family.childName), age }) : t("🎂 赤ちゃん、{age}歳おめでとう", { age });
   const link = "flex min-h-12 items-center justify-between gap-3 rounded-xl bg-card px-4 text-base font-semibold";
   return (
     <section aria-label={t("{age}歳の誕生日", { age })} className="flex flex-col gap-3 rounded-2xl border border-rose/40 bg-rose-soft p-4">

@@ -8,6 +8,7 @@ import type { Family, Member } from "@/lib/demo-family";
 import type { Keep } from "@/lib/keep";
 import { deadlineKindOf } from "@/lib/milestones";
 import { t as tr } from "@/lib/i18n";
+import { nameIn } from "@/lib/i18n/names";
 import { msWords } from "@/lib/i18n/milestone-words";
 import { officeOf } from "@/lib/move";
 import { Btn, CopyButton, HandoffRow, NextStep, Pill, Why } from "../ui";
@@ -182,7 +183,7 @@ function RowDays({ days, upcoming, start }: { days: number; upcoming: boolean; s
 function WhoPicker({ task: t, family, onAssign }: Pick<Common, "task" | "family" | "onAssign">) {
   if (!t.shared || !onAssign) return null;
   const current = t.together ? "together" : (family.members.find((m) => m.role === t.who)?.id ?? "");
-  const choices = [...family.members.map((m) => ({ id: m.id, label: m.name })), { id: "together", label: tr("2人で") }];
+  const choices = [...family.members.map((m) => ({ id: m.id, label: nameIn(m.name) })), { id: "together", label: tr("2人で") }];
   return (
     <div className="flex flex-wrap items-center gap-2" role="group" aria-label={tr("{plain}を誰がやるか", { plain: msWords(t.plain) })}>
       <span className="text-sm text-muted">{current ? tr("やる人") : tr("誰がやる？")}</span>

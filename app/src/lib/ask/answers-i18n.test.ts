@@ -105,7 +105,8 @@ describe("決まりの答えを、画面の言葉で組む", () => {
     expect(r.text.startsWith("(From the handbook's schedule. Claude wasn't used.)\n")).toBe(true);
     expect(r.text).toContain("There are 4 things to do now.");
     expect(r.text).toContain("Around Nov 20 (16 days left)");
-    expect(r.text).toContain(" (翔太's turn)");
+    // 見本の家族の名前は English でローマ字（lib/i18n/names.ts）
+    expect(r.text).toContain(" (Shota's turn)");
     expect(r.text).toContain("• ");
     const one = inLang("en", () => ruleAnswer("next", "What should I do next?", { 今やる事: [plan.今やる事[1]], まだ先の事: [] })!);
     expect(one.text).toContain("There is 1 thing to do now.");

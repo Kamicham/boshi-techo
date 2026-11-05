@@ -6,6 +6,7 @@
 import type { FamilyNews as News } from "@/lib/done-words";
 import { doneWords } from "@/lib/done-words";
 import { t as tr } from "@/lib/i18n";
+import { nameIn } from "@/lib/i18n/names";
 import { msWords } from "@/lib/i18n/milestone-words";
 import { Btn } from "../ui";
 
@@ -31,16 +32,16 @@ export function FamilyNews({ news, childName, titleOf, onThank }: { news: News; 
       <h2 className="text-sm font-semibold text-muted">{tr("家族から")}</h2>
       {thanks.map((t) => (
         <p key={`t:${t.id}`} className="text-base">
-          {boldName(tr("🌷 {name}から、ありがとう", { name: NAME }), t.from.name)}
+          {boldName(tr("🌷 {name}から、ありがとう", { name: NAME }), nameIn(t.from.name))}
           <span className="text-muted">{tr("（{x}）", { x: msWords(titleOf(t.id)) })}</span>
         </p>
       ))}
       {done.map((d) => {
-        const words = doneWords(d.id, childName);
+        const words = doneWords(d.id, nameIn(childName));
         return (
           <div key={`d:${d.id}`} className="flex flex-wrap items-center justify-between gap-2">
             <p className="min-w-0 flex-1 text-base">
-              {boldName(tr("{name}が「{title}」を済ませました", { name: NAME, title: msWords(titleOf(d.id)) }), d.by.name)}
+              {boldName(tr("{name}が「{title}」を済ませました", { name: NAME, title: msWords(titleOf(d.id)) }), nameIn(d.by.name))}
               {words && <span className="block text-sm text-muted">{words}</span>}
             </p>
             {d.thanked ? (

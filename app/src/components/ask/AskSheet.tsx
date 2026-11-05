@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { telHref } from "@/lib/ask/bridge";
 import type { AskAction, AskEvent, ChatTurn } from "@/lib/ask/types";
 import { t } from "@/lib/i18n";
+import { nameIn } from "@/lib/i18n/names";
 import { msWords } from "@/lib/i18n/milestone-words";
 import { scheduleFor } from "@/lib/milestones";
 import { api, useFamily } from "../FamilyProvider";
@@ -421,7 +422,7 @@ function AskSheet({ onClose }: { onClose: () => void }) {
 function UserBubble({ turn }: { turn: ChatTurn }) {
   return (
     <div className="max-w-[85%] self-end rounded-2xl rounded-br-md bg-rose-soft px-3 py-2">
-      {turn.who && <p className="text-xs text-muted">{turn.who}</p>}
+      {turn.who && <p className="text-xs text-muted">{nameIn(turn.who)}</p>}
       <p className="text-base whitespace-pre-wrap">{turn.text}</p>
     </div>
   );
@@ -547,7 +548,7 @@ function Action({
             {a.for === "mother"
               ? t("ママの次の健診で先生に聞く事")
               : family.childName
-                ? t("{name}の次の健診で先生に聞く事", { name: family.childName })
+                ? t("{name}の次の健診で先生に聞く事", { name: nameIn(family.childName) })
                 : t("次の健診で先生に聞く事")}
           </p>
           <p className="text-base">{a.text}</p>
