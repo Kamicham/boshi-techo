@@ -1,10 +1,12 @@
 // 予防接種の次の回を、打った日から数え直す（第1波⑥）。
 // 予定の表は月齢で固定だが、1回遅れると後ろが全部ずれる。手帳の接種の記録（日付）から、次の回の「打てる最短日」を出し、
 // 予定の始まりの日をそれより早くしない。id は変えない（済み・下書き・状態はそのまま動く）。
+// 公費（定期接種）で受けられる年齢の期限（予防接種法施行令第3条の表。期限の行）は動かさない。越える見込みは確かめる先を添えるだけ（applyRetime）。
 // 間隔は定期接種実施要領（厚生労働省・2024年改正）・予防接種法施行令による。「27日以上」は中27日なので、打てる最短日は前の日＋28日。
 // 体の判断はしない。標準から外れて始めた子の回数の変化（肺炎球菌・五種混合）は数えず、「小児科で確かめる」と添える。
 // 画面とサーバの両方で使う純関数。
 import { addDays, addMonths } from "./clock";
+import { deadlineKindOf } from "./milestones";
 import type { Vax } from "./techo-done";
 
 type Hist = Map<Vax, { n: number; date: string; facility?: string }[]>;
@@ -83,13 +85,29 @@ export function vaxRetime(hist: Hist, schedule: { id: string; startDate: string 
   return out;
 }
 
-/** 予定に当てはめる: 始まりを最短日に、期限は同じ幅だけ後ろへ（期限より始まりが遅くならないように） */
-export function applyRetime<T extends { id: string; startDate: string; deadlineDate?: string }>(schedule: T[], r: Record<string, Retime>): T[] {
+/** 公費（定期接種）で受けられる年齢の期限を過ぎる見込みの一言（判断はしない。確かめる先だけ添える） */
+function beyondPublicWord(deadline: string): string {
+  const [, mo, da] = deadline.split("-").map(Number);
+  return `公費で受けられる年齢（${mo}月${da}日まで）を過ぎる見込み。小児科・保健センターに確かめる`;
+}
+
+/**
+ * 予定に当てはめる: 始まりを最短日に。
+ * - 目安の行（標準の時期。vaccines-3m など）: 期限も同じ幅だけ後ろへ（期限より始まりが遅くならないように）
+ * - 期限の行（deadlineKindOf が「期限」＝B型肝炎の3回目・水痘の2回目）: 期限は公費で受けられる年齢の上限（予防接種法施行令第3条の表）なので動かさない。
+ *   数え直した始まりがその日を越える時は、始まりはそのまま出し、retimeNote に「公費で受けられる年齢（◯月◯日まで）を過ぎる見込み」と確かめる先を足し、beyondPublic を付ける
+ */
+export function applyRetime<T extends { id: string; startDate: string; deadlineDate?: string; deadlineKind?: "目安" | "期限" }>(schedule: T[], r: Record<string, Retime>): T[] {
   return schedule.map((m) => {
     const x = r[m.id];
     if (!x) return m;
+    const retime = { doses: x.doses, lastDate: x.lastDate, lastFacility: x.lastFacility };
+    if (deadlineKindOf(m) === "期限") {
+      const beyond = !!m.deadlineDate && x.start > m.deadlineDate;
+      return { ...m, startDate: x.start, retimeNote: beyond ? `${x.note}。${beyondPublicWord(m.deadlineDate!)}` : x.note, retime, ...(beyond ? { beyondPublic: true } : {}) };
+    }
     const shift = Math.round((Date.parse(x.start) - Date.parse(m.startDate)) / 86_400_000);
-    return { ...m, startDate: x.start, deadlineDate: m.deadlineDate ? addDays(m.deadlineDate, shift) : undefined, retimeNote: x.note, retime: { doses: x.doses, lastDate: x.lastDate, lastFacility: x.lastFacility } };
+    return { ...m, startDate: x.start, deadlineDate: m.deadlineDate ? addDays(m.deadlineDate, shift) : undefined, retimeNote: x.note, retime };
   });
 }
 
