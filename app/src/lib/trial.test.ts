@@ -1,7 +1,7 @@
 // 公開版の体験用の家族の試験（BOSHI_PUBLIC=1・2026-11-04）:
 // - 見本の家族を頼むと、その人の札の写しに置き換わる（2人の書き込みが混ざらない・共有の見本の家族には書かれない）
 // - 写しの id を直に叩いても、札の持ち主でなければ 404
-// - 7日たった写しは消える。1つの住所から作れる写しは1日10まで
+// - 7日たった写しは消える。1つの住所から作れる写しは1日10まで・総数は300まで・置き場の空きが20%を切ったら作らない（作れない人は見本を読むだけ）
 // - 門（middleware）が札を配り、アカウント・招待・書き出し・シミュレーションの口を閉じ、健診は読むだけ
 // - 体験の写しは見本の家族と同じ扱い（時計の早送り・作った記録・上限の日は見本の答え）
 // DB は一時フォルダに作る（わが家の app/data には触らない）。Claude には一度もつながない。
@@ -193,10 +193,42 @@ describe("公開版の体験用の家族", () => {
     expect(j.reply).toContain("話した事を、そのまま");
   });
 
-  it("1つの住所から作れる写しは1日10まで。7日たった写しは消える", async () => {
+  it("写しの総数が上限に届いた時・置き場の空きが少ない時は、写しを作らず、共有の見本の家族を読むだけで見せる（技術監査 (5)②）", async () => {
+    const done = await import("@/app/api/done/route");
+    const { ensureTrial, dataFree } = await import("./trial");
+    const C = `try-${"9".repeat(32)}`;
+    const ip = "192.0.2.50";
+    process.env.BOSHI_TRIALS_MAX = "1";
+    try {
+      expect(await ensureTrial(C, ip)).toBe(false);
+      // 読める（見本の家族のまま）。書くと 403 で、読むだけの訳を返す
+      expect((await done.GET(req("/api/done?familyId=demo-sato", { trial: C, ip }))).status).toBe(200);
+      const w = await done.POST(req("/api/done", { trial: C, ip, body: { familyId: "demo-sato", milestoneId: "birth-registration" } }));
+      expect(w.status).toBe(403);
+      expect(((await w.json()) as { error: string }).error).toContain("読むだけ");
+      // 共有の見本の家族には書かれていない
+      const { get } = await import("./db");
+      expect(get("done:demo-sato:birth-registration")).toBeNull();
+    } finally {
+      delete process.env.BOSHI_TRIALS_MAX;
+    }
+    // 置き場の空きが少ない時も作らない（空きは 0〜1 で測れる）
+    expect(dataFree()).toBeGreaterThan(0);
+    expect(dataFree()).toBeLessThanOrEqual(1);
+    process.env.BOSHI_TRIAL_MIN_FREE = "1.01";
+    try {
+      expect(await ensureTrial(C, ip)).toBe(false);
+    } finally {
+      delete process.env.BOSHI_TRIAL_MIN_FREE;
+    }
+    // 空けば、次の頼みで自分の写しができる
+    expect(await ensureTrial(C, ip)).toBe(true);
+  });
+
+  it("1つの住所から作れる写しは1日10まで（超えたら読むだけの見本）。7日たった写しは消える", async () => {
     const { ensureTrial, purgeExpiredTrials } = await import("./trial");
-    for (let i = 0; i < 10; i++) await ensureTrial(`try-${String(i).padStart(32, "c")}`, "198.51.100.7");
-    await expect(ensureTrial(`try-${"d".repeat(32)}`, "198.51.100.7")).rejects.toMatchObject({ status: 429 });
+    for (let i = 0; i < 10; i++) expect(await ensureTrial(`try-${String(i).padStart(32, "c")}`, "198.51.100.7")).toBe(true);
+    expect(await ensureTrial(`try-${"d".repeat(32)}`, "198.51.100.7")).toBe(false);
     const { getHousehold } = await import("./households");
     expect(getHousehold(A)).not.toBeNull();
     expect(await purgeExpiredTrials(Date.now() + 8 * 86_400_000)).toBeGreaterThanOrEqual(12);
