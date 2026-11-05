@@ -104,7 +104,13 @@ run mkdir -p "$REL"
 if [[ -n $DRY ]]; then print -r -- "  [空回し] git -C $REPO archive $sha | tar -x -C $REL"; else git -C "$REPO" archive "$sha" | tar -x -C "$REL"; fi
 run ln -s "$ENV_FILE" "$REL/app/.env.local"
 in_app npm ci --no-audit --no-fund
-in_app env NEXT_DIST_DIR=.next-prod NODE_ENV=production npx next build
+# 組み立ては3回までやり直す。書体（next/font/google）を Google から取る所が時々落ちる（2026-11-05、Fly で5回中2回・CI で1回。やり直すと通る）
+for i in 1 2 3; do
+  if in_app env NEXT_DIST_DIR=.next-prod NODE_ENV=production npx next build; then break; fi
+  (( i < 3 )) || die "組み立てが3回とも落ちました（本番はそのまま）"
+  say "組み立てが落ちたので、20秒後にやり直します（${i}回目）"
+  sleep 20
+done
 say "② 組み立て: $REL/app/.next-prod"
 
 # ③ 3211番で確かめる（だめなら本番はそのまま）

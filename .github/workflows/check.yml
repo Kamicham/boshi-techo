@@ -52,7 +52,14 @@ jobs:
         run: npm run sim
       # 体験版の像（app/Dockerfile）と同じ組み立てを通す。型・試験が緑でも、組み立てでは落ちる事がある
       # （2026-11-05 朝、instrumentation が edge 用にも束ねられ、DB の部品が入って next build だけが落ちた）
+      # 書体（next/font/google）を Google から取る所が時々落ちるので、像と同じく3回までやり直す
+      # （2026-11-05、Fly で5回中2回・CI でも 25f7ba9 で1回。「An error occurred in next/font. TypeError: Cannot read properties of null」。やり直すと通る）
       - name: 組み立て（体験版の像と同じ next build）
         env:
           NEXT_PUBLIC_BOSHI_PUBLIC: "1"
-        run: npm run build
+        run: |
+          for i in 1 2 3; do
+            if npm run build; then exit 0; fi
+            if [ "$i" -lt 3 ]; then echo "組み立てが落ちたので、20秒後にやり直します（${i}回目）"; sleep 20; fi
+          done
+          exit 1
