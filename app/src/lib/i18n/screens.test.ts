@@ -30,6 +30,9 @@ const DONE: readonly string[] = [
   "components/countdown.ts", // あと◯日
   "lib/week-band.ts", // 週数の帯
   "lib/done-words.ts", // 済んだの意味の一言
+  "components/ask/AskSheet.tsx", // 手帳に聞く
+  "app/start/page.tsx", // はじめの画面（自分の手帳を始める・3つ答えた後の予告）
+  "lib/start-preview.ts", // 予告の文
 ];
 
 /** 体験の筋（③）。I18N_LEFT=1 で残りを数える */

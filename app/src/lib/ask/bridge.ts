@@ -19,6 +19,7 @@
 //   - #8000 につながらない時: 「#」の入った番号は、電話によっては画面のリンクからかからない事がある。床は家族の県を知らないので番号は書かず、
 //     県のふつうの番号が出る急ぎの時の画面（/emergency。表は lib/emergency-lines.ts の N8000）を指す一言だけを添える（2026-11-05 統括の決め）
 // 画面からもサーバからも読む（server-only にしない）。
+import { currentLang, t } from "../i18n";
 import { STOOL_ASIDE, STOOL_NOTE } from "../techo";
 import type { AskAction } from "./types";
 
@@ -122,11 +123,17 @@ const URGENT = new RegExp(
   `${URGENT_SURE.source}|水っぽいものが|羊水|息が(苦し|おかし)|呼吸が|ぐったり|意識が|反応がない|反応しない|(3[89]|4[0-2])(\\.\\d)?\\s*(度|℃)|胎動が感じ|お腹が(張って|痛)|詰まった|飲み込んだ|やけど|頭を打|落ち(た|て)|顔色が(悪|青)`,
 );
 
-/** 急ぎの時に返事の頭へ置く1文（聞く・話す・撮るで同じ連絡先） */
+/** 文をつなぐ（English は空きを入れる。日本語・中文はそのまま続ける） */
+const cat = (...parts: string[]) => parts.join(currentLang() === "en" ? " " : "");
+
+/**
+ * 急ぎの時に返事の頭へ置く1文（聞く・話す・撮るで同じ連絡先）。
+ * 今の言葉で返す（サーバは頼みの言葉の withLang の中で呼ぶ＝lib/ask/agent.ts。ほかのサーバの道はいつも日本語。訳は意味を変えない＝dict/answers.ts）
+ */
 export function urgentLead(phase: "pregnant" | "child" | "other"): string {
   return phase === "pregnant"
-    ? "今すぐ、かかりつけの産院へ電話してください（夜間も）。命が危ないと思ったら、迷わず119。"
-    : `今すぐ電話してください。命が危ないと思ったら、迷わず119。救急車を呼ぶか迷う時は、子どもの事はかかりつけか #8000、ママの体はかかりつけの産院へ（夜間も）。${N8000_ALT_NOTE}`;
+    ? t("今すぐ、かかりつけの産院へ電話してください（夜間も）。命が危ないと思ったら、迷わず119。")
+    : cat(t("今すぐ電話してください。命が危ないと思ったら、迷わず119。救急車を呼ぶか迷う時は、子どもの事はかかりつけか #8000、ママの体はかかりつけの産院へ（夜間も）。"), t(N8000_ALT_NOTE));
 }
 
 /** 便色カードの1〜3番に近い色と言った（手帳の注意書きが「1日も早く受診」と言う所） */
@@ -267,7 +274,7 @@ export function bridgeFor(text: string, phase: "pregnant" | "child" | "other"): 
     );
   }
   if (stool && !urgent) {
-    leads.push(`母子手帳の便色カードには「${STOOL_NOTE}」と書いてあります。${STOOL_ASIDE}${N8000_ALT_NOTE}`);
+    leads.push(cat(t("母子手帳の便色カードには「{note}」と書いてあります。", { note: t(STOOL_NOTE) }), t(STOOL_ASIDE), t(N8000_ALT_NOTE)));
     // つながらない時の一言は lead にだけ置き、ボタンは足さない（聞く画面は /emergency へのボタンを大きく出すので、受診と #8000 より目立ってしまう）
     actions.push({ type: "call", label: "子どもの急な病気の相談 #8000", tel: "#8000" });
     actions.push({ type: "open", href: "/techo#page-stool", label: "便色カードを開く" });
@@ -276,8 +283,8 @@ export function bridgeFor(text: string, phase: "pregnant" | "child" | "other"): 
   if (crisis) {
     leads.push(
       violence
-        ? "話してくれてありがとう。ひとりで抱えなくていいです。今すぐ危ない時は110番。DV相談＋は24時間、電話で話せます（通話料はかかりません）。"
-        : "話してくれてありがとう。ひとりで抱えなくていいです。今すぐ、電話の相談先にかけてください。命が危ないと思ったら119。",
+        ? t("話してくれてありがとう。ひとりで抱えなくていいです。今すぐ危ない時は110番。DV相談＋は24時間、電話で話せます（通話料はかかりません）。")
+        : t("話してくれてありがとう。ひとりで抱えなくていいです。今すぐ、電話の相談先にかけてください。命が危ないと思ったら119。"),
     );
     if (violence) {
       actions.push({ type: "call", label: "DV相談＋（24時間）", tel: "0120-279-889" });

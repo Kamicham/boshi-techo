@@ -8,6 +8,7 @@ import "server-only";
 import { ruleAdvice } from "./advisor";
 import { sureUrgent } from "./ask/bridge";
 import { DRAFTABLE } from "./draft-kinds";
+import { currentLang, t } from "./i18n";
 import type { DraftKind } from "./drafts";
 import { MILESTONES } from "./milestones";
 import { MONEY, paidDef } from "./money";
@@ -195,5 +196,9 @@ export function sampleAnswer(task: string | undefined, content: Content): unknow
   return make ? make(content) : null;
 }
 
-/** 手帳に聞く: 見本の返事（急ぎの言葉への連絡先は、bridge.ts が鍵なしで頭に置く） */
-export const sampleAskReply = () => `${SAMPLE_MARK}${noKey()}この家族の予定・記録・町を道具で見てから答え、記録・健診で聞く事・その画面へ行くボタンを添えます。\n見本のあいだも、予定表・期限・急ぎの時の連絡先はそのまま使えます。`;
+/**
+ * 手帳に聞く: 見本の返事（急ぎの言葉への連絡先は、bridge.ts が鍵なしで頭に置く）。
+ * 今の言葉で組む（lib/ask/agent.ts が頼みの言葉の withLang の中で呼ぶ。日本語は前と同じ字。English は文の間に空きを入れる）
+ */
+export const sampleAskReply = () =>
+  `${[t(SAMPLE_MARK), t(noKey()), t("この家族の予定・記録・町を道具で見てから答え、記録・健診で聞く事・その画面へ行くボタンを添えます。")].join(currentLang() === "en" ? " " : "")}\n${t("見本のあいだも、予定表・期限・急ぎの時の連絡先はそのまま使えます。")}`;

@@ -16,6 +16,12 @@ export default {
   作る: { zh: "创建", en: "Create" },
   /** 通信の失敗（components/ui.tsx の plainError。どの画面でも出る） */
   通信できませんでした: { zh: "无法连接网络", en: "Couldn't connect" },
+  /** components/FamilyProvider.tsx の api() の失敗（どの画面でも出る） */
+  "通信できませんでした。電波を確かめて、もう一度押してください": {
+    zh: "无法连接网络。请检查信号后再点一次",
+    en: "Couldn't connect. Please check your signal and tap again",
+  },
+  "うまくいきませんでした（{status}）": { zh: "没有成功（{status}）", en: "Something went wrong ({status})" },
 
   // ── API の言葉 ──
   "Claude が混み合っています。少し待ってもう一度": {

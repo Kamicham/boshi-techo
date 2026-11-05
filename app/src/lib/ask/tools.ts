@@ -15,6 +15,8 @@ import { listTecho } from "../techo-store";
 import { doneSetFor, vaxRetimeFor } from "@/app/api/done/_lib/done";
 import { applyRetime } from "../vax-next";
 import { getPlan } from "@/app/api/visit/_lib/server";
+import type { Lang } from "../i18n";
+import { tFor } from "../i18n/dicts";
 import type { AskAction } from "./types";
 
 export interface ToolCtx {
@@ -28,6 +30,8 @@ export interface ToolCtx {
   onStatus: (text: string) => void;
   /** search_official をもう使ったか（重いので1回の問いで1回まで） */
   searched?: boolean;
+  /** 頼みの言葉（状態の行のうち、町の名前が入る物をこの言葉で書く。ほかは画面が t() で引く） */
+  lang?: Lang;
 }
 
 const jp = (d: string) => `${Number(d.slice(5, 7))}月${Number(d.slice(8, 10))}日`;
@@ -243,7 +247,7 @@ export async function runTool(name: string, input: Record<string, unknown>, ctx:
       if (!m) return "その id の手続きは予定にありません。get_plan の id を使ってください";
       if (!family.city) return "住んでいる町がまだ入っていません。わが家の設定で町を入れるよう案内してください（/settings）";
       const cached = getLocal(family, m.id);
-      ctx.onStatus(cached ? `${family.city}の調べ済みのページを見ています` : `${family.city}の公式ページを調べています（30秒〜1分）`);
+      ctx.onStatus(tFor(ctx.lang ?? "ja", cached ? "{city}の調べ済みのページを見ています" : "{city}の公式ページを調べています（30秒〜1分）", { city: family.city ?? "" }));
       const { local } = await fetchLocal(family, m);
       ctx.sources.push(...pickSources(family, local.sources).slice(0, 3));
       return JSON.stringify({

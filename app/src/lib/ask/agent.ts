@@ -16,6 +16,8 @@ import { getKeep } from "../keep";
 import { worksByMember } from "../whose";
 import { checkBudget, recordSpend } from "../spend";
 import { STOOL_NOTE, DEVELOPMENT_NOTE, GROWTH_NOTE } from "../techo";
+import { t, withLang, type Lang } from "../i18n";
+import { dictFor, tFor } from "../i18n/dicts";
 import { bridgeFor, stripLeadRepeats } from "./bridge";
 import { ruleAnswer, ruleKind, type PlanView } from "./rule-answer";
 import { prenatalState } from "../prenatal";
@@ -171,7 +173,7 @@ async function rewrite(reply: string, problems: string[]): Promise<string> {
     messages: [
       {
         role: "user",
-        content: `次の返事に、見張りから指摘がありました。指摘の箇所を直し（判断の言葉は消し、記録・健診で聞く・連絡先への橋に変える）、ほかの内容と長さはなるべくそのままにして書き直してください。書き直した返事の文だけを出してください。\n\n返事:\n${reply}\n\n指摘:\n${problems.map((p) => `- ${p}`).join("\n")}`,
+        content: `次の返事に、見張りから指摘がありました。指摘の箇所を直し（判断の言葉は消し、記録・健診で聞く・連絡先への橋に変える）、ほかの内容と長さはなるべくそのままにして、返事と同じ言葉で書き直してください。書き直した返事の文だけを出してください。\n\n返事:\n${reply}\n\n指摘:\n${problems.map((p) => `- ${p}`).join("\n")}`,
       },
     ],
     output_config: { effort: "low" },
@@ -239,7 +241,8 @@ function prenatalBooking(family: Family, today: string): { when: string } | null
   if (!next) return null;
   const days = Math.round((Date.parse(next) - Date.parse(today)) / 86_400_000);
   if (days < 0 || days > 7) return null;
-  return { when: days === 0 ? "今日ごろ" : `あと${days}日ごろ` };
+  // 決まりの答えの中で、頼みの言葉の withLang の中から呼ぶ
+  return { when: days === 0 ? t("今日ごろ") : t("あと{n}日ごろ", { n: days }) };
 }
 
 // ── 1回の問い ──
@@ -255,7 +258,15 @@ export interface AskInput {
   onStatus?: (text: string) => void;
   /** 前の会話（無ければ DB から） */
   history?: ChatTurn[];
+  /** 頼みの言葉（画面の言葉。無ければ日本語）。機械が書く字はこの言葉で組み、Claude にもこの言葉で答えてもらう */
+  lang?: Lang;
 }
+
+/** 答えの言葉（画面の言葉を切り替えた家族）。窓口で使う言葉は日本語を並べる（窓口でそのまま見せられるように） */
+const LANG_FOR_CLAUDE: Readonly<Record<Exclude<Lang, "ja">, string>> = {
+  zh: "简体中文で書く（呼びかけは「你」）。役所・病院の窓口で使う言葉（出生届・児童手当・母子健康手帳など）は、初めて出す時に日本語を括弧で並べる（例: 出生登记（出生届））",
+  en: "English で書く（短く、やさしく）。役所・病院の窓口で使う言葉（出生届・児童手当・母子健康手帳など）は、初めて出す時に日本語を括弧で並べる（例: birth registration (出生届)）",
+};
 
 export interface AskResult {
   turn: ChatTurn;
@@ -269,14 +280,20 @@ export async function ask(input: AskInput): Promise<AskResult> {
   const { family, today } = input;
   const text = input.text.trim().slice(0, 2000);
   const onStatus = input.onStatus ?? (() => {});
+  const lang = input.lang ?? "ja";
+  /** 機械が書く字（急ぎの橋・決まりの答え・見本の答え）を、頼みの言葉で組む。同期の間だけ（頼みをまたいで混ざらない） */
+  const inLang = <T>(fn: () => T): T => withLang(lang, fn, dictFor(lang));
   const c = clockAt(family, today);
-  const bridge = bridgeFor(text, c.phase === "pregnant" ? "pregnant" : c.phase === "child" ? "child" : "other");
+  const bridge = inLang(() => bridgeFor(text, c.phase === "pregnant" ? "pregnant" : c.phase === "child" ? "child" : "other"));
   // 予定表と画面の地図だけで答えられる問いは、Claude を使えない時（見本で鍵が無い・同意の前）に決まりで答える（rule-answer.ts）。
   // 体・心の言葉がある問い（bridge が拾う）には使わない
   // 「過ぎた事」は予定表の言い方が「いま」の画面の「始める前の事」と合わないので、ここでは渡さない
   const kind = bridge.lead ? null : ruleKind(text);
   const byRule = (): AskResult | null => {
-    const r = kind && ruleAnswer(kind, text, { ...(planSnapshot(family, today) as unknown as PlanView), 過ぎた事: [], 健診の予約: prenatalBooking(family, today) }, input.path);
+    if (!kind) return null;
+    // 予定表の写しは日本語のまま作り（日数の字を読む）、答えの字だけを頼みの言葉で組む
+    const plan = { ...(planSnapshot(family, today) as unknown as PlanView), 過ぎた事: [] };
+    const r = inLang(() => ruleAnswer(kind, text, { ...plan, 健診の予約: prenatalBooking(family, today) }, input.path));
     if (!r) return null;
     const turn: ChatTurn = { role: "assistant", text: r.text, today, at: new Date().toISOString(), ...(r.actions.length ? { actions: r.actions } : {}) };
     return { turn, rewritten: false, tools: ["rule"] };
@@ -294,7 +311,7 @@ export async function ask(input: AskInput): Promise<AskResult> {
   if (sampleMode()) {
     const r = byRule();
     if (r) return r;
-    const reply = bridge.lead ? `${bridge.lead}\n\n${sampleAskReply()}` : sampleAskReply();
+    const reply = inLang(() => (bridge.lead ? `${bridge.lead}\n\n${sampleAskReply()}` : sampleAskReply()));
     const actions = dedupe([...bridge.actions]);
     const turn: ChatTurn = { role: "assistant", text: reply, today, at: new Date().toISOString(), ...(actions.length ? { actions } : {}) };
     return { turn, rewritten: false, tools: [] };
@@ -315,13 +332,14 @@ export async function ask(input: AskInput): Promise<AskResult> {
     `今日: ${today}（${c.label}）`,
     input.path ? `いま開いている画面: ${input.path}` : "",
     input.who ? `聞いた人: ${input.who.name}（${input.who.role}）` : "",
+    lang === "ja" ? "" : `答えの言葉: ${LANG_FOR_CLAUDE[lang]}`,
     bridge.note ? `機械の床からの指示: ${bridge.note}（電話のボタンはもう出してある。返事の頭には機械が「${bridge.lead}」を置くので、同じ事を繰り返さず、その続きから書く）` : "",
   ].filter(Boolean);
   const userContent = `（${head.join(" ・ ")}）\n${text}`;
   if (messages[messages.length - 1]?.role === "user") messages[messages.length - 1].content = `${messages[messages.length - 1].content as string}\n${userContent}`;
   else messages.push({ role: "user", content: userContent });
 
-  const ctx: ToolCtx = { family, today, actions: [], sources: [], onStatus };
+  const ctx: ToolCtx = { family, today, actions: [], sources: [], onStatus, lang };
   const used: string[] = [];
   const system: Anthropic.Beta.BetaTextBlockParam[] = [
     { type: "text", text: STATIC_SYSTEM, cache_control: { type: "ephemeral" } },
@@ -399,7 +417,7 @@ export async function ask(input: AskInput): Promise<AskResult> {
     onStatus("まとめています");
   }
   if (!reply) reply = said.join("\n");
-  if (!reply) reply = "うまくまとめられませんでした。もう一度、聞き方を変えて聞いてください。";
+  if (!reply) reply = tFor(lang, "うまくまとめられませんでした。もう一度、聞き方を変えて聞いてください。");
 
   onStatus("答えを確かめています");
   const g = await guard(text, reply);
@@ -417,7 +435,9 @@ export async function ask(input: AskInput): Promise<AskResult> {
   // 妊娠中・産後の急ぎは、通う産院の電話が分かればそれを一番上に（「産院へ電話」と言うのにボタンが無い、を無くす）
   const hospital = getKeep(family.id).hospital;
   const hospitalCall: AskAction[] =
-    bridge.urgent && c.phase !== "child" && hospital?.phone ? [{ type: "call", label: `${hospital.name ?? "通う産院"}に電話（夜間も）`, tel: hospital.phone }] : [];
+    bridge.urgent && c.phase !== "child" && hospital?.phone
+      ? [{ type: "call", label: tFor(lang, "{name}に電話（夜間も）", { name: hospital.name ?? tFor(lang, "通う産院") }), tel: hospital.phone }]
+      : [];
   reply = fixButtonNames(reply, [...bridge.actions, ...ctx.actions]);
   const actions = dedupe([...hospitalCall, ...bridge.actions, ...ctx.actions]);
   const sources = [...new Map(ctx.sources.map((s) => [s.url, s])).values()].slice(0, 5);

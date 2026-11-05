@@ -19,6 +19,8 @@ import { planToday, withAssignee } from "@/components/today/task";
 import { jpShort } from "@/components/today/dates";
 import { recentlyPassed } from "@/lib/started-late";
 import { beforeLead, prenatalBookDays, prenatalBookWhen } from "@/lib/start-preview";
+import { currentLang, t } from "@/lib/i18n";
+import { msWords } from "@/lib/i18n/milestone-words";
 
 /** partner は「一緒に育てる人は？」（yes＝いる・no＝いない・skip＝今は答えない）。前の版で残した答えには無い（＝答えていない扱い） */
 type Answers = { born: boolean; date: string; prefecture: string; city: string; me: "mother" | "partner"; partner?: "yes" | "no" | "skip" };
@@ -49,6 +51,7 @@ function store(a: Answers | null) {
  * 家族の顔ぶれ（あなたが先頭）。一緒に育てる人が「いない」とはっきり答えた時だけ、相手を足さない（答えていない・今は答えない時は足す）。
  * 相手の名前は仮の役割の言葉（あなたが母なら「パートナー」、パートナーなら「ママ」）。
  */
+// 訳さない: 続柄の値と、保存する仮の名前（役割の言葉。lib/blanks.ts の isRoleWord が日本語で見分ける。出す時に訳す）
 function membersOf(a: Answers, myName: string): Family["members"] {
   const me = { id: "m0", name: myName, role: a.me === "mother" ? ("母" as const) : ("パートナー" as const) };
   if (a.partner === "no") return [me];
@@ -63,6 +66,7 @@ function familyOf(a: Answers): Family {
     prefecture: a.prefecture.trim(),
     dueDate: a.date,
     ...(a.born ? { birthDate: a.date } : {}),
+    // 訳さない: 予告の手帳の中だけの呼び名（画面の「あなた」は whoLabel が訳して出す）
     members: membersOf(a, "あなた"),
   };
 }
@@ -94,9 +98,11 @@ export default function Start() {
     setBusy(true);
     setMsg(null);
     try {
-      const r = await api<{ householdId: string }>("/api/account/household", { body: { name: "わが家", me: ans.me } });
+      // 世帯の名前は、画面の言葉で（「わが家」「我家」「Our family」。設定で直せる）
+      const r = await api<{ householdId: string }>("/api/account/household", { body: { name: t("わが家"), me: ans.me } });
       const f = familyOf(ans);
       // 残す家族の顔ぶれは、手帳の見え方（familyOf）と同じ。あなたの名前は仮の「ママ」「パートナー」（設定で直せる）
+      // 訳さない: 保存する仮の名前（役割の言葉）
       await api("/api/account/profile", {
         body: { familyId: r.householdId, dueDate: f.dueDate, birthDate: f.birthDate ?? "", city: f.city, prefecture: f.prefecture, members: membersOf(ans, ans.me === "mother" ? "ママ" : "パートナー") },
       });
@@ -105,7 +111,7 @@ export default function Start() {
       setFamilyId(r.householdId);
       window.location.href = `/account/consent?familyId=${encodeURIComponent(r.householdId)}&next=/`;
     } catch (e) {
-      setMsg({ ok: false, text: `まだ残せていません（${(e as Error).message}）` });
+      setMsg({ ok: false, text: t("まだ残せていません（{reason}）", { reason: (e as Error).message }) });
       setBusy(false);
     }
   };
@@ -114,11 +120,11 @@ export default function Start() {
     return (
       <main className="flex flex-col gap-5 px-4 pt-6 pb-10">
         <Link href="/" className="inline-flex min-h-11 items-center self-start text-base text-muted">
-          ‹ 戻る
+          {t("‹ 戻る")}
         </Link>
         <header className="flex flex-col gap-2">
-          <h1 className="font-display text-2xl font-bold">自分の手帳を始める</h1>
-          <p className="text-base text-muted">3つだけ。答えると、あなたの手帳がその場で動きます。名前やメールは、残す時に。</p>
+          <h1 className="font-display text-2xl font-bold">{t("自分の手帳を始める")}</h1>
+          <p className="text-base text-muted">{t("3つだけ。答えると、あなたの手帳がその場で動きます。名前やメールは、残す時に。")}</p>
         </header>
         <form
           className="flex flex-col gap-5"
@@ -130,36 +136,36 @@ export default function Start() {
           }}
         >
           <fieldset className="flex flex-col gap-2">
-            <legend className="pb-2 font-display text-lg font-bold">1. いつ？</legend>
+            <legend className="pb-2 font-display text-lg font-bold">{t("1. いつ？")}</legend>
             <div className="flex flex-wrap gap-2">
               {[
                 { v: false, l: "おなかにいる" },
                 { v: true, l: "もう生まれた" },
               ].map((o) => (
                 <button key={o.l} type="button" aria-pressed={a.born === o.v} onClick={() => setA({ ...a, born: o.v })} className={`min-h-11 rounded-full px-5 text-base font-semibold ${a.born === o.v ? "bg-rose text-white" : "bg-rose-soft text-rose"}`}>
-                  {o.l}
+                  {t(o.l)}
                 </button>
               ))}
             </div>
             <label className="flex flex-col gap-1 text-base">
-              {a.born ? "生まれた日" : "出産予定日"}
+              {a.born ? t("生まれた日") : t("出産予定日")}
               <input id="start-date" type="date" required className={field} value={a.date} onChange={(e) => setA({ ...a, date: e.target.value })} />
             </label>
-            {tooFar && <p className="text-sm text-alert">{a.born ? "生まれてから2歳までの日を入れてください" : "今日から先、およそ10か月までの日を入れてください"}</p>}
+            {tooFar && <p className="text-sm text-alert">{a.born ? t("生まれてから2歳までの日を入れてください") : t("今日から先、およそ10か月までの日を入れてください")}</p>}
           </fieldset>
           <fieldset className="flex flex-col gap-2">
-            <legend className="pb-2 font-display text-lg font-bold">2. 住んでいる町</legend>
-            <p className="text-sm text-muted">手続きの窓口と、町ごとの制度を出すのに使います</p>
+            <legend className="pb-2 font-display text-lg font-bold">{t("2. 住んでいる町")}</legend>
+            <p className="text-sm text-muted">{t("手続きの窓口と、町ごとの制度を出すのに使います")}</p>
             <div className="flex flex-col gap-2">
-              <input id="start-pref" aria-label="都道府県" className={field} value={a.prefecture} onChange={(e) => setA({ ...a, prefecture: e.target.value })} placeholder="都道府県（例: 埼玉県）" />
-              <input id="start-city" aria-label="市区町村" required className={field} value={a.city} onChange={(e) => setA({ ...a, city: e.target.value })} placeholder="市区町村（例: さいたま市）" />
+              <input id="start-pref" aria-label={t("都道府県")} className={field} value={a.prefecture} onChange={(e) => setA({ ...a, prefecture: e.target.value })} placeholder={t("都道府県（例: 埼玉県）")} />
+              <input id="start-city" aria-label={t("市区町村")} required className={field} value={a.city} onChange={(e) => setA({ ...a, city: e.target.value })} placeholder={t("市区町村（例: さいたま市）")} />
             </div>
           </fieldset>
           <fieldset className="flex flex-col gap-3">
-            <legend className="pb-2 font-display text-lg font-bold">3. あなたと家族</legend>
+            <legend className="pb-2 font-display text-lg font-bold">{t("3. あなたと家族")}</legend>
             <div role="group" aria-labelledby="start-me-q" className="flex flex-col gap-2">
               <p id="start-me-q" className="text-base">
-                あなたは
+                {t("あなたは")}
               </p>
               <div className="flex flex-wrap gap-2">
                 {(
@@ -169,14 +175,14 @@ export default function Start() {
                   ] as const
                 ).map(([v, l]) => (
                   <button key={v} type="button" aria-pressed={a.me === v} onClick={() => setA({ ...a, me: v })} className={`min-h-11 rounded-full px-5 text-base font-semibold ${a.me === v ? "bg-rose text-white" : "bg-rose-soft text-rose"}`}>
-                    {l}
+                    {t(l)}
                   </button>
                 ))}
               </div>
             </div>
             <div role="group" aria-labelledby="start-partner-q" aria-describedby="start-partner-why" className="flex flex-col gap-2">
               <p id="start-partner-q" className="text-base">
-                一緒に育てる人は？
+                {t("一緒に育てる人は？")}
               </p>
               <div className="flex flex-wrap gap-2">
                 {(
@@ -187,32 +193,47 @@ export default function Start() {
                   ] as const
                 ).map(([v, l]) => (
                   <button key={v} type="button" aria-pressed={a.partner === v} onClick={() => setA({ ...a, partner: v })} className={`min-h-11 rounded-full px-5 text-base font-semibold ${a.partner === v ? "bg-rose text-white" : "bg-rose-soft text-rose"}`}>
-                    {l}
+                    {t(l)}
                   </button>
                 ))}
               </div>
               <p id="start-partner-why" className="text-sm text-muted">
-                {a.me === "partner" ? "家族のやる事を、誰の番かに分けて出すのに使います。" : "「いない」の時は、ひとり親の家庭の手当・助成の手続きも並べます。"}
-                あとから設定で直せます。
+                {a.me === "partner"
+                  ? t("家族のやる事を、誰の番かに分けて出すのに使います。あとから設定で直せます。")
+                  : t("「いない」の時は、ひとり親の家庭の手当・助成の手続きも並べます。あとから設定で直せます。")}
               </p>
             </div>
           </fieldset>
           <div className="flex flex-col gap-1">
             <button disabled={!ready || tooFar} aria-describedby={a.me === "" || a.partner === "" ? "start-me-why" : undefined} className="min-h-12 rounded-full bg-rose font-display text-lg font-bold text-white disabled:opacity-50">
-              手帳を開く
+              {t("手帳を開く")}
             </button>
             {(a.me === "" || a.partner === "") && (
               <p id="start-me-why" className="text-center text-sm text-muted">
-                3. を選ぶと開きます
+                {t("3. を選ぶと開きます")}
               </p>
             )}
           </div>
-          <p className="text-sm text-muted">答えはこの端末の中だけに置きます。まだどこにも送りません。</p>
+          <p className="text-sm text-muted">{t("答えはこの端末の中だけに置きます。まだどこにも送りません。")}</p>
         </form>
       </main>
     );
 
   return <Preview a={a as Answers} today={today} busy={busy} msg={msg} onEdit={() => setStep("ask")} onKeep={() => (account ? void keep(a as Answers) : (window.location.href = "/login?next=" + encodeURIComponent("/start?save=1")))} canKeep={!PUBLIC && accountsEnabled} />;
+}
+
+/** 訳した文の {date} の所（withBold が切る印。字には出ない） */
+const SLOT = "\u0000";
+/** 訳した文の {date} の所だけを太字にする（言葉ごとに並びが違うので、訳した後の文を印で切る） */
+function withBold(text: string, bold: string) {
+  const [pre, post = ""] = text.split(SLOT);
+  return (
+    <>
+      {pre}
+      <b className="text-ink">{bold}</b>
+      {post}
+    </>
+  );
 }
 
 /** 記録なしの「いま」: 予定と町だけで、やる事の並びを出す */
@@ -235,51 +256,61 @@ function Preview({ a, today, busy, msg, onEdit, onKeep, canKeep }: { a: Answers;
   const top = plan.top;
   const next = [...plan.rest, ...plan.upcoming].slice(0, 3);
   // 今やる事が無い時期: 「いま」と同じ言い方で、次に動く事と日付を出す
-  const when = (t: (typeof next)[number]) =>
-    t.status === "まだ先" ? (t.awaitingBirth ? "生まれたら" : `${jpShort(t.startDate, today)}ごろから`) : t.deadlineDate ? `${jpShort(t.deadlineDate, today)}まで` : "";
+  const when = (task: (typeof next)[number]) =>
+    task.status === "まだ先"
+      ? task.awaitingBirth
+        ? t("生まれたら")
+        : t("{date}ごろから", { date: jpShort(task.startDate, today) })
+      : task.deadlineDate
+        ? t("{date}まで", { date: jpShort(task.deadlineDate, today) })
+        : "";
 
   return (
     <main className="flex flex-col gap-4 px-4 pt-4 pb-10">
       <div className="flex min-h-11 items-center justify-between gap-2 rounded-full bg-rose-soft px-4 text-sm">
         <span>
-          あなたの手帳 ・ <b>{clockShort(c)}</b>
+          {t("あなたの手帳")}
+          {currentLang() === "ja" ? " ・ " : " · "}
+          <b>{clockShort(c)}</b>
         </span>
         <button type="button" onClick={onEdit} className="min-h-11 font-semibold text-rose">
-          答えを直す
+          {t("答えを直す")}
         </button>
       </div>
       <h1 className="font-display text-xl font-bold">
-        {c.phase === "pregnant" ? `${c.pregnancyWeek}週 ・ 予定日まであと${toDue}日` : c.label}
+        {c.phase === "pregnant" ? t("{w}週 ・ 予定日まであと{n}日", { w: c.pregnancyWeek ?? 0, n: toDue }) : c.label}
         <span className="block text-base font-normal text-muted">
-          {family.prefecture}
-          {family.city}・2歳までにやる事 {plan.count}件を、手帳が時期ごとに出します
+          {t("{place}・2歳までにやる事 {n}件を、手帳が時期ごとに出します", { place: `${family.prefecture}${family.city}`, n: plan.count })}
         </span>
       </h1>
 
       {lead && (
         <section className="flex flex-col gap-2 rounded-3xl bg-rose-soft px-5 py-5">
-          <p className="text-sm font-semibold text-muted">始める前に目安が過ぎた事</p>
+          <p className="text-sm font-semibold text-muted">{t("始める前に目安が過ぎた事")}</p>
           <h2 className="font-display text-2xl leading-snug font-bold">
             {lead.head}
-            {lead.more && <span className="block text-base font-semibold text-muted">{lead.more}（下の一覧にあります）</span>}
+            {lead.more && <span className="block text-base font-semibold text-muted">{t("{more}（下の一覧にあります）", { more: lead.more })}</span>}
           </h2>
-          <p className="text-base">残すと、済んでいるかを手帳が聞きます。済んでいれば、押すだけで消えます。</p>
+          <p className="text-base">{t("残すと、済んでいるかを手帳が聞きます。済んでいれば、押すだけで消えます。")}</p>
         </section>
       )}
 
       {top && (
         <section className={`flex flex-col gap-2 rounded-3xl px-5 py-5 ${lead ? "border border-line bg-card" : "bg-rose-soft"}`}>
-          <p className="text-sm font-semibold text-muted">{plan.topIsSoon ? "もうすぐ" : "次にやる事"}</p>
-          <h2 className="font-display text-2xl leading-snug font-bold">{top.plain}</h2>
-          {top.hint && <p className="text-base">{top.hint}</p>}
+          <p className="text-sm font-semibold text-muted">{plan.topIsSoon ? t("もうすぐ") : t("次にやる事")}</p>
+          <h2 className="font-display text-2xl leading-snug font-bold">{msWords(top.plain)}</h2>
+          {top.hint && <p className="text-base">{msWords(top.hint)}</p>}
           {top.deadlineDate && (
             <p className="text-base text-muted">
-              {deadlineKindOf(top)} <b className="text-ink">{jpShort(top.deadlineDate, today)}</b>{deadlineKindOf(top) === "目安" ? " ごろまでに" : " まで"}
+              {withBold(
+                deadlineKindOf(top) === "目安" ? t("目安 {date} ごろまでに", { date: SLOT }) : t("期限 {date} まで", { date: SLOT }),
+                jpShort(top.deadlineDate, today),
+              )}
             </p>
           )}
           {top.needsLocal && (
             <p className="rounded-xl bg-card/70 px-3 py-2 text-base">
-              残すと、手帳が{family.city}の窓口・持ち物を調べて、書く事のメモまで作っておきます
+              {t("残すと、手帳が{city}の窓口・持ち物を調べて、書く事のメモまで作っておきます", { city: family.city })}
             </p>
           )}
         </section>
@@ -287,30 +318,28 @@ function Preview({ a, today, busy, msg, onEdit, onKeep, canKeep }: { a: Answers;
 
       {!top && !lead && next[0] && (
         <section className="flex flex-col gap-2 rounded-3xl border border-line bg-card px-5 py-5">
-          <h2 className="font-display text-2xl leading-snug font-bold">今週は、何もしなくて大丈夫</h2>
-          <p className="text-base">
-            次に動くのは「{next[0].plain}」（{when(next[0])}）。近づいたら、手帳が一番上に出します。
-          </p>
+          <h2 className="font-display text-2xl leading-snug font-bold">{t("今週は、何もしなくて大丈夫")}</h2>
+          <p className="text-base">{t("次に動くのは「{what}」（{when}）。近づいたら、手帳が一番上に出します。", { what: msWords(next[0].plain), when: when(next[0]) })}</p>
         </section>
       )}
 
       {(next.length > 0 || book !== null) && (
         <section className="flex flex-col gap-1">
-          <h2 className="text-sm font-semibold text-muted">このあと</h2>
+          <h2 className="text-sm font-semibold text-muted">{t("このあと")}</h2>
           <ul className="flex flex-col divide-y divide-line">
             {book !== null && (
               <li className="flex items-baseline justify-between gap-3 py-2 text-base">
                 <span className="min-w-0">
-                  次の妊婦健診を予約する
-                  <span className="block text-sm text-muted">国の目安では今ごろです。病院で日を言われていたら、そちらに合わせてください</span>
+                  {t("次の妊婦健診を予約する")}
+                  <span className="block text-sm text-muted">{t("国の目安では今ごろです。病院で日を言われていたら、そちらに合わせてください")}</span>
                 </span>
                 <span className="shrink-0 text-sm text-muted">{prenatalBookWhen(book)}</span>
               </li>
             )}
-            {next.map((t) => (
-              <li key={t.id} className="flex items-baseline justify-between gap-3 py-2 text-base">
-                <span className="min-w-0">{t.plain}</span>
-                <span className="shrink-0 text-sm text-muted">{when(t)}</span>
+            {next.map((task) => (
+              <li key={task.id} className="flex items-baseline justify-between gap-3 py-2 text-base">
+                <span className="min-w-0">{msWords(task.plain)}</span>
+                <span className="shrink-0 text-sm text-muted">{when(task)}</span>
               </li>
             ))}
           </ul>
@@ -319,12 +348,12 @@ function Preview({ a, today, busy, msg, onEdit, onKeep, canKeep }: { a: Answers;
 
       {plan.before.length > 0 && (
         <section className="flex flex-col gap-1">
-          <h2 className="text-sm font-semibold text-muted">始める前に目安が過ぎた事（残すと、済んでいるかを聞きます）</h2>
+          <h2 className="text-sm font-semibold text-muted">{t("始める前に目安が過ぎた事（残すと、済んでいるかを聞きます）")}</h2>
           <ul className="flex flex-col divide-y divide-line">
-            {plan.before.map((t) => (
-              <li key={t.id} className="flex items-baseline justify-between gap-3 py-2 text-base">
-                <span className="min-w-0">{t.plain}</span>
-                <span className="shrink-0 text-sm text-muted">目安 {jpShort(t.deadlineDate!, today)}</span>
+            {plan.before.map((task) => (
+              <li key={task.id} className="flex items-baseline justify-between gap-3 py-2 text-base">
+                <span className="min-w-0">{msWords(task.plain)}</span>
+                <span className="shrink-0 text-sm text-muted">{t("目安 {date}", { date: jpShort(task.deadlineDate!, today) })}</span>
               </li>
             ))}
           </ul>
@@ -332,17 +361,17 @@ function Preview({ a, today, busy, msg, onEdit, onKeep, canKeep }: { a: Answers;
       )}
 
       <section className="flex flex-col gap-3 rounded-3xl bg-sky-soft px-5 py-5">
-        <h2 className="font-display text-lg font-bold">この手帳を残しますか</h2>
-        <p className="text-base">メールのコードで入ると、済んだ印が残り、家族と分け合えて、話した事・撮った紙・写真が手帳に積み上がります。</p>
+        <h2 className="font-display text-lg font-bold">{t("この手帳を残しますか")}</h2>
+        <p className="text-base">{t("メールのコードで入ると、済んだ印が残り、家族と分け合えて、話した事・撮った紙・写真が手帳に積み上がります。")}</p>
         {canKeep ? (
           <Btn onClick={onKeep} disabled={busy} full>
-            {busy ? "手帳を作っています…" : "残す（メールで入る）"}
+            {busy ? t("手帳を作っています…") : t("残す（メールで入る）")}
           </Btn>
         ) : (
-          <p className="rounded-xl bg-card/70 px-3 py-2 text-base">この体験版では、本物の家族の手帳はまだ残せません。見本の家族の手帳で、記録がたまった後の姿を触れます。</p>
+          <p className="rounded-xl bg-card/70 px-3 py-2 text-base">{t("この体験版では、本物の家族の手帳はまだ残せません。見本の家族の手帳で、記録がたまった後の姿を触れます。")}</p>
         )}
         <Btn href="/" kind="secondary" full>
-          見本の家族の手帳を見る
+          {t("見本の家族の手帳を見る")}
         </Btn>
       </section>
       <Msg msg={msg} />

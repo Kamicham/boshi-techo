@@ -8,6 +8,7 @@
 // 端末の控え（一覧・使う人）はアカウントごとの名前で持ち、ログアウトで消す。ログインしていない時は今までの名前（boshi.families・boshi.me）
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { DEMO_FAMILY, type Family, type Member } from "@/lib/demo-family";
+import { t } from "@/lib/i18n";
 import { Btn } from "./ui";
 import { demoFirstDay } from "./today/stages";
 
@@ -361,9 +362,10 @@ export async function api<T>(url: string, init?: { method?: string; body?: unkno
     });
   } catch {
     // Safari は「Load failed」、Chrome は「Failed to fetch」と英語で出るので言い換える
-    throw new ApiError("通信できませんでした。電波を確かめて、もう一度押してください", 0);
+    throw new ApiError(t("通信できませんでした。電波を確かめて、もう一度押してください"), 0);
   }
   const j = (await r.json().catch(() => ({}))) as T & { error?: string };
-  if (!r.ok) throw new ApiError(j.error ?? `うまくいきませんでした（${r.status}）`, r.status);
+  // サーバの断り（j.error）は、route() が頼みの言葉で訳して返す
+  if (!r.ok) throw new ApiError(j.error ?? t("うまくいきませんでした（{status}）", { status: r.status }), r.status);
   return j;
 }

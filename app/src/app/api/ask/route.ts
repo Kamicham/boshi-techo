@@ -9,6 +9,7 @@ import { ask, clearChat, getChat, getPending, saveChat, setPending } from "@/lib
 import type { AskEvent, ChatTurn } from "@/lib/ask/types";
 import { sendingAs } from "@/lib/claude";
 import { HttpError } from "@/lib/http-error";
+import { langOf } from "@/lib/i18n/dicts";
 import { getKeep } from "@/lib/keep";
 import { familyFor, WRITE_AND_SEND } from "../_lib/household";
 import { todayOf } from "../capture/shared";
@@ -63,7 +64,7 @@ export const POST = route(async (req: Request) => {
       };
       try {
         // 送る前の関所（本物の世帯は claude_us の同意）を効かせるため、この世帯の記録として送る
-        const r = await sendingAs(h.who, () => ask({ family, today, text, who, path, history, onStatus: (s) => send({ t: "status", text: s }) }));
+        const r = await sendingAs(h.who, () => ask({ family, today, text, who, path, history, lang: langOf(req), onStatus: (s) => send({ t: "status", text: s }) }));
         saveChat(family.id, [...history, mine, r.turn]);
         send({ t: "done", turn: r.turn });
       } catch (e) {

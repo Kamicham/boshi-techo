@@ -3,6 +3,8 @@
 // ② 予約がまだの妊婦健診の目安が7日以内なら「次の妊婦健診を予約する」の1行（「いま」＝components/Techo.tsx と同じ決まり）。
 // 体の判断はしない。病院が言った日が正で、ここは国の標準の目安だけ（lib/prenatal.ts）。
 import { jpShort } from "../components/today/dates";
+import { t } from "./i18n";
+import { msWords } from "./i18n/milestone-words";
 import { diffDays } from "./clock";
 import { prenatalState } from "./prenatal";
 
@@ -22,8 +24,8 @@ export function beforeLead(before: { plain: string; deadlineDate?: string }[], t
   if (dated.length === 0) return null;
   const first = [...dated].sort((x, y) => (x.deadlineDate < y.deadlineDate ? -1 : x.deadlineDate > y.deadlineDate ? 1 : 0))[0];
   return {
-    head: `まず、${first.plain}（目安 ${jpShort(first.deadlineDate, today)} を過ぎています。今からでもできます）`,
-    more: dated.length > 1 ? `ほか${dated.length - 1}件` : null,
+    head: t("まず、{what}（目安 {date} を過ぎています。今からでもできます）", { what: msWords(first.plain), date: jpShort(first.deadlineDate, today) }),
+    more: dated.length > 1 ? t("ほか{n}件", { n: dated.length - 1 }) : null,
   };
 }
 
@@ -41,5 +43,5 @@ export function prenatalBookDays(f: { dueDate: string; birthDate?: string }, tod
 
 /** 「今日ごろ」「あと◯日ごろ」 */
 export function prenatalBookWhen(days: number): string {
-  return days === 0 ? "今日ごろ" : `あと${days}日ごろ`;
+  return days === 0 ? t("今日ごろ") : t("あと{n}日ごろ", { n: days });
 }
