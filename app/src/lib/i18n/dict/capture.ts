@@ -355,4 +355,16 @@ export default {
   "体温 {n}℃": { zh: "体温 {n}℃", en: "Temperature {n}°C" },
   "{time}から": { zh: "{time}开始", en: "From {time}" },
   "期限。出どころ: {source}": { zh: "期限。来源：{source}", en: "Deadline. Source: {source}" },
+  // 気がかりの本文の終わりに付く決まりの文（components/capture/record-text.ts の DETAIL_TAILS。安全の文なので言い換えない）
+  "その日のうちに産院（子どもの事ならかかりつけ・迷ったら #8000）へ電話": {
+    zh: "当天打电话给产科医院（孩子的事打给常看的医生，拿不准时拨打 #8000）",
+    en: "Call your maternity clinic the same day (for your child, their regular doctor; if you're unsure, #8000)",
+  },
+  "その日のうちにかかりつけへ電話。迷ったら #8000": {
+    zh: "当天打电话给孩子常看的医生。拿不准时拨打 #8000",
+    en: "Call your child's regular doctor the same day. If you're unsure, call #8000",
+  },
+  その日のうちに産院へ電話: { zh: "当天打电话给产科医院", en: "Call your maternity clinic the same day" },
+  次の健診で先生に聞く: { zh: "下次检查时问医生", en: "Ask the doctor at the next checkup" },
+  次の健診で聞く: { zh: "下次检查时问", en: "Ask at the next checkup" },
 } satisfies Entries;

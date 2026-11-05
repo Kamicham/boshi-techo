@@ -60,6 +60,40 @@ describe("記録の題と本文の決まった形", () => {
     });
   });
 
+  it("気がかりの本文の終わりの決まりの文: 中文・English は文だけ訳し、前の本文（家族の言葉）はそのまま。日本語は1字も変えない", () => {
+    const cases = [
+      "お腹が張る\n次の健診で聞く",
+      "夜に胎動が少ない気がする、次の健診で先生に聞く。",
+      "出血があった\nその日のうちに産院（子どもの事ならかかりつけ・迷ったら #8000）へ電話",
+      "熱が39度ある。その日のうちにかかりつけへ電話。迷ったら #8000",
+      "次の健診で聞く",
+    ];
+    for (const c of cases) expect(recordDetailShown(c), c).toBe(c);
+    inLang("zh", () => {
+      expect(recordDetailShown(cases[0])).toBe("お腹が張る\n下次检查时问");
+      expect(recordDetailShown(cases[1])).toBe("夜に胎動が少ない気がする\n下次检查时问医生");
+      expect(recordDetailShown(cases[2])).toBe("出血があった\n当天打电话给产科医院（孩子的事打给常看的医生，拿不准时拨打 #8000）");
+      expect(recordDetailShown(cases[3])).toBe("熱が39度ある\n当天打电话给孩子常看的医生。拿不准时拨打 #8000");
+      expect(recordDetailShown(cases[4])).toBe("下次检查时问");
+    });
+    inLang("en", () => {
+      expect(recordDetailShown(cases[0])).toBe("お腹が張る\nAsk at the next checkup");
+      expect(recordDetailShown(cases[3])).toBe("熱が39度ある\nCall your child's regular doctor the same day. If you're unsure, call #8000");
+      // 途中にあるだけの言葉（終わりでない）は訳さない
+      expect(recordDetailShown("次の健診で聞く事を書いた")).toBe("次の健診で聞く事を書いた");
+    });
+  });
+
+  it("決まりの文は、Claude への頼みと見本の答えが書く文と同じ（片方を変えたら、ここと辞書も直す）", () => {
+    const capture = read("lib/capture.ts");
+    const samples = read("lib/samples.ts");
+    expect(capture).toContain("「次の健診で聞く」");
+    expect(capture).toContain("「その日のうちに産院へ電話」");
+    expect(capture).toContain("「その日のうちにかかりつけへ電話。迷ったら #8000」");
+    expect(samples).toContain("その日のうちに産院（子どもの事ならかかりつけ・迷ったら #8000）へ電話");
+    expect(samples).toContain("\\n次の健診で聞く");
+  });
+
   it("記録の一覧（Timeline）は、題・本文・カレンダーへ渡す所の3つで通す", () => {
     const src = read("components/capture/Timeline.tsx");
     expect(src.match(/recordTitleShown\(r\.data\.title\)/g)).toHaveLength(2);
