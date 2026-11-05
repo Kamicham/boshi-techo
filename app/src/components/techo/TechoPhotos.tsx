@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { KeepSheet } from "@/components/album/KeepSheet";
 import { useMedia } from "@/components/album/useMedia";
+import { t } from "@/lib/i18n";
 
 export function PhotoSlot({ techoIds, compact }: { techoIds: string[]; compact?: boolean }) {
   const { media, unavailable, loading, canWrite } = useMedia();
@@ -21,7 +22,7 @@ export function PhotoSlot({ techoIds, compact }: { techoIds: string[]; compact?:
   return (
     <div className="flex shrink-0 flex-col items-center gap-1">
       {first ? (
-        <Link href={`/album?photo=${encodeURIComponent(first.id)}`} className={`relative block ${size} overflow-hidden rounded-lg border border-line`} aria-label="この日の写真を見る">
+        <Link href={`/album?photo=${encodeURIComponent(first.id)}`} className={`relative block ${size} overflow-hidden rounded-lg border border-line`} aria-label={t("この日の写真を見る")}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={first.urls.thumb} alt="" loading="lazy" className="h-full w-full object-cover" />
           {mine.length > 1 && <span className="absolute right-0 bottom-0 rounded-tl-md bg-ink/70 px-1 text-xs text-white">+{mine.length - 1}</span>}
@@ -33,7 +34,7 @@ export function PhotoSlot({ techoIds, compact }: { techoIds: string[]; compact?:
           className={`flex ${compact ? "min-h-11 px-2 text-xs" : `${size} flex-col text-xs`} items-center justify-center gap-0.5 rounded-lg border border-dashed border-ok/60 text-ok`}
         >
           <span aria-hidden>📷</span>
-          <span>{compact ? "写真" : "この日の写真"}</span>
+          <span>{compact ? t("写真") : t("この日の写真")}</span>
         </button>
       ) : null}
       <input

@@ -10,6 +10,7 @@
 import { useEffect, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn, Notice, plainError, Why } from "@/components/ui";
+import { t } from "@/lib/i18n";
 import { STOOL_ASIDE, STOOL_CHECKS, STOOL_COLORS, STOOL_NOTE_MORE, STOOL_RULE } from "@/lib/techo";
 import { RemoveRow } from "./EntryCard";
 import { jpDay } from "./labels";
@@ -46,7 +47,7 @@ export function StoolCard({
     setError("");
     try {
       await onAdd(picked, date);
-      setSaved(`${jpDay(date)}に ${picked}番 を入れました`);
+      setSaved(t("{date}に {n}番 を入れました", { date: jpDay(date), n: picked }));
       setSavedNo(picked);
       setPicked(null);
     } catch (e) {
@@ -58,15 +59,15 @@ export function StoolCard({
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-base">明るいところで、紙の手帳の便色カードと見比べて、近い番号を押してください。</p>
-      <ul className="grid grid-cols-4 gap-2" aria-label="便の色の番号">
+      <p className="text-base">{t("明るいところで、紙の手帳の便色カードと見比べて、近い番号を押してください。")}</p>
+      <ul className="grid grid-cols-4 gap-2" aria-label={t("便の色の番号")}>
         {STOOL_COLORS.map((c) => (
           <li key={c.no}>
             <button
               type="button"
               onClick={() => setPicked(c.no)}
               aria-pressed={picked === c.no}
-              aria-label={`${c.no}番 ${c.name}`}
+              aria-label={t("{n}番 {name}", { n: c.no, name: t(c.name) })}
               className={`flex min-h-16 w-full flex-col items-center justify-center gap-1 rounded-xl border-2 p-1 ${picked === c.no ? "border-rose" : "border-line"}`}
             >
               <span className="h-8 w-full rounded-md border border-ink/10" style={{ background: c.sample }} aria-hidden />
@@ -78,39 +79,40 @@ export function StoolCard({
       {picked != null && (
         <div className="flex flex-col gap-2 rounded-xl border border-line p-3">
           <p className="text-base">
-            {picked}番（{STOOL_COLORS[picked - 1].name}）
+            {t("{n}番（{name}）", { n: picked, name: t(STOOL_COLORS[picked - 1].name) })}
           </p>
           <label className="flex flex-col gap-1 text-sm text-muted">
-            見た日
+            {t("見た日")}
             <input type="date" value={date} max={today} onChange={(e) => setDate(e.target.value)} className="min-h-11 rounded-lg border border-line bg-card px-3 text-base" />
           </label>
           <div className="flex gap-2">
             <Btn onClick={() => void save()} disabled={busy}>
-              {busy ? "入れています…" : "記録する"}
+              {busy ? t("入れています…") : t("記録する")}
             </Btn>
             <Btn kind="quiet" onClick={() => setPicked(null)}>
-              やめる
+              {t("やめる")}
             </Btn>
           </div>
         </div>
       )}
       {saved && <p className="text-sm text-muted" aria-live="polite">{saved}</p>}
-      {error && <Notice title="記録に届きませんでした" safe="選んだ番号はまだ入っていません。もう一度「記録する」を押してください。" detail={error} />}
+      {error && <Notice title={t("記録に届きませんでした")} safe={t("選んだ番号はまだ入っていません。もう一度「記録する」を押してください。")} detail={error} />}
       {/* 手帳の言葉（便色カードの頁）は消さない。ふだんは情報、1〜3番の時だけ赤い橋。#8000 の一言は引用の外 */}
       {urgent ? (
         <div role="alert" className="flex flex-col gap-3 rounded-xl border-l-4 border-alert bg-alert/10 px-3 py-3">
           <StoolRule alert />
           <div className="flex flex-col gap-2">
-            <p className="text-base">{STOOL_ASIDE}</p>
+            <p className="text-base">{t(STOOL_ASIDE)}</p>
             <a href="tel:%238000" className="inline-flex min-h-12 items-center justify-center rounded-full bg-alert px-5 text-base font-semibold text-white">
-              #8000 に電話（こども医療でんわ相談）
+              {t("#8000 に電話（こども医療でんわ相談）")}
             </a>
             {clinic?.tel ? (
               <a href={`tel:${clinic.tel}`} className="inline-flex min-h-12 items-center justify-center rounded-full bg-alert px-5 text-base font-semibold text-white">
-                かかりつけ{clinic.name ? `（${clinic.name}）` : ""}に電話
+                {/* 病院の名前は家族が設定に書いたまま */}
+                {clinic.name ? t("かかりつけ（{name}）に電話", { name: clinic.name }) : t("かかりつけに電話")}
               </a>
             ) : (
-              <p className="text-base">かかりつけの小児科へ電話してください（電話番号は設定の「通う病院」に入れておくと、ここから押せます）。</p>
+              <p className="text-base">{t("かかりつけの小児科へ電話してください（電話番号は設定の「通う病院」に入れておくと、ここから押せます）。")}</p>
             )}
           </div>
         </div>
@@ -118,9 +120,9 @@ export function StoolCard({
         <div className="flex flex-col gap-3 rounded-xl bg-sky-soft px-3 py-3">
           <StoolRule alert={false} />
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-base">{STOOL_ASIDE}</p>
+            <p className="text-base">{t(STOOL_ASIDE)}</p>
             <Btn href="tel:%238000" kind="secondary">
-              #8000 に電話
+              {t("#8000 に電話")}
             </Btn>
           </div>
         </div>
@@ -130,7 +132,7 @@ export function StoolCard({
           {done.map((i) => (
             <li key={i.id} className="flex flex-col">
               <span>
-                {jpDay(i.date)}　{String(i.values.colorNo)}番
+                {jpDay(i.date)}　{t("{n}番", { n: String(i.values.colorNo) })}
               </span>
               {onRemove && (
                 <RemoveRow
@@ -146,9 +148,9 @@ export function StoolCard({
         </ul>
       )}
       <Why>
-        <p>画面の色は見本で、紙に印刷された色の近似です。スマホの明るさで色が変わるので、必ず紙の手帳のカードで見比べてください。</p>
-        <p>このアプリは色を見て判断しません。選んだ番号を、家族の記録として残すだけです。</p>
-        <p>紙の手帳には、生後2週・1か月・1〜4か月ごろに見た番号を書く欄があります（母子健康手帳の便色カード）。</p>
+        <p>{t("画面の色は見本で、紙に印刷された色の近似です。スマホの明るさで色が変わるので、必ず紙の手帳のカードで見比べてください。")}</p>
+        <p>{t("このアプリは色を見て判断しません。選んだ番号を、家族の記録として残すだけです。")}</p>
+        <p>{t("紙の手帳には、生後2週・1か月・1〜4か月ごろに見た番号を書く欄があります（母子健康手帳の便色カード）。")}</p>
       </Why>
     </div>
   );
@@ -161,17 +163,17 @@ export function StoolCard({
 function StoolRule({ alert }: { alert: boolean }) {
   return (
     <figure className="flex flex-col gap-2">
-      <figcaption className="text-sm text-muted">母子手帳の言葉（便色カードの頁）</figcaption>
+      <figcaption className="text-sm text-muted">{t("母子手帳の言葉（便色カードの頁）")}</figcaption>
       <blockquote className="flex flex-col gap-2">
         <ul className="grid grid-cols-2 gap-2">
           {STOOL_CHECKS.map((c) => (
             <li key={c} className={`rounded-lg border bg-card px-2 py-1.5 text-base ${alert ? "border-alert/40" : "border-line"}`}>
-              {c}
+              {t(c)}
             </li>
           ))}
         </ul>
-        <p className={`text-base font-semibold ${alert ? "text-alert" : ""}`}>{STOOL_RULE}</p>
-        <p className="text-base">{STOOL_NOTE_MORE}</p>
+        <p className={`text-base font-semibold ${alert ? "text-alert" : ""}`}>{t(STOOL_RULE)}</p>
+        <p className="text-base">{t(STOOL_NOTE_MORE)}</p>
       </blockquote>
     </figure>
   );

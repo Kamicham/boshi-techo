@@ -2,14 +2,26 @@
 // 撮った・話した記録は pending:true の候補で入り、家族の「OK」（confirm）で確定する。
 import { body, route } from "@/lib/api";
 import { HttpError } from "@/lib/family";
+import { readerEntry, recordViewerOf } from "@/lib/mother-records";
 import { familyFor } from "../_lib/household";
 import { addTecho, confirmTecho, listTecho, patchTecho, removeTecho } from "@/lib/techo-store";
 import { todayOf } from "../capture/shared";
 
 export const GET = route(async (req: Request) => {
   const q = new URL(req.url).searchParams;
-  const { family } = await familyFor(req, q.get("familyId"), "record:read");
-  return { techo: listTecho(family.id, { family, today: todayOf(q.get("today")) }) };
+  const h = await familyFor(req, q.get("familyId"), "record:read");
+  const { family } = h;
+  const techo = listTecho(family.id, { family, today: todayOf(q.get("today")) });
+  if (recordViewerOf(h) !== "reader") return { techo };
+  // 読むだけの人（祖父母など・member）には、ママの記録と、まだ家族が OK していない候補を渡さない（lib/mother-records.ts。
+  // 手帳のからだの記録の図もこの一覧から描くので、ママの体の図も出ない。作り手の決め 2026-11-05）
+  return {
+    techo: techo.flatMap((d) => {
+      if (d.data.pending) return [];
+      const data = readerEntry(d.data);
+      return data ? [{ ...d, data }] : [];
+    }),
+  };
 });
 
 type Post =

@@ -346,6 +346,88 @@ describe("アカウントの画面の API", () => {
     expect(JSON.parse(m.get("写真と録音/一覧.json")!.toString())).toHaveLength(4);
   });
 
+  it("読むだけの人（祖父母）の手帳の一覧と書き出しに、ママの記録は出ない（代理の印でママが見えていても。子の手帳の記録と子の写真だけ）", async () => {
+    const T = await import("../techo/route");
+    const E = await import("../export/route");
+    const H = await import("./household/route");
+    const A = await import("@/lib/access");
+    const M = await import("@/lib/media");
+    const { addTecho } = await import("@/lib/techo-store");
+    const today = "2027-06-01";
+    // 作った記録（値は見本）。ママの頁・家で測った物・妊娠中の RS・お産のしかたと、子の記録
+    const add = await json<{ techo: unknown[] }>(
+      T.POST(
+        rq("/api/techo", mom, "POST", {
+          familyId: hid,
+          today,
+          action: "add",
+          entries: [
+            { page: "pregnancy-checkup", date: "2026-12-01", title: "妊婦健診", values: { weightKg: 55.2, bpHigh: 112 } },
+            { page: "home", date: "2026-12-05", title: "家で測った", values: { weightKg: 56.4, tempC: 36.7 } },
+            { page: "vaccine", date: "2026-12-20", title: "RS", values: { vaccine: "RSウイルス", dose: "妊娠30週2日" } },
+            { page: "mother-health", date: "2026-11-01", title: "妊婦の健康状態", values: { allergy: "アレルギーの字" } },
+            { page: "birth", date: "2027-02-25", title: "出産", values: { weightG: 3010, heightCm: 49, method: "お産のしかたの字" } },
+            { page: "growth", date: "2027-03-25", title: "1か月", values: { weightKg: 4.3 } },
+            { page: "vaccine", date: "2027-04-25", title: "ヒブ", values: { vaccine: "ヒブ", dose: "1回目" } },
+          ],
+        }),
+      ),
+    );
+    expect(add.status).toBe(200);
+    expect(add.body.techo).toHaveLength(7);
+    // まだ OK していない候補（撮った直後）
+    addTecho(hid, [{ page: "growth", date: "2027-05-01", title: "候補", values: { weightKg: 6.1 } }], { today, source: "photo", pending: true });
+
+    type Item = { data: { page: string; values: Record<string, unknown>; pending?: boolean } };
+    const momList = await json<{ techo: Item[] }>(T.GET(rq(`/api/techo?familyId=${hid}&today=${today}`, mom)));
+    expect(momList.body.techo.map((d) => d.data.page).sort()).toEqual(["birth", "growth", "growth", "home", "mother-health", "pregnancy-checkup", "vaccine", "vaccine"]);
+    const gList = await json<{ techo: Item[] }>(T.GET(rq(`/api/techo?familyId=${hid}&today=${today}`, grandma)));
+    expect(gList.status).toBe(200);
+    expect(gList.body.techo.map((d) => d.data.page).sort()).toEqual(["birth", "growth", "vaccine"]);
+    expect(gList.body.techo.find((d) => d.data.page === "vaccine")!.data.values.vaccine).toBe("ヒブ");
+    const gJson = JSON.stringify(gList.body);
+    for (const bad of ["55.2", "56.4", "36.7", "妊娠30週", "アレルギーの字", "お産のしかたの字", "6.1"]) expect(gJson, bad).not.toContain(bad);
+
+    // 写真: 子の写真・ママの写真・だれの物か決まっていない写真（作ったバイト列だけ）
+    const ctx = await A.withHousehold(rq(`/api/media?familyId=${hid}`, mom), hid, "media:write");
+    const jpegOf = (n: number) => Buffer.from([0xff, 0xd8, 0xff, 0xc0, 0, 17, 8, 0, 30, 0, 40, 3, 1, 0x22, 0, 2, 0x11, 1, 3, 0x11, 1, 0xff, 0xda, 0, 8, 1, 1, 0, 0, 0x3f, 0, 0x56, n, 0xff, 0xd9]);
+    const d = await json<{ subjects: { id: string; kind: string }[] }>(H.GET(rq(`/api/account/household?familyId=${hid}`, mom)));
+    const child = d.body.subjects.find((s) => s.kind === "child")!;
+    const mother = d.body.subjects.find((s) => s.kind === "mother")!;
+    const childPhoto = (await M.saveUpload(ctx, { orig: jpegOf(1), view: jpegOf(1), thumb: jpegOf(1) })).media;
+    const momPhoto = (await M.saveUpload(ctx, { orig: jpegOf(2), view: jpegOf(2), thumb: jpegOf(2) })).media;
+    ctx.db.media.patch(childPhoto.id, { subjectId: child.id });
+    ctx.db.media.patch(momPhoto.id, { subjectId: mother.id });
+
+    const g = await E.GET(rq(`/api/export?familyId=${hid}`, grandma));
+    expect(g.status).toBe(200);
+    const gz = unzip(Buffer.from(await g.arrayBuffer()));
+    expect(gz.has("家族の設定.json")).toBe(false);
+    const gDocs = JSON.parse(gz.get("記録/records.json")!.toString()) as { type: string; data: { page: string; pending?: boolean } }[];
+    expect(new Set(gDocs.map((x) => x.type))).toEqual(new Set(["techo"]));
+    expect(gDocs.map((x) => x.data.page).sort()).toEqual(["birth", "growth", "vaccine"]);
+    const gAll = [...gz.entries()].filter(([k]) => !k.startsWith("写真と録音/") || k.endsWith(".json")).map(([, v]) => v.toString()).join("\n");
+    // 家族の設定（町・家族の形）も入らない。ママの名前は、子に結ばれた声の「話した人」には残る（お腹の赤ちゃんへの声は子の物）
+    for (const bad of ["55.2", "56.4", "36.7", "妊娠30週", "アレルギーの字", "お産のしかたの字", "上牧町"]) expect(gAll, bad).not.toContain(bad);
+    expect((JSON.parse(gz.get("本人.json")!.toString()) as { kind: string }[]).map((s) => s.kind)).toEqual(["child"]);
+    expect((JSON.parse(gz.get("同意の履歴.json")!.toString()) as { subjectId: string }[]).every((c) => c.subjectId === child.id)).toBe(true);
+    const gMedia = JSON.parse(gz.get("写真と録音/一覧.json")!.toString()) as { id: string; subjectId: string | null }[];
+    expect(gMedia.map((x) => x.id)).toContain(childPhoto.id);
+    expect(gMedia.map((x) => x.id)).not.toContain(momPhoto.id);
+    expect(gMedia.every((x) => x.subjectId === child.id)).toBe(true);
+    expect([...gz.keys()].filter((k) => k.startsWith("写真と録音/") && !k.endsWith(".json"))).toHaveLength(gMedia.length);
+    expect(gz.get("はじめに.txt")!.toString()).toContain("読むだけの方の書き出しには、子の手帳の記録と、子の写真・声だけ");
+
+    // 持ち主（ママ）の書き出しは今までどおり全部
+    const m = unzip(Buffer.from(await (await E.GET(rq(`/api/export?familyId=${hid}`, mom))).arrayBuffer()));
+    expect(m.has("家族の設定.json")).toBe(true);
+    const mDocs = JSON.parse(m.get("記録/records.json")!.toString()) as { type: string; data: { page?: string } }[];
+    expect(mDocs.filter((x) => x.type === "techo").map((x) => x.data.page)).toEqual(expect.arrayContaining(["pregnancy-checkup", "home", "mother-health"]));
+    const mIds = (JSON.parse(m.get("写真と録音/一覧.json")!.toString()) as { id: string }[]).map((x) => x.id);
+    expect(mIds).toEqual(expect.arrayContaining([childPhoto.id, momPhoto.id]));
+    expect(m.get("はじめに.txt")!.toString()).not.toContain("読むだけの方");
+  });
+
   it("祖父母は、自分の分でない本人を消せない。持ち主は「消す」と入れれば本人の分を消せる", async () => {
     const H = await import("./household/route");
     const S = await import("./subject/route");

@@ -124,11 +124,15 @@ export function GrowthLines({
         ))}
       </svg>
       <figcaption className="flex flex-wrap gap-x-3 text-sm text-muted">
-        {sex ? <span>{showMid ? t("帯: 同じ月齢の子の94%が入る幅（3〜97）　線: 50") : t("帯: 同じ月齢の子の94%が入る幅（3〜97）")}</span> : null}
+        {sex ? <span>{t("帯: 同じ月齢の子の94%が入る幅（3〜97）")}</span> : null}
+        {sex && showMid ? <span>{t("線: 50")}</span> : null}
         {shown.length > 1 ? (
           shown.map((l, i) => <span key={l.label || i}>{i === 0 ? `● ${l.label}` : t("■ {name}（点線）", { name: l.label })}</span>)
         ) : (
-          <span>{count === 0 ? t("点: わが家の記録（まだありません）") : t("点: わが家の記録")}</span>
+          <span>
+            {t("点: わが家の記録")}
+            {count === 0 ? t("（まだありません）") : ""}
+          </span>
         )}
       </figcaption>
     </figure>

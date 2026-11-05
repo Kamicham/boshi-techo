@@ -41,8 +41,6 @@ describe("頼れる所は畳んで出す（家族の声①への直し A）", ()
   it("<HelpPlaces …> はどれも compact か lead", () => {
     const uses = files(src).flatMap((f) => [...fs.readFileSync(f, "utf8").matchAll(/<HelpPlaces\b[^>]*>/g)].map((m) => ({ f: path.relative(src, f), tag: m[0] })));
     expect(uses.length).toBeGreaterThan(3);
-    // 手帳のタブの相談先は、手帳のタブの訳（同じファイル）を取り込んだ後に畳む（11/5 15:00 ごろ。済んだらこの一覧から外す）
-    const LATER = ["app/techo/page.tsx"];
-    expect(uses.filter((u) => !/\b(compact|lead)\b/.test(u.tag) && !LATER.includes(u.f))).toEqual([]);
+    expect(uses.filter((u) => !/\b(compact|lead)\b/.test(u.tag))).toEqual([]);
   });
 });

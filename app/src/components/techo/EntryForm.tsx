@@ -6,6 +6,7 @@ import { useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { techoPrefill } from "@/lib/techo-prefill";
 import { Btn } from "@/components/ui";
+import { t } from "@/lib/i18n";
 import type { TechoPageId } from "@/lib/techo";
 import { TECHO_FORMS, formValues } from "@/lib/techo-fields";
 import type { TechoItem, useTecho } from "./useTecho";
@@ -44,10 +45,10 @@ export function EntryForm({
     return (
       <div className="grid grid-cols-2 gap-2">
         <Btn kind="secondary" full onClick={() => void start()}>
-          打って入れる
+          {t("打って入れる")}
         </Btn>
         <Btn kind="secondary" full href="/capture">
-          話す・撮る
+          {t("話す・撮る")}
         </Btn>
       </div>
     );
@@ -59,7 +60,7 @@ export function EntryForm({
     if (!values) {
       const req = form.fields.find((f) => f.key === form.required);
       setError(
-        req ? `「${req.label}」を入れてください` : "どれか1つ入れてください",
+        req ? t("「{label}」を入れてください", { label: t(req.label) }) : t("どれか1つ入れてください"),
       );
       return;
     }
@@ -78,10 +79,10 @@ export function EntryForm({
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-line p-3">
       <p className="text-sm text-muted">
-        分かる欄だけで足ります。週数・医療機関など手帳が知っている所は入れてあります（違えば直してください）。
+        {t("分かる欄だけで足ります。週数・医療機関など手帳が知っている所は入れてあります（違えば直してください）。")}
       </p>
       <label className="flex flex-col gap-1 text-sm text-muted">
-        {form.dateLabel}
+        {t(form.dateLabel)}
         <input
           type="date"
           value={date}
@@ -93,16 +94,16 @@ export function EntryForm({
       {form.fields.map((f) => (
         <label key={f.key} className="flex flex-col gap-1 text-sm text-muted">
           <span>
-            {f.label}
-            {f.unit && `（${f.unit}）`}
-            {f.key === form.required && "（要る）"}
+            {t(f.label)}
+            {f.unit && (f.unit === "日" ? t("（日）") : t("（{x}）", { x: f.unit }))}
+            {f.key === form.required && t("（要る）")}
           </span>
           {f.long ? (
             <textarea
               value={raw[f.key] ?? ""}
               onChange={(e) => setRaw({ ...raw, [f.key]: e.target.value })}
               rows={3}
-              placeholder={f.hint}
+              placeholder={f.hint && t(f.hint)}
               className="w-full rounded-lg border border-line bg-card px-3 py-2 text-base"
             />
           ) : (
@@ -112,7 +113,7 @@ export function EntryForm({
               inputMode={
                 f.unit || f.key.startsWith("bp") ? "decimal" : undefined
               }
-              placeholder={f.hint}
+              placeholder={f.hint && t(f.hint)}
               className={field}
             />
           )}
@@ -121,10 +122,10 @@ export function EntryForm({
       {error && <p className="text-sm text-alert">{error}</p>}
       <div className="flex gap-2">
         <Btn onClick={() => void save()} disabled={busy}>
-          {busy ? "入れています…" : "入れる"}
+          {busy ? t("入れています…") : t("入れる")}
         </Btn>
         <Btn kind="quiet" onClick={() => setOpen(false)}>
-          やめる
+          {t("やめる")}
         </Btn>
       </div>
     </div>

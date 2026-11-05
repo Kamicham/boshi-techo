@@ -20,7 +20,7 @@ export default {
   // ── 体重の線 ──
   "体重の線。横は妊娠週、点は入れた体重（{n}件）": {
     zh: "体重折线图。横轴是妊娠周数，点是录入的体重（{n}条）",
-    en: "Weight line. Across: week of pregnancy. Dots: the weights entered ({n})",
+    en: "Weight line. Across: week of pregnancy. The points are the weights entered ({n})",
   },
   妊娠週: { zh: "妊娠周", en: "Week of pregnancy" },
   "出産の頃の目安 +{lo}〜{hi}kg": { zh: "到分娩时的参考 +{lo}～{hi}kg", en: "Guide by birth: +{lo}–{hi} kg" },
@@ -34,27 +34,11 @@ export default {
     en: "The line just connects the numbers entered. If anything concerns you, ask at your checkup.",
   },
 
-  // ── 発育曲線（GrowthLines・GrowthChart）──
-  "{label}の発育曲線（帯なし）。点は記録（{n}件）": { zh: "{label}的生长曲线（无参考带）。点是记录（{n}条）", en: "{label} growth curve (no band). Dots: records ({n})" },
-  "{label}の発育曲線。帯は国の調査の3から97パーセンタイル、線は50パーセンタイル。点は記録（{n}件）": {
-    zh: "{label}的生长曲线。带是国家调查的第3至第97百分位，线是第50百分位。点是记录（{n}条）",
-    en: "{label} growth curve. Band: 3rd to 97th percentile from the national survey. Line: 50th percentile. Dots: records ({n})",
-  },
-  "{label}の発育曲線。帯は国の調査の3から97パーセンタイル。点は記録（{n}件）": {
-    zh: "{label}的生长曲线。带是国家调查的第3至第97百分位。点是记录（{n}条）",
-    en: "{label} growth curve. Band: 3rd to 97th percentile from the national survey. Dots: records ({n})",
-  },
-  "修正月齢（か月）": { zh: "矫正月龄（月）", en: "Corrected age (months)" },
-  "生後（か月）": { zh: "出生后（月）", en: "Age (months)" },
-  "帯: 同じ月齢の子の94%が入る幅（3〜97）　線: 50": { zh: "带：同月龄孩子中94%所在的范围（3～97）；线：50", en: "Band: where 94% of children the same age fall (3rd–97th). Line: 50th" },
-  "帯: 同じ月齢の子の94%が入る幅（3〜97）": { zh: "带：同月龄孩子中94%所在的范围（3～97）", en: "Band: where 94% of children the same age fall (3rd–97th)" },
+  // ── 発育曲線（GrowthLines・GrowthChart）。ほかの字（帯の説明・軸・点の凡例・男の子・女の子）は techo.ts の鍵を使い、訳もそちらにそろえる ──
+  "{label}の発育曲線（帯なし）。点は記録（{n}件）": { zh: "{label}的发育曲线（无带状区域）。点是记录（{n}条）", en: "{label} growth curve (no band). The points are records ({n})" },
   "■ {name}（点線）": { zh: "■ {name}（虚线）", en: "■ {name} (dotted)" },
-  "点: わが家の記録（まだありません）": { zh: "点：我家的记录（还没有）", en: "Dots: our records (none yet)" },
-  "点: わが家の記録": { zh: "点：我家的记录", en: "Dots: our records" },
   /** 帯の男女がまだ決まっていない時、帯なしの図の下に添える（選ばせない） */
-  "帯を見る:": { zh: "查看参考带：", en: "Show band:" },
-  男の子: { zh: "男孩", en: "Boy" },
-  女の子: { zh: "女孩", en: "Girl" },
+  "帯を見る:": { zh: "查看带状区域：", en: "Show the band:" },
   /** 双子などの時、紙から写す数字がどの子の物か */
   どの子の数字か: { zh: "是哪个孩子的数字", en: "Which child" },
   どの子の数字かを選んでください: { zh: "请选择是哪个孩子的数字", en: "Choose which child these numbers are for" },

@@ -23,14 +23,16 @@ import { StoolCard } from "@/components/techo/StoolCard";
 import { useTecho, type TechoItem } from "@/components/techo/useTecho";
 import { VaccineList } from "@/components/techo/VaccineList";
 import { diffDays } from "@/lib/clock";
+import { listOf, t } from "@/lib/i18n";
+import { nameIn } from "@/lib/i18n/names";
 import { CONSULT_QUESTION, TECHO_PAGES, type TechoPageId } from "@/lib/techo";
 
 const PARTS: string[] = [...new Set(TECHO_PAGES.map((p) => p.part as string))];
 const partId = (part: string) => `part-${PARTS.indexOf(part)}`;
-/** 部の見せる名前（様式の「つなぐ」は、中身が相談先なのでそう呼ぶ） */
-const partLabel = (part: string) => (part === "つなぐ" ? "相談先" : part);
+/** 部の見せる名前（様式の「つなぐ」は、中身が相談先なのでそう呼ぶ）。部の名前は日本語のまま持ち、出す時に訳す */
+const partLabel = (part: string) => t(part === "つなぐ" ? "相談先" : part);
 
-/** 空の欄に出す「いつ・何を撮ると入るか」（紙の手帳のどの欄を、どの日に撮るか） */
+/** 空の欄に出す「いつ・何を撮ると入るか」（紙の手帳のどの欄を、どの日に撮るか。辞書の鍵のまま持ち、出す時に t()） */
 const WHEN: Partial<Record<TechoPageId, string>> = {
   "mother-health":
     "紙の手帳のこのページ（自分で書く欄）を撮る・話す・打つ、どれでも入ります",
@@ -81,7 +83,7 @@ function periodOf(
 export default function TechoPage() {
   const { family, today } = useFamily();
   const { items, loading, error, reload, confirm, add, remove } = useTecho();
-  const child = family.childName ?? "子ども";
+  const child = nameIn(family.childName) ?? t("子ども");
   const pending = items.filter((i) => i.pending);
   const byPage = (id: TechoPageId) =>
     items.filter((i) => i.page === id && !i.pending);
@@ -120,12 +122,12 @@ export default function TechoPage() {
   return (
     <main className="flex flex-col gap-5 px-4 pt-4">
       <header className="flex flex-col gap-2">
-        <h1 className="font-display text-2xl font-bold">手帳</h1>
+        <h1 className="font-display text-2xl font-bold">{t("手帳")}</h1>
         <p className="text-base">
-          紙の母子手帳の中身を、スマホにも写しておく所。健診の紙を撮る・話す・欄ごとに打つ、楽な方で入ります。
+          {t("紙の母子手帳の中身を、スマホにも写しておく所。健診の紙を撮る・話す・欄ごとに打つ、楽な方で入ります。")}
         </p>
-        <Btn href="/capture">話す・撮る・打つ</Btn>
-        <nav aria-label="手帳の部" className="-mx-4 overflow-x-auto px-4">
+        <Btn href="/capture">{t("話す・撮る・打つ")}</Btn>
+        <nav aria-label={t("手帳の部")} className="-mx-4 overflow-x-auto px-4">
           <ul className="flex gap-2 whitespace-nowrap">
             {shown.map((part) => (
               <li key={part}>
@@ -135,7 +137,7 @@ export default function TechoPage() {
                   className={`inline-flex min-h-11 items-center rounded-full border px-4 text-sm font-semibold ${part === period.part ? "border-rose bg-rose-soft text-rose" : "border-line bg-card"}`}
                 >
                   {partLabel(part)}
-                  {part === period.part && "（今）"}
+                  {part === period.part && t("（今）")}
                 </a>
               </li>
             ))}
@@ -145,7 +147,7 @@ export default function TechoPage() {
                   href="#later"
                   className="inline-flex min-h-11 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold"
                 >
-                  これから
+                  {t("これから")}
                 </a>
               </li>
             )}
@@ -154,7 +156,7 @@ export default function TechoPage() {
                 href="#book"
                 className="inline-flex min-h-11 items-center rounded-full border border-line bg-card px-4 text-sm font-semibold"
               >
-                一冊
+                {t("一冊")}
               </a>
             </li>
           </ul>
@@ -163,16 +165,16 @@ export default function TechoPage() {
 
       {error && (
         <Notice
-          title="手帳を開けませんでした"
-          safe="記録は消えていません。電波のよい所で、もう一度読んでください。"
+          title={t("手帳を開けませんでした")}
+          safe={t("記録は消えていません。電波のよい所で、もう一度読んでください。")}
           detail={error}
         >
           <Btn kind="secondary" onClick={() => void reload()}>
-            もう一度読む
+            {t("もう一度読む")}
           </Btn>
         </Notice>
       )}
-      {loading && <p className="text-base text-muted">手帳を開いています…</p>}
+      {loading && <p className="text-base text-muted">{t("手帳を開いています…")}</p>}
 
       <PendingBox items={pending} onConfirm={confirm} onRemove={remove} />
 
@@ -185,13 +187,13 @@ export default function TechoPage() {
         >
           <summary className="flex min-h-11 cursor-pointer list-none flex-col gap-0.5 p-4 [&::-webkit-details-marker]:hidden">
             <span className="font-display text-lg font-bold">
-              これから: {later.map(partLabel).join("・")}
+              {t("これから: {parts}", { parts: listOf(later.map(partLabel)) })}
             </span>
             <span className="text-sm text-muted">
-              その時期が来たら、ここに開きます。
+              {t("その時期が来たら、ここに開きます。")}
             </span>
             <span className="text-sm text-muted underline group-open:hidden">
-              先に見ておく
+              {t("先に見ておく")}
             </span>
           </summary>
           <div className="flex flex-col gap-5 px-4 pb-4">
@@ -206,11 +208,11 @@ export default function TechoPage() {
         id="book"
         className="flex scroll-mt-4 flex-col gap-3 rounded-2xl bg-rose-soft p-5"
       >
-        <h2 className="font-display text-xl font-bold">一冊（{child}へ）</h2>
+        <h2 className="font-display text-xl font-bold">{t("一冊（{child}へ）", { child })}</h2>
         <p className="text-base">
-          1000日の記録が、最後に{child}への一冊になります。
+          {t("1000日の記録が、最後に{child}への一冊になります。", { child })}
         </p>
-        <Btn href="/book">一冊を開く</Btn>
+        <Btn href="/book">{t("一冊を開く")}</Btn>
       </section>
     </main>
   );
@@ -247,21 +249,21 @@ export default function TechoPage() {
                 className="group scroll-mt-4 rounded-2xl border border-line bg-card"
               >
                 <summary className="flex min-h-11 cursor-pointer list-none flex-col [&::-webkit-details-marker]:hidden gap-0.5 p-4">
-                  <span className="text-sm text-muted">過ぎた時期</span>
+                  <span className="text-sm text-muted">{t("過ぎた時期")}</span>
                   <span className="font-display text-lg font-bold">
-                    {p.title}
+                    {t(p.title)}
                     {list.length > 0 && (
                       <span className="ml-2 text-sm font-normal text-muted">
-                        {list.length}件
+                        {t("{n}件", { n: list.length })}
                       </span>
                     )}
                   </span>
                   <span className="text-sm text-muted underline group-open:hidden">
-                    開いて見る
+                    {t("開いて見る")}
                   </span>
                 </summary>
                 <div className="flex flex-col gap-3 px-4 pb-4">
-                  <p className="text-sm text-muted">{when ?? p.note}</p>
+                  <p className="text-sm text-muted">{t(when ?? p.note)}</p>
                   {body}
                 </div>
               </details>
@@ -275,14 +277,14 @@ export default function TechoPage() {
             >
               <div className="flex flex-col gap-1">
                 <h3 className="font-display text-lg font-bold">
-                  {p.title}
+                  {t(p.title)}
                   {list.length > 0 && (
                     <span className="ml-2 text-sm font-normal text-muted">
-                      {list.length}件
+                      {t("{n}件", { n: list.length })}
                     </span>
                   )}
                 </h3>
-                <p className="text-sm text-muted">{when ?? p.note}</p>
+                <p className="text-sm text-muted">{t(when ?? p.note)}</p>
               </div>
               {body}
             </article>
@@ -312,7 +314,7 @@ function RecentList({
           onClick={() => setAll(true)}
           className="min-h-11 self-start text-sm text-muted underline"
         >
-          前の{hidden}件も見る
+          {t("前の{n}件も見る", { n: hidden })}
         </button>
       )}
       {list.slice(hidden).map((it) => (
@@ -352,6 +354,7 @@ function PageBody({
             add({
               page: "stool",
               date,
+              // 訳さない: 手帳に残す題（日本語で残し、出す時に components/techo/labels.ts の techoWords で訳す）
               title: `便の色 ${colorNo}番`,
               values: { colorNo },
             })
@@ -432,11 +435,11 @@ function PageBody({
         <>
           {id === "consult" && (
             <>
-              <p className="text-base font-semibold">{CONSULT_QUESTION}</p>
-              <HelpPlaces family={family} />
+              <p className="text-base font-semibold">{t(CONSULT_QUESTION)}</p>
+              <HelpPlaces family={family} compact />
               <div className="flex flex-wrap gap-2">
                 <Btn href="/emergency" kind="secondary">
-                  急ぎの時
+                  {t("急ぎの時")}
                 </Btn>
               </div>
             </>
