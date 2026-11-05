@@ -4,7 +4,9 @@ import { body, route } from "@/lib/api";
 import { withHousehold } from "@/lib/access";
 import { HttpError } from "@/lib/http-error";
 import { audit } from "@/lib/households";
+import { langOf } from "@/lib/i18n/dicts";
 import { canEditMedia, existingTechoIds, purgePhoto, readVariant, relinkForDate, starKey, toClient, type MediaData, type PhotoVariant } from "@/lib/media";
+import { localizeMadeMedia } from "@/lib/sample-media-i18n";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -103,7 +105,8 @@ export const PATCH = route(async (req: Request, { params }: Params) => {
     ...(b.restore ? { trashedAt: null } : {}),
   });
   if (!next) throw new HttpError(404, "見つかりません");
-  return { media: toClient(ctx.household.id, next, me) };
+  // 一覧と同じく、作った写真の一言と続柄の注は頼みの言葉で返す（★を付けた後も、一覧と同じ言葉のまま）
+  return { media: toClient(ctx.household.id, localizeMadeMedia(next, langOf(req)), me) };
 });
 
 /** まずゴミ箱へ（30日で消える）。?purge=1 はゴミ箱から今すぐ消す（ファイルも行も） */
