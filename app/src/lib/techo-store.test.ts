@@ -58,6 +58,15 @@ describe("値を決まりどおりに整える", () => {
     expect(e).toMatchObject({ page: "vaccine", date: "2027-06-01", title: "BCG", source: "voice" });
   });
 
+  it("家で測った物（page home）は、体重・血圧・体温だけを数で入れる。府令様式のページの後ろに並ぶ", () => {
+    const e = S.cleanEntry({ page: "home", values: { weightKg: "58.2kg", bpHigh: "118", tempC: "３６．８", week: "24週", memo: "x" } }, { today: "2027-01-10" });
+    expect(e).toMatchObject({ page: "home", date: "2027-01-10", values: { weightKg: 58.2, bpHigh: 118, tempC: 36.8 }, source: "text" });
+    expect(Object.keys(e!.values).sort()).toEqual(["bpHigh", "tempC", "weightKg"]);
+    expect(S.cleanEntry({ page: "home", values: { memo: "x" } }, { today: "2027-01-10" })).toBeNull();
+    const d = (page: TechoEntry["page"], date: string) => ({ data: { page, date } as TechoEntry, date, createdAt: "x" });
+    expect(S.sortTecho([d("home", "2027-01-01"), d("consult", "2027-02-01")]).map((x) => x.data.page)).toEqual(["consult", "home"]);
+  });
+
   it("並びはページの順 → 日付の順", () => {
     const d = (page: TechoEntry["page"], date: string) => ({ data: { page, date } as TechoEntry, date, createdAt: "x" });
     const r = S.sortTecho([d("vaccine", "2027-07-01"), d("development", "2027-09-01"), d("development", "2027-08-01"), d("mother-health", "2027-01-01")]);

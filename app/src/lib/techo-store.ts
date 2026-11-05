@@ -4,7 +4,7 @@
 import "server-only";
 import { get, list, put, remove, type Doc } from "./db";
 import type { Family } from "./demo-family";
-import { TECHO_PAGE_IDS, type TechoEntry, type TechoPageId, type TechoSource, type TechoValueKeys } from "./techo";
+import { HOME_PAGE_ID, TECHO_PAGE_IDS, type TechoEntry, type TechoPageId, type TechoSource, type TechoValueKeys } from "./techo";
 import { isMadeFamily, seedTecho } from "./techo-seed";
 
 /**
@@ -33,6 +33,8 @@ export const VALUE_KEYS: { [P in TechoPageId]: KeysOf<P> } = {
   "child-checkup": ["checkup", "result", "weightKg", "heightCm", "memo"],
   vaccine: ["vaccine", "dose", "lot", "facility", "doctor"],
   consult: ["has", "whom", "text"],
+  // 家で測った物（府令様式の外。lib/techo.ts の HOME_PAGE_ID）
+  home: ["weightKg", "bpHigh", "bpLow", "tempC"],
 };
 
 /** 無いと記録にならない欄（無ければその1件を捨てる） */
@@ -46,12 +48,14 @@ const REQUIRED: Partial<Record<TechoPageId, string>> = {
 };
 
 /** 数の欄（単位はキー名のとおり） */
-const NUMBER_KEYS = new Set(["heightCm", "weightKg", "bpHigh", "bpLow", "fundusCm", "weightG", "headCm", "chestCm", "days", "dayAge", "colorNo"]);
+const NUMBER_KEYS = new Set(["heightCm", "weightKg", "bpHigh", "bpLow", "fundusCm", "weightG", "headCm", "chestCm", "days", "dayAge", "colorNo", "tempC"]);
 /** はい・いいえの欄 */
 const BOOL_KEYS = new Set(["has"]);
 
 const isDate = (s: unknown): s is string => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
-const isPage = (s: unknown): s is TechoPageId => typeof s === "string" && (TECHO_PAGE_IDS as readonly string[]).includes(s);
+/** 保存してよいページ（府令様式のページと、家で測った物） */
+const STORE_PAGE_IDS: readonly string[] = [...TECHO_PAGE_IDS, HOME_PAGE_ID];
+const isPage = (s: unknown): s is TechoPageId => typeof s === "string" && STORE_PAGE_IDS.includes(s);
 
 /** 全角の数字・記号を半角に */
 function half(s: string): string {
@@ -128,7 +132,8 @@ export function cleanEntry(e: Partial<TechoStored> & { values?: Record<string, u
 
 /** ページの並び（府令様式の順）→ その事の日の順 → 入れた順 */
 export function sortTecho<T extends { data: TechoEntry; date: string | null; createdAt: string }>(docs: T[]): T[] {
-  const order = new Map(TECHO_PAGE_IDS.map((id, i) => [id, i]));
+  // 家で測った物（home）は府令様式のページの後ろ
+  const order = new Map<string, number>(TECHO_PAGE_IDS.map((id, i) => [id, i]));
   return [...docs].sort(
     (a, b) =>
       (order.get(a.data.page) ?? 99) - (order.get(b.data.page) ?? 99) ||

@@ -21,8 +21,16 @@ export const TECHO_PAGES = [
   { id: "consult", title: "相談した記録", note: "相談できる人・相談した日と相手", part: "つなぐ" },
 ] as const;
 
-export type TechoPageId = (typeof TECHO_PAGES)[number]["id"];
-export const TECHO_PAGE_IDS = TECHO_PAGES.map((p) => p.id) as readonly TechoPageId[];
+/** 府令様式のページの id（手帳のタブの部・行き先・撮った物を読む時の選び先） */
+export type FormPageId = (typeof TECHO_PAGES)[number]["id"];
+/**
+ * 府令様式の外の記録: 家族が家で測った体重・血圧・体温（家族の声②「からだの記録」・2026-11-05 作り手が「今回入れる」と決めた）。
+ * 紙の欄とは分けて持つ。からだの記録（lib/body-series.ts）と打つ画面にだけ出し、手帳のタブの部（TECHO_PAGES）・app-guide の行き先には出さない。
+ * 妊婦健診の回に数えない（api/visit が pregnancy-checkup を受診券の残りに数えるため、そこへは入れない）。一冊（lib/book.ts）にも渡さない
+ */
+export const HOME_PAGE_ID = "home" as const;
+export type TechoPageId = FormPageId | typeof HOME_PAGE_ID;
+export const TECHO_PAGE_IDS = TECHO_PAGES.map((p) => p.id) as readonly FormPageId[];
 
 /** 誰が書いた・話したか */
 export type TechoSource = "voice" | "photo" | "text" | "seed";
@@ -97,6 +105,8 @@ export interface TechoValueKeys {
   /** dose は回（「1回目」など）。妊娠中の RS ウイルスのワクチンは、手帳の欄と同じく妊娠週数（「妊娠30週2日」。府令様式 2026年4月施行版 p.52） */
   vaccine: { vaccine: string; dose?: string; lot?: string; facility?: string; doctor?: string };
   consult: { has?: boolean; whom?: string; text?: string };
+  /** 家で測った物（HOME_PAGE_ID）。who は測った人（ママ）。体温は ℃ */
+  home: { weightKg?: number; bpHigh?: number; bpLow?: number; tempC?: number };
 }
 
 /**
