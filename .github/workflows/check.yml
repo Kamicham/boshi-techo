@@ -44,9 +44,10 @@ jobs:
         run: npm run typecheck
       - name: lint
         run: npm run lint
-      # CI の機械は手元より遅く、30家族×1000日を回す試験が、ほかの試験と並ぶと既定の5秒を超える事がある（手元では2秒ほど）
+      # 1つの試験の時間の上限は、手元と同じ app/vitest.config.mts の20秒（11/5 まで CI だけ60秒で、手元の5秒と境目でぶれた）。
+      # 30家族×1000日を回す重い試験は、その試験の中で60秒〜を付けている（prep.test.ts・trip.test.ts・sim/）
       - name: 試験
-        run: npx vitest run --exclude "src/sim/**" --testTimeout=60000
+        run: npx vitest run --exclude "src/sim/**"
       - name: 早送りの検査（30家族と1000組）
         run: npm run sim
       # 体験版の像（app/Dockerfile）と同じ組み立てを通す。型・試験が緑でも、組み立てでは落ちる事がある

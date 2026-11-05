@@ -3,13 +3,36 @@
 # 取り込み（git merge・git pull）の後も、post-merge からこれが走る。「git push origin HEAD:main」は全体の設定の禁止に当たるので、上げるのはこの仕掛けで。
 # 入れ方: scripts/install-git-hooks.sh（.git/hooks は全部の worktree で共通）。止める時だけ BOSHI_NO_AUTOPUSH=1。
 # 上げ直す時（つながらなかった時など）: sh scripts/git-hooks/post-commit
+#
+# 締切の止め（2026-11-05 監査）: 提出の締切は 11/8 20:00（日本時間）。その1時間前の 19:00 からは main へ自動で上げず、
+# 作業のブランチにだけ上げる（締切の後の変更が main に入って見えないように。提出のタグは統括が最後の緑のコミットに付ける）。
+# main へ入れるかは統括か作り手が決め、入れる時だけ BOSHI_FREEZE_OFF=1 を付けて上げ直す。
+# 試す時: BOSHI_HOOK_DRY=1（上げずに、上げる先を出すだけ）と BOSHI_NOW=<UNIX 秒>（今の時刻の代わり）。
 [ -n "$BOSHI_NO_AUTOPUSH" ] && exit 0
 branch=$(git symbolic-ref --short -q HEAD) || exit 0   # 取り込みや巻き戻しの途中（ブランチ無し）は何もしない
+
+FREEZE_AT=1794132000   # 2026-11-08 19:00:00 JST（締切の1時間前）
+now=${BOSHI_NOW:-$(date +%s)}
+push() {
+  if [ -n "$BOSHI_HOOK_DRY" ]; then echo "[空回し] git push origin $*" >&2; else git push -q origin "$@" >&2; fi
+}
+
+if [ -z "$BOSHI_FREEZE_OFF" ] && [ "$now" -ge "$FREEZE_AT" ]; then
+  if [ "$branch" = "main" ]; then
+    echo "[main へ上げる] 締切の1時間前（11/8 19:00）を過ぎたので、main へは上げません。上げるかは統括か作り手が決める（上げる時だけ BOSHI_FREEZE_OFF=1 sh scripts/git-hooks/post-commit）" >&2
+  elif push "HEAD:refs/heads/$branch"; then
+    echo "[main へ上げる] 締切の1時間前（11/8 19:00）を過ぎたので、main へは上げず、$branch にだけ上げました（$(git rev-parse --short HEAD)）。main へ入れるかは統括か作り手が決める（入れる時だけ BOSHI_FREEZE_OFF=1 sh scripts/git-hooks/post-commit）" >&2
+  else
+    echo "[main へ上げる] $branch に上げられませんでした。少し後に sh scripts/git-hooks/post-commit で上げ直す（締切の止めの間は main へは上げません）" >&2
+  fi
+  exit 0
+fi
+
 if ! git fetch -q origin main 2>/dev/null; then
   echo "[main へ上げる] GitHub に届きませんでした。つながったら sh scripts/git-hooks/post-commit で上げ直す" >&2; exit 0
 fi
 if git merge-base --is-ancestor origin/main HEAD; then
-  if git push -q origin "HEAD:refs/heads/$branch" "HEAD:refs/heads/main" >&2; then
+  if push "HEAD:refs/heads/$branch" "HEAD:refs/heads/main"; then
     echo "[main へ上げる] $branch と main に上げました（$(git rev-parse --short HEAD)）" >&2
   else
     echo "[main へ上げる] 上げられませんでした。少し後に sh scripts/git-hooks/post-commit で上げ直す（main が先に進んでいたら、先に git merge origin/main）" >&2

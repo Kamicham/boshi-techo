@@ -107,5 +107,5 @@ describe("開いた時に手帳が先に用意する事（30家族の1000日）"
     expect(days).toBeGreaterThan(5000);
     expect(full).toBeGreaterThan(100);
     expect(skippedOthers).toBeGreaterThan(0);
-  });
+  }, 60_000);
 });

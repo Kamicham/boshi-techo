@@ -43,7 +43,7 @@ describe("届けの束の出生届の行", () => {
       if (trip.items.some((i) => i.task.id === "birth-registration")) seen++;
     }
     expect(seen).toBeGreaterThan(20);
-  });
+  }, 60_000);
 });
 
 describe("生まれた日から15日の今日の画面（30家族・担当の3通り）", () => {
@@ -118,5 +118,5 @@ describe("生まれた日から15日の今日の画面（30家族・担当の3�
     expect(n.full).toBeGreaterThan(200);
     expect(n.folded).toBeGreaterThan(50);
     expect(n.nudge).toBeGreaterThan(0);
-  });
+  }, 60_000);
 });
