@@ -80,6 +80,7 @@ const DONE: readonly string[] = [
   "app/unlock/", // 体験版の合言葉
   // からだの記録（家族の声②・プランの B）。新しい部品は最初から t() で書いた。手帳のタブのほかの所は UX の訳を待つ
   "components/techo/PregnancyBody.tsx", // 妊婦健診の表と体重の線・目安の括弧と出どころ
+  "components/techo/GrowthLines.tsx", // 発育曲線の描く所（帯なし・子ごとの線・横軸の幅）
   "components/capture/", // 話す・撮る・打つ
   "app/capture/",
 ];

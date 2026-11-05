@@ -4,12 +4,13 @@
 // 在胎37週未満で生まれた子は、修正月齢で見るのを既定にする（その子の線の伸びで見る）。
 // 点の位置で良し悪しを言わない。手帳と同じ注意書き（GROWTH_NOTE）をそのまま出す。
 // 帯の男女は家族ごとに覚える（/api/keep の childSex）。早く生まれた子は、修正月齢で見る切り替えを出す。
+// からだの記録（家族の声②・プランの B の7・2026-11-05）: 男女を選ぶ前も帯なしで点と線を描く（選ばせない）。横軸は記録の範囲に合わせる
+// （最短3か月〜最長24か月）。双子などは who で線を分ける。描く所は props だけの部品 GrowthLines（健診で見せる1枚でも使う）。
 import { useEffect, useMemo, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn, Notice, plainError, Why } from "@/components/ui";
 import { diffDays } from "@/lib/clock";
 import {
-  bandAt,
   CORRECTED_NOTE,
   correctionMonths,
   GROWTH_APPROX_NOTE,
@@ -23,16 +24,15 @@ import {
   type GrowthPoint,
   type GrowthSex,
 } from "@/lib/growth";
+import { t } from "@/lib/i18n";
 import { GROWTH_NOTE } from "@/lib/techo";
+import { GrowthLines, type GrowthLine } from "./GrowthLines";
 import { jpDay } from "./labels";
 import { PhotoSlot } from "./TechoPhotos";
 import type { TechoItem } from "./useTecho";
 
-/** 横軸は生後0〜24か月（この手帳の1000日の終わり＝2歳の誕生日まで） */
-const X_MAX = 24;
-const W = 340;
-const H = 240;
-const PAD = { l: 36, r: 10, t: 10, b: 28 };
+/** 赤ちゃんの体・身長・頭囲を拾うページ */
+const CHILD_PAGES = new Set(["growth", "birth", "newborn", "child-checkup"]);
 
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null);
 
@@ -49,12 +49,29 @@ export function growthPoints(items: TechoItem[], birthDate: string, measure: Gro
     } else if (measure === "height") value = num(v.heightCm);
     else value = num(v.headCm);
     if (value == null) continue;
-    if (!["growth", "birth", "newborn", "child-checkup"].includes(it.page)) continue;
+    if (!CHILD_PAGES.has(it.page)) continue;
     const days = diffDays(it.date, birthDate);
     if (days < 0) continue;
     out.push({ month: monthsFromDays(days), value, date: it.date });
   }
   return out.sort((a, b) => a.month - b.month);
+}
+
+/**
+ * 子ごとの線（双子などは記録の who で分ける。who の無い記録は子の名前の線へ）。並びは呼び名の順（「1人目」→「2人目」）。
+ * 点の無い子は線を作らない
+ */
+export function growthLines(items: TechoItem[], birthDate: string, measure: GrowthMeasure, childName?: string): GrowthLine[] {
+  const by = new Map<string, TechoItem[]>();
+  for (const it of items) {
+    if (!CHILD_PAGES.has(it.page)) continue;
+    const who = it.who?.trim() || childName || "";
+    by.set(who, [...(by.get(who) ?? []), it]);
+  }
+  return [...by.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([label, xs]) => ({ label, points: growthPoints(xs, birthDate, measure) }))
+    .filter((l) => l.points.length > 0);
 }
 
 /** 前にこの端末で覚えていた帯の男女（家族ごとの保存へ移す前の物） */
@@ -70,7 +87,7 @@ export function birthGestWeeks(items: TechoItem[]): number | null {
   return null;
 }
 
-export function GrowthChart({ items, onAdd }: { items: TechoItem[]; onAdd: (values: Record<string, number>, date: string) => Promise<void> }) {
+export function GrowthChart({ items, onAdd }: { items: TechoItem[]; onAdd: (values: Record<string, number>, date: string, who?: string) => Promise<void> }) {
   const { family, today } = useFamily();
   const [measure, setMeasure] = useState<GrowthMeasure>("weight");
   // undefined = まだ読んでいる。null = まだ選んでいない
@@ -117,10 +134,13 @@ export function GrowthChart({ items, onAdd }: { items: TechoItem[]; onAdd: (valu
   const shift = preterm && corrected ? correctionMonths(gest) : 0;
 
   const birth = family.birthDate && diffDays(today, family.birthDate) >= 0 ? family.birthDate : null;
-  const points = useMemo(() => (birth ? growthPoints(items, birth, measure) : []), [items, birth, measure]);
+  const lines = useMemo(() => (birth ? growthLines(items, birth, measure, family.childName) : []), [items, birth, measure, family.childName]);
   // 修正月齢で見る時は、点だけを予定日から数えた月齢に動かす（帯はそのまま）
-  const drawn = useMemo(() => (shift ? points.map((p) => ({ ...p, month: p.month - shift })) : points), [points, shift]);
-  const beforeZero = drawn.filter((p) => p.month < 0).length;
+  const drawn = useMemo(() => (shift ? lines.map((l) => ({ ...l, points: l.points.map((p) => ({ ...p, month: p.month - shift })) })) : lines), [lines, shift]);
+  const beforeZero = drawn.reduce((n, l) => n + l.points.filter((p) => p.month < 0).length, 0);
+  // 下の一覧（日付の順。双子などは誰の点かを添える）
+  const twins = lines.length > 1;
+  const listed = useMemo(() => lines.flatMap((l) => l.points.map((p) => ({ ...p, who: l.label }))).sort((a, b) => a.date.localeCompare(b.date)), [lines]);
 
   if (!birth) {
     return <p className="text-base text-muted">生まれた日が入ると、ここに曲線が出ます（設定の「生まれた日」）。</p>;
@@ -166,19 +186,21 @@ export function GrowthChart({ items, onAdd }: { items: TechoItem[]; onAdd: (valu
         </div>
       )}
 
-      {sex === undefined ? (
-        <p className="text-base text-muted">帯を用意しています…</p>
-      ) : sex == null ? (
-        <div className="flex flex-col gap-2 rounded-xl bg-paper p-3">
-          <p className="text-base">帯は男の子と女の子で少し違います。どちらの帯で見ますか？</p>
-          <div className="flex gap-2">
-            <Btn kind="secondary" onClick={() => chooseSex("boy")}>男の子</Btn>
-            <Btn kind="secondary" onClick={() => chooseSex("girl")}>女の子</Btn>
-          </div>
-        </div>
-      ) : (
+      {/* 帯の男女がまだ決まっていない時（読んでいる間も）は、帯なしで点と線を描く（選ばせない） */}
+      <GrowthLines measure={measure} sex={sex ?? null} lines={drawn} corrected={shift > 0} showMid={showMid} />
+      {sex === null && (
+        <p className="flex flex-wrap items-center gap-x-3 text-sm text-muted">
+          <span>{t("帯を見る:")}</span>
+          <button type="button" className="min-h-11 underline" onClick={() => chooseSex("boy")}>
+            {t("男の子")}
+          </button>
+          <button type="button" className="min-h-11 underline" onClick={() => chooseSex("girl")}>
+            {t("女の子")}
+          </button>
+        </p>
+      )}
+      {sex && (
         <>
-          <Chart measure={measure} sex={sex} points={drawn} corrected={shift > 0} showMid={showMid} />
           <label className="flex min-h-11 items-center gap-2 self-start text-sm text-muted">
             <input type="checkbox" checked={showMid} onChange={(e) => setShowMid(e.target.checked)} className="size-5" />
             真ん中の線も見る
@@ -194,21 +216,27 @@ export function GrowthChart({ items, onAdd }: { items: TechoItem[]; onAdd: (valu
 
       <p className="rounded-xl bg-sky-soft px-3 py-2 text-base">{GROWTH_NOTE}</p>
 
-      {points.length > 0 && (
+      {listed.length > 0 && (
         <ul className="flex flex-col gap-0.5 text-base">
-          {points.map((p) => (
-            <li key={`${p.date}-${p.value}`} className="flex min-h-11 items-center justify-between gap-2">
+          {listed.map((p) => (
+            <li key={`${p.who}-${p.date}-${p.value}`} className="flex min-h-11 items-center justify-between gap-2">
               <span>
+                {twins && <span className="text-muted">{p.who} </span>}
                 {jpDay(p.date)}　{GROWTH_LABELS[measure]} {Math.round(p.value * 100) / 100}
                 {GROWTH_UNITS[measure]}
               </span>
-              <PhotoSlot techoIds={items.filter((it) => it.page === "growth" && !it.pending && it.date === p.date).map((it) => it.id)} compact />
+              <PhotoSlot
+                techoIds={items
+                  .filter((it) => it.page === "growth" && !it.pending && it.date === p.date && (!twins || (it.who?.trim() || family.childName || "") === p.who))
+                  .map((it) => it.id)}
+                compact
+              />
             </li>
           ))}
         </ul>
       )}
 
-      <AddFromPaper today={today} onAdd={onAdd} />
+      <AddFromPaper today={today} onAdd={onAdd} whos={twins ? lines.map((l) => l.label) : []} />
 
       <Why label="帯の出どころ">
         <p>
@@ -225,74 +253,20 @@ export function GrowthChart({ items, onAdd }: { items: TechoItem[]; onAdd: (valu
   );
 }
 
-function Chart({ measure, sex, points, corrected, showMid }: { measure: GrowthMeasure; sex: GrowthSex; points: GrowthPoint[]; corrected: boolean; showMid: boolean }) {
-  const { band, mid, yMin, yMax } = useMemo(() => {
-    const steps: { m: number; p: number[] }[] = [];
-    for (let m = 0; m <= X_MAX + 1e-9; m += 0.25) {
-      const p = bandAt(measure, sex, m);
-      if (p) steps.push({ m, p });
-    }
-    const inRange = points.filter((p) => p.month >= 0 && p.month <= X_MAX);
-    let lo = Math.min(...steps.map((s) => s.p[0]), ...inRange.map((p) => p.value));
-    let hi = Math.max(...steps.map((s) => s.p[6]), ...inRange.map((p) => p.value));
-    const pad = (hi - lo) * 0.05;
-    lo = Math.floor(lo - pad);
-    hi = Math.ceil(hi + pad);
-    return { band: steps, mid: steps.map((s) => ({ m: s.m, v: s.p[3] })), yMin: lo, yMax: hi };
-  }, [measure, sex, points]);
-
-  const x = (m: number) => PAD.l + (Math.min(m, X_MAX) / X_MAX) * (W - PAD.l - PAD.r);
-  const y = (v: number) => PAD.t + (1 - (v - yMin) / (yMax - yMin)) * (H - PAD.t - PAD.b);
-  const upper = band.map((s) => `${x(s.m)},${y(s.p[6])}`);
-  const lower = [...band].reverse().map((s) => `${x(s.m)},${y(s.p[0])}`);
-  const yStep = measure === "weight" ? 2 : 5;
-  const yTicks: number[] = [];
-  for (let v = Math.ceil(yMin / yStep) * yStep; v <= yMax; v += yStep) yTicks.push(v);
-  const shown = points.filter((p) => p.month >= 0 && p.month <= X_MAX);
-  const unit = GROWTH_UNITS[measure];
-
-  return (
-    <figure className="flex flex-col gap-1">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label={`${GROWTH_LABELS[measure]}の発育曲線。帯は国の調査の3から97パーセンタイル${showMid ? "、線は50パーセンタイル" : ""}。点は記録（${shown.length}件）`}>
-        {yTicks.map((v) => (
-          <g key={v}>
-            <line x1={PAD.l} x2={W - PAD.r} y1={y(v)} y2={y(v)} stroke="currentColor" className="text-line" strokeWidth={0.5} />
-            <text x={PAD.l - 4} y={y(v) + 3} textAnchor="end" fontSize={9} fill="currentColor" className="text-muted">
-              {v}
-            </text>
-          </g>
-        ))}
-        {[0, 3, 6, 9, 12, 15, 18, 21, 24].map((m) => (
-          <text key={m} x={x(m)} y={H - PAD.b + 12} textAnchor="middle" fontSize={9} fill="currentColor" className="text-muted">
-            {m}
-          </text>
-        ))}
-        <text x={W - PAD.r} y={H - 4} textAnchor="end" fontSize={9} fill="currentColor" className="text-muted">
-          {corrected ? "修正月齢（か月）" : "生後（か月）"}
-        </text>
-        <text x={4} y={PAD.t + 2} fontSize={9} fill="currentColor" className="text-muted">
-          {unit}
-        </text>
-        <polygon points={[...upper, ...lower].join(" ")} fill="currentColor" className="text-sky" fillOpacity={0.18} />
-        {showMid && <polyline points={mid.map((s) => `${x(s.m)},${y(s.v)}`).join(" ")} fill="none" stroke="currentColor" className="text-sky" strokeWidth={1.2} />}
-        {shown.length > 1 && (
-          <polyline points={shown.map((p) => `${x(p.month)},${y(p.value)}`).join(" ")} fill="none" stroke="currentColor" className="text-rose" strokeWidth={1.5} />
-        )}
-        {shown.map((p) => (
-          <circle key={`${p.date}-${p.value}`} cx={x(p.month)} cy={y(p.value)} r={3.5} fill="currentColor" className="text-rose" />
-        ))}
-      </svg>
-      <figcaption className="text-sm text-muted">
-        帯: 同じ月齢の子の94%が入る幅（3〜97）{showMid ? "　線: 50" : ""}　点: わが家の記録{shown.length === 0 ? "（まだありません）" : ""}
-      </figcaption>
-    </figure>
-  );
-}
-
 /** 紙の手帳に書いてある数字を写す（家族が入れた数字だけ。空の欄は入れない） */
-function AddFromPaper({ today, onAdd }: { today: string; onAdd: (values: Record<string, number>, date: string) => Promise<void> }) {
+function AddFromPaper({
+  today,
+  onAdd,
+  whos,
+}: {
+  today: string;
+  onAdd: (values: Record<string, number>, date: string, who?: string) => Promise<void>;
+  /** 双子などの時の子の呼び名（どの子の数字かを選ぶ。1人の時は空） */
+  whos: string[];
+}) {
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState(today);
+  const [who, setWho] = useState("");
   const [w, setW] = useState("");
   const [h, setH] = useState("");
   const [hd, setHd] = useState("");
@@ -325,10 +299,15 @@ function AddFromPaper({ today, onAdd }: { today: string; onAdd: (values: Record<
       setError("数字を1つ以上入れてください");
       return;
     }
+    if (whos.length > 1 && !whos.includes(who)) {
+      setFailed(false);
+      setError(t("どの子の数字かを選んでください"));
+      return;
+    }
     setBusy(true);
     setError("");
     try {
-      await onAdd(values, date);
+      await onAdd(values, date, whos.length > 1 ? who : undefined);
       setW("");
       setH("");
       setHd("");
@@ -347,6 +326,19 @@ function AddFromPaper({ today, onAdd }: { today: string; onAdd: (values: Record<
         測った日
         <input type="date" value={date} max={today} onChange={(e) => setDate(e.target.value)} className={field} />
       </label>
+      {whos.length > 1 && (
+        <fieldset className="flex flex-col gap-1">
+          <legend className="text-sm text-muted">{t("どの子の数字か")}</legend>
+          <div className="flex flex-wrap gap-2">
+            {whos.map((w) => (
+              <label key={w} className={`flex min-h-11 items-center gap-2 rounded-full border px-3 text-base ${who === w ? "border-rose bg-rose-soft" : "border-line bg-card"}`}>
+                <input type="radio" name="growth-who" value={w} checked={who === w} onChange={() => setWho(w)} className="size-4" />
+                {w}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
       <div className="grid grid-cols-3 gap-2">
         <label className="flex flex-col gap-1 text-sm text-muted">
           体重（kg）

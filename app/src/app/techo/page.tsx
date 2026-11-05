@@ -370,11 +370,12 @@ function PageBody({
       return (
         <GrowthChart
           items={all}
-          onAdd={(values, date) =>
+          onAdd={(values, date, who) =>
             add({
               page: "growth",
               date,
               title: "身長・体重など（紙から写した）",
+              ...(who ? { who } : {}),
               values,
             })
           }
