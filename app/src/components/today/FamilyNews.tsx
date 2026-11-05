@@ -48,7 +48,7 @@ export function FamilyNews({ news, childName, titleOf, onThank }: { news: News; 
               <span className="shrink-0 text-sm font-semibold text-ok">{tr("ありがとうを送りました")}</span>
             ) : (
               <span className="shrink-0">
-                <Btn kind="secondary" onClick={() => onThank(d.id)} ariaLabel={tr("{name}に、ありがとうを送る", { name: d.by.name })}>
+                <Btn kind="secondary" onClick={() => onThank(d.id)} ariaLabel={tr("{name}に、ありがとうを送る", { name: nameIn(d.by.name) })}>
                   {tr("ありがとう")}
                 </Btn>
               </span>

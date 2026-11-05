@@ -5,6 +5,7 @@
 // 今日の画面は、気づきがある時だけ（/api/advisor?peek=1 で先に数を聞いて）これを出す。
 // 書き上がるまでの間も、同じ高さの場所（AdvisorSpace）を取っておく（後から入って下の行がずれ、押し間違えないように）。
 // 表は高さをそろえ（題は2行・理由は1行まで）、次にする事と渡す文面は「次にする事と文面」の中に畳む。
+// ようこその日（生まれた日からお七夜の前の日まで）は、題だけの1行に畳み、押すと開く（line。家族の声①への直し A「その時に1つ、聞かれたら全部」）。
 import { useEffect, useState } from "react";
 import { api } from "@/components/FamilyProvider";
 import type { Advice } from "@/lib/advisor";
@@ -18,12 +19,15 @@ export const ADVICE_CLOSED = "boshi:advice-closed";
 /** 気づきの箱の高さ（読み込み中の場所取りと、表の高さをそろえる） */
 const BOX = "flex min-h-[15rem] flex-col gap-3 rounded-2xl border-2 border-sky bg-sky-soft p-5";
 
-/** 読み込み中の場所取り（気づきの箱と同じ高さ） */
-export function AdvisorSpace() {
+/** 1行に畳んだ気づき（ようこその日）の箱 */
+const LINE = "rounded-2xl border-2 border-sky bg-sky-soft px-4";
+
+/** 読み込み中の場所取り（気づきの箱と同じ高さ。line は1行に畳んだ形と同じ高さ） */
+export function AdvisorSpace({ line }: { line?: boolean } = {}) {
   return (
-    <section aria-label={tr("手帳が気づいた事を見ています")} aria-busy className={BOX}>
+    <section aria-label={tr("手帳が気づいた事を見ています")} aria-busy className={line ? `${LINE} flex min-h-14 flex-col justify-center py-2` : BOX}>
       <p className="text-sm font-semibold text-sky">{tr("手帳が気づいた事")}</p>
-      <p className="text-base text-muted">{tr("この家族の今から、気づいた事をまとめています…")}</p>
+      <p className={`text-base text-muted ${line ? "line-clamp-2" : ""}`}>{tr("この家族の今から、気づいた事をまとめています…")}</p>
     </section>
   );
 }
@@ -36,7 +40,21 @@ interface Res {
   waiting: number;
 }
 
-export function AdvisorCard({ familyId, today, meId }: { familyId: string; today: string; meId?: string }) {
+export function AdvisorCard({
+  familyId,
+  today,
+  meId,
+  line,
+  defaultOpen,
+}: {
+  familyId: string;
+  today: string;
+  meId?: string;
+  /** 題だけの1行に畳む（押すと開く）。ようこその日 */
+  line?: boolean;
+  /** 1行に畳んだ時も、開いて始める（見本の「生まれた翌日」の札から、気づきを見に来た時） */
+  defaultOpen?: boolean;
+}) {
   const [res, setRes] = useState<Res | null>(null);
   const [closing, setClosing] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -59,7 +77,7 @@ export function AdvisorCard({ familyId, today, meId }: { familyId: string; today
   }, [familyId, today]);
 
   const a = res?.advice;
-  if (!loaded) return <AdvisorSpace />;
+  if (!loaded) return <AdvisorSpace line={line} />;
   if (!a) return null;
   void meId;
 
@@ -82,13 +100,11 @@ export function AdvisorCard({ familyId, today, meId }: { familyId: string; today
   const m = a.message;
   // 表には1文目だけ、残りは「なぜ？」の奥へ
   const [whyHead] = whyParts(a.why);
-  return (
-    <section aria-label={tr("手帳が気づいた事")} className={BOX}>
-      {/* 主語は手帳（UX の見直し C07: 「気づいた事」だけでは、誰が気づいたのかが無かった） */}
-      <p className="text-sm font-semibold text-sky">{a.kind === "look" ? tr("手帳を見渡して、気づいた事") : tr("手帳が気づいた事")}</p>
-      {/* 気づきの中身はサーバ（Claude か決まり）が日本語で書いて残した物。辞書にある文（決まりの文）だけ、画面の言葉にする */}
-      <h2 className="line-clamp-2 font-display text-2xl leading-snug font-bold text-balance">{tr(a.title)}</h2>
-      {whyHead && <p className="line-clamp-1 text-base">{tr(whyHead)}</p>}
+  // 主語は手帳（UX の見直し C07: 「気づいた事」だけでは、誰が気づいたのかが無かった）
+  const eyebrow = a.kind === "look" ? tr("手帳を見渡して、気づいた事") : tr("手帳が気づいた事");
+  const rest = (
+    <>
+      {whyHead && <p className={`text-base ${line ? "" : "line-clamp-1"}`}>{tr(whyHead)}</p>}
       <div className="mt-auto flex flex-wrap items-center gap-2">
         <Btn kind="secondary" onClick={() => void dismiss()} disabled={closing}>
           {tr("わかった")}
@@ -98,6 +114,32 @@ export function AdvisorCard({ familyId, today, meId }: { familyId: string; today
       <Why label={a.plan.length > 0 || m ? tr("次にする事と文面") : tr("なぜ？")}>
         <AdviceDetails a={a} res={res} />
       </Why>
+    </>
+  );
+  // ようこその日: 題だけの1行（押すと、理由・わかった・次にする事と文面）
+  if (line)
+    return (
+      <section aria-label={eyebrow}>
+        <details className={`group ${LINE}`} open={defaultOpen}>
+          <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 py-2">
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold text-sky">{eyebrow}</span>
+              <span className="line-clamp-2 text-base leading-snug font-semibold">{tr(a.title)}</span>
+            </span>
+            <span className="shrink-0 text-muted transition-transform group-open:rotate-90" aria-hidden>
+              ›
+            </span>
+          </summary>
+          <div className="flex flex-col gap-3 pb-4">{rest}</div>
+        </details>
+      </section>
+    );
+  return (
+    <section aria-label={tr("手帳が気づいた事")} className={BOX}>
+      <p className="text-sm font-semibold text-sky">{eyebrow}</p>
+      {/* 気づきの中身はサーバ（Claude か決まり）が日本語で書いて残した物。辞書にある文（決まりの文）だけ、画面の言葉にする */}
+      <h2 className="line-clamp-2 font-display text-2xl leading-snug font-bold text-balance">{tr(a.title)}</h2>
+      {rest}
     </section>
   );
 }

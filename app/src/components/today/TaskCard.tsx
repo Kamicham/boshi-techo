@@ -2,7 +2,6 @@
 
 // 「今日」の画面の1件: 一番上の大きな1つ（TopTask）と、2つ目からの1行（TaskRow）。
 // 表に出すのは、やさしい題・あと◯日・主ボタン1つだけ。根拠と正式な名前は「なぜ？」の中。
-import { useEffect, useRef, useState } from "react";
 import { isPaidId } from "@/lib/money";
 import type { Family, Member } from "@/lib/demo-family";
 import type { Keep } from "@/lib/keep";
@@ -13,6 +12,7 @@ import { msWords } from "@/lib/i18n/milestone-words";
 import { officeOf } from "@/lib/move";
 import { Btn, CopyButton, HandoffRow, NextStep, Pill, Why } from "../ui";
 import { callMemo } from "@/lib/vax-next";
+import { actionsOf } from "../actions-of";
 import { MilestoneActions } from "../MilestoneActions";
 import { jpShort } from "./dates";
 import type { Prepared } from "./prep";
@@ -214,25 +214,26 @@ export function TaskBody({
   top,
   noDone,
   noWho,
+  fold,
+  foldNote,
 }: Common & {
   top?: boolean;
   /** 「済んだ」を出さない（届けの束の行は、行の右に「済んだ」がある） */
   noDone?: boolean;
   /** 担当の選びを出さない（届けの束は、見出しでまとめて決める） */
   noWho?: boolean;
+  /**
+   * 渡すと「くわしく ›」に畳む（届けの束の1件目・家族の声①への直し A）。主ボタン（どこへ行くか見る）・担当・済んだは出したまま、
+   * この中身（理由・手帳が用意した物）・2つ目からのボタン・カレンダー・電話メモ・なぜ？を、この順に「くわしく ›」の中へ
+   */
+  fold?: React.ReactNode;
+  /** 「くわしく ›」の右に添える一言 */
+  foldNote?: string | null;
 }) {
-  const box = useRef<HTMLDivElement>(null);
-  const [hasActions, setHasActions] = useState(false);
-  // MilestoneActions は、下書きも町の調べも無い事では何も出さない。出た時だけ、それを主にする
-  useEffect(() => {
-    const el = box.current;
-    if (!el) return;
-    const check = () => setHasActions(el.childElementCount > 0);
-    check();
-    const ob = new MutationObserver(check);
-    ob.observe(el, { childList: true });
-    return () => ob.disconnect();
-  }, [t.id]);
+  // MilestoneActions は、下書きも町の調べも無い事では何も出さない。出る時だけ、それを主にする（描く前に決める＝主ボタンがちらつかない）
+  const can = actionsOf(t, family.city);
+  const hasActions = can.canLocal || can.canDraft;
+  const folded = fold !== undefined;
 
   // 前の町の窓口（町を変えた時の印つき）は場所に使わない
   const office = officeOf(keep?.office);
@@ -252,65 +253,86 @@ export function TaskBody({
   const doneKind = top ? (hasActions ? "quiet" : "primary") : "secondary";
   const whoWord = whoLabel(t, family, me);
 
+  const calendarEl = calendar && (
+    <details className="group/cal text-sm">
+      <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 px-1 text-muted">
+        <span className="underline underline-offset-2">{tr("カレンダーに入れる")}</span>
+        <span className="transition-transform group-open/cal:rotate-90" aria-hidden>
+          ›
+        </span>
+      </summary>
+      <div className="pt-1">
+        <HandoffRow calendar={calendar} />
+      </div>
+    </details>
+  );
+  const retimeEl = t.retime && (
+    <CopyButton
+      label={tr("予約の電話メモをコピー")}
+      // 電話メモは、小児科へ電話で読む日本語のまま
+      text={callMemo({ childName: family.childName, birthDate: family.birthDate, plain: t.plain, start: t.startDate, doses: t.retime.doses, lastDate: t.retime.lastDate, lastFacility: t.retime.lastFacility })}
+    />
+  );
+  const whyEl = (
+    <Why>
+      <span>
+        {msWords(t.title)}
+        {tr("（{x}）", { x: whoWord ? tr("{kind}・{who}", { kind: tr(t.kind), who: whoWord }) : tr(t.kind) })}
+      </span>
+      <span>{tr("根拠: {basis}", { basis: msWords(t.basis) })}</span>
+      {/* 公費の年齢を越える見込みの時は、retimeNote に確かめる先（小児科・保健センター）が入っているので重ねない（retimeNote は予定から数えた日本語のまま） */}
+      {t.retimeNote && (
+        <span>
+          {t.beyondPublic
+            ? tr("打てる最短日: {date}（{note}）", { date: jpShort(t.startDate, today), note: t.retimeNote })
+            : tr("打てる最短日: {date}（{note}。回数や間隔が標準と違う時は小児科で確かめる）", { date: jpShort(t.startDate, today), note: t.retimeNote })}
+        </span>
+      )}
+      {t.deadlineDate && (
+        <span>
+          {isGuide(t)
+            ? tr("始まり {start}・目安 {end}", { start: jpShort(t.startDate, today), end: jpShort(t.deadlineDate, today) })
+            : tr("始まり {start}・期限 {end}", { start: jpShort(t.startDate, today), end: jpShort(t.deadlineDate, today) })}
+        </span>
+      )}
+    </Why>
+  );
+
   return (
     <>
-      <div ref={box} className="w-full">
-        {top ? (
-          <MilestoneActions milestone={t} today={today} primary onDoneChange={notifyDone} />
-        ) : (
-          <MilestoneActions milestone={t} today={today} compact onDoneChange={notifyDone} />
-        )}
+      <div className="w-full">
+        <MilestoneActions
+          milestone={t}
+          today={today}
+          primary={top}
+          compact={!top}
+          onDoneChange={notifyDone}
+          moreLead={folded ? fold : undefined}
+          more={
+            folded ? (
+              <>
+                {calendarEl}
+                {retimeEl}
+                {whyEl}
+              </>
+            ) : undefined
+          }
+          moreNote={foldNote}
+        />
       </div>
       {!noWho && <WhoPicker task={t} family={family} onAssign={onAssign} />}
-      <div className="flex flex-wrap items-center gap-x-2">
-        {!noDone && (
-          <Btn kind={doneKind} onClick={onDone} ariaLabel={doneAria}>
-            {doneWord}
-          </Btn>
-        )}
-        {calendar && (
-          <details className="group/cal text-sm">
-            <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 px-1 text-muted">
-              <span className="underline underline-offset-2">{tr("カレンダーに入れる")}</span>
-              <span className="transition-transform group-open/cal:rotate-90" aria-hidden>
-                ›
-              </span>
-            </summary>
-            <div className="pt-1">
-              <HandoffRow calendar={calendar} />
-            </div>
-          </details>
-        )}
-      </div>
-      {t.retime && (
-        <CopyButton
-          label={tr("予約の電話メモをコピー")}
-          // 電話メモは、小児科へ電話で読む日本語のまま
-          text={callMemo({ childName: family.childName, birthDate: family.birthDate, plain: t.plain, start: t.startDate, doses: t.retime.doses, lastDate: t.retime.lastDate, lastFacility: t.retime.lastFacility })}
-        />
+      {(!folded || !noDone) && (
+        <div className="flex flex-wrap items-center gap-x-2">
+          {!noDone && (
+            <Btn kind={doneKind} onClick={onDone} ariaLabel={doneAria}>
+              {doneWord}
+            </Btn>
+          )}
+          {!folded && calendarEl}
+        </div>
       )}
-      <Why>
-        <span>
-          {msWords(t.title)}
-          {tr("（{x}）", { x: whoWord ? tr("{kind}・{who}", { kind: tr(t.kind), who: whoWord }) : tr(t.kind) })}
-        </span>
-        <span>{tr("根拠: {basis}", { basis: msWords(t.basis) })}</span>
-        {/* 公費の年齢を越える見込みの時は、retimeNote に確かめる先（小児科・保健センター）が入っているので重ねない（retimeNote は予定から数えた日本語のまま） */}
-        {t.retimeNote && (
-          <span>
-            {t.beyondPublic
-              ? tr("打てる最短日: {date}（{note}）", { date: jpShort(t.startDate, today), note: t.retimeNote })
-              : tr("打てる最短日: {date}（{note}。回数や間隔が標準と違う時は小児科で確かめる）", { date: jpShort(t.startDate, today), note: t.retimeNote })}
-          </span>
-        )}
-        {t.deadlineDate && (
-          <span>
-            {isGuide(t)
-              ? tr("始まり {start}・目安 {end}", { start: jpShort(t.startDate, today), end: jpShort(t.deadlineDate, today) })
-              : tr("始まり {start}・期限 {end}", { start: jpShort(t.startDate, today), end: jpShort(t.deadlineDate, today) })}
-          </span>
-        )}
-      </Why>
+      {!folded && retimeEl}
+      {!folded && whyEl}
     </>
   );
 }

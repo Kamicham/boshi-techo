@@ -118,16 +118,21 @@ export function Shell({ children }: { children: React.ReactNode }) {
             disabled={recording}
             className="flex min-h-11 min-w-0 basis-full items-center justify-between gap-1.5 rounded-full bg-sky-soft px-3 text-left text-sm text-ink disabled:opacity-50"
           >
-            <span className="truncate">
-              {t("見本")}
-              {me ? <span className="text-muted">{t("（{x}）", { x: nameIn(me.name) })}</span> : null} ・ <b className="font-semibold">{shortClock(family, today)}</b>
+            <span className="flex min-w-0 items-center gap-1.5">
+              {/* 体験版（公開版）は、この札の頭に小さく「体験版」（断り書きの全文は入口の1枚に。家族の声①への直し A） */}
+              {PUBLIC_UI && <span className="shrink-0 rounded-full border border-sky/40 bg-card px-1.5 text-xs leading-5 font-semibold text-sky">{t("体験版")}</span>}
+              <span className="truncate">
+                {t("見本")}
+                {me ? <span className="text-muted">{t("（{x}）", { x: nameIn(me.name) })}</span> : null} ・ <b className="font-semibold">{shortClock(family, today)}</b>
+              </span>
             </span>
             <span className="shrink-0 font-semibold whitespace-nowrap text-sky">{t("ほかの時期")} ▾</span>
           </button>
         ) : null}
       </div>
-      {/* 体験版（公開版）: 何を触っているかを、どの画面でも上の帯の下に1つ（AI を呼ばず、前に Claude が書いた一冊と見本の答えで動く） */}
-      {PUBLIC_UI && !recording && <p className="px-4 pt-1 text-xs leading-snug text-muted">{t(TRIAL_BANNER)}</p>}
+      {/* 体験版（公開版）: 何を触っているかを、どの画面でも上の帯の下に1つ（AI を呼ばず、前に Claude が書いた一冊と見本の答えで動く）。
+          見本の家族を見ている時は、見本の札の頭の「体験版」に縮める（全文は入口の1枚。家族の声①への直し A「その時に1つ、聞かれたら全部」） */}
+      {PUBLIC_UI && !recording && !isDemo && <p className="px-4 pt-1 text-xs leading-snug text-muted">{t(TRIAL_BANNER)}</p>}
       {/* 入口の1枚: 初めての時と、左上の「‹ はじめの画面」から開き直した時（again） */}
       {isDemo && (!welcomed || home) && (
         <Welcome

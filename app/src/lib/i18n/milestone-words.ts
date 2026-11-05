@@ -2,6 +2,7 @@
 // 画面に描く時だけここを通す。辞書は dict/milestones.ts（「なぜ？」の根拠の文 basis は dict/basis.ts）。家族の形で変わる言い方（名前・人数・町）は、形を見て差し込みの鍵で引く
 // （components/today/StagePicker.tsx の stageWords と同じやり方）。試験は milestones-i18n.test.ts（作った家族の予定の言葉をすべて引く）
 import { currentLang, t } from ".";
+import { nameIn } from "./names";
 
 /** 今の言葉の辞書に、その鍵の訳があるか（訳の無い鍵は、t() が日本語の鍵のまま返す） */
 function has(key: string): boolean {
@@ -9,12 +10,13 @@ function has(key: string): boolean {
 }
 
 /**
- * 上の子の呼び方（lib/older.ts の olderLabel: 呼び名・「上の子」・「上の子2」）。「上の子」「上の子2」だけ訳し、呼び名はそのまま。
+ * 名前の入る見出しの名前（パートナーの呼び名・lib/older.ts の olderLabel: 呼び名・「上の子」・「上の子2」）。「上の子」「上の子2」は訳し、呼び名は名前の表で（nameIn）。
  * 「上の子」だけの鍵は持たない（設定の画面などの「上の子」と訳を分けるため）。「上の子{n}」の {n} を空にして引く
  */
 function childWord(label: string): string {
   const m = /^上の子(\d*)$/.exec(label);
-  return m ? t("上の子{n}", { n: m[1] }).trim() : label;
+  // 呼び名は、見本の家族の名前なら English でローマ字に（lib/i18n/names.ts。2026-11-05: 「Tell 翔太's work…」と漢字のまま出ていた）
+  return m ? t("上の子{n}", { n: m[1] }).trim() : nameIn(label);
 }
 
 /** 文の途中に入れる言葉（English は頭を小文字に。「Child allowance (児童手当)」→「child allowance (児童手当)」） */
