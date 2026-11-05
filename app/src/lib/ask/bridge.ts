@@ -63,7 +63,8 @@ export function stripLeadRepeats(reply: string, lead: string | null): string {
  */
 export const URGENT_SURE = new RegExp(
   [
-    "出血|血が出|破水",
+    // 「血がたくさん出た」「血がでてる」（かな書き）「血が止まらない」も（2026-11-05 監査。どの表にも当たっていなかった）
+    "出血|血が出|血が(たくさん|いっぱい|大量に|どんどん|だらだら|ぽたぽた|少し|ちょっと)(出|で)|血がで(た|て|る|ま|ちゃ)|血が止まらな(い|く|かっ)|血が止まらず|破水",
     "けいれん|痙攣|ひきつけ|引きつけ",
     "息をしていない|息をしてない|(息|呼吸)が(でき|止ま)|(息|呼吸)が苦しそう",
     "意識が(ない|無い|なく|なかっ|おかし|もうろう|朦朧)|呼びかけても反応(が|し)?(ない|無い|なかっ|せず)",
@@ -93,7 +94,8 @@ export const URGENT_SURE = new RegExp(
 export const URGENT_SURE_INTL = new RegExp(
   [
     // 中文: 出血・破水（R5）
-    "流血|见红|見紅|羊水破",
+    // 「血止不住」「流了很多血」も（出血・流血の字が続かない言い方。2026-11-05 監査。血压・血糖などの言葉には当てない）
+    "流血|见红|見紅|羊水破|血止不住|止不住血|血流不止|止不了血|血止不了|(流|出)了(很多|好多|不少|大量的?|一些|一点|一點|点|點)?血(?!压|壓|糖|型|管|液|清|检|檢|常规|常規|统|統|小板|红|紅)",
     // けいれん（脚がつる「抽筋」は入れない）
     "痉挛|抽搐|抽风|抽風|惊厥|驚厥",
     // 息をしていない・息ができない
@@ -114,6 +116,8 @@ export const URGENT_SURE_INTL = new RegExp(
     "(宝宝|寶寶|孩子|小孩|婴儿|嬰兒|儿子|兒子|女儿|女兒)[^。！？\\n，,]{0,4}(瘫软|癱軟|软绵绵|軟綿綿)",
     // English: 出血・破水（R5: bleeding・your water breaking）
     String.raw`\bbleed(ing|s)?\b|\bbled\b|\bspotting\b`,
+    // 「a lot of blood」「blood won't stop」も（bleeding の語が無い言い方。2026-11-05 監査。blood test・blood pressure などには当てない）
+    String.raw`\b(lots of|a lot of|so much|too much) blood\b(?! (work|tests?|pressure|sugar|type|draws?|panel|count))|\bblood (everywhere|won'?t stop|keeps (coming|pouring))\b`,
     String.raw`\bwaters?('s)? (is |are |has |have |had |just |already |may have |might have )*(broke|broken|breaking)\b`,
     // けいれん・息・反応（119 の例: seizures・not breathing・not responding）
     String.raw`\b(seizures?|seizing|convuls\w*)`,
@@ -149,7 +153,18 @@ const MILD_TWITCH = /(?<!手)(足|あし|ふくらはぎ|太もも|まぶた|瞼
  * 「生理のような出血」（妊娠中の出血の言い方）は数える
  */
 const ROUTINE_BLEED = /悪露|生理が(来|き|再開|始ま|戻)|生理(中|の日)/;
-const HEAVY_BLEED = /多い|多く|多め|増え|止まらな|止まらず|塊|かたまり|レバー/;
+const HEAVY_BLEED = /多い|多く|多め|増え|止まらな|止まらず|塊|かたまり|レバー|急に|突然|真っ赤|まっか|鮮血|鮮やか|鮮紅|大量/;
+/**
+ * 歯ぐき・鼻の出血でも数える時（2026-11-05 監査。中文・English の OTHER_SITE と同じ考え方）: 同じ文にほかの所（口・耳・目・頭・便・おしっこ・性器）や
+ * 熱がある（「口と鼻から血が出た」）、止まらない・大量（「鼻から血が出て止まらない」）
+ */
+const BLEED_NOT_MILD = /(口|耳|目|頭)(から|と|や|も|の中から)|便|うんち|おしっこ|尿|性器|膣|陰部|下から|熱|止まらな|止まらず|大量/;
+/**
+ * 足・まぶたのけいれんでも数える時（2026-11-05 監査。中文の WHOLE_BODY と同じ考え方）: 同じ文に手・全身・白目・熱・意識がある
+ * （「手と足がけいれん」「熱があって足がけいれん」）、子どもの足・まぶた（「赤ちゃんの足がけいれん」。赤ちゃんは手足やまぶただけのけいれんもある）
+ */
+const TWITCH_NOT_MILD =
+  /手(と|も|が|や|足)|両手|腕|全身|白目|熱|意識|(赤ちゃん|あかちゃん|子ども|子供|こども|息子|娘|この子|ベビー)の(足|あし|ふくらはぎ|太もも|まぶた|瞼|目の下)/;
 /** at を含む1文（。と改行で切る） */
 function sentenceAt(text: string, at: number): string {
   const start = Math.max(text.lastIndexOf("。", at), text.lastIndexOf("\n", at)) + 1;
@@ -202,7 +217,7 @@ function sentenceIntl(text: string, at: number): string {
 
 /** 出来事の語（打ち消し・もしもで外すのは、この語だけ） */
 const EVENT_WORD = /^(出血|流血|见红|見紅|破水|羊水破|痙攣|痉挛|抽搐|抽风|抽風|惊厥|驚厥|bleed|bled|spotting|seiz|convuls)/i;
-const BLEED_WORD = /^(出血|流血|见红|見紅|bleed|bled|spotting)/i;
+const BLEED_WORD = /^(出血|流血|见红|見紅|血止|止不住血|血流不止|止不了血|(流|出)了|bleed|bled|spotting|(lots of|a lot of|so much|too much) blood|blood )/i;
 const TWITCH_WORD = /^(痙攣|痉挛|抽搐|抽风|抽風|惊厥|驚厥)/;
 /** 出来事の語のすぐ前の、中文の打ち消し・もしも（没有出血・未见出血・如果有出血・万一破水） */
 const NOT_NOW_ZH = /(没有|沒有|没|沒|无|無|未|如果|万一|萬一|要是|假如)(有|再|又|任何|明显|明顯|见|見|看到|发现|發現|发生|發生|出现|出現|过|過)*$/;
@@ -220,6 +235,14 @@ const ROUTINE_BLEED_INTL = /恶露|惡露|(来|來)了?(月经|月經|例假)|(�
 const HEAVY_BLEED_INTL =
   /很多|好多|太多|增多|变多|變多|量多|量大|止不住|不止|停不下|血块|血塊|鲜红|鮮紅|突然|\bheavy\b|\ba lot\b|\blots\b|\bmore\b|increas\w*|won'?t stop|not stopping|\bclots?\b|soak\w*|\bbright red\b|\bsudden(ly)?\b/i;
 const LIKE = /像|一样|一樣|似的|\blike\b/i;
+/**
+ * 止まらない・多い出血は、軽い所（牙龈・鼻／gums・nose）でも数える（「宝宝鼻子流血止不住」「my baby's nose won't stop bleeding」。日本語の BLEED_NOT_MILD と同じ。
+ * 2026-11-05 監査）。「很多」だけでは数えない（「很多孕妇都这样」の「多くの」）
+ */
+const WONT_STOP_INTL =
+  /止不住|不止|停不下|止不了|大量|很多血|好多血|(出血|流血)(很多|好多|量大|量很大)|\bwon'?t stop\b|\bnot stopping\b|\b(hasn'?t|has not|haven'?t|doesn'?t|does not|didn'?t|can'?t|cannot) stop(ped)?\b|\b(a lot|lots|heavily|heavy)\b/i;
+/** 子どもの腿・眼皮の抽搐は数える（「宝宝的腿在抽搐」。日本語の「赤ちゃんの足がけいれん」と同じ。2026-11-05 監査） */
+const CHILD_LEG_ZH = /(宝宝|寶寶|孩子|小孩|婴儿|嬰兒|儿子|兒子|女儿|女兒)(的)?(眼皮|眼睑|眼瞼|小腿|大腿|腿|脚|腳)/;
 /** 腿・眼皮の抽搐（日本語の MILD_TWITCH と同じ。「手脚」は数える）。同じ文に手・全身・四肢・熱があれば当てない（「手和腿在抽搐」「发烧，腿在抽搐」は数える） */
 const MILD_TWITCH_ZH = /(?<!手)(眼皮|眼睑|眼瞼|小腿|大腿|腿|脚|腳)[^。！？\n，,；;]{0,3}$/;
 const WHOLE_BODY = /手(?![机機术術续續册冊帐帳表套写寫工艺藝势勢段法])|全身|四肢|身体|身體|浑身|渾身|胳膊|翻白眼|发烧|發燒|发热|發熱/;
@@ -235,10 +258,10 @@ function notNowIntl(text: string, at: number, word: string): boolean {
   if (EVENT_WORD.test(word) && (NOT_NOW_ZH.test(before) || NOT_NOW_EN.test(before) || /^(的话|的話)/.test(after))) return true;
   const s = sentenceIntl(text, at);
   if (BLEED_WORD.test(word)) {
-    if (!OTHER_SITE.test(s) && (MILD_BLEED_ZH.test(before) || MILD_BLEED_EN_BEFORE.test(before) || MILD_BLEED_EN_AFTER.test(after))) return true;
+    if (!OTHER_SITE.test(s) && !WONT_STOP_INTL.test(s) && (MILD_BLEED_ZH.test(before) || MILD_BLEED_EN_BEFORE.test(before) || MILD_BLEED_EN_AFTER.test(after))) return true;
     if (ROUTINE_BLEED_INTL.test(s) && !LIKE.test(s) && !HEAVY_BLEED_INTL.test(s)) return true;
   }
-  return TWITCH_WORD.test(word) && MILD_TWITCH_ZH.test(before) && !WHOLE_BODY.test(s);
+  return TWITCH_WORD.test(word) && MILD_TWITCH_ZH.test(before) && !WHOLE_BODY.test(s) && !CHILD_LEG_ZH.test(s);
 }
 
 /**
@@ -251,12 +274,12 @@ export function sureUrgent(raw: string): boolean {
     const before = text.slice(Math.max(0, m.index - 8), m.index);
     const after = text.slice(m.index + m[0].length, m.index + m[0].length + 10);
     if (NOT_NOW.test(after)) continue;
-    if (/^(出血|血が出)/.test(m[0])) {
-      if (MILD_BLEED.test(before)) continue;
+    if (/^(出血|血が)/.test(m[0])) {
       const s = sentenceAt(text, m.index);
+      if (MILD_BLEED.test(before) && !BLEED_NOT_MILD.test(s)) continue;
       if (ROUTINE_BLEED.test(s) && !HEAVY_BLEED.test(s)) continue;
     }
-    if (/^(けいれん|痙攣|ひきつけ|引きつけ)/.test(m[0]) && MILD_TWITCH.test(before)) continue;
+    if (/^(けいれん|痙攣|ひきつけ|引きつけ)/.test(m[0]) && MILD_TWITCH.test(before) && !TWITCH_NOT_MILD.test(sentenceAt(text, m.index))) continue;
     // 中文で書いた 出血・破水・痙攣・窒息・高熱（日本語と同じ字）: 句にかなが無い時だけ、中文の打ち消し・軽い所を当てる
     const around = clauseAround(text, m.index, m[0].length);
     if (!KANA.test(around.before + around.after) && notNowIntl(text, m.index, m[0])) continue;

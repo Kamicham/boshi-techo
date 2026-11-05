@@ -271,3 +271,35 @@ describe("見本の答え（鍵の無い時）も同じ表", () => {
     expect(out.records[0].urgent).toBe(urgent);
   });
 });
+
+describe("止まらない・多い・子どもの足は、軽い所でも数える。出血の字が続かない言い方も（2026-11-05 夜・監査）", () => {
+  it.each([
+    "宝宝鼻子流血止不住",
+    "宝宝的伤口血止不住",
+    "宝宝流了很多血",
+    "牙龈出血不止",
+    "宝宝的腿在抽搐",
+    "孩子眼皮一直抽搐",
+    "my baby's nose keeps bleeding and won't stop",
+    "my baby’s nose won’t stop bleeding",
+    "his nose is bleeding heavily",
+    "there is a lot of blood",
+  ])("%s → 急ぎ（聞くの床も）", (t) => {
+    expect(sureUrgent(t)).toBe(true);
+    expect(bridgeFor(t, "child").urgent).toBe(true);
+  });
+
+  it.each([
+    "刷牙的时候牙龈出血",
+    "牙龈出了一点血",
+    "牙龈出血，很多孕妇都这样吗",
+    "晚上腿抽筋",
+    "小腿抽搐",
+    "我的血压有点高",
+    "my gums bleed when i brush",
+    "I need a blood test",
+    "a lot of blood work today",
+  ])("%s → 話す・撮るの床では数えない", (t) => {
+    expect(sureUrgent(t)).toBe(false);
+  });
+});
