@@ -9,7 +9,11 @@ import { useMemo, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { useTecho } from "@/components/techo/useTecho";
 import { Btn, plainError } from "@/components/ui";
+import { currentLang, t } from "@/lib/i18n";
+import { isMadeId, labelIn } from "@/lib/i18n/names";
+import { tr } from "@/lib/i18n/rich";
 import { MANUAL_KINDS, type ManualKind } from "@/lib/manual-entry";
+import { dot } from "@/lib/memory-words";
 import { TECHO_FORMS } from "@/lib/techo-fields";
 import { techoPrefill } from "@/lib/techo-prefill";
 
@@ -43,12 +47,20 @@ export function TypeSheet({ onClose, onSaved }: { onClose: () => void; onSaved: 
   const { family, today, me } = useFamily();
   const { items, add } = useTecho();
   const born = !!family.birthDate && family.birthDate <= today;
+  // 訳さない: 保存する値（体温の記録の who。画面に出す時は labelIn で訳す）
   const child = family.childName ?? "赤ちゃん";
   const mama = family.members.find((m) => m.role === "母");
-  const mamaCall = mama?.callName ?? mama?.name ?? "ママ";
+  // 画面に出す呼び名（名前・ばあば・じいじ・ママ・赤ちゃんを今の言葉で。保存する値には使わない）
+  const made = isMadeId(family.id);
+  const shown = (n: string) => labelIn(n, { made });
+  // 札の頭に置く時は、English の頭の字を大きく（the baby → The baby。日本語・中文はそのまま）
+  const head = (s: string) => (currentLang() === "en" ? s.charAt(0).toUpperCase() + s.slice(1) : s);
+  const childName = shown(child);
+  const mamaCall = mama ? shown(mama.callName ?? mama.name) : t("ママ");
   const [pick, setPick] = useState<Pick | null>(null);
   const [date, setDate] = useState(today);
   const [raw, setRaw] = useState<Record<string, string>>({});
+  // 訳さない: 保存する値（記録の種類。札に描く時に t() で訳す）
   const [kind, setKind] = useState<ManualKind>("できごと");
   const [time, setTime] = useState("");
   const [deadline, setDeadline] = useState(false);
@@ -60,10 +72,10 @@ export function TypeSheet({ onClose, onSaved }: { onClose: () => void; onSaved: 
 
   // 時期に合わせて「よく打つ物」を上に並べる
   const picks: { key: Pick; label: string; sub: string }[] = [
-    born ? { key: "size", label: "体重・身長", sub: `${child}・kg・cm` } : { key: "checkup", label: "健診の体重・血圧", sub: "週数は入っています" },
-    { key: "temp", label: "体温", sub: "℃" },
-    { key: "note", label: "ひとこと", sub: "できごと・気がかり・メモ" },
-    { key: "plan", label: "予定・期限", sub: "日付と時刻" },
+    born ? { key: "size", label: t("体重・身長"), sub: [head(childName), "kg", "cm"].join(dot()) } : { key: "checkup", label: t("健診の体重・血圧"), sub: t("週数は入っています") },
+    { key: "temp", label: t("体温"), sub: "℃" },
+    { key: "note", label: t("ひとこと"), sub: t("できごと・気がかり・メモ") },
+    { key: "plan", label: t("予定・期限"), sub: t("日付と時刻") },
   ];
   const checkupFields = useMemo(() => (TECHO_FORMS["pregnancy-checkup"]?.fields ?? []).filter((f) => ["week", "weightKg", "bpHigh", "bpLow", "facility"].includes(f.key)), []);
 
@@ -73,6 +85,7 @@ export function TypeSheet({ onClose, onSaved }: { onClose: () => void; onSaved: 
     setDate(today);
     setTime("");
     setDeadline(false);
+    // 訳さない: 保存する値（記録の種類）
     setKind(p === "plan" ? "予定" : "できごと");
     setAbout(null);
     setRaw(p === "checkup" ? techoPrefill("pregnancy-checkup", family, today, items) : {});
@@ -89,29 +102,26 @@ export function TypeSheet({ onClose, onSaved }: { onClose: () => void; onSaved: 
         const keys = pick === "checkup" ? checkupFields.map((f) => f.key) : ["weightKg", "heightCm", "headCm"];
         const values = Object.fromEntries(keys.map((k) => [k, (raw[k] ?? "").trim()]).filter(([, v]) => v));
         // 週数と医療機関は先に入っているので、体の数字が1つも無い時は止める
-        if (!Object.keys(values).some((k) => !["week", "facility"].includes(k))) throw new Error("数字を1つ入れてください");
+        if (!Object.keys(values).some((k) => !["week", "facility"].includes(k))) throw new Error(t("数字を1つ入れてください"));
         if (pick === "checkup") await add({ page: "pregnancy-checkup", date, title: TECHO_FORMS["pregnancy-checkup"]!.title(values), values });
+        // 訳さない: 保存する見出し（手帳の記録の題。書いた言葉のまま残す）
         else await add({ page: "growth", date, title: "身長・体重など", values });
-        onSaved(pick === "checkup" ? "妊娠中の経過（妊婦健診）のページに入れました" : "成長のページに入れました（曲線に点が付きます）");
+        onSaved(t(pick === "checkup" ? "妊娠中の経過（妊婦健診）のページに入れました" : "成長のページに入れました（曲線に点が付きます）"));
       } else if (pick === "temp") {
         await api("/api/capture/manual", { body: { familyId: family.id, today, temperature: raw.temp ?? "", date, who } });
-        onSaved("体温を記録に入れました");
+        onSaved(t("体温を記録に入れました"));
       } else {
         const asking = kind === "気がかり" && born;
-        if (asking && !about) throw new Error(`${mamaCall}の事か、${child}の事かを選んでください`);
+        if (asking && !about) throw new Error(t("{mama}の事か、{child}の事かを選んでください", { mama: mamaCall, child: childName }));
         const r = await api<{ agenda?: "mother" | "child" | null }>("/api/capture/manual", {
           body: { familyId: family.id, today, kind, title: raw.title ?? "", date, time, deadline, who: me?.name, concernFor: asking ? about : undefined },
         });
         onSaved(
           kind === "予定"
-            ? deadline
-              ? "期限として入れました（いまのやる事に並びます）"
-              : "予定に入れました"
+            ? t(deadline ? "期限として入れました（いまのやる事に並びます）" : "予定に入れました")
             : r.agenda === "child"
-              ? `記録に入れ、${child}の次の健診で聞く事にも並べました`
-              : r.agenda === "mother"
-                ? "記録に入れ、次の健診の『先生に聞く事』にも並べました"
-                : "記録に入れました",
+              ? t("記録に入れ、{child}の次の健診で聞く事にも並べました", { child: childName })
+              : t(r.agenda === "mother" ? "記録に入れ、次の健診の『先生に聞く事』にも並べました" : "記録に入れました"),
         );
       }
       setPick(null);
@@ -124,17 +134,17 @@ export function TypeSheet({ onClose, onSaved }: { onClose: () => void; onSaved: 
   };
 
   return (
-    <section aria-label="打って入れる" className="flex flex-col gap-3 rounded-2xl border-2 border-ink/15 bg-card p-4">
+    <section aria-label={t("打って入れる")} className="flex flex-col gap-3 rounded-2xl border-2 border-ink/15 bg-card p-4">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="font-display text-lg font-bold">{pick ? picks.find((p) => p.key === pick)?.label : "打って入れる"}</h2>
+        <h2 className="font-display text-lg font-bold">{pick ? picks.find((p) => p.key === pick)?.label : t("打って入れる")}</h2>
         <button type="button" onClick={pick ? () => setPick(null) : onClose} className="min-h-11 px-2 text-base text-muted">
-          {pick ? "‹ 選び直す" : "閉じる"}
+          {t(pick ? "‹ 選び直す" : "閉じる")}
         </button>
       </div>
 
       {!pick && (
         <>
-          <p className="text-sm text-muted">打った物は、そのまま手帳に入ります（AI には送りません）</p>
+          <p className="text-sm text-muted">{t("打った物は、そのまま手帳に入ります（AI には送りません）")}</p>
           <ul className="grid grid-cols-2 gap-2">
             {picks.map((p) => (
               <li key={p.key}>
@@ -146,7 +156,7 @@ export function TypeSheet({ onClose, onSaved }: { onClose: () => void; onSaved: 
             ))}
           </ul>
           <Link href="/techo" className="inline-flex min-h-11 items-center self-start text-base font-semibold text-sky">
-            ほかの欄に打つ（検査・接種・できた日） ›
+            {t("ほかの欄に打つ（検査・接種・できた日） ›")}
           </Link>
         </>
       )}
@@ -154,15 +164,15 @@ export function TypeSheet({ onClose, onSaved }: { onClose: () => void; onSaved: 
       {pick === "checkup" && (
         <div className="grid grid-cols-2 gap-2">
           <div className="col-span-2">
-            <DateField label="健診の日" value={date} onChange={setDate} max={today} />
+            <DateField label={t("健診の日")} value={date} onChange={setDate} max={today} />
           </div>
           {checkupFields.map((f) =>
             f.unit || f.key.startsWith("bp") ? (
-              <NumberField key={f.key} label={f.label} unit={f.unit} value={raw[f.key] ?? ""} onChange={set(f.key)} />
+              <NumberField key={f.key} label={t(f.label)} unit={f.unit} value={raw[f.key] ?? ""} onChange={set(f.key)} />
             ) : (
               <label key={f.key} className={`flex flex-col gap-1 text-sm text-muted ${f.key === "facility" ? "col-span-2" : ""}`}>
-                {f.label}
-                <input value={raw[f.key] ?? ""} onChange={(e) => set(f.key)(e.target.value)} placeholder={f.hint} className={field} />
+                {t(f.label)}
+                <input value={raw[f.key] ?? ""} onChange={(e) => set(f.key)(e.target.value)} placeholder={f.hint && t(f.hint)} className={field} />
               </label>
             ),
           )}
@@ -172,22 +182,22 @@ export function TypeSheet({ onClose, onSaved }: { onClose: () => void; onSaved: 
       {pick === "size" && (
         <div className="grid grid-cols-2 gap-2">
           <div className="col-span-2">
-            <DateField label="測った日" value={date} onChange={setDate} min={family.birthDate} max={today} />
+            <DateField label={t("測った日")} value={date} onChange={setDate} min={family.birthDate} max={today} />
           </div>
-          <NumberField label="体重" unit="kg" value={raw.weightKg ?? ""} onChange={set("weightKg")} placeholder="例 6.2" />
-          <NumberField label="身長" unit="cm" value={raw.heightCm ?? ""} onChange={set("heightCm")} />
-          <NumberField label="頭囲" unit="cm" value={raw.headCm ?? ""} onChange={set("headCm")} />
+          <NumberField label={t("体重")} unit="kg" value={raw.weightKg ?? ""} onChange={set("weightKg")} placeholder={t("例 6.2")} />
+          <NumberField label={t("身長")} unit="cm" value={raw.heightCm ?? ""} onChange={set("heightCm")} />
+          <NumberField label={t("頭囲")} unit="cm" value={raw.headCm ?? ""} onChange={set("headCm")} />
         </div>
       )}
 
       {pick === "temp" && (
         <div className="grid grid-cols-2 gap-2">
-          <NumberField label="体温" unit="℃" value={raw.temp ?? ""} onChange={set("temp")} placeholder="例 36.8" />
-          <DateField label="測った日" value={date} onChange={setDate} max={today} />
-          <div className="col-span-2 flex flex-wrap gap-2" role="group" aria-label="だれの体温">
+          <NumberField label={t("体温")} unit="℃" value={raw.temp ?? ""} onChange={set("temp")} placeholder={t("例 36.8")} />
+          <DateField label={t("測った日")} value={date} onChange={setDate} max={today} />
+          <div className="col-span-2 flex flex-wrap gap-2" role="group" aria-label={t("だれの体温")}>
             {[...(born ? [child] : []), ...family.members.map((m) => m.name)].map((n) => (
               <button key={n} type="button" aria-pressed={who === n} onClick={() => setWho(n)} className={`min-h-11 rounded-full border px-4 text-base ${who === n ? "border-rose bg-rose text-white" : "border-line bg-paper"}`}>
-                {n}
+                {head(shown(n))}
               </button>
             ))}
           </div>
@@ -197,31 +207,31 @@ export function TypeSheet({ onClose, onSaved }: { onClose: () => void; onSaved: 
       {(pick === "note" || pick === "plan") && (
         <div className="flex flex-col gap-2">
           {pick === "note" && (
-            <div className="flex flex-wrap gap-2" role="group" aria-label="何の記録">
+            <div className="flex flex-wrap gap-2" role="group" aria-label={t("何の記録")}>
               {MANUAL_KINDS.filter((k) => k !== "予定").map((k) => (
                 <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)} className={`min-h-11 rounded-full border px-4 text-base ${kind === k ? "border-rose bg-rose text-white" : "border-line bg-paper"}`}>
-                  {k}
+                  {t(k)}
                 </button>
               ))}
             </div>
           )}
           <label className="flex flex-col gap-1 text-sm text-muted">
-            {pick === "plan" ? "何の予定・期限" : "ひとこと"}
+            {t(pick === "plan" ? "何の予定・期限" : "ひとこと")}
             <input
               value={raw.title ?? ""}
               onChange={(e) => set("title")(e.target.value)}
               maxLength={80}
-              placeholder={pick === "plan" ? "例: 保育園の見学" : kind === "気がかり" ? "例: 夜に足がつる" : "例: 初めて声を出して笑った"}
+              placeholder={t(pick === "plan" ? "例: 保育園の見学" : kind === "気がかり" ? "例: 夜に足がつる" : "例: 初めて声を出して笑った")}
               className={field}
             />
           </label>
           {kind === "気がかり" && born && (
-            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="だれの事">
-              <span className="text-sm text-muted">だれの事？</span>
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("だれの事")}>
+              <span className="text-sm text-muted">{t("だれの事？")}</span>
               {(
                 [
-                  ["mother", `${mamaCall}の事`],
-                  ["child", `${child}の事`],
+                  ["mother", t("{who}の事", { who: mamaCall })],
+                  ["child", t("{who}の事", { who: childName })],
                 ] as const
               ).map(([k, label]) => (
                 <button key={k} type="button" aria-pressed={about === k} onClick={() => setAbout(k)} className={`min-h-11 rounded-full border px-4 text-base ${about === k ? "border-rose bg-rose text-white" : "border-line bg-paper"}`}>
@@ -232,14 +242,20 @@ export function TypeSheet({ onClose, onSaved }: { onClose: () => void; onSaved: 
           )}
           {kind === "気がかり" && (
             <p className="text-sm text-muted">
-              書いた事は、次の健診の「先生に聞く事」にも並びます。急ぎに見える時は、書くより先に電話を（<Link href="/emergency" className="font-semibold text-sky underline">急ぎの時</Link>）
+              {tr("書いた事は、次の健診の「先生に聞く事」にも並びます。急ぎに見える時は、書くより先に電話を（{link}）", {
+                link: (
+                  <Link href="/emergency" className="font-semibold text-sky underline">
+                    {t("急ぎの時")}
+                  </Link>
+                ),
+              })}
             </p>
           )}
           <div className="grid grid-cols-2 gap-2">
-            <DateField label={pick === "plan" ? "日付" : "その日"} value={date} onChange={setDate} max={pick === "plan" ? undefined : today} />
+            <DateField label={t(pick === "plan" ? "日付" : "その日")} value={date} onChange={setDate} max={pick === "plan" ? undefined : today} />
             {pick === "plan" && (
               <label className="flex flex-col gap-1 text-sm text-muted">
-                時刻（あれば）
+                {t("時刻（あれば）")}
                 <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={field} />
               </label>
             )}
@@ -247,7 +263,7 @@ export function TypeSheet({ onClose, onSaved }: { onClose: () => void; onSaved: 
           {pick === "plan" && (
             <label className="flex min-h-11 items-center gap-2 text-base">
               <input type="checkbox" checked={deadline} onChange={(e) => setDeadline(e.target.checked)} className="h-5 w-5" />
-              期限にする（いまの「やる事」に並ぶ）
+              {t("期限にする（いまの「やる事」に並ぶ）")}
             </label>
           )}
         </div>
@@ -258,7 +274,7 @@ export function TypeSheet({ onClose, onSaved }: { onClose: () => void; onSaved: 
           {error && <p className="text-sm text-alert">{error}</p>}
           <div className="flex gap-2">
             <Btn onClick={() => void save()} disabled={busy}>
-              {busy ? "入れています…" : "手帳に入れる"}
+              {t(busy ? "入れています…" : "手帳に入れる")}
             </Btn>
           </div>
         </>

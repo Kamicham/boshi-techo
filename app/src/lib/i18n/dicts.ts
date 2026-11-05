@@ -5,9 +5,12 @@ import { detectLang, langFromCookieHeader, translate, type Dict, type Entries, t
 import album from "./dict/album";
 import answers from "./dict/answers";
 import ask from "./dict/ask";
+import basis from "./dict/basis";
 import book from "./dict/book";
+import capture from "./dict/capture";
 import core from "./dict/core";
 import draft from "./dict/draft";
+import emergency from "./dict/emergency";
 import memories from "./dict/memories";
 import milestones from "./dict/milestones";
 import now from "./dict/now";
@@ -17,7 +20,7 @@ import start from "./dict/start";
 import today from "./dict/today";
 import welcome from "./dict/welcome";
 
-export const AREAS: Readonly<Record<string, Entries>> = { core, shell, welcome, start, stages, now, today, draft, milestones, ask, answers, album, book, memories };
+export const AREAS: Readonly<Record<string, Entries>> = { core, shell, welcome, start, stages, now, today, draft, milestones, ask, answers, album, book, memories, emergency, capture, basis };
 
 function build(lang: "zh" | "en"): Dict {
   const out: Record<string, string> = {};

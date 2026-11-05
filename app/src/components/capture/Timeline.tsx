@@ -7,6 +7,9 @@ import { isLegalDeadline, urgentNoteFor } from "./urgent-note";
 import type { Family } from "@/lib/demo-family";
 import { jpDate } from "@/components/Techo";
 import { Countdown, daysUntil, Fold, HandoffRow, Pill } from "@/components/ui";
+import { t } from "@/lib/i18n";
+import { isMadeId, labelIn } from "@/lib/i18n/names";
+import { dot } from "@/lib/memory-words";
 
 const KIND_TONE: Record<RecordKind, "warn" | "rose" | "sky" | "muted"> = {
   気がかり: "warn",
@@ -19,6 +22,7 @@ const KIND_TONE: Record<RecordKind, "warn" | "rose" | "sky" | "muted"> = {
 // 急ぎの記録の電話先・法の期限の見分けは urgent-note.ts（純粋な関数・試験つき）
 export { URGENT_NOTE, URGENT_NOTE_BOTH, URGENT_NOTE_CHILD, urgentNoteFor, isLegalDeadline } from "./urgent-note";
 
+/** 入れ方の札（辞書の鍵。描く所で t() で訳す） */
 const SOURCE_LABEL: Record<RecordSource, string> = { voice: "話した", photo: "撮った", text: "書いた" };
 
 const dateOf = (r: CaptureRecord) => r.date ?? r.createdAt.slice(0, 10);
@@ -33,7 +37,7 @@ export function RecordItem({ r, family, today }: { r: CaptureRecord; family: Fam
   return (
     <li className="flex flex-col gap-1.5 rounded-xl border border-line bg-card p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <Pill tone={tone}>{r.data.isDeadline ? "期限" : r.data.kind}</Pill>
+        <Pill tone={tone}>{r.data.isDeadline ? t("期限") : t(r.data.kind)}</Pill>
         {!ahead ? (
           <span className="tabular text-sm text-muted">{jpDate(date)}</span>
         ) : legal ? (
@@ -41,25 +45,26 @@ export function RecordItem({ r, family, today }: { r: CaptureRecord; family: Fam
         ) : r.data.isDeadline ? (
           // 法の期限ではない締め切り（支払いなど）: 数えるが、色は付けない
           <span className="tabular text-sm">
-            {jpDate(date)}まで・{days === 1 ? "あした" : `あと${days}日`}
+            {days === 1 ? t("{date}まで・あした", { date: jpDate(date) }) : t("{date}まで・あと{n}日", { date: jpDate(date), n: days })}
           </span>
         ) : (
           // 予定は始まりの日（「◯日後から」）
           <Countdown days={days} dateLabel={jpDate(date)} size="sm" kind="start" />
         )}
       </div>
+      {/* 題と中身は、Claude が読み取った記録・家族が書いた文なので、そのまま出す */}
       <p className="text-base leading-snug font-semibold">{r.data.title}</p>
       {r.data.detail && <p className="line-clamp-2 text-sm leading-relaxed text-ink/90">{r.data.detail}</p>}
       {r.data.urgent && (
         <p role="note" className="rounded-lg bg-alert/10 px-3 py-2 text-sm font-semibold text-alert">
-          {urgentNoteFor(r, family)}
+          {t(urgentNoteFor(r, family))}
         </p>
       )}
       {ahead && <HandoffRow calendar={{ title: r.data.title, date, details: r.data.detail }} />}
       <p className="text-xs text-muted">
-        {clockAt(family, date).label}・{SOURCE_LABEL[r.data.source] ?? "記録"}
-        {r.data.who ? `・${r.data.who}` : ""}
-        {r.data.seed ? "・デモ用" : ""}
+        {[clockAt(family, date).label, t(SOURCE_LABEL[r.data.source] ?? "記録"), r.data.who ? labelIn(r.data.who, { made: isMadeId(family.id) }) : "", r.data.seed ? t("デモ用") : ""]
+          .filter(Boolean)
+          .join(dot())}
       </p>
     </li>
   );
@@ -73,7 +78,7 @@ export function Timeline({ records, family, today, isDemo }: { records: CaptureR
   return (
     <>
       {upcoming.length > 0 && (
-        <Fold title="これからの予定" count={upcoming.length}>
+        <Fold title={t("これからの予定")} count={upcoming.length}>
           <ul className="flex flex-col gap-2">
             {upcoming.slice(0, 6).map((r) => (
               <RecordItem key={r.id} r={r} family={family} today={today} />
@@ -82,7 +87,7 @@ export function Timeline({ records, family, today, isDemo }: { records: CaptureR
         </Fold>
       )}
       {past.length > 0 ? (
-        <Fold title="これまでの記録" count={past.length}>
+        <Fold title={t("これまでの記録")} count={past.length}>
           <ul className="flex flex-col gap-2">
             {past.slice(0, 40).map((r) => (
               <RecordItem key={r.id} r={r} family={family} today={today} />
@@ -90,7 +95,7 @@ export function Timeline({ records, family, today, isDemo }: { records: CaptureR
           </ul>
         </Fold>
       ) : (
-        <p className="text-sm text-muted">{upcoming.length === 0 ? "まだありません。話すか撮ると、ここに日付つきで並びます" : "話すか撮ると、ここに日付つきで並びます"}</p>
+        <p className="text-sm text-muted">{t(upcoming.length === 0 ? "まだありません。話すか撮ると、ここに日付つきで並びます" : "話すか撮ると、ここに日付つきで並びます")}</p>
       )}
     </>
   );

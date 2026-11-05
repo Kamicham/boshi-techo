@@ -6,6 +6,7 @@
 // - 残す: 思い出の写真として、この家族の置き場に残す。Claude には見せない（KeepSheet → /api/media）
 import { useEffect, useState } from "react";
 import { Btn } from "@/components/ui";
+import { t } from "@/lib/i18n";
 
 export type ReadKind = "paper" | "page";
 
@@ -36,49 +37,49 @@ export function PhotoChoice({
   const readBtn = "flex min-h-12 w-full flex-col items-start justify-center rounded-2xl border-2 border-sky/60 bg-card px-4 py-2 text-left disabled:opacity-50";
 
   return (
-    <section aria-label="写真の使い道" className="flex flex-col gap-3 rounded-3xl border-2 border-line bg-card p-4">
+    <section aria-label={t("写真の使い道")} className="flex flex-col gap-3 rounded-3xl border-2 border-line bg-card p-4">
       <div className="flex gap-2 overflow-x-auto">
         {preview.map((u, i) => (
           // eslint-disable-next-line @next/next/no-img-element
-          <img key={u} src={u} alt={`撮った写真 ${i + 1}`} className="h-20 w-20 shrink-0 rounded-xl object-cover" />
+          <img key={u} src={u} alt={t("撮った写真 {n}", { n: i + 1 })} className="h-20 w-20 shrink-0 rounded-xl object-cover" />
         ))}
-        {files.length > preview.length && <span className="self-center text-sm text-muted">ほか{files.length - preview.length}枚</span>}
+        {files.length > preview.length && <span className="self-center text-sm text-muted">{t("ほか{n}枚", { n: files.length - preview.length })}</span>}
       </div>
-      <p className="font-display text-lg font-bold">この写真を、どうしますか</p>
+      <p className="font-display text-lg font-bold">{t("この写真を、どうしますか")}</p>
 
       <div className="flex flex-col gap-2 rounded-2xl bg-sky-soft p-3">
-        <p className="font-display text-lg font-bold text-sky">読み取る</p>
-        <p className="text-sm text-muted">紙の中身を手帳に写します。写真は読み取りのために Claude に送り、残しません</p>
+        <p className="font-display text-lg font-bold text-sky">{t("読み取る")}</p>
+        <p className="text-sm text-muted">{t("紙の中身を手帳に写します。写真は読み取りのために Claude に送り、残しません")}</p>
         {one ? (
           <>
             <button type="button" className={readBtn} onClick={() => onRead("paper")}>
-              <span className="text-base font-semibold text-sky">届いた紙・健診の紙</span>
+              <span className="text-base font-semibold text-sky">{t("届いた紙・健診の紙")}</span>
             </button>
             <button type="button" className={`${readBtn} ${hint === "page" ? "ring-4 ring-sky/40" : ""}`} onClick={() => onRead("page")}>
-              <span className="text-base font-semibold text-sky">紙の母子手帳のページ</span>
+              <span className="text-base font-semibold text-sky">{t("紙の母子手帳のページ")}</span>
             </button>
           </>
         ) : (
-          <p className="text-sm">読み取りは1枚ずつです。1枚だけ選び直してください</p>
+          <p className="text-sm">{t("読み取りは1枚ずつです。1枚だけ選び直してください")}</p>
         )}
       </div>
 
       <div className={`flex flex-col gap-2 rounded-2xl bg-ok/5 p-3 ${hint === "keep" ? "ring-4 ring-ok/30" : ""}`}>
-        <p className="font-display text-lg font-bold text-ok">🌸 残す</p>
+        <p className="font-display text-lg font-bold text-ok">{t("🌸 残す")}</p>
         {keepUnavailable ? (
-          <p className="text-sm text-muted">写真は家族のアカウントで守って残します。この手帳では、まだ使えません</p>
+          <p className="text-sm text-muted">{t("写真は家族のアカウントで守って残します。この手帳では、まだ使えません")}</p>
         ) : (
           <>
-            <p className="text-sm text-muted">思い出の写真として手帳に残します。この家族の置き場（鍵つき）だけに置き、Claude には見せません</p>
+            <p className="text-sm text-muted">{t("思い出の写真として手帳に残します。この家族の置き場（鍵つき）だけに置き、Claude には見せません")}</p>
             <button type="button" onClick={onKeep} className="flex min-h-12 w-full items-center justify-center rounded-2xl border-2 border-ok/60 bg-card px-4 text-base font-semibold text-ok">
-              {one ? "残す" : `${files.length}枚を残す`}
+              {one ? t("残す") : t("{n}枚を残す", { n: files.length })}
             </button>
           </>
         )}
       </div>
 
       <Btn kind="quiet" onClick={onCancel}>
-        やめる（どこにも送りません）
+        {t("やめる（どこにも送りません）")}
       </Btn>
     </section>
   );

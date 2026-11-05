@@ -74,6 +74,12 @@ const DONE: readonly string[] = [
   "components/draft/DraftPanel.tsx", // 手続きの下書き（宛先・件名・本文・空欄・印）
   "components/draft/LocalPanel.tsx", // 町の窓口・持ち物・期限の調べ
   "components/draft/Working.tsx", // 待つ間の表示・失敗の行
+  "components/today/now-fold.ts", // いまを静かにする畳み方（字を持たない）
+  // ④ 残りの画面（11/5 午後）
+  "app/emergency/", // 急ぎの時（窒息・心肺蘇生・119・#8000・#7119・泣きやまない時）。題（metadata）だけは作る時に1回組むので日本語
+  "app/unlock/", // 体験版の合言葉
+  "components/capture/", // 話す・撮る・打つ
+  "app/capture/",
 ];
 
 /** 体験の筋（③）。I18N_LEFT=1 で残りを数える */

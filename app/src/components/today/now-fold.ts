@@ -14,6 +14,7 @@ export type NowRow = { kind: "task"; task: Task } | { kind: "visit" } | { kind: 
 
 /** 行の担当の役（健診と予約の行は母の事） */
 export function rowWho(r: NowRow): string {
+  // 訳さない: 担当の役の値（描く所で whoLabel が名前にする）
   return r.kind === "task" ? r.task.who : "母";
 }
 

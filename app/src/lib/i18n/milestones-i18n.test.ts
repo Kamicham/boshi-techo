@@ -1,12 +1,12 @@
-// 予定の言葉（lib/i18n/milestone-words.ts の msWords・辞書 dict/milestones.ts）の試験。
-// 作った30家族と見本の家族の1000日に出る予定の見出し（plain）・一言（hint）・正式な言い方（title）を、中文・English で引き、
-// 訳に日本語のかなが残らないかを見る（名前・町と、括弧で並べた窓口の日本語は除く）。日本語の画面は1字も変えない。
+// 予定の言葉（lib/i18n/milestone-words.ts の msWords・辞書 dict/milestones.ts と dict/basis.ts）の試験。
+// 作った30家族と見本の家族の1000日に出る予定の見出し（plain）・一言（hint）・正式な言い方（title）・「なぜ？」の根拠（basis）を、中文・English で引き、
+// 訳に日本語のかなが残らないかを見る（名前・町と、括弧で並べた窓口の日本語・法令の名前は除く）。日本語の画面は1字も変えない。
 // 家族の形（双子・ひとり親・里帰り・上の子の呼び名など）で変わる言い方は、30家族に無い形も、下で作った家族で引く。言い方の取りこぼしは、ここで見つけて辞書と msWords に足す
 import { describe, expect, it } from "vitest";
 import { addDays, lmpFromDue, secondBirthday } from "@/lib/clock";
 import { DEMO_FAMILY, type Family, type Member } from "@/lib/demo-family";
 import { MILESTONES, scheduleFor } from "@/lib/milestones";
-import type { Situation } from "@/lib/situation";
+import { SATOGAERI_BACKS, type Situation } from "@/lib/situation";
 import { birthFacts } from "@/lib/techo-seed";
 import { getPopulation } from "@/sim/population";
 import { SIM_FAMILIES } from "@/sim/families";
@@ -14,8 +14,8 @@ import { withLang } from ".";
 import { DICTS } from "./dicts";
 import { msWords } from "./milestone-words";
 
-type Field = "plain" | "hint" | "title";
-const FIELDS: readonly Field[] = ["plain", "hint", "title"];
+type Field = "plain" | "hint" | "title" | "basis";
+const FIELDS: readonly Field[] = ["plain", "hint", "title", "basis"];
 interface Said {
   family: string;
   id: string;
@@ -84,7 +84,7 @@ const zh = (s: string) => withLang("zh", () => msWords(s), DICTS.zh);
 const en = (s: string) => withLang("en", () => msWords(s), DICTS.en);
 
 describe("予定の言葉（msWords）", () => {
-  it("MILESTONES のすべての見出し・一言・正式な言い方に、中文と English がある", () => {
+  it("MILESTONES のすべての見出し・一言・正式な言い方・根拠（basis）に、中文と English がある", () => {
     const missing = MILESTONES.flatMap((m) =>
       FIELDS.flatMap((field) => (["zh", "en"] as const).filter((lang) => !DICTS[lang][m[field]]).map((lang) => `${m.id} ${field} ${lang}「${m[field]}」`)),
     );
@@ -163,6 +163,10 @@ describe("予定の言葉（msWords）", () => {
       }),
       // 上の子1人（呼び名なし＝「上の子」）
       fam("older-one", { ...work, olderChildren: true, olderKids: [{ birthDate: "2024-07-20", care: "幼稚園" }] }),
+      // 里帰りから戻る時期の、残りの答え（根拠の文の頭が変わる）と、1歳までに仕事に戻る（保育園の申し込みの根拠）
+      fam("satogaeri-1m", { ...work, satogaeri: true, satogaeriPlace: { prefecture: "鹿児島県", city: "霧島市" }, satogaeriBack: "1か月健診のあと" }),
+      fam("satogaeri-long", { ...work, satogaeri: true, satogaeriPlace: { prefecture: "鹿児島県", city: "霧島市" }, satogaeriBack: "それより長く" }),
+      fam("return-early", { ...work, returnAt: "1歳まで" }),
     ];
     const said = saidBy(families);
     // 小さく生まれた子の届けは、出産の記録の体重で出る（ここでは体重を直に渡して引く）
@@ -189,6 +193,22 @@ describe("予定の言葉（msWords）", () => {
     ])
       expect(said.map((x) => x.text), text).toContain(text);
     expect(said.some((x) => x.text.endsWith("（月の1日で数えた目安）"))).toBe(true);
+    // 根拠（basis）も、家族の形で足した一文・置き換えた文が出ている（公務員・里帰りの町・同じ県・双子・育休の長さ・仕事に戻る時期・国保・戻る時期）
+    const bases = said.filter((x) => x.field === "basis").map((x) => x.text);
+    for (const end of [
+      "・第17条（公務員は勤め先が払う。独立行政法人の職員などは町へ。勤め先で確かめる）",
+      "・第25条・第51条（住所地・本籍地・生まれた所の役所に出せる。どちらに出すかは家族が決める）",
+      "・戸籍法第51条（生まれた所の役所でも出せる）",
+      "。同じ都道府県の中は、町の間の取り決めで受診券が使える事が多い（近似。町ごとに違う）",
+      "。双子などは産前休業が予定日を含めて14週（労働基準法第65条第1項）なので、目安を8週早めた",
+      "。生まれて8週の間に通算14日以上取ると、2025年4月からの出生後休業支援給付で賃金の13%が上乗せされる（雇用保険法第61条の10・最大28日分。母の条件もある）",
+      "。入る4月は、仕事に戻りたい時期（1歳になるまでに）から置いた（近似）",
+      "。入る4月は、仕事に戻りたい時期（1歳を過ぎてから）から置いた（近似）",
+    ])
+      expect(bases.some((b) => b.endsWith(end)), end).toBe(true);
+    for (const start of ["国民健康保険法第9条・同法施行規則第3条（国保に入った日から", "労働基準法第65条第1項（多胎妊娠は", "目安（戻る時期を決めていないので"])
+      expect(bases.some((b) => b.startsWith(start)), start).toBe(true);
+    for (const back of SATOGAERI_BACKS) expect(bases.some((b) => b.startsWith(`目安（答えてもらった戻る時期（${back}）から`)), back).toBe(true);
     check(said);
   });
 
@@ -206,6 +226,30 @@ describe("予定の言葉（msWords）", () => {
     // 訳の無い言葉は、どの言葉でも日本語のまま（消えない）
     expect(en("辞書に無い予定")).toBe("辞書に無い予定");
     expect(withLang("ja", () => msWords("翔太の育休を職場に伝える"))).toBe("翔太の育休を職場に伝える");
+  });
+
+  it("根拠（basis）: 家族の形で足した一文は、もとの根拠と別々に引く。法令の名前は日本語を括弧で並べる", () => {
+    const basisOf = (id: string) => MILESTONES.find((m) => m.id === id)!.basis;
+    // 公務員の児童手当: もとの根拠の訳＋足した一文の訳
+    const allowance = basisOf("child-allowance");
+    const civil = `${allowance}・第17条（公務員は勤め先が払う。独立行政法人の職員などは町へ。勤め先で確かめる）`;
+    expect(en(civil)).toBe(
+      `${en(allowance)}; Article 17 (for public servants, the employer pays; staff of incorporated administrative agencies and the like go to the city; check with your employer)`,
+    );
+    expect(zh(civil)).toBe(`${zh(allowance)}、第17条（公务员由工作单位发放。独立行政法人的职员等向市区町村申请。请向工作单位确认）`);
+    expect(withLang("ja", () => msWords(civil))).toBe(civil);
+    // 法令の名前: 中文は《》でくくり、字が違えば日本語を並べる。English は英語の名前の後に日本語
+    expect(zh(basisOf("checkup-18m"))).toBe("《母子保健法》第12条");
+    expect(en(basisOf("checkup-18m"))).toBe("Maternal and Child Health Act (母子保健法), Article 12");
+    expect(zh(basisOf("older-pickup"))).toContain("（《劳动基准法》（労働基準法）第65条）");
+    expect(en(basisOf("moved-tennyu"))).toMatch(/^Basic Resident Register Act \(住民基本台帳法\), Article 22 \(/);
+    // 予防接種の受ける所は、どの予防接種の根拠でも同じ訳で後ろに付く
+    const vax = MILESTONES.filter((m) => m.basis.endsWith("迷ったら町の保健センターに聞く"));
+    expect(vax.length).toBeGreaterThan(5);
+    for (const m of vax) expect(en(m.basis), m.id).toMatch(/\. Vaccinations are given at medical institutions your city designates, .+ If you're unsure, ask your city's health center$/);
+    // 数・週・日・条の番号はそのまま
+    expect(en(basisOf("maternity-leave"))).toContain("6 weeks (42 days)");
+    expect(zh(basisOf("maternity-leave"))).toContain("6周（42天），第1天是预产期的41天前");
   });
 });
 
@@ -230,5 +274,27 @@ describe("お金が届いたか確かめる（lib/money.ts の paidDef）", () =
       "Check whether the first child allowance payment (児童手当) has arrived (if it's past the expected time, check with your city office)",
     );
     expect(withLang("zh", () => msWords(child.hint!), DICTS.zh)).toBe("到账了就点“完成了”。还没到的话，问市区町村的窗口");
+  });
+
+  it("7つの手続きの根拠（basis）も、もとの根拠と足した一文を引き、中文・English に日本語の文が残らない", async () => {
+    const { MONEY, paidDef } = await import("../money");
+    const { withLang } = await import(".");
+    const { DICTS } = await import("./dicts");
+    for (const id of Object.keys(MONEY)) {
+      const s = paidDef(id)!.basis;
+      expect(withLang("ja", () => msWords(s), DICTS.ja)).toBe(s);
+      for (const l of ["zh", "en"] as const) {
+        const out = withLang(l, () => msWords(s), DICTS[l]);
+        expect(out, `${l}: ${s}`).not.toBe(s);
+        // 括弧の中の日本語（法令・制度・窓口の名前）のほかに、日本語の文が残らない
+        expect(out.replace(/（[^）]*）|\([^)]*\)/g, ""), `${l}: ${s}`).not.toMatch(/[ぁ-んァ-ヶ]/);
+      }
+    }
+    expect(withLang("en", () => msWords(paidDef("maternity-allowance-apply")!.basis), DICTS.en)).toBe(
+      "Maternity allowance (Health Insurance Act (健康保険法), Article 102). Payment arrives about 1–2 months after you apply (varies by health insurer; approximate). The amount isn't recorded in the handbook. If it doesn't arrive, ask the place to check with, without assuming why it's late",
+    );
+    expect(withLang("zh", () => msWords(paidDef("lump-sum-diff")!.basis), DICTS.zh)).toBe(
+      "分娩育儿一次性补贴（《健康保险法》（健康保険法）第101条）。使用直接支付、费用低于一次性补贴时的差额。申请后约1～2个月到账（估算）。金额不记录在手册里。没有到账时，不要自行断定延迟的原因，请向确认的地方询问",
+    );
   });
 });

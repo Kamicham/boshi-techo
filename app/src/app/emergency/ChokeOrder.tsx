@@ -7,10 +7,14 @@
 // #7119（Line7119）も同じ読み方で、家族の住む町で実施している時だけ出す（lib/emergency-lines.ts）。
 // 「#」の入った番号（#8000・#7119）のボタンには、すぐ下に、つながらない時のふつうの番号（家族の県の窓口）を添える（Alt8000・AltCall）。
 // 「#」の入ったリンク（tel:%238000）は、電話によってかからない事がある（IPHONE_NOTE）。家族の県が分からない時は添えない。
+// 言葉（2026-11-05 多言語化）: 画面の字は useT() で訳す（辞書は lib/i18n/dict/emergency.ts。「つながらない時は」の行は今日の画面の頼れる所と同じ鍵）。
+// 県の名前は日本語のまま（窓口の名前。今日の画面の頼れる所と同じ）。産院の名前は家族が書いたまま。
 import { useEffect, useRef, useState } from "react";
+import { useT } from "@/components/LocaleProvider";
 import { clockAt } from "@/lib/clock";
 import { DEMO_FAMILY, type Family } from "@/lib/demo-family";
 import { line7119, line8000, normPref, telLink } from "@/lib/emergency-lines";
+import { nameIn } from "@/lib/i18n/names";
 
 function read(key: string): string | null {
   try {
@@ -55,6 +59,7 @@ function currentChild(): { name?: string; over1: boolean } | null {
 }
 
 export function ChokeOrder({ baby, child }: { baby: React.ReactNode; child: React.ReactNode }) {
+  const t = useT();
   const [kid, setKid] = useState<{ name?: string; over1: boolean } | null>(null);
   useEffect(() => {
     setKid(currentChild());
@@ -63,7 +68,11 @@ export function ChokeOrder({ baby, child }: { baby: React.ReactNode; child: Reac
   return (
     <div className="flex flex-col gap-3">
       {childFirst && (
-        <p className="text-sm text-muted">{kid?.name ? `${kid.name}は` : "お子さんは"}1歳を過ぎているので、「1歳を過ぎた子」を先に出しています。</p>
+        <p className="text-sm text-muted">
+          {kid?.name
+            ? t("{name}は1歳を過ぎているので、「1歳を過ぎた子」を先に出しています。", { name: nameIn(kid.name) })
+            : t("お子さんは1歳を過ぎているので、「1歳を過ぎた子」を先に出しています。")}
+        </p>
       )}
       <div className="flex flex-col gap-3" style={{ order: childFirst ? 2 : 1 }}>
         {baby}
@@ -121,14 +130,16 @@ function use7119(): Info7119 | null {
  * （本物の #8000 にかけて試すと、相談の窓口につながってしまうので試さない）。どの電話でも届くよう、ふつうの番号を添える（2026-11-05 統括の決め）。
  */
 function AltCall({ tel, instead, where }: { tel: string; instead: string; where: string }) {
+  const t = useT();
   return (
     <a
       href={telLink(tel)}
-      aria-label={`${instead} につながらない時は、${tel}（${where}の窓口）にかける`}
+      aria-label={t("{instead} につながらない時は、{tel}（{where}の窓口）にかける", { instead, tel, where })}
       className="flex min-h-11 items-center justify-center border-t border-sky/30 px-3 py-1 text-center text-sm text-muted"
     >
       <span>
-        つながらない時は <span className="tabular font-semibold text-sky underline underline-offset-2">{tel}</span>（{where}）
+        {t("つながらない時は")} <span className="tabular font-semibold text-sky underline underline-offset-2">{tel}</span>
+        {t("（{x}）", { x: where })}
       </span>
     </a>
   );
@@ -140,15 +151,17 @@ function AltCall({ tel, instead, where }: { tel: string; instead: string; where:
  * 「#7119」にかける町は、すぐ下に一覧のふつうの番号（つながらない時）を添える。
  */
 export function Line7119() {
+  const t = useT();
   const line = use7119();
   if (!line) return null;
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border-2 border-sky/50 bg-card">
       <a href={telLink(line.tel)} className="flex min-h-14 flex-col items-center justify-center gap-0.5 px-4 py-2 text-center">
-        <span className="font-display text-xl font-bold text-sky">#7119 に聞く</span>
-        <span className="text-sm text-muted">大人の体（ママ）の事で、救急車を呼ぶか迷う時</span>
-        {line.tel !== "#7119" && <span className="tabular text-xs text-muted">この町からは {line.tel} にかけます</span>}
-        {line.hours && <span className="text-xs text-muted">受付: {line.hours}</span>}
+        <span className="font-display text-xl font-bold text-sky">{t("#7119 に聞く")}</span>
+        <span className="text-sm text-muted">{t("大人の体（ママ）の事で、救急車を呼ぶか迷う時")}</span>
+        {line.tel !== "#7119" && <span className="tabular text-xs text-muted">{t("この町からは {tel} にかけます", { tel: line.tel })}</span>}
+        {/* 受付の時間は lib/emergency-lines.ts の表の日本語を鍵にして引く（辞書 emergency.ts） */}
+        {line.hours && <span className="text-xs text-muted">{t("受付: {hours}", { hours: t(line.hours) })}</span>}
       </a>
       {line.alt && line.pref && <AltCall tel={line.alt} instead="#7119" where={line.pref} />}
     </div>
@@ -171,10 +184,11 @@ export function Alt8000() {
 
 /** 母子手帳（国の様式）の言葉をそのまま引く。cite は最後の引用にだけ付ける */
 function Quote({ children, small, cite }: { children: React.ReactNode; small?: boolean; cite?: boolean }) {
+  const t = useT();
   return (
     <blockquote className={`border-l-4 border-alert/40 pl-3 leading-relaxed ${small ? "text-sm" : "text-base"}`}>
       {children}
-      {cite && <span className="text-xs text-muted">（母子手帳・国の様式）</span>}
+      {cite && <span className="text-xs text-muted">{t("（母子手帳・国の様式）")}</span>}
     </blockquote>
   );
 }
@@ -189,6 +203,7 @@ function Quote({ children, small, cite }: { children: React.ReactNode; small?: b
  * p.17「退院時の記録」（施設名又は担当者名と電話の欄）。表紙には電話の欄が無いので、表紙とは書かない。
  */
 export function MamaUrgent({ slot }: { slot: "top" | "bottom" }) {
+  const t = useT();
   const [state, setState] = useState<{ pregnant: boolean; postpartum?: boolean; phone: string | null; name: string | null } | null>(null);
   const line = use7119();
   const ref = useRef<HTMLElement>(null);
@@ -236,19 +251,19 @@ export function MamaUrgent({ slot }: { slot: "top" | "bottom" }) {
   const kind: "pregnant" | "postpartum" | "other" = state?.pregnant ? "pregnant" : state?.postpartum ? "postpartum" : "other";
   if ((slot === "top") !== (kind !== "other")) return null;
   const digits = state?.phone?.replace(/[^\d+]/g, "") ?? "";
-  const title = kind === "pregnant" ? "妊娠中の体の急ぎ" : kind === "postpartum" ? "産後の体の急ぎ" : "妊娠中・産後のママの体";
+  const title = kind === "pregnant" ? t("妊娠中の体の急ぎ") : kind === "postpartum" ? t("産後の体の急ぎ") : t("妊娠中・産後のママの体");
   const call =
     kind === "pregnant"
-      ? "かかっている産院に電話します（夜間も）。"
+      ? t("かかっている産院に電話します（夜間も）。")
       : kind === "postpartum"
-        ? "お産をした産院に電話します（夜間も）。どうするかは、電話で産院が教えてくれます。"
-        : "体の事で心配な時は、かかっている産院（お産をした産院）に電話します（夜間も）。どうするかは、電話で産院が教えてくれます。";
+        ? t("お産をした産院に電話します（夜間も）。どうするかは、電話で産院が教えてくれます。")
+        : t("体の事で心配な時は、かかっている産院（お産をした産院）に電話します（夜間も）。どうするかは、電話で産院が教えてくれます。");
   const find =
     kind === "pregnant"
-      ? "番号は、診察券や産院の書類で探せます。"
+      ? t("番号は、診察券や産院の書類で探せます。")
       : kind === "postpartum"
-        ? "番号は、母子手帳の「退院時の記録」の欄や、診察券で探せます。"
-        : "番号は、診察券や産院からもらった書類、母子手帳の「退院時の記録」の欄で探せます。";
+        ? t("番号は、母子手帳の「退院時の記録」の欄や、診察券で探せます。")
+        : t("番号は、診察券や産院からもらった書類、母子手帳の「退院時の記録」の欄で探せます。");
   return (
     // 高さの低い画面（Safari のツールバーが出ている iPhone は 664px ほど）では余白を詰め、妊娠中でも札・119・#8000 を1画面目に
     <section
@@ -261,15 +276,15 @@ export function MamaUrgent({ slot }: { slot: "top" | "bottom" }) {
         <h2 id="mama-h" className="font-display text-xl font-bold">
           {title}
         </h2>
-        {kind === "postpartum" && <p className="text-sm text-muted">出血・熱・強い痛み・息苦しさなど、ママの体の事で心配な時</p>}
+        {kind === "postpartum" && <p className="text-sm text-muted">{t("出血・熱・強い痛み・息苦しさなど、ママの体の事で心配な時")}</p>}
       </div>
       {kind !== "postpartum" && (
         <div className="flex flex-col gap-2">
-          {kind === "other" && <p className="text-sm font-semibold text-muted">妊娠中</p>}
-          <Quote cite={kind === "other"}>出血や破水、おなかの強い張りや痛み、胎動の減少を感じたら、すぐに医療機関を受診しましょう。</Quote>
+          {kind === "other" && <p className="text-sm font-semibold text-muted">{t("妊娠中")}</p>}
+          <Quote cite={kind === "other"}>{t("出血や破水、おなかの強い張りや痛み、胎動の減少を感じたら、すぐに医療機関を受診しましょう。")}</Quote>
           {kind === "pregnant" && (
             <Quote small cite>
-              また、つわりで衰弱がひどいとき、イライラや動悸がはげしく、不安感が強いとき、今まであった胎動を感じなくなったときは、すぐに医師などに相談しましょう。
+              {t("また、つわりで衰弱がひどいとき、イライラや動悸がはげしく、不安感が強いとき、今まであった胎動を感じなくなったときは、すぐに医師などに相談しましょう。")}
             </Quote>
           )}
         </div>
@@ -278,10 +293,11 @@ export function MamaUrgent({ slot }: { slot: "top" | "bottom" }) {
       {digits ? (
         <a href={`tel:${digits}`} className="flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-alert px-4 py-3 text-white">
           <span className="min-w-0">
-            <span className="block text-lg font-bold">{state?.name || "かかっている産院"}に電話</span>
+            {/* 産院の名前は家族が設定に書いたまま */}
+            <span className="block text-lg font-bold">{t("{name}に電話", { name: state?.name || t("かかっている産院") })}</span>
             <span className="tabular block text-sm">{state?.phone}</span>
           </span>
-          <span className="shrink-0 text-base font-semibold">電話する</span>
+          <span className="shrink-0 text-base font-semibold">{t("電話する")}</span>
         </a>
       ) : (
         <p className="text-sm text-muted">{find}</p>
@@ -289,14 +305,16 @@ export function MamaUrgent({ slot }: { slot: "top" | "bottom" }) {
       {/* 一番上に出す時は、すぐ下に119と #7119 のボタンがあるので繰り返さない（1画面目に #8000 まで収める）。ページの下に出す時だけ書く */}
       {slot === "bottom" && (
         <p className="text-sm text-muted">
-          命が危ないと思ったら、迷わず <a href="tel:119" className="font-semibold text-alert underline underline-offset-2">119</a>。
+          {/* リンクの前後で文を分けて引く（English は「迷わず」を don't hesitate to call にして、番号を後ろに置く） */}
+          {t("命が危ないと思ったら、迷わず")} <a href="tel:119" className="font-semibold text-alert underline underline-offset-2">119</a>
+          {t("。")}
           {line && (
             <>
-              救急車を呼ぶか迷う時は{" "}
+              {t("救急車を呼ぶか迷う時は")}{" "}
               <a href={telLink(line.tel)} className="font-semibold text-sky underline underline-offset-2">
                 #7119
               </a>
-              。
+              {t("。")}
             </>
           )}
         </p>

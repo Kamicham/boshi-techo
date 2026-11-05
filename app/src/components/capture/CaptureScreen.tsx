@@ -42,22 +42,22 @@ function failOf(kind: FailKind, e: unknown): Fail {
   const detail = plainError(e);
   switch (kind) {
     case "load":
-      return { title: "記録を読み込めませんでした", safe: "手帳の記録は消えていません。電波のある所で開き直してください", detail };
+      return { title: t("記録を読み込めませんでした"), safe: t("手帳の記録は消えていません。電波のある所で開き直してください"), detail };
     case "voice":
       return e instanceof VoiceError && e.transcript
-        ? { title: "まだ送れていません", safe: "聞き取った言葉は、下の書く欄に残っています。そのまま送り直せます", detail }
-        : { title: "まだ送れていません", safe: "録音は残っていません。もう一度話してください", detail };
+        ? { title: t("まだ送れていません"), safe: t("聞き取った言葉は、下の書く欄に残っています。そのまま送り直せます"), detail }
+        : { title: t("まだ送れていません"), safe: t("録音は残っていません。もう一度話してください"), detail };
     case "photo":
     case "page":
-      return { title: "まだ読めていません", safe: "写真はこの画面に残っていません。もう一度撮ってください", detail };
+      return { title: t("まだ読めていません"), safe: t("写真はこの画面に残っていません。もう一度撮ってください"), detail };
     case "text":
-      return { title: "まだ送れていません", safe: "書いた事は、この画面の下の欄に残っています。そのまま送り直せます", detail };
+      return { title: t("まだ送れていません"), safe: t("書いた事は、この画面の下の欄に残っています。そのまま送り直せます"), detail };
     case "answer":
-      return { title: "まだ送れていません", safe: "答えは欄に残っています。そのまま送り直せます", detail };
+      return { title: t("まだ送れていません"), safe: t("答えは欄に残っています。そのまま送り直せます"), detail };
     case "skip":
-      return { title: "まだ手帳に届いていません", safe: "記録はそのままです", detail };
+      return { title: t("まだ手帳に届いていません"), safe: t("記録はそのままです"), detail };
     case "seed":
-      return { title: "デモの記録を入れられませんでした", detail };
+      return { title: t("デモの記録を入れられませんでした"), detail };
   }
 }
 
@@ -167,10 +167,10 @@ export function CaptureScreen() {
       shootButton.current?.scrollIntoView({ block: "center" });
       return;
     }
-    const t = sp.get("techo");
-    if (t !== "photo" && t !== "voice") return;
-    setFrom(t);
-    if (t === "photo") {
+    const via = sp.get("techo");
+    if (via !== "photo" && via !== "voice") return;
+    setFrom(via);
+    if (via === "photo") {
       shootButton.current?.scrollIntoView({ block: "center" });
       // 端末によっては、押さずに写真を選ぶ欄は開けない（その時は光らせたボタンを押してもらう）
       try {
@@ -184,8 +184,8 @@ export function CaptureScreen() {
   useEffect(() => {
     if (!busy) return;
     setSecs(0);
-    const t = setInterval(() => setSecs((s) => s + 1), 1000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setSecs((s) => s + 1), 1000);
+    return () => clearInterval(timer);
   }, [busy]);
 
   /** 待ちの長い処理を、いま何をしているかを出しながら走らせる */
@@ -228,7 +228,7 @@ export function CaptureScreen() {
 
   const sendVoice = (blob: Blob) =>
     holdForConsent("voice") ||
-    run("聞き取っています", "voice", async () => {
+    run(t("聞き取っています"), "voice", async () => {
       const r = await fetch(`/api/capture/voice?familyId=${encodeURIComponent(family.id)}&today=${today}`, {
         method: "POST",
         headers: { "content-type": blob.type || "application/octet-stream" },
@@ -236,7 +236,7 @@ export function CaptureScreen() {
       });
       const j = (await r.json().catch(() => ({}))) as Last & { error?: string };
       if (!r.ok) {
-        const msg = j.error ?? `うまくいきませんでした（${r.status}）`;
+        const msg = j.error ?? t("うまくいきませんでした（{status}）", { status: r.status });
         if (j.transcript) throw new VoiceError(msg, j.transcript);
         throw new Error(msg);
       }
@@ -252,7 +252,7 @@ export function CaptureScreen() {
       setError(failOf("photo", e));
       return;
     }
-    await run("紙を読んでいます", "photo", async () => ({
+    await run(t("紙を読んでいます"), "photo", async () => ({
       ...(await api<CaptureResult>("/api/capture/photo", { body: { familyId: family.id, today, image } })),
       source: "photo",
     }));
@@ -268,7 +268,7 @@ export function CaptureScreen() {
       setError(failOf("page", e));
       return;
     }
-    await run("手帳のページを読んでいます", "page", async () => {
+    await run(t("手帳のページを読んでいます"), "page", async () => {
       const r = await api<TechoPhotoResult>("/api/techo/photo", { body: { familyId: family.id, today, image } });
       return { captureId: r.captureId, records: [], deadlines: [], oneQuestion: null, reply: r.reply, basis: "", techo: r.techo, source: "photo" };
     });
@@ -286,12 +286,12 @@ export function CaptureScreen() {
     setShot(null);
   };
 
-  const sendText = async (given?: string, label = "手帳に書いています") => {
-    const t = (given ?? text).trim();
-    if (!t) return;
+  const sendText = async (given?: string, label?: string) => {
+    const body = (given ?? text).trim();
+    if (!body) return;
     if (holdForConsent("text")) return;
-    const ok = await run(label, "text", async () => ({
-      ...(await api<CaptureResult>("/api/capture", { body: { familyId: family.id, today, text: t } })),
+    const ok = await run(label ?? t("手帳に書いています"), "text", async () => ({
+      ...(await api<CaptureResult>("/api/capture", { body: { familyId: family.id, today, text: body } })),
       source: "text",
     }));
     if (ok) {
@@ -315,7 +315,7 @@ export function CaptureScreen() {
       try {
         sessionStorage.removeItem(WAIT_KEY);
       } catch {}
-      void sendText(draft, "同意できました。手帳に書いています");
+      void sendText(draft, t("同意できました。手帳に書いています"));
     } else if (next === "ask") {
       setHeld("text");
     }
@@ -326,7 +326,7 @@ export function CaptureScreen() {
   const sendAnswer = async () => {
     if (!ask || !answer.trim()) return;
     const prev = ask;
-    await run("書き直しています", "answer", async () => ({
+    await run(t("書き直しています"), "answer", async () => ({
       ...(await api<CaptureResult>("/api/capture/answer", {
         body: { familyId: family.id, today, captureId: prev.captureId, basis: prev.basis, question: prev.question, answer, source: prev.source },
       })),
@@ -361,23 +361,25 @@ export function CaptureScreen() {
 
   return (
     <main className="flex flex-col gap-4 px-4 pt-4">
-      <h1 className="sr-only">話す・撮る</h1>
+      <h1 className="sr-only">{t("話す・撮る")}</h1>
       <div className="flex flex-col gap-1">
-        <p className="text-base text-muted">話す・撮る・打つ。楽な方で、手帳に入ります</p>
-        <p className="text-sm text-muted">言われた事は話す、紙は撮る、体重や体温は打つ。どれで入れても同じ手帳になります</p>
+        <p className="text-base text-muted">{t("話す・撮る・打つ。楽な方で、手帳に入ります")}</p>
+        <p className="text-sm text-muted">{t("言われた事は話す、紙は撮る、体重や体温は打つ。どれで入れても同じ手帳になります")}</p>
       </div>
 
       {pending > 0 && (
         <Link href="/techo" className="flex min-h-12 items-center justify-between gap-3 rounded-2xl border border-sky/40 bg-sky-soft px-4 py-2">
-          <span className="text-base font-semibold">OK 待ち {pending}件</span>
-          <span className="shrink-0 text-base font-semibold text-sky">手帳で見る ›</span>
+          <span className="text-base font-semibold">{t("OK 待ち {n}件", { n: pending })}</span>
+          <span className="shrink-0 text-base font-semibold text-sky">{t("手帳で見る ›")}</span>
         </Link>
       )}
 
-      {from === "voice" && <p className="rounded-xl bg-rose-soft px-3 py-2 text-base font-semibold">「話す」を押したまま話すと、手帳の候補になります</p>}
-      {from === "photo" && <p className="rounded-xl bg-sky-soft px-3 py-2 text-base font-semibold">下の「撮る」で手帳のページを撮って、「読み取る」→「紙の母子手帳のページ」を選んでください</p>}
+      {from === "voice" && <p className="rounded-xl bg-rose-soft px-3 py-2 text-base font-semibold">{t("「話す」を押したまま話すと、手帳の候補になります")}</p>}
+      {from === "photo" && (
+        <p className="rounded-xl bg-sky-soft px-3 py-2 text-base font-semibold">{t("下の「撮る」で手帳のページを撮って、「読み取る」→「紙の母子手帳のページ」を選んでください")}</p>
+      )}
 
-      <section aria-label="入れる" className="grid grid-cols-3 gap-2">
+      <section aria-label={t("入れる")} className="grid grid-cols-3 gap-2">
         <div ref={talkBox} className={from === "voice" ? "rounded-3xl ring-4 ring-rose/40" : undefined}>
           <HoldToTalk disabled={!!busy} onAudio={(b) => void sendVoice(b)} onError={(m) => setError({ title: m })} />
         </div>
@@ -389,8 +391,8 @@ export function CaptureScreen() {
           className={`flex min-h-36 w-full flex-col items-center justify-center gap-1 rounded-3xl border-2 border-sky bg-sky-soft px-1 text-sky disabled:opacity-50 ${from === "photo" || keepFrom ? "ring-4 ring-sky/40" : ""}`}
         >
           <CameraIcon />
-          <span className="font-display text-xl font-bold">撮る</span>
-          <span className="text-xs text-muted">紙も写真も</span>
+          <span className="font-display text-xl font-bold">{t("撮る")}</span>
+          <span className="text-xs text-muted">{t("紙も写真も")}</span>
         </button>
         <button
           type="button"
@@ -402,8 +404,8 @@ export function CaptureScreen() {
           className={`flex min-h-36 w-full flex-col items-center justify-center gap-1 rounded-3xl border-2 border-ink/40 bg-card px-1 text-ink ${typing ? "ring-4 ring-ink/20" : ""}`}
         >
           <KeyIcon />
-          <span className="font-display text-xl font-bold">打つ</span>
-          <span className="text-xs text-muted">数字・ひとこと</span>
+          <span className="font-display text-xl font-bold">{t("打つ")}</span>
+          <span className="text-xs text-muted">{t("数字・ひとこと")}</span>
         </button>
         {/* capture を付けるとカメラロールから選べなくなるので付けない（撮る・選ぶは端末が聞く。MDN 2025） */}
         <input
@@ -450,9 +452,11 @@ export function CaptureScreen() {
         />
       ) : typing ? null : (
         <p className="text-sm text-muted">
-          {PUBLIC_UI
-            ? "撮った後に選べます: 「読み取る」＝文字を手帳に書き写す／「残す」＝写真のまま取っておく。体験版は AI（Claude）を呼ばないので、読み取る時も写真をどこへも送りません（見本の返事が出ます）"
-            : "撮った後に選べます: 「読み取る」＝文字を手帳に書き写す／「残す」＝写真のまま取っておく。読み取る時だけ、写真を米国の AI（Claude）に送ります（その写真は手帳に残しません）"}
+          {t(
+            PUBLIC_UI
+              ? "撮った後に選べます: 「読み取る」＝文字を手帳に書き写す／「残す」＝写真のまま取っておく。体験版は AI（Claude）を呼ばないので、読み取る時も写真をどこへも送りません（見本の返事が出ます）"
+              : "撮った後に選べます: 「読み取る」＝文字を手帳に書き写す／「残す」＝写真のまま取っておく。読み取る時だけ、写真を米国の AI（Claude）に送ります（その写真は手帳に残しません）",
+          )}
         </p>
       )}
       {keeping && <KeepSheet files={keeping} onClose={() => setKeeping(null)} />}
@@ -463,7 +467,7 @@ export function CaptureScreen() {
       {busy && (
         <p role="status" className="flex items-center gap-2 rounded-2xl bg-sky-soft px-4 py-4 text-lg font-semibold text-sky">
           <span className="inline-block h-3 w-3 animate-pulse rounded-full bg-sky" />
-          {busy}…<span className="tabular text-sm font-normal text-muted">{secs}秒</span>
+          {busy}…<span className="tabular text-sm font-normal text-muted">{t("{n}秒", { n: secs })}</span>
         </p>
       )}
       {error && <Notice title={error.title} safe={error.safe} detail={error.detail} />}
@@ -482,7 +486,7 @@ export function CaptureScreen() {
       )}
 
       {last && !busy && (
-        <section aria-label="いま書いた事" className="flex flex-col gap-3 rounded-2xl bg-rose-soft p-5">
+        <section aria-label={t("いま書いた事")} className="flex flex-col gap-3 rounded-2xl bg-rose-soft p-5">
           <p className="font-display text-xl leading-relaxed font-bold">{last.reply}</p>
           {ask && ask.captureId === last.captureId && <AskBox ask={ask} answer={answer} setAnswer={setAnswer} onSend={() => void sendAnswer()} onSkip={() => void skipAsk()} />}
           {last.records.length > 0 && (
@@ -494,8 +498,8 @@ export function CaptureScreen() {
           )}
           {last.techo?.length > 0 && <TechoCandidates key={last.captureId} familyId={family.id} items={last.techo} onChange={() => void loadPending()} />}
           {last.transcript && (
-            <Why label="聞き取った言葉">
-              <p>「{last.transcript}」</p>
+            <Why label={t("聞き取った言葉")}>
+              <p>{t("「{text}」", { text: last.transcript })}</p>
               {/* サーバの一言（体験版・デモの文）は日本語の鍵のまま来るので、描く時に訳す */}
               {last.note && <p className="text-sm text-muted">{t(last.note)}</p>}
             </Why>
@@ -505,43 +509,43 @@ export function CaptureScreen() {
 
       {/* 開き直した時など、いま書いた事の下に無い聞き返し（前に聞いて、まだ答えていない問い） */}
       {ask && !busy && ask.captureId !== last?.captureId && (
-        <section aria-label="まだ答えていない問い" className="flex flex-col gap-2 rounded-2xl bg-rose-soft p-4">
-          <p className="text-sm text-muted">前に入れた事について、1つだけ聞かせてください</p>
+        <section aria-label={t("まだ答えていない問い")} className="flex flex-col gap-2 rounded-2xl bg-rose-soft p-4">
+          <p className="text-sm text-muted">{t("前に入れた事について、1つだけ聞かせてください")}</p>
           <AskBox ask={ask} answer={answer} setAnswer={setAnswer} onSend={() => void sendAnswer()} onSkip={() => void skipAsk()} />
         </section>
       )}
 
-      <h2 className="font-display text-lg font-bold">記録と予定</h2>
+      <h2 className="font-display text-lg font-bold">{t("記録と予定")}</h2>
       {writing ? (
         <section className="flex flex-col gap-2">
           <label htmlFor="capture-text" className="text-sm font-semibold text-muted">
-            書いて入れる
+            {t("書いて入れる")}
           </label>
           <textarea
             id="capture-text"
             rows={3}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="例: 来週の火曜に保育園の見学"
+            placeholder={t("例: 来週の火曜に保育園の見学")}
             className="w-full rounded-xl border border-line bg-card px-3 py-2 text-base"
           />
           <div className="flex justify-end gap-2">
             <Btn kind="quiet" onClick={() => setWriting(false)}>
-              やめる
+              {t("やめる")}
             </Btn>
             <Btn onClick={() => void sendText()} disabled={!!busy || !text.trim()}>
-              手帳に書く
+              {t("手帳に書く")}
             </Btn>
           </div>
         </section>
       ) : (
         <div className="flex flex-wrap gap-2">
           <Btn kind="secondary" onClick={() => setWriting(true)}>
-            長めに書いて、手帳に分けてもらう
+            {t("長めに書いて、手帳に分けてもらう")}
           </Btn>
           {isDemo && !hasSeed && (
             <Btn kind="quiet" onClick={() => void seed()}>
-              デモの記録を入れる
+              {t("デモの記録を入れる")}
             </Btn>
           )}
         </div>
@@ -558,14 +562,14 @@ export function CaptureScreen() {
 function consentLead(kind: FailKind) {
   switch (kind) {
     case "voice":
-      return "話した事を手帳の欄に分けるには、もう1つ同意が要ります（米国の Claude に送るのは文字だけです）。録音はまだ送っていません。同意の後に、もう一度話してください。";
+      return t("話した事を手帳の欄に分けるには、もう1つ同意が要ります（米国の Claude に送るのは文字だけです）。録音はまだ送っていません。同意の後に、もう一度話してください。");
     case "photo":
     case "page":
-      return "撮った紙を手帳の欄に分けるには、もう1つ同意が要ります（米国の Claude に送るのは、「読み取る」を選んだ1枚だけです）。写真はまだ送っていません。同意の後に、もう一度撮ってください。";
+      return t("撮った紙を手帳の欄に分けるには、もう1つ同意が要ります（米国の Claude に送るのは、「読み取る」を選んだ1枚だけです）。写真はまだ送っていません。同意の後に、もう一度撮ってください。");
     case "answer":
-      return "答えを手帳の欄に分けるには、もう1つ同意が要ります（米国の Claude に送るのは文字だけです）。答えは欄に残っています。";
+      return t("答えを手帳の欄に分けるには、もう1つ同意が要ります（米国の Claude に送るのは文字だけです）。答えは欄に残っています。");
     default:
-      return "この文を手帳の欄に分けるには、もう1つ同意が要ります（米国の Claude に送るのは文字だけです）。";
+      return t("この文を手帳の欄に分けるには、もう1つ同意が要ります（米国の Claude に送るのは文字だけです）。");
   }
 }
 
@@ -585,11 +589,11 @@ function AskBox({ ask, answer, setAnswer, onSend, onSkip }: { ask: Ask; answer: 
           className="min-h-11 min-w-0 flex-1 rounded-lg border border-line px-3 text-base"
         />
         <Btn onClick={onSend} disabled={!answer.trim()}>
-          答える
+          {t("答える")}
         </Btn>
       </div>
       <button type="button" onClick={onSkip} className="min-h-11 self-start px-1 text-sm text-muted underline underline-offset-2">
-        答えない（記録はこのまま）
+        {t("答えない（記録はこのまま）")}
       </button>
     </div>
   );

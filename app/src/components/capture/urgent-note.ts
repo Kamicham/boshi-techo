@@ -3,6 +3,7 @@ import { clockAt } from "@/lib/clock";
 import type { CaptureRecord, RecordData } from "@/lib/capture";
 import type { Family } from "@/lib/demo-family";
 
+// 3つの文は辞書の鍵（lib/i18n/dict/capture.ts）。urgentNoteFor は日本語の鍵のまま返し、描く所（Timeline）で t() で訳す。
 /**
  * 急ぎに見えた記録に添える固定の文（Claude の言葉ではなく、いつも同じ文）。母（妊娠中・産後の体）の事。
  * 119 の言い方は、手帳に聞くの床（lib/ask/bridge.ts）と同じ「命が危ないと思ったら、迷わず119」。

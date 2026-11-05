@@ -1,5 +1,5 @@
 // 予定（lib/milestones.ts・lib/older.ts）の言葉を、画面の言葉にする。予定のデータは日本語のまま持ち（下書き・Claude への頼み・試験はそのまま）、
-// 画面に描く時だけここを通す。辞書は dict/milestones.ts。家族の形で変わる言い方（名前・人数・町）は、形を見て差し込みの鍵で引く
+// 画面に描く時だけここを通す。辞書は dict/milestones.ts（「なぜ？」の根拠の文 basis は dict/basis.ts）。家族の形で変わる言い方（名前・人数・町）は、形を見て差し込みの鍵で引く
 // （components/today/StagePicker.tsx の stageWords と同じやり方）。試験は milestones-i18n.test.ts（作った家族の予定の言葉をすべて引く）
 import { currentLang, t } from ".";
 
@@ -21,6 +21,32 @@ function childWord(label: string): string {
 function mid(s: string): string {
   return currentLang() === "en" ? s.charAt(0).toLowerCase() + s.slice(1) : s;
 }
+
+/**
+ * 根拠の文（basis）の後ろに、家族の形で足す一文（lib/milestones.ts の adjust・lib/money.ts の paidDef）。
+ * もとの根拠と足した一文を別々に引く（鍵は「{basis}」＋足した一文。辞書は dict/basis.ts）。adjust・paidDef の文を変えたら、ここと辞書もそろえる
+ */
+const BASIS_TAILS: readonly string[] = [
+  // お金が届いたか確かめる（paidDef）
+  "。額は手帳に残さない。届かない時は、遅れの理由を決めつけず確かめ先に聞く",
+  // 双子など: 産休の前のお金の手続きの目安を8週早める（leave-money-request）
+  "。双子などは産前休業が予定日を含めて14週（労働基準法第65条第1項）なので、目安を8週早めた",
+  // パートナーの育休の長さがわからない（partner-leave）
+  "。生まれて8週の間に通算14日以上取ると、2025年4月からの出生後休業支援給付で賃金の13%が上乗せされる（雇用保険法第61条の10・最大28日分。母の条件もある）",
+  // 公務員の児童手当（child-allowance・child-allowance-change）
+  "・第17条（公務員は勤め先が払う。独立行政法人の職員などは町へ。勤め先で確かめる）",
+  // 里帰り: 出生届を出せる所（birth-registration。里帰り先の町がわかる時・わからない時か同じ市）
+  "・第25条・第51条（住所地・本籍地・生まれた所の役所に出せる。どちらに出すかは家族が決める）",
+  "・戸籍法第51条（生まれた所の役所でも出せる）",
+  // 里帰り: 同じ県の健診代（satogaeri-checkup-refund）
+  "。同じ都道府県の中は、町の間の取り決めで受診券が使える事が多い（近似。町ごとに違う）",
+  // 仕事に戻りたい時期で入る4月を置いた（daycare-apply）
+  "。入る4月は、仕事に戻りたい時期（1歳になるまでに）から置いた（近似）",
+  "。入る4月は、仕事に戻りたい時期（1歳を過ぎてから）から置いた（近似）",
+];
+
+/** 正規表現の記号を、ただの字として読む */
+const literal = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /** 家族の形で変わる言い方（lib/milestones.ts の adjust・lib/older.ts）。上から順に形を見て、差し込みの鍵で引く */
 const SHAPES: readonly (readonly [RegExp, (m: RegExpExecArray) => string])[] = [
@@ -44,6 +70,8 @@ const SHAPES: readonly (readonly [RegExp, (m: RegExpExecArray) => string])[] = [
     /^(.+?)（(\d{4})年(\d{1,2})月生まれ）の(.+)$/,
     (m) => t("{name}（{year}年{month}月生まれ）の{what}", { name: childWord(m[1]), year: m[2], month: m[3], what: msWords(m[4]) }),
   ],
+  // 根拠の文に足した一文（BASIS_TAILS）。もとの根拠も msWords で引く
+  ...BASIS_TAILS.map((tail) => [new RegExp(`^(.+)${literal(tail)}$`), (m: RegExpExecArray) => t(`{basis}${tail}`, { basis: msWords(m[1]) })] as const),
 ];
 
 /** 予定の見出し・一言・正式な言い方を今の言葉に（訳が無ければ日本語のまま）。日本語の画面では1字も変えない */

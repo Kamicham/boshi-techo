@@ -1,6 +1,6 @@
 // 辞書: 予定（lib/milestones.ts の MILESTONES と、scheduleFor が家族の形で変える言い方・lib/older.ts の上の子の予定）の
 // 見出し（plain）・一言（hint）・正式な言い方（title）。描く時は lib/i18n/milestone-words.ts の msWords() を通す。
-// 法の根拠の長い文（basis）は、まだ訳さない（日本語のまま出る）。
+// 法の根拠の長い文（basis）は dict/basis.ts（同じく msWords で引く）。
 // 書き方は lib/i18n/index.ts の頭。言葉は lib/i18n/glossary.ts にそろえる。同じ鍵を2つの場所に置かない（core.ts などにある鍵は、そちらを使う）
 // - 窓口で日本語を言う言葉（用語集の counter と、届け・給付の名前）は、見出しに日本語を括弧で並べる（提交出生登记（出生届））
 // - 金額・日数・週数・法の期限は1字も変えない。体の判断・医療の助言を足さない

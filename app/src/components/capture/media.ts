@@ -1,5 +1,6 @@
 // 録音と写真の下ごしらえ（画面側）
 import type { ClientMedia } from "@/lib/media-shared";
+import { t } from "@/lib/i18n";
 
 /** 録音の形式: Chrome は webm、iOS Safari は mp4 */
 export function pickAudioType(): string {
@@ -17,7 +18,7 @@ export async function shrinkPhoto(file: File, maxSide = 1600): Promise<string> {
     src = await new Promise<HTMLImageElement>((resolve, reject) => {
       const img = new Image();
       img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error("写真が読めませんでした（HEIC の時は設定で「互換性優先」に）"));
+      img.onerror = () => reject(new Error(t("写真が読めませんでした（HEIC の時は設定で「互換性優先」に）")));
       img.src = URL.createObjectURL(file);
     });
   }
@@ -28,7 +29,7 @@ export async function shrinkPhoto(file: File, maxSide = 1600): Promise<string> {
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("写真を縮められませんでした");
+  if (!ctx) throw new Error(t("写真を縮められませんでした"));
   ctx.drawImage(src, 0, 0, w, h);
   return canvas.toDataURL("image/jpeg", 0.85);
 }
@@ -46,7 +47,7 @@ export async function shrinkToBlob(file: Blob, maxSide: number, quality = 0.85):
     src = await new Promise<HTMLImageElement>((resolve, reject) => {
       const img = new Image();
       img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error("写真が読めませんでした"));
+      img.onerror = () => reject(new Error(t("写真が読めませんでした")));
       img.src = url!;
     });
   }
@@ -56,9 +57,9 @@ export async function shrinkToBlob(file: Blob, maxSide: number, quality = 0.85):
     canvas.width = Math.max(1, Math.round(src.width * scale));
     canvas.height = Math.max(1, Math.round(src.height * scale));
     const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("写真を縮められませんでした");
+    if (!ctx) throw new Error(t("写真を縮められませんでした"));
     ctx.drawImage(src, 0, 0, canvas.width, canvas.height);
-    return await new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("写真を縮められませんでした"))), "image/jpeg", quality));
+    return await new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error(t("写真を縮められませんでした")))), "image/jpeg", quality));
   } finally {
     if (url) URL.revokeObjectURL(url);
   }
@@ -110,9 +111,9 @@ export async function keepPhoto(file: File, o: KeepOptions): Promise<KeepResult>
     // familyId は道にも付ける（サーバは関所を通ってから写真を読む・lib/api.ts の formAfterGate）
     r = await fetch(`/api/media?familyId=${encodeURIComponent(o.familyId)}`, { method: "POST", body: form });
   } catch {
-    throw new Error("送れませんでした。電波を確かめて、もう一度");
+    throw new Error(t("送れませんでした。電波を確かめて、もう一度"));
   }
   const j = (await r.json().catch(() => ({}))) as KeepResult & { error?: string };
-  if (!r.ok) throw new Error(j.error ?? `送れませんでした（${r.status}）。もう一度`);
+  if (!r.ok) throw new Error(j.error ?? t("送れませんでした（{status}）。もう一度", { status: r.status }));
   return j;
 }

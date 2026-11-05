@@ -2,6 +2,7 @@
 
 // 押している間だけ録音する大きなボタン
 import { useEffect, useRef, useState } from "react";
+import { t } from "@/lib/i18n";
 import { pickAudioType } from "./media";
 
 type Phase = "idle" | "starting" | "recording";
@@ -15,8 +16,8 @@ export function HoldToTalk({ disabled, onAudio, onError }: { disabled: boolean; 
 
   useEffect(() => {
     if (phase !== "recording") return;
-    const t = setInterval(() => setSecs(Math.floor((Date.now() - startedAt.current) / 1000)), 250);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setSecs(Math.floor((Date.now() - startedAt.current) / 1000)), 250);
+    return () => clearInterval(timer);
   }, [phase]);
 
   const start = async () => {
@@ -25,7 +26,7 @@ export function HoldToTalk({ disabled, onAudio, onError }: { disabled: boolean; 
     setPhase("starting");
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
       setPhase("idle");
-      onError("この機械では録音が使えません。下の欄に書いてください");
+      onError(t("この機械では録音が使えません。下の欄に書いてください"));
       return;
     }
     let stream: MediaStream;
@@ -33,14 +34,14 @@ export function HoldToTalk({ disabled, onAudio, onError }: { disabled: boolean; 
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch {
       setPhase("idle");
-      onError("マイクが使えませんでした。ブラウザの設定でマイクを許可してください");
+      onError(t("マイクが使えませんでした。ブラウザの設定でマイクを許可してください"));
       return;
     }
     // 許可を待つ間に指を離していたら、録らずに終える
     if (!holding.current) {
-      stream.getTracks().forEach((t) => t.stop());
+      stream.getTracks().forEach((track) => track.stop());
       setPhase("idle");
-      onError("押している間だけ録音します。もう一度、押したまま話してください");
+      onError(t("押している間だけ録音します。もう一度、押したまま話してください"));
       return;
     }
     const type = pickAudioType();
@@ -48,11 +49,11 @@ export function HoldToTalk({ disabled, onAudio, onError }: { disabled: boolean; 
     const chunks: Blob[] = [];
     r.ondataavailable = (e) => e.data.size && chunks.push(e.data);
     r.onstop = () => {
-      stream.getTracks().forEach((t) => t.stop());
+      stream.getTracks().forEach((track) => track.stop());
       const ms = Date.now() - startedAt.current;
       setPhase("idle");
       setSecs(0);
-      if (ms < 700) return onError("短すぎました。押したまま話してください");
+      if (ms < 700) return onError(t("短すぎました。押したまま話してください"));
       onAudio(new Blob(chunks, { type: r.mimeType || type || "audio/webm" }));
     };
     rec.current = r;
@@ -92,8 +93,8 @@ export function HoldToTalk({ disabled, onAudio, onError }: { disabled: boolean; 
       }`}
     >
       <MicIcon />
-      <span className="font-display text-xl font-bold">{on ? "話しています" : phase === "starting" ? "マイク準備中" : "話す"}</span>
-      <span className={`tabular text-xs ${on ? "text-white/90" : "text-muted"}`}>{on ? `${secs}秒・指を離すと送ります` : "押している間"}</span>
+      <span className="font-display text-xl font-bold">{t(on ? "話しています" : phase === "starting" ? "マイク準備中" : "話す")}</span>
+      <span className={`tabular text-xs ${on ? "text-white/90" : "text-muted"}`}>{on ? t("{n}秒・指を離すと送ります", { n: secs }) : t("押している間")}</span>
     </button>
   );
 }
