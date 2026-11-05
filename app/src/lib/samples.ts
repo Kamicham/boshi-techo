@@ -34,6 +34,12 @@ const firstDay = (s: string): string | null => s.match(/\d{4}-\d{2}-\d{2}/)?.[0]
 // 前はここに別の表を持っていた（2026-11-05 監査 llm-2: 2つの表が別々に育っていた）
 /** 気がかりに見える言葉（見本の時も、メモでなく気がかりにして、次の健診の「先生に聞く事」へ並べる道を通す。体の判断はしない） */
 const WORRY = /気にな|心配|不安|痛|苦し|ぐったり|足がつ|こむら返り|つる|眠れない|寝られない|寝つけない|かゆ|むくみ|張る|張って|吐き|吐いた|つわり|泣き止まない|泣きやまない|よく泣く|飲まない|食べない|熱|咳|せき|鼻水|湿疹|発疹|便秘|下痢/;
+/**
+ * 同じ気がかりの中文（简体・繁体）と English（2026-11-05 多言語化④: 体験版で中文・English で書いた気がかりも、
+ * 日本語と同じく次の健診の「先生に聞く事」へ並べる。痛・不安・便秘・湿疹・咳 は日本語と同じ字なので WORRY が拾う）
+ */
+const WORRY_INTL =
+  /担心|擔心|不放心|焦虑|焦慮|害怕|疼|难受|難受|不舒服|抽筋|睡不着|睡不著|失眠|痒|癢|浮肿|浮腫|水肿|水腫|发紧|發緊|发硬|發硬|恶心|噁心|想吐|呕吐|嘔吐|孕吐|一直哭|哭个不停|哭個不停|哭闹|哭鬧|不喝奶|不吃奶|吃不下|发烧|發燒|发热|發熱|鼻涕|疹子|腹泻|腹瀉|拉肚子|\b(worr(y|ied|ies|ying)|concern(ed|s)?|anxious|nervous|scared|pain(ful)?|hurts?|hurting|aches?|aching|headaches?|cramps?|cramping|can'?t sleep|insomnia|itch(y|ing)?|swollen|swelling|nause(a|ous)|vomit(ing|ed)?|throw(ing)? up|threw up|morning sickness|won'?t stop crying|keeps crying|crying a lot|cries a lot|fussy|not (eating|feeding|drinking)|won'?t (eat|feed|drink)|fever|cough(ing|s)?|runny nose|rash|eczema|constipat\w*|diarrh\w*)\b/i;
 
 /** 撮る・書く: 書いた文を、そのまま1つの記録として残す（気がかりに見える言葉なら気がかり、ほかはメモ） */
 function capture(content: Content) {
@@ -57,7 +63,7 @@ function capture(content: Content) {
   // capture() は「家族の時計など\n\n書いた事:\n<家族の文>」の形で渡す。最後の段の見出しの行を外す
   const said = all.split(/\n\s*\n/).pop()?.replace(/^[^\n]*[:：]\n/, "").trim() || all.trim();
   const urgent = sureUrgent(said);
-  const worry = urgent || WORRY.test(said);
+  const worry = urgent || WORRY.test(said) || WORRY_INTL.test(said.replace(/[‘’ʼ＇]/g, "'"));
   // 話した事（文字起こし）か、書いた事か（capture() の見出しの行。話したのに「書いた文」と返さない）
   const spoken = /^話した事/m.test(all);
   return {

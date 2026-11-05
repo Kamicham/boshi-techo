@@ -11,6 +11,10 @@
 //     中国・ベトナム・韓国・フィリピン・ネパール・ブラジルの順）の言葉に、英語を足した7つ。日本語の言葉と同じ意味の言葉だけを置く。
 //     近似（母語の人にはまだ確かめていない）。出しすぎても害は小さいので、迷う言葉は入れる側に倒す。
 //     https://www.moj.go.jp/isa/policies/statistics/toukei_ichiran_touroku.html
+//   - 中文・English の確度の高い急ぎの言葉（URGENT_SURE_INTL・2026-11-05 作り手の決め事④・形は全体監査と決めた）:
+//     こども家庭庁「外国語版の母子健康手帳」R5（https://mchbook.cfa.go.jp/category03/index.php の R5_CN_240301.pdf・R5_EN_240301.pdf。
+//     dict/emergency.ts と同じ訳）の、すぐに受診・相談する時の文の言葉と、消防庁「救急車利用マニュアル」中文版の119 の例
+//     （https://www.fdma.go.jp/publication/portal/items/portal002_chinese.pdf の 没有呼吸・没有反应・痉挛不止）。言い換えない
 //   - こころの健康相談統一ダイヤル 0570-064-556・よりそいホットライン 0120-279-338:
 //     厚生労働省「まもろうよ こころ」https://www.mhlw.go.jp/mamorouyokokoro/soudan/tel/ （2026-11 確認）
 //   - 児童相談所 相談専用ダイヤル 0120-189-783: こども家庭庁（ConsultAsk.tsx と同じ出典）
@@ -73,6 +77,64 @@ export const URGENT_SURE = new RegExp(
 );
 
 /**
+ * 確度の高い急ぎの言葉の中文（简体・繁体）と English（2026-11-05 作り手の決め事④。形は全体監査と決めた）。日本語の URGENT_SURE と同じ意味の物だけ。
+ * 話す・撮るの床（sureUrgent）と、見本の答えの急ぎの印もこの表を見る。聞くの床の URGENT_INTL は、この表に広めの言葉を足した物
+ * （日本語の URGENT＝URGENT_SURE＋広め と同じ形。表を二重に持たない）。
+ * - 出血・破水・胎動の減少・胎動を感じない・つわりで衰弱がひどい: 外国語版の母子健康手帳 R5 の訳の言葉
+ *   （流血・羊水破／bleeding・water breaking、胎动减少・感觉不到胎动／fewer movements・no longer feel the baby movements、极度虚弱）。
+ *   见红・spotting は、妊娠中の少しの出血の日常の言い方（日本語の表は「出血が少し」も数える）
+ * - 息をしていない・反応が無い・けいれん: 消防庁の119 の例の中文（没有呼吸・没有反应・痉挛不止）と English（not breathing・not responding・seizures）
+ * - 意識・唇の色・のどに詰まる・誤飲・強い痛み・水も飲めない・高熱・子どものぐったり: 日本語の表と同じ意味の言葉
+ *   （のどに詰まった＝喉咙卡住了・ぐったり＝瘫软・強い痛み＝剧烈疼痛 は dict/emergency.ts の訳）
+ * 「出血」「破水」「痙攣」「窒息」「高熱」は日本語と同じ字なので、日本語の表が拾う（中文の打ち消し・軽い所は、sureUrgent が両方の表に当てる）。
+ * 没有呼吸・叫不醒・not breathing・won't wake のように、打ち消しの形そのものが急ぎの言葉もある（打ち消しで外すのは出来事の語だけ）。
+ * ほかの5つの言葉は聞くの床（URGENT_INTL）だけ（画面の言葉は日本語・中文・English の3つ）。英字は \b で区切る。近似（母語の人にはまだ確かめていない）。
+ */
+export const URGENT_SURE_INTL = new RegExp(
+  [
+    // 中文: 出血・破水（R5）
+    "流血|见红|見紅|羊水破",
+    // けいれん（脚がつる「抽筋」は入れない）
+    "痉挛|抽搐|抽风|抽風|惊厥|驚厥",
+    // 息をしていない・息ができない
+    "没有呼吸|沒有呼吸|没呼吸|沒呼吸|不呼吸|停止呼吸|呼吸停止|不能呼吸|无法呼吸|無法呼吸|呼吸困难|呼吸困難|喘不上气|喘不上氣|喘不过气|喘不過氣",
+    // 反応が無い・意識が無い
+    "没有反应|沒有反應|没反应|沒反應|叫不醒|没有意识|沒有意識|失去意识|失去意識|意识不清|意識不清|昏迷|昏过去|昏過去|晕过去|暈過去",
+    // 唇の色・のどに詰まる・誤飲
+    "嘴唇[^。！？\\n，,]{0,3}(紫|发青|發青|变青|變青)|噎住|喉咙卡住|喉嚨卡住|卡在喉咙|卡在喉嚨|误吞|誤吞|误食|誤食",
+    "(吞|吃)(了|下了?)(一个|一個|一颗|一顆|一块|一塊|一枚|个|個|颗|顆)?(纽扣电池|鈕扣電池|电池|電池|磁铁|磁鐵|香烟|香菸|烟头|菸頭|洗涤剂|洗滌劑|洗衣液|洗衣凝珠|玩具|弹珠|彈珠|硬币|硬幣)",
+    // 胎動の減少・胎動を感じない（R5）
+    "胎(动|動)(明显|明顯)?(减少|減少|变少|變少|变弱|變弱|少了|很少|太少|停止|停了|消失|没了|沒了)|胎(动|動)(突然)?感(觉|覺)不到|感(觉|覺)不到(胎(动|動)|宝宝(在)?动|寶寶(在)?動)|没有胎动|沒有胎動",
+    // 強い痛み・水も飲めない（R5「因妊娠反应而变得极度虚弱」）
+    "剧痛|劇痛|剧烈(的)?(疼痛|腹痛|头痛)|劇烈(的)?(疼痛|腹痛|頭痛)|(疼|痛)得(厉害|厲害|受不了)",
+    "水都喝不|连水也喝不|連水也喝不|喝不下水|极度虚弱|極度虛弱",
+    // 高熱（39度から。日本語の表と同じ境。「高热量」は数えない）
+    "高烧|高燒|高热(?!量)|(发烧|發燒|发热|發熱|烧到|燒到|体温|體溫)[^。！？\\n，,]{0,4}(39|4[0-2])(\\.\\d)?\\s*(度|℃)",
+    // 子どもがぐったり
+    "(宝宝|寶寶|孩子|小孩|婴儿|嬰兒|儿子|兒子|女儿|女兒)[^。！？\\n，,]{0,4}(瘫软|癱軟|软绵绵|軟綿綿)",
+    // English: 出血・破水（R5: bleeding・your water breaking）
+    String.raw`\bbleed(ing|s)?\b|\bbled\b|\bspotting\b`,
+    String.raw`\bwaters?('s)? (is |are |has |have |had |just |already |may have |might have )*(broke|broken|breaking)\b`,
+    // けいれん・息・反応（119 の例: seizures・not breathing・not responding）
+    String.raw`\b(seizures?|seizing|convuls\w*)`,
+    String.raw`\b(not breathing|isn'?t breathing|stopped breathing|can'?t breathe|cannot breathe|can not breathe|unable to breathe|(trouble|difficulty|struggling to) breath(e|ing))\b`,
+    String.raw`\b(unconscious|unresponsive|not responding|isn'?t responding|won'?t respond|doesn'?t respond|passed out|won'?t wake( up)?|not waking( up)?|can'?t wake (him|her|them|the baby|my baby|my son|my daughter)( up)?)\b`,
+    // 唇の色・のどに詰まる・誤飲（"choked up"＝胸がいっぱい は数えない）
+    String.raw`\b(blue|purple) lips\b|\blips? (is |are |turning |turned |went |look |looks |looking |seem |seems |a bit |a little |slightly |very )*(blue|purple)\b|\b(turning|turned|went|gone|going) (blue|purple)\b`,
+    String.raw`\b(chok(e|es|ed|ing)\b(?! up\b)|suffocat\w*)`,
+    String.raw`\b(swallowed|ate) (a |an |the |some |two |my |his |her |their )?(button |small )?(batter(y|ies)|magnets?|coins?|detergent|laundry (pod|capsule)s?|cigarettes?|cigarette butts?|tobacco|marbles?|toys?|toy parts?)\b`,
+    // 胎動の減少・胎動を感じない（R5: fewer movements from your baby・no longer feel the baby movements）
+    String.raw`\b(baby|fetus) (is |has )?(not moving|stopped moving|moving less|moved less|moves less|isn'?t moving|hasn'?t (been )?mov(ed|ing)|has not (been )?mov(ed|ing)|didn'?t move)\b|\b(less|fewer|reduced|decreased|no) (fetal |baby |baby'?s )?(movements?|kicks)\b|\b(movements?|kicks) (have |has )?(decreased|slowed( down)?|stopped|reduced)\b|\b(can'?t|cannot|no longer|don'?t|didn'?t) feel (the |my )?baby('?s)? (move|moving|movements?|kick|kicking|kicks)\b`,
+    // 強い痛み・水も飲めない・高熱（39度から）・子どものぐったり
+    String.raw`\bsevere (pain|abdominal pain|stomach pain|belly pain|cramps?|cramping|headache)\b|\b(intense|excruciating|unbearable) pain\b`,
+    String.raw`\b(can'?t|cannot|unable to) (even )?(keep (any )?(water|fluids|liquids|anything) down|drink (any )?water)\b`,
+    String.raw`\bhigh fever\b|\bfever (of |is |was |at |reached |hit |went up to |up to )?(39|4[0-2])(\.\d)?\b|\b(39|4[0-2])(\.\d)?\s*(°\s*c|℃|degrees?( c| celsius)?) fever\b|\b10[3-6](\.\d)?\s*°?\s*f\b`,
+    String.raw`\b(baby|child|kid|son|daughter|toddler) (is |was |seems |looks |went |has gone |became |feels )?(very )?(limp|floppy)\b`,
+  ].join("|"),
+  "i",
+);
+
+/**
  * 続く言葉が打ち消し・もしもの言い方・書き写した値なら数えない
  * （「出血はない」「破水したら電話」「誤飲しないように」「出血量は500ml」。「出血量が多い」は数える）
  */
@@ -102,9 +164,86 @@ function sentenceAt(text: string, at: number): string {
  */
 const plainQuotes = (s: string) => s.replace(/[‘’ʼ＇]/g, "'");
 
+// ── 中文・English の「数えない」（話す・撮るの床だけ。聞くの床は広いまま）──
+// 日本語の NOT_NOW・MILD_BLEED・ROUTINE_BLEED・MILD_TWITCH と同じ考え方を、中文・English の書き方に当てる。
+// 打ち消し・もしもで外すのは出来事の語だけ（全体監査 11/5: 没有呼吸・叫不醒・not breathing・won't wake のように、
+// 急ぎの言葉そのものが打ち消しの形なので、まとめて外すと一番急ぐ物が消える）。見るのは同じ句の直前の短い所だけ。
+
+/** ひらがな・カタカナ（日本語の文には、中文・English の見分けを当てない＝日本語の床は前のまま） */
+const KANA = /[\u3040-\u30ff]/;
+/** 句の区切り（打ち消し・軽い所は同じ句の中だけを見る） */
+const CLAUSE_STOP = /[。！？!?\n；;，,、]|\.(?=\s|$)/g;
+/** 文の区切り（産後の悪露・生理の見分けは1文を見る） */
+const SENTENCE_STOP = /[。！？!?\n]|\.(?=\s|$)/g;
+
+/** at から len 字の言葉の、同じ句の前の所（30字まで）と後の所（30字まで） */
+function clauseAround(text: string, at: number, len: number): { before: string; after: string } {
+  const head = text.slice(Math.max(0, at - 30), at);
+  let cut = 0;
+  for (const m of head.matchAll(CLAUSE_STOP)) cut = m.index + m[0].length;
+  const tail = text.slice(at + len, at + len + 30);
+  const end = [...tail.matchAll(CLAUSE_STOP)][0]?.index ?? tail.length;
+  return { before: head.slice(cut), after: tail.slice(0, end) };
+}
+
+/** at を含む1文（中文・English） */
+function sentenceIntl(text: string, at: number): string {
+  let start = 0;
+  let end = text.length;
+  for (const m of text.matchAll(SENTENCE_STOP)) {
+    if (m.index < at) start = m.index + m[0].length;
+    else {
+      end = m.index;
+      break;
+    }
+  }
+  return text.slice(start, end);
+}
+
+/** 出来事の語（打ち消し・もしもで外すのは、この語だけ） */
+const EVENT_WORD = /^(出血|流血|见红|見紅|破水|羊水破|痙攣|痉挛|抽搐|抽风|抽風|惊厥|驚厥|bleed|bled|spotting|seiz|convuls)/i;
+const BLEED_WORD = /^(出血|流血|见红|見紅|bleed|bled|spotting)/i;
+const TWITCH_WORD = /^(痙攣|痉挛|抽搐|抽风|抽風|惊厥|驚厥)/;
+/** 出来事の語のすぐ前の、中文の打ち消し・もしも（没有出血・未见出血・如果有出血・万一破水） */
+const NOT_NOW_ZH = /(没有|沒有|没|沒|无|無|未|如果|万一|萬一|要是|假如)(有|再|又|任何|明显|明顯|见|見|看到|发现|發現|发生|發生|出现|出現|过|過)*$/;
+/** 出来事の語のすぐ前の、English の打ち消し・もしも（no bleeding・hasn't had any bleeding・if there is bleeding）。間に入れてよい語を決めておく（"won't stop bleeding" は数える） */
+const NOT_NOW_EN =
+  /\b(no|not|without|never|isn'?t|wasn'?t|hasn'?t|haven'?t|hadn'?t|didn'?t|doesn'?t|don'?t|if|in case( of)?)\b(\s+(any|a|an|the|more|signs?|of|there|there'?s|is|was|are|were|has|had|have|been|be|see|seen|saw|notice|noticed|experienced|having|get|got))*\s*$/i;
+/** よくある軽い出血の所（日本語の MILD_BLEED と同じ。牙龈・刷牙・鼻／gums・nose）。English は言葉のすぐ前後だけを見る */
+const MILD_BLEED_ZH = /(牙龈|牙齦|牙床|刷牙|鼻子|鼻腔|鼻)[^。！？\n，,；;]{0,6}$/;
+const MILD_BLEED_EN_BEFORE = /\b(gums?|nose|nostrils?)( (is|are|keeps?|kept|started|was|were))?( still)?\s*$/i;
+const MILD_BLEED_EN_AFTER = /^\s*(gums?\b|from (the |his |her |my |their |a )?(gums?|nose|nostrils?)\b|(when|while|after) (i |he |she )?(brush|floss))/i;
+/** 同じ文にほかの所（口・耳・頭・便・下）や熱があれば、軽い所の見分けを当てない（「嘴和鼻子出血」「bleeding from the mouth and nose」は数える） */
+const OTHER_SITE = /嘴|口|耳|头|頭|眼睛|大便|便血|尿|阴道|陰道|下面|下体|下體|发烧|發燒|发热|發熱|\b(mouth|ears?|head|eyes?|stool|poop|diaper|nappy|vagina|vaginal|down there|urine|pee|fever)\b/i;
+/** 産後の悪露・生理が戻った時の出血（日本語の ROUTINE_BLEED と同じ）。量が多い・塊・止まらない・急に鮮紅色は数える。「像来月经一样」（妊娠中の出血の言い方）も数える */
+const ROUTINE_BLEED_INTL = /恶露|惡露|(来|來)了?(月经|月經|例假)|(月经|月經|例假)(又|已经|已經)?(来|來|恢复|恢復)|大姨(妈|媽)(来|來)|\blochia\b|\bperiod (came|started|is back|came back|returned|has returned|has come back)\b/i;
+const HEAVY_BLEED_INTL =
+  /很多|好多|太多|增多|变多|變多|量多|量大|止不住|不止|停不下|血块|血塊|鲜红|鮮紅|突然|\bheavy\b|\ba lot\b|\blots\b|\bmore\b|increas\w*|won'?t stop|not stopping|\bclots?\b|soak\w*|\bbright red\b|\bsudden(ly)?\b/i;
+const LIKE = /像|一样|一樣|似的|\blike\b/i;
+/** 腿・眼皮の抽搐（日本語の MILD_TWITCH と同じ。「手脚」は数える）。同じ文に手・全身・四肢・熱があれば当てない（「手和腿在抽搐」「发烧，腿在抽搐」は数える） */
+const MILD_TWITCH_ZH = /(?<!手)(眼皮|眼睑|眼瞼|小腿|大腿|腿|脚|腳)[^。！？\n，,；;]{0,3}$/;
+const WHOLE_BODY = /手(?![机機术術续續册冊帐帳表套写寫工艺藝势勢段法])|全身|四肢|身体|身體|浑身|渾身|胳膊|翻白眼|发烧|發燒|发热|發熱/;
+/** 誤飲・窒息を防ぐ話（日本語の NOT_NOW の「防止・予防・対策」と同じ。「不小心」＝うっかり・「没能防止」＝防げなかった は数える） */
+const PREVENT_BEFORE =
+  /(?<!没能|沒能|没有|沒有|未能|无法|無法|不能)(防止|预防|預防|避免|以免)[^。！？\n，,；;]{0,4}$|\b(prevent|preventing|prevention of|avoid|avoiding|risk of)\s*$/i;
+const PREVENT_AFTER = /^(的危险|的危險|的风险|的風險)|^\s*(hazards?|risks?|prevention)\b/i;
+
+/** 中文・English の打ち消し・もしも・軽い所・防ぐ話なら true（数えない） */
+function notNowIntl(text: string, at: number, word: string): boolean {
+  const { before, after } = clauseAround(text, at, word.length);
+  if (PREVENT_BEFORE.test(before) || PREVENT_AFTER.test(after)) return true;
+  if (EVENT_WORD.test(word) && (NOT_NOW_ZH.test(before) || NOT_NOW_EN.test(before) || /^(的话|的話)/.test(after))) return true;
+  const s = sentenceIntl(text, at);
+  if (BLEED_WORD.test(word)) {
+    if (!OTHER_SITE.test(s) && (MILD_BLEED_ZH.test(before) || MILD_BLEED_EN_BEFORE.test(before) || MILD_BLEED_EN_AFTER.test(after))) return true;
+    if (ROUTINE_BLEED_INTL.test(s) && !LIKE.test(s) && !HEAVY_BLEED_INTL.test(s)) return true;
+  }
+  return TWITCH_WORD.test(word) && MILD_TWITCH_ZH.test(before) && !WHOLE_BODY.test(s);
+}
+
 /**
- * 話す・撮るの床: 確度の高い急ぎの言葉（URGENT_SURE）が、打ち消し・もしも・軽い所でない形で入っているか。
- * 体の判断ではない（当たったら、連絡先の案内を付けるだけ）。
+ * 話す・撮るの床: 確度の高い急ぎの言葉（日本語の URGENT_SURE と、中文・English の URGENT_SURE_INTL）が、
+ * 打ち消し・もしも・軽い所でない形で入っているか。体の判断ではない（当たったら、連絡先の案内を付けるだけ）。
  */
 export function sureUrgent(raw: string): boolean {
   const text = plainQuotes(raw);
@@ -118,6 +257,14 @@ export function sureUrgent(raw: string): boolean {
       if (ROUTINE_BLEED.test(s) && !HEAVY_BLEED.test(s)) continue;
     }
     if (/^(けいれん|痙攣|ひきつけ|引きつけ)/.test(m[0]) && MILD_TWITCH.test(before)) continue;
+    // 中文で書いた 出血・破水・痙攣・窒息・高熱（日本語と同じ字）: 句にかなが無い時だけ、中文の打ち消し・軽い所を当てる
+    const around = clauseAround(text, m.index, m[0].length);
+    if (!KANA.test(around.before + around.after) && notNowIntl(text, m.index, m[0])) continue;
+    return true;
+  }
+  for (const m of text.matchAll(new RegExp(URGENT_SURE_INTL.source, "gi"))) {
+    const after = text.slice(m.index + m[0].length, m.index + m[0].length + 10);
+    if (NOT_NOW.test(after) || notNowIntl(text, m.index, m[0])) continue;
     return true;
   }
   return false;
@@ -184,27 +331,23 @@ const CHILD_HARM =
   /手をあげ|叩いて|たたいて|虐待|\b(hurt|harm|hit|shake|shook|shaking|slap|bater)\b|\babuse\b|打孩子|伤害孩子|傷害孩子|때릴|학대|saktan|[dđ][aá]nh con|कुट/i;
 
 /**
- * 日本語以外で書かれた急ぎの言葉（URGENT と同じ意味の物だけ）。英語・ポルトガル語などの単語は語の頭（\b）で区切る
- * （"heartburn" や "fell asleep" には当てない）。大文字・小文字は問わない。
+ * 日本語以外で書かれた急ぎの言葉（聞くの床。URGENT と同じ意味の物だけ）。確度の高い中文・English（URGENT_SURE_INTL）に、
+ * 聞く時だけ使う広めの言葉と、ほかの5つの言葉を足した表（日本語の URGENT＝URGENT_SURE＋広め と同じ形）。
+ * 英語・ポルトガル語などの単語は語の頭（\b）で区切る（"heartburn" や "fell asleep" には当てない）。大文字・小文字は問わない。
  */
 const URGENT_INTL = new RegExp(
   [
-    // 英語
-    String.raw`\bbleed(ing|s)?\b`,
-    String.raw`\bwaters? (has |have )?(broke|broken)\b`,
-    String.raw`\b(seizures?|convuls\w*)`,
-    String.raw`\b(not breathing|can'?t breathe|cannot breathe|stopped breathing|(trouble|difficulty|struggling to) breath(e|ing))\b`,
-    String.raw`\b(unconscious|unresponsive|not responding|passed out|floppy|limp)\b`,
-    String.raw`\bhigh fever\b`,
-    String.raw`\b(10[2-6])(\.\d)?\s*°?\s*f\b`,
-    String.raw`\b(chok(e|ed|ing)|suffocat\w*)`,
+    URGENT_SURE_INTL.source,
+    // 英語（広め）
+    String.raw`\b(floppy|limp)\b`,
+    String.raw`\b(10[2-6])(\.\d)?\s*°?\s*f\b|\b(3[89]|4[0-2])(\.\d)?\s*(°\s*c\b|℃|degrees\b)|\b(temp|temperature) (of |is |was |at |reached |hit )?(3[89]|4[0-2])(\.\d)?\b`,
     String.raw`\bswallowed\b`,
     String.raw`\bburn(ed|t|s)?\b`,
     String.raw`\b(hit|bumped|banged) (his|her|their|the|my) head\b|\bhead injury\b`,
     String.raw`\bfell (off|from|down|out)\b`,
-    String.raw`\b(lips?|face) (is |are |turning |turned |went )*(blue|purple)\b`,
-    String.raw`\b(baby|fetus) (is )?(not moving|moving less)\b|\b(less|fewer|reduced|decreased|no) (fetal |baby )?movements?\b`,
-    String.raw`\bsevere (pain|abdominal pain|cramps?|headache)\b`,
+    String.raw`\bface (is |are |turning |turned |went )*(blue|purple)\b`,
+    String.raw`\b(amniotic fluid|leaking (fluid|water)|hard to breathe|short(ness)? of breath)\b`,
+    String.raw`\b(stomach|belly|tummy|abdominal) (pain|cramps?|cramping|tightening)\b|\b(stomach|belly|tummy) (hurts|is hurting|is tight|feels tight|is hard|feels hard)\b`,
     String.raw`\bemergency\b`,
     // ポルトガル語
     String.raw`\bsangr(amento|ando|ar|ou)\b|\ba bolsa (estourou|rompeu)\b`,
@@ -218,8 +361,8 @@ const URGENT_INTL = new RegExp(
     String.raw`\b(nabulunan|nalunok|napaso|nauntog|nahulog|bumagsak)\b`,
     // ベトナム語（声調の記号が無い書き方も）
     String.raw`ch[aả]y m[aá]u|ra m[aá]u|v[oỡ] [oố]i|co gi[aậ]t|kh[oô]ng th[oở](?=[\s.,!?]|$)|kh[oó] th[oở]|b[aấ]t t[iỉ]nh|s[oố]t cao|h[oó]c d[iị] v[aậ]t|ngh[eẹ]n|nu[oố]t ph[aả]i|b[oỏ]ng|b[iị] ng[aã]|t[eé] ng[aã]|[dđ][aậ]p [dđ][aầ]u|m[oô]i t[ií]m|thai (m[aá]y [ií]t|kh[oô]ng m[aá]y)`,
-    // 中国語（簡体・繁体。日本語と同じ字の 出血・破水・羊水・窒息 は URGENT が拾う）
-    "流血|抽搐|惊厥|驚厥|不呼吸|没有呼吸|沒有呼吸|呼吸困难|呼吸困難|昏迷|没反应|沒反應|没有反应|沒有反應|高烧|高燒|发高烧|發高燒|噎住|误吞|誤吞|吞下|烫伤|燙傷|烧伤|燒傷|摔下|摔倒|撞到头|撞到頭|嘴唇发紫|嘴唇發紫|胎动减少|胎動減少|胎动少|胎動少|剧痛|劇痛",
+    // 中国語（広め。確度の高い言葉は URGENT_SURE_INTL。日本語と同じ字の 出血・破水・羊水・窒息 は URGENT が拾う）
+    "吞下|吞了|咽下|喉(咙|嚨)卡|烫伤|燙傷|烧伤|燒傷|摔下|摔倒|撞到头|撞到頭|胎动少|胎動少|瘫软|癱軟|软绵绵|軟綿綿|蔫|(脸|臉)色(发|發)(青|紫)|呼吸急促|腹部紧张|腹部緊張|肚子(很|好|特别|特別|一直)?(痛|疼)|肚子(发|發)(紧|緊|硬)",
     // 韓国語
     "출혈|피가 나|피가 멈추지|양수가 터|경련|발작|숨을 안|숨을 못|숨을 쉬지|호흡곤란|의식이 없|반응이 없|고열|질식|목에 걸|삼켰|화상|머리를 부딪|떨어졌|입술이 파|태동이 줄|태동이 없",
     // ネパール語
