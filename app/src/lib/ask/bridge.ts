@@ -215,15 +215,17 @@ function sentenceIntl(text: string, at: number): string {
   return text.slice(start, end);
 }
 
-/** 出来事の語（打ち消し・もしもで外すのは、この語だけ） */
-const EVENT_WORD = /^(出血|流血|见红|見紅|破水|羊水破|痙攣|痉挛|抽搐|抽风|抽風|惊厥|驚厥|bleed|bled|spotting|seiz|convuls)/i;
-const BLEED_WORD = /^(出血|流血|见红|見紅|血止|止不住血|血流不止|止不了血|(流|出)了|bleed|bled|spotting|(lots of|a lot of|so much|too much) blood|blood )/i;
+/** 出血の字が続かない出血の言い方（血止不住・流了很多血・a lot of blood。2026-11-05 監査）。打ち消し・もしもも、軽い所の見分けも当てる */
+const BLEED_MORE = String.raw`血止|止不住血|血流不止|止不了血|(流|出)了|(lots of|a lot of|so much|too much) blood|blood `;
+/** 出来事の語（打ち消し・もしもで外すのは、この語だけ。「I didn't lose a lot of blood」「如果血止不住」も外す） */
+const EVENT_WORD = new RegExp(`^(出血|流血|见红|見紅|破水|羊水破|痙攣|痉挛|抽搐|抽风|抽風|惊厥|驚厥|bleed|bled|spotting|seiz|convuls|${BLEED_MORE})`, "i");
+const BLEED_WORD = new RegExp(`^(出血|流血|见红|見紅|bleed|bled|spotting|${BLEED_MORE})`, "i");
 const TWITCH_WORD = /^(痙攣|痉挛|抽搐|抽风|抽風|惊厥|驚厥)/;
 /** 出来事の語のすぐ前の、中文の打ち消し・もしも（没有出血・未见出血・如果有出血・万一破水） */
 const NOT_NOW_ZH = /(没有|沒有|没|沒|无|無|未|如果|万一|萬一|要是|假如)(有|再|又|任何|明显|明顯|见|見|看到|发现|發現|发生|發生|出现|出現|过|過)*$/;
 /** 出来事の語のすぐ前の、English の打ち消し・もしも（no bleeding・hasn't had any bleeding・if there is bleeding）。間に入れてよい語を決めておく（"won't stop bleeding" は数える） */
 const NOT_NOW_EN =
-  /\b(no|not|without|never|isn'?t|wasn'?t|hasn'?t|haven'?t|hadn'?t|didn'?t|doesn'?t|don'?t|if|in case( of)?)\b(\s+(any|a|an|the|more|signs?|of|there|there'?s|is|was|are|were|has|had|have|been|be|see|seen|saw|notice|noticed|experienced|having|get|got))*\s*$/i;
+  /\b(no|not|without|never|isn'?t|wasn'?t|hasn'?t|haven'?t|hadn'?t|didn'?t|doesn'?t|don'?t|if|in case( of)?)\b(\s+(any|a|an|the|more|signs?|of|there|there'?s|is|was|are|were|has|had|have|been|be|see|seen|saw|notice|noticed|experienced|having|get|got|lose|lost|losing))*\s*$/i;
 /** よくある軽い出血の所（日本語の MILD_BLEED と同じ。牙龈・刷牙・鼻／gums・nose）。English は言葉のすぐ前後だけを見る */
 const MILD_BLEED_ZH = /(牙龈|牙齦|牙床|刷牙|鼻子|鼻腔|鼻)[^。！？\n，,；;]{0,6}$/;
 const MILD_BLEED_EN_BEFORE = /\b(gums?|nose|nostrils?)( (is|are|keeps?|kept|started|was|were))?( still)?\s*$/i;
@@ -236,11 +238,12 @@ const HEAVY_BLEED_INTL =
   /很多|好多|太多|增多|变多|變多|量多|量大|止不住|不止|停不下|血块|血塊|鲜红|鮮紅|突然|\bheavy\b|\ba lot\b|\blots\b|\bmore\b|increas\w*|won'?t stop|not stopping|\bclots?\b|soak\w*|\bbright red\b|\bsudden(ly)?\b/i;
 const LIKE = /像|一样|一樣|似的|\blike\b/i;
 /**
- * 止まらない・多い出血は、軽い所（牙龈・鼻／gums・nose）でも数える（「宝宝鼻子流血止不住」「my baby's nose won't stop bleeding」。日本語の BLEED_NOT_MILD と同じ。
- * 2026-11-05 監査）。「很多」だけでは数えない（「很多孕妇都这样」の「多くの」）
+ * 止まらない・大量の出血は、軽い所（牙龈・鼻／gums・nose）でも数える（「宝宝鼻子流血止不住」「my baby's nose won't stop bleeding」。2026-11-05 監査）。
+ * 日本語の BLEED_NOT_MILD（止まらない・大量）にそろえ、「很多・a lot・heavily」では数えない（「孕期牙龈出血很多」「my gums bleed a lot when I brush」は
+ * よくある軽い出血。日本語の「歯ぐきから血がたくさん出る」も数えない。UX が当てた境目）。「不止一次」（一度ではない）・「won't stop crying」（泣き止まない）も当てない
  */
 const WONT_STOP_INTL =
-  /止不住|不止|停不下|止不了|大量|很多血|好多血|(出血|流血)(很多|好多|量大|量很大)|\bwon'?t stop\b|\bnot stopping\b|\b(hasn'?t|has not|haven'?t|doesn'?t|does not|didn'?t|can'?t|cannot) stop(ped)?\b|\b(a lot|lots|heavily|heavy)\b/i;
+  /止不住|停不下|止不了|大量|不止(?![一两兩二三四五几幾这這那是于於])|\b(won'?t|will not|doesn'?t|does not|didn'?t|hasn'?t|has not|haven'?t|have not|can'?t|cannot|couldn'?t|not) stop(ped|ping)?\b(?! (?!bleeding\b)\w+ing\b)/i;
 /** 子どもの腿・眼皮の抽搐は数える（「宝宝的腿在抽搐」。日本語の「赤ちゃんの足がけいれん」と同じ。2026-11-05 監査） */
 const CHILD_LEG_ZH = /(宝宝|寶寶|孩子|小孩|婴儿|嬰兒|儿子|兒子|女儿|女兒)(的)?(眼皮|眼睑|眼瞼|小腿|大腿|腿|脚|腳)/;
 /** 腿・眼皮の抽搐（日本語の MILD_TWITCH と同じ。「手脚」は数える）。同じ文に手・全身・四肢・熱があれば当てない（「手和腿在抽搐」「发烧，腿在抽搐」は数える） */

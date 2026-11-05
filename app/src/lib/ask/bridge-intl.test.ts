@@ -282,7 +282,7 @@ describe("止まらない・多い・子どもの足は、軽い所でも数え�
     "孩子眼皮一直抽搐",
     "my baby's nose keeps bleeding and won't stop",
     "my baby’s nose won’t stop bleeding",
-    "his nose is bleeding heavily",
+    "her nose is bleeding and it hasn't stopped",
     "there is a lot of blood",
   ])("%s → 急ぎ（聞くの床も）", (t) => {
     expect(sureUrgent(t)).toBe(true);
@@ -301,5 +301,36 @@ describe("止まらない・多い・子どもの足は、軽い所でも数え�
     "a lot of blood work today",
   ])("%s → 話す・撮るの床では数えない", (t) => {
     expect(sureUrgent(t)).toBe(false);
+  });
+});
+
+describe("軽い所の「很多・a lot・heavily」は数えない（日本語の「歯ぐきから血がたくさん出る」と同じ）・打ち消しの a lot of blood（2026-11-05 夜・UX が当てた境目）", () => {
+  it.each([
+    "my nose bleeds a lot in winter",
+    "my gums bleed a lot when I brush",
+    "my gums bleed heavily when I floss",
+    "my baby's nose is bleeding a lot",
+    "牙龈出血很多",
+    "孕期牙龈出血很多",
+    "鼻子出血不止一次",
+    "my nose is bleeding a little and the baby won't stop crying",
+    "I didn't lose a lot of blood",
+    "there wasn't a lot of blood",
+    "如果血止不住怎么办",
+    "赤ちゃんの鼻血がたくさん出た",
+    "歯ぐきから血がたくさん出る",
+  ])("%s → 話す・撮るの床では数えない", (t) => {
+    expect(sureUrgent(t)).toBe(false);
+  });
+
+  it.each([
+    "鼻子出血一直止不住",
+    "牙龈大量出血",
+    "my gums are bleeding and it won't stop",
+    "her nose is bleeding and it hasn't stopped",
+    "she lost a lot of blood",
+  ])("%s → 急ぎ（聞くの床も）", (t) => {
+    expect(sureUrgent(t)).toBe(true);
+    expect(bridgeFor(t, "child").urgent).toBe(true);
   });
 });
