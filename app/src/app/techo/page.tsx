@@ -18,6 +18,7 @@ import { EntryForm } from "@/components/techo/EntryForm";
 import { FeelingList } from "@/components/techo/FeelingList";
 import { GrowthChart } from "@/components/techo/GrowthChart";
 import { PendingBox } from "@/components/techo/PendingBox";
+import { PregnancyBody } from "@/components/techo/PregnancyBody";
 import { StoolCard } from "@/components/techo/StoolCard";
 import { useTecho, type TechoItem } from "@/components/techo/useTecho";
 import { VaccineList } from "@/components/techo/VaccineList";
@@ -360,15 +361,24 @@ function PageBody({
           }
         />
       );
+    case "pregnancy-checkup":
+      // からだの記録（家族の声②）: 紙と同じ表と体重の線。1件ずつの記録は、表がある時は畳む
+      return (
+        <>
+          <PregnancyBody items={all}>{list.length > 0 && <RecentList list={list} onRemove={remove} />}</PregnancyBody>
+          <EntryForm page={id} today={today} add={add} />
+        </>
+      );
     case "growth":
       return (
         <GrowthChart
           items={all}
-          onAdd={(values, date) =>
+          onAdd={(values, date, who) =>
             add({
               page: "growth",
               date,
               title: "身長・体重など（紙から写した）",
+              ...(who ? { who } : {}),
               values,
             })
           }

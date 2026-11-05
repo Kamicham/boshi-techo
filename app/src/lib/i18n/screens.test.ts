@@ -78,6 +78,9 @@ const DONE: readonly string[] = [
   // ④ 残りの画面（11/5 午後）
   "app/emergency/", // 急ぎの時（窒息・心肺蘇生・119・#8000・#7119・泣きやまない時）。題（metadata）だけは作る時に1回組むので日本語
   "app/unlock/", // 体験版の合言葉
+  // からだの記録（家族の声②・プランの B）。新しい部品は最初から t() で書いた。手帳のタブのほかの所は UX の訳を待つ
+  "components/techo/PregnancyBody.tsx", // 妊婦健診の表と体重の線・目安の括弧と出どころ
+  "components/techo/GrowthLines.tsx", // 発育曲線の描く所（帯なし・子ごとの線・横軸の幅）
   "components/capture/", // 話す・撮る・打つ
   "app/capture/",
   // 手帳のタブ（多言語化④・エージェントが訳した）。GrowthChart.tsx は思い出の会話が書き換え中なので、その取り込みの後に置き場ごと（components/techo/）にする
