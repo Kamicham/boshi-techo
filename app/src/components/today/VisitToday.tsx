@@ -33,9 +33,17 @@ export function VisitToday({
   const sub = [t("持ち物 {n}つ", { n: bring }), agendaCount > 0 ? t("先生に聞く事 {n}つ", { n: agendaCount }) : null].filter(Boolean).join(t("・"));
   // 時期の言い方: 日本語は健診の画面と同じ visitLabel（lib/visit.ts）、ほかの言葉は週数・月齢の言い方（lib/clock.ts の clockShort）
   const label = currentLang() === "ja" ? visitLabel(family, next.date) : clockShort(clockAt(family, next.date));
+  // 録音から聞こえただけで、まだ確かめていない日（heard）も声かけは出し、「録音から聞こえた日・まだ確かめていません」と［確かめる］を添える
+  // （健診のタブの前日の札＝components/visit/Briefing.tsx と同じ言葉。この札にカレンダーへ入れるボタンは無い。2026-11-05 作り手の決め事）
   return (
     <NextStep eyebrow={hospital ? t("{label}の健診・{hospital}", { label, hospital }) : t("{label}の健診", { label })} title={title} sub={sub} tone="rose">
+      {next.heard && <p className="w-full text-sm text-muted">{t("録音から聞こえた日・まだ確かめていません")}</p>}
       <Btn href="/visit">{t("健診を開く")}</Btn>
+      {next.heard && next.visitId && (
+        <Btn kind="secondary" href={`/visit/${next.visitId}`}>
+          {t("確かめる")}
+        </Btn>
+      )}
       {hospital && <HandoffRow place={hospital} />}
     </NextStep>
   );

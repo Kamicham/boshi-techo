@@ -140,3 +140,17 @@ describe("第30回の直し", () => {
     expect(c.actions[0]).toMatchObject({ type: "concern", for: "mother" });
   });
 });
+
+describe("手帳に聞くの次の健診（録音から聞こえた日）", () => {
+  it("まだ家族が確かめていない日は、そう添える。確かめた後は添えない", async () => {
+    const { createVisit, getPlan, savePlan } = await import("@/app/api/visit/_lib/server");
+    const { patch } = await import("../db");
+    const fam = { ...DEMO_FAMILY, id: `try-${"7".padStart(32, "0")}` };
+    const v = createVisit(fam.id, "2027-10-20");
+    patch(v.id, { status: "done", nextDate: "2027-11-17" });
+    savePlan(fam.id, { ...getPlan(fam.id), next: { date: "2027-11-17", time: "10:30", source: "visit", visitId: v.id } });
+    expect(notebookSnapshot(fam, "2027-10-21").次の健診の予約).toBe("2027-11-17 10:30（録音から聞こえた日。まだ家族が確かめていない）");
+    patch(v.id, { nextCheck: { state: "ok", date: "2027-11-17", time: "10:30", at: "2027-10-20T03:00:00.000Z" } });
+    expect(notebookSnapshot(fam, "2027-10-21").次の健診の予約).toBe("2027-11-17 10:30");
+  });
+});

@@ -7,7 +7,7 @@
 // 画面とサーバの両方で使う純関数（DB・ファイル・Claude を呼ばない）。
 import { diffDays, lmpFromDue, toDay } from "./clock";
 import { intervalDays } from "./prenatal";
-import { isChecked, type AppointmentSaid, type NextCheck, type VisitData, type VisitPlan } from "./visit";
+import { isChecked, nextOfVisit, type AppointmentSaid, type NextCheck, type VisitData, type VisitPlan } from "./visit";
 
 type PlanNext = VisitPlan["next"];
 
@@ -115,4 +115,23 @@ export function withHeard(planNext: PlanNext, visitOf: (id: string) => Pick<Visi
   const rest = { ...planNext };
   delete rest.heard;
   return isChecked(v?.nextCheck) ? rest : { ...rest, heard: true };
+}
+
+/**
+ * 画面（GET /api/visit）と手帳に聞く（lib/ask/tools.ts の notebookSnapshot）が読む次の予約。どちらもこの関数を通す。
+ * 予約が入っていなければ、一番新しい「できた」健診の結果から取れた日を使う（「言われていない」と答えた健診なら、さらに古い健診の日は拾わない）。
+ * 録音から聞こえただけで、まだ本人が確かめていない日には heard を付ける（withHeard。保存しない）。docs は新しい順（visitsOf の並び）
+ */
+export function shownNext(
+  planNext: PlanNext,
+  docs: { id: string; data: Pick<VisitData, "status" | "nextDate" | "nextCheck" | "result"> }[],
+): PlanNext {
+  let next = planNext ?? null;
+  if (!next) {
+    const last = docs.find((d) => d.data.status === "done");
+    const n = last ? nextOfVisit(last.data) : null;
+    if (last && n) next = { date: n.date, time: n.time, source: "visit", visitId: last.id, said: last.data.result?.nextAppointment?.said };
+  }
+  const byId = new Map(docs.map((d) => [d.id, d.data]));
+  return withHeard(next, (id) => byId.get(id));
 }

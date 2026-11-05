@@ -477,11 +477,26 @@ export function Techo() {
         </span>
       </Link>
     ) : (
-      <Link key="visit" href="/visit" className="flex min-h-12 items-center justify-between gap-3 border-b border-line py-2 last:border-b-0">
-        <span className="text-base font-semibold">
-          {t("次の健診")}
-          {visitRow!.time ? ` ${visitRow!.time}` : ""}
-        </span>
+      // 録音から聞こえただけで、まだ確かめていない日（heard）は「次の健診の日を確かめる」と聞こえた日にして、その健診の1問へ
+      // （色・件数・知らせは足さない。「予約を」の1行は今までどおり重ねない。2026-11-05 作り手の決め事）
+      <Link
+        key="visit"
+        href={visitRow!.heard && visitRow!.visitId ? `/visit/${visitRow!.visitId}` : "/visit"}
+        className="flex min-h-12 items-center justify-between gap-3 border-b border-line py-2 last:border-b-0"
+      >
+        {visitRow!.heard ? (
+          <span className="min-w-0">
+            <span className="block text-base font-semibold">{t("次の健診の日を確かめる")}</span>
+            <span className="block text-sm text-muted">
+              {t("聞こえた日 {date}", { date: `${jpShort(visitRow!.date, today)}${visitRow!.time ? ` ${visitRow!.time}` : ""}` })}
+            </span>
+          </span>
+        ) : (
+          <span className="text-base font-semibold">
+            {t("次の健診")}
+            {visitRow!.time ? ` ${visitRow!.time}` : ""}
+          </span>
+        )}
         <span className="flex shrink-0 items-center gap-2">
           <span className="tabular text-sm font-semibold">{t("あと{n}日", { n: daysUntil(today, visitRow!.date) })}</span>
           <span className="text-muted" aria-hidden>

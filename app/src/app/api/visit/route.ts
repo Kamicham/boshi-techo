@@ -1,8 +1,8 @@
 // 健診の一覧と、新しい健診を始める。関所は familyFor（家族の id で世帯を指し、「セッション → 世帯 → 権限」）。
 import { body, route } from "@/lib/api";
 import { familyFor } from "../_lib/household";
-import { concernSide, nextAgenda, nextOfVisit, type VisitData } from "@/lib/visit";
-import { withHeard } from "@/lib/visit-next";
+import { concernSide, nextAgenda, type VisitData } from "@/lib/visit";
+import { shownNext } from "@/lib/visit-next";
 import { bornOn, canWriteVisit, createVisit, getPlan, notForReaders, ongoingVisit, visitsOf } from "./_lib/server";
 import { prenatalState } from "@/lib/prenatal";
 import { listTecho } from "@/lib/techo-store";
@@ -29,15 +29,9 @@ export const GET = route(async (req: Request) => {
     plan,
     bornOn(fam, today),
   );
-  // 予約が入っていなければ、一番新しい「できた」健診の結果から取れた日を使う（「言われていない」と答えた健診なら、さらに古い健診の日は拾わない）
-  if (!plan.next) {
-    const last = docs.find((d) => d.data.status === "done");
-    const n = last ? nextOfVisit(last.data) : null;
-    if (last && n) plan.next = { date: n.date, time: n.time, source: "visit", visitId: last.id, said: last.data.result?.nextAppointment?.said };
-  }
-  // 録音から聞こえただけで、まだ本人が確かめていない日には heard を付ける（保存しない。lib/visit-next.ts）
-  const byId = new Map(docs.map((d) => [d.id, d.data]));
-  plan.next = withHeard(plan.next ?? null, (id) => byId.get(id));
+  // 予約が入っていなければ一番新しい「できた」健診の日を使い、録音から聞こえただけで、まだ本人が確かめていない日には heard を付ける
+  // （保存しない。手帳に聞くも同じ関数で読む＝lib/visit-next.ts の shownNext）
+  plan.next = shownNext(plan.next ?? null, docs);
   const canWrite = canWriteVisit(h);
   // 妊婦健診の次の目安と受診券の残り（第1波⑧）。受けた日は、妊娠中の健診の記録と手帳の妊婦健診のページから
   const checkups = [

@@ -1,7 +1,7 @@
 // 次の健診の日の確かめ（lib/visit-next.ts）。日付はすべて作った日（作った家族: 予定日 2028-03-01）。
 import { describe, expect, it } from "vitest";
 import { nextOfVisit, type NextCheck, type VisitPlan } from "./visit";
-import { afterCheck, afterOrganize, heardFlags, planNextAfterDelete, withHeard } from "./visit-next";
+import { afterCheck, afterOrganize, heardFlags, planNextAfterDelete, shownNext, withHeard } from "./visit-next";
 
 const at = "2027-10-20T03:00:00.000Z";
 const fam = { dueDate: "2028-03-01" };
@@ -119,5 +119,27 @@ describe("健診を消した後と、読む時の印", () => {
     expect(withHeard({ ...plan, heard: true }, () => ({ nextCheck: { state: "ok", date: "2027-11-17", at } }))?.heard).toBeUndefined();
     expect(withHeard({ date: "2027-11-17", source: "manual" }, () => ({}))?.heard).toBeUndefined();
     expect(withHeard(null, () => ({}))).toBeNull();
+  });
+});
+
+describe("画面と手帳に聞くが読む次の予約（shownNext）", () => {
+  const done = (id: string, nextDate: string | null, nextCheck?: NextCheck) => ({
+    id,
+    data: { status: "done" as const, nextDate, nextCheck, result: undefined },
+  });
+  it("予約が無ければ一番新しい「できた」健診の日を使い、確かめていなければ heard", () => {
+    expect(shownNext(null, [done("v2", "2027-11-17"), done("v1", "2027-10-20")])).toMatchObject({ date: "2027-11-17", source: "visit", visitId: "v2", heard: true });
+  });
+  it("確かめた日はその日で、heard を付けない。「言われていない」なら古い健診の日を拾わない", () => {
+    const ok = shownNext(null, [done("v2", "2027-11-17", { state: "ok", date: "2027-11-17", time: "10:30", at }), done("v1", "2027-10-20")]);
+    expect(ok).toMatchObject({ date: "2027-11-17", time: "10:30", visitId: "v2" });
+    expect(ok?.heard).toBeUndefined();
+    expect(shownNext(null, [done("v2", null, { state: "none", at }), done("v1", "2027-10-20")])).toBeNull();
+  });
+  it("入っている予約はそのまま読み、手で入れた日には heard を付けない", () => {
+    const plan: VisitPlan["next"] = { date: "2027-12-08", time: null, source: "visit", visitId: "v1" };
+    expect(shownNext(plan, [done("v1", "2027-12-08")])?.heard).toBe(true);
+    expect(shownNext(plan, [done("v1", "2027-12-08", { state: "fixed", date: "2027-12-08", at })])?.heard).toBeUndefined();
+    expect(shownNext({ date: "2027-12-08", source: "manual" }, [done("v1", "2027-11-17")])).toEqual({ date: "2027-12-08", source: "manual" });
   });
 });

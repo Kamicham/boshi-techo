@@ -572,6 +572,9 @@ export default {
   "{label}の健診・{hospital}": { zh: "{label}的健康检查，{hospital}", en: "{label} checkup · {hospital}" },
   "{label}の健診": { zh: "{label}的健康检查", en: "{label} checkup" },
   健診を開く: { zh: "打开健康检查", en: "Open checkup" },
+  // 録音から聞こえただけで、まだ確かめていない次の健診（「いま」のほかの日の1行。前日・当日の札の添え書きと［確かめる］は dict/visit.ts の鍵）
+  次の健診の日を確かめる: { zh: "确认下次健康检查的日期", en: "Check the next checkup date" },
+  "聞こえた日 {date}": { zh: "听到的日期：{date}", en: "Date we heard: {date}" },
 
   // ── 気をつける事の札の中身（lib/cautions.ts の題・引用・出典・時期の句・CAUTION_LABEL・POISON_*）。国の資料の引用は意味を変えずに訳し、出典はそのまま並べる ──
   // 引用は画面が “ ” で囲むので、引用の中の引用符は ‘ ’。時期の句（「この札を出す時期: …」に入る）は小文字で始め、句点を付けない

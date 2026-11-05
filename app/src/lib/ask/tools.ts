@@ -14,7 +14,8 @@ import { TECHO_PAGES } from "../techo";
 import { listTecho } from "../techo-store";
 import { doneSetFor, vaxRetimeFor } from "@/app/api/done/_lib/done";
 import { applyRetime } from "../vax-next";
-import { getPlan } from "@/app/api/visit/_lib/server";
+import { getPlan, visitsOf } from "@/app/api/visit/_lib/server";
+import { shownNext } from "../visit-next";
 import type { Lang } from "../i18n";
 import { tFor } from "../i18n/dicts";
 import type { AskAction } from "./types";
@@ -117,11 +118,16 @@ export function notebookSnapshot(family: Family, today: string) {
     .slice(0, 12)
     .map((r) => `${r.date ?? ""} [${r.data.kind}] ${r.data.title}: ${r.data.detail.slice(0, 80)}`);
   const plan = getPlan(family.id);
+  // 次の健診は、画面（GET /api/visit）と同じ決め方で読む。録音から聞こえただけで、まだ家族が確かめていない日はそう添える
+  // （Claude と見渡すが、確かめた日として言わないように。2026-11-05 作り手の決め事）
+  const next = shownNext(plan.next ?? null, visitsOf(family.id));
   return {
     OKを待っている候補: pending.map((d) => `${d.data.date} ${d.data.title}`),
     手帳のページ: byPage,
     話した撮った記録: records,
-    次の健診の予約: plan.next ? `${plan.next.date}${plan.next.time ? ` ${plan.next.time}` : ""}` : "まだ入っていない",
+    次の健診の予約: next
+      ? `${next.date}${next.time ? ` ${next.time}` : ""}${next.heard ? "（録音から聞こえた日。まだ家族が確かめていない）" : ""}`
+      : "まだ入っていない",
     次の健診で聞く事: plan.concerns.map((c) => c.text),
   };
 }
