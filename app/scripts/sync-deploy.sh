@@ -10,9 +10,11 @@
 #   ② 体験版: 出ている版は、Fly の像の札（--image-label <コミット>）から読む（手で出した版も含め、前にしか進まない）。
 #      出す専用の写し（~/boshi-deploy・detached）をそのコミットに合わせ、app に git の外のファイルが無い事を確かめて fly deploy。
 #      /api/health で確かめ、応えなければ前の像に戻す
-#   ③ 本番: その写しの release-prod.sh --ref <コミット>（同じ錠 → 控え → 組み立て → 控えの写しを 3211 で確かめ →
-#      動いている健診・この10分の書き込みがあれば待つ → 差し替え → だめなら戻して hold-prod を置く）。
+#   ③ 本番: その写しの release-prod.sh --auto --ref <コミット>（同じ錠 → 控え → 組み立て → 控えの写しを 3211 で確かめ →
+#      動いている健診・この10分の書き込みがあれば待つ（止める印も、そのつど見る）→ 差し替え →
+#      だめなら戻して hold-prod と skip-prod を置く。戻しても応えなければ終わりの値 5 で「すぐ見る」を知らせる）。
 #      初めての組み直し（launchd の向き先を変える）は統括が手で流す。それまで（~/boshi-releases/current が無い間）は自動では出さない
+#   本番が応えているか（3210番の /unlock が 200 か）を毎回見て、応えなければ毎回知らせる（組み直しの最中は見ない）
 #   落ちた版: 出して壊れた版（戻した版）は、次のコミットまで出さない（sync/skip-fly・skip-prod）。
 #      本番・体験版を変えずに落ちた版は、次の回にもう1回だけ試し、2回落ちたら次のコミットまで出さない（sync/fail-* → skip-*）。
 #      skip-* を消すと、また試す
@@ -140,7 +142,7 @@ deploy_prod() {
   git -C "$DEPLOY" checkout -q --detach "$sha" || { say "本番: 写しを ${sha:0:10} に合わせられません"; return 1 }
   if held prod; then say "本番: 止める時になったので出しません"; return 0; fi
   say "本番: ${sha:0:10} に組み直します"
-  /bin/zsh "$DEPLOY/app/scripts/release-prod.sh" --ref "$sha" > "$log" 2>&1
+  /bin/zsh "$DEPLOY/app/scripts/release-prod.sh" --auto --ref "$sha" > "$log" 2>&1
   prc=$?
   [[ $prc == 3 ]] || rm -f -- "$STATE/busy-prod"
   case $prc in
@@ -158,10 +160,16 @@ deploy_prod() {
       fi
       return 0 ;;
     4)
-      # 入れ替えた後に応えず、前に戻した（release-prod.sh が hold-prod を置いた）
+      # 入れ替えた後に応えず、前に戻した（release-prod.sh が skip-prod と hold-prod を置いた）
       print -r -- "$sha" > "$STATE/skip-prod"
       say "本番: 入れ替えた後に応えなかったので、前に戻しました。自動の組み直しは止めています（hold-prod）。記録: $log"
       notify "本番を前の版に戻した。hold-prod で自動を止めています"
+      return 1 ;;
+    5)
+      # 入れ替えた後に応えず、戻しても応えない（release-prod.sh が skip-prod と hold-prod を置いた）。すぐ見る
+      print -r -- "$sha" > "$STATE/skip-prod"
+      say "本番: 入れ替えた後に応えず、戻しても応えません。すぐ見る事。記録: $log"
+      notify "本番が止まっています（戻しても 3210番が応えない）。すぐ見る"
       return 1 ;;
     *)
       if failed_once prod "$sha"; then
@@ -211,6 +219,11 @@ sync_fly() {
 
 sync_prod() {
   local cur psha
+  # 本番が応えているか（毎回。組み直しの最中は、入れ替えで数秒止まるので見ない）。応えなければ毎回知らせる
+  if [[ ! -d $RELEASES/release.lock && $(curl -s -o /dev/null -m 5 -w '%{http_code}' http://127.0.0.1:3210/unlock 2>/dev/null) != 200 ]]; then
+    say "本番: 3210番が応えていません$([[ -e $RELEASES/hold-prod ]] && print -r -- "（hold-prod: $(head -c 300 "$RELEASES/hold-prod")）")"
+    notify "本番（3210番）が応えていません。すぐ見る"
+  fi
   if held prod; then say "本番: 止める時なので出しません"; return 0; fi
   if [[ ! -L $RELEASES/current ]]; then say "本番: 初めての組み直しは統括が手で流します（current がまだ無い）"; return 0; fi
   cur=$(readlink "$RELEASES/current")
@@ -231,7 +244,22 @@ sync_prod() {
 
 install_agent() {
   local dir="$HOME/Library/Application Support/boshi-sync" plist=$HOME/Library/LaunchAgents/com.boshi.sync.plist
-  mkdir -p "$dir" && cp "$SELF" "$dir/sync-deploy.sh" && chmod 755 "$dir/sync-deploy.sh" || return 1
+  local i lk other busy="" err=""
+  # 走っている回（本番の組み直し・この台本）を、写し替えと bootout で途中で止めない。終わるのを30分まで待つ
+  for i in {1..90}; do
+    busy=""
+    for lk in "$RELEASES/release.lock" "$STATE/lock"; do
+      other=$(cat "$lk/pid" 2>/dev/null)
+      [[ -n $other ]] && kill -0 "$other" 2>/dev/null && busy=$lk
+    done
+    [[ -z $busy ]] && break
+    (( i == 1 )) && say "走っている回（${busy:t}）が終わるのを、30分まで待ってから入れ直します"
+    sleep 20
+  done
+  [[ -z $busy ]] || { say "走っている回が30分で終わらないので、入れ直しません（$busy）"; return 1 }
+  # 写しは別の名前に書いてから入れ替える（走っている zsh が読んでいるファイルを、その場で書き換えない）
+  mkdir -p "$dir" && cp "$SELF" "$dir/.sync-deploy.sh.new" && chmod 755 "$dir/.sync-deploy.sh.new" \
+    && mv -f "$dir/.sync-deploy.sh.new" "$dir/sync-deploy.sh" || return 1
   cat > "$plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -247,12 +275,11 @@ install_agent() {
 </plist>
 EOF
   launchctl bootout "gui/$(id -u)/com.boshi.sync" 2>/dev/null || true
-  local i
   for i in 1 2 3 4 5; do
-    launchctl bootstrap "gui/$(id -u)" "$plist" 2>/dev/null && { say "入れました: 30分ごとに流します（$plist）"; return 0 }
+    err=$(launchctl bootstrap "gui/$(id -u)" "$plist" 2>&1) && { say "入れました: 30分ごとに流します（$plist）"; return 0 }
     sleep 2
   done
-  say "launchd に入れられませんでした（$plist）"
+  say "launchd に入れられませんでした（$plist）: ${err:-訳は出ませんでした}"
   return 1
 }
 
