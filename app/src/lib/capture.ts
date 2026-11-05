@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type Anthropic from "@anthropic-ai/sdk";
 import { getPlan, ongoingVisit, savePlan } from "@/app/api/visit/_lib/server";
+import { sureUrgent, urgentLead } from "./ask/bridge";
 import { EVERYDAY_MODEL, sampleMode, structured } from "./claude";
 import { publicOn } from "./trial-cookie";
 import { addDays, addMonths, clockAt, conceptionDate, lmpFromDue } from "./clock";
@@ -205,11 +206,15 @@ export async function capture(input: CaptureInput, replaceCaptureId?: string): P
     dropFromAgenda(family.id, gone, today);
   }
   const captureId = replaceCaptureId ?? randomUUID();
+  // 急ぎの床（聞くと同じ考え方。Claude の urgent だけに任せない）: 床が急ぎにした記録の番号
+  const floor = urgentFloor(out.records, familyWords(input), today);
   const records: CaptureRecord[] = [];
-  for (const r of out.records) {
+  for (const [i, r] of out.records.entries()) {
     const data: RecordData = { kind: r.kind, title: r.title, detail: r.detail, source, captureId };
     if (r.who) data.who = r.who;
-    if (r.urgent) data.urgent = true;
+    if (r.urgent || floor.has(i)) data.urgent = true;
+    // Claude が急ぎでないと書いた本文の「次の健診で聞く」は外す（記録の下には、急ぎの時の電話先の決まった文が出る＝urgent-note.ts）
+    if (!r.urgent && floor.has(i)) data.detail = withoutCheckupTail(r.detail);
     records.push(put<RecordData>(family.id, "record", data, { date: isDate(r.date) ? r.date : today }));
   }
   for (const d of out.deadlines) {
@@ -254,16 +259,65 @@ export async function capture(input: CaptureInput, replaceCaptureId?: string): P
 
   // 急ぎでない気がかりは、次の健診の「先生に聞く事」にも並べる（返事の最後は決まった文。Claude の言い換えにしない）
   const sides = addConcernsToAgenda(family, records, today);
+  // 床が急ぎにした記録（Claude は急ぎと見なかった）がある時は、返事の頭に聞くと同じ急ぎの1文を機械で置く（Claude の返事は急ぎでない前提で書かれている）
+  const raised = out.records.some((r, i) => floor.has(i) && !r.urgent);
+  const phase = clockAt(family, today).phase;
+  const lead = raised ? urgentLead(phase === "pregnant" ? "pregnant" : phase === "child" ? "child" : "other") : "";
   return {
     captureId,
     records,
     deadlines: out.deadlines,
     oneQuestion,
     // 体験版（公開版）では健診の画面を読むだけにしているので、「健診の聞く事にも並べました」は言わない（2026-11-05）
-    reply: withAgendaNote(out.reply, publicOn() ? "" : agendaNote(sides, family.childName)),
+    reply: `${lead}${withAgendaNote(out.reply, publicOn() ? "" : agendaNote(sides, family.childName))}`,
     basis,
     techo,
   };
+}
+
+// ── 急ぎの床（2026-11-05 監査 llm-2） ──
+// 聞く（ask/bridge.ts の bridgeFor）には、モデルの書き方に関係なく急ぎの連絡先を付ける機械の床がある。話す・撮るは Claude の urgent だけで決めていて、
+// 見落とすと「朝から少し出血がある」が次の健診の聞く事に入りうる。ここで同じ考え方の床をかける。
+// - 言葉は確度の高い物だけ（URGENT_SURE・sureUrgent。打ち消し・もしも・歯ぐきや鼻の出血・足のつりは数えない）。記録が急ぎになると聞く事に並ばなくなるので、聞くの広い表は使わない
+// - 当てるのは記録ごと（題と本文）、気がかりとメモだけ。予定・書類（撮った案内の紙の「出血の時は電話」など）と、
+//   できごと（お産の思い出の「破水から始まった」など）には当てない。2日より前の事（ふり返り）にも当てない
+// - Claude が言い換えて言葉が記録から消えた時だけ、家族の言葉（写真の要点は除く）で当て、気がかり（無ければメモ）の記録を急ぎにする
+// 体の判断はしない（急ぎかもしれない言葉に、連絡先の橋を付けるだけ）。
+
+/** 床を当てる記録の種類（予定・書類は撮った紙の注意書き、できごとはお産の思い出などで言葉が入るので当てない） */
+const FLOOR_KINDS: readonly RecordKind[] = ["気がかり", "メモ"];
+
+/**
+ * 床が急ぎにする記録の番号（out.records の位置。言葉の当たった記録は、Claude がもう急ぎにした物も入る）。
+ * own は家族の言葉（写真の要点など Claude が書いた文は入れない＝familyWords）
+ */
+function urgentFloor(recs: readonly Pick<CaptureOutput["records"][number], "date" | "kind" | "title" | "detail" | "urgent">[], own: string, today: string): Set<number> {
+  const from = addDays(today, -2);
+  const near = (i: number) => FLOOR_KINDS.includes(recs[i].kind) && (!isDate(recs[i].date) || recs[i].date >= from);
+  const hit = new Set<number>();
+  recs.forEach((r, i) => {
+    if (near(i) && sureUrgent(`${r.title}\n${r.detail}`)) hit.add(i);
+  });
+  // 言葉が記録に残っている・Claude がどれかを急ぎにした時は、記録ごとの当たりだけ
+  if (hit.size || recs.some((r) => r.urgent) || !sureUrgent(own)) return hit;
+  // Claude が言い換えて、言葉が記録から消えた時: 気がかり（無ければメモ）の記録を急ぎにする
+  const idx = recs.map((_, i) => i).filter(near);
+  const worries = idx.filter((i) => recs[i].kind === "気がかり");
+  for (const i of worries.length ? worries : idx) hit.add(i);
+  return hit;
+}
+
+/** 家族の言葉: 話した・書いた文。聞き返しへの答えの時は、前回の家族の文（写真の要点の後の見出しの行から）と答え */
+function familyWords(input: CaptureInput): string {
+  if (!input.followUp) return input.text ?? "";
+  const b = input.followUp.basis;
+  const at = b.search(/^(話した事（文字起こし）|撮った写真|書いた事): /m);
+  return `${at >= 0 ? b.slice(at) : ""}\n${input.followUp.answer}`;
+}
+
+/** 急ぎでないと書かれた本文の終わりの「次の健診で聞く」を外す */
+function withoutCheckupTail(detail: string): string {
+  return detail.replace(/[、,\s]*次の健診で(先生に)?聞く。?\s*$/, "").trim();
 }
 
 // ── 話した・打った気がかりを、次の健診の「先生に聞く事」へ（見直し C03・2026-11-04） ──

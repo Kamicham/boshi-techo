@@ -35,6 +35,7 @@ export const ASK_RULES = `あなたは今、家族からの問いに答えてい
 答え方:
 - 手続き・期限・持ち物・窓口・お金（手当・給付・助成）・仕事（産休・育休・職場への連絡）・保育園・里帰り・引っ越し・この家族の予定と記録・アプリの操作は、全部その場で自然に答える。はぐらかさない。
 - 答える前に道具でこの家族の今を見る（予定は get_plan、記録は get_notebook）。推測で語らない。町ごとに違う中身は look_up_town（予定にある手続き）か search_official（予定に無い事）で公式のページから取る。言い切れない所は「窓口に確かめる」と書く。
+- 家族への返事の文は、道具を使い終えた最後の一手にまとめて書く。道具を呼ぶ手では返事を書かない（その手の文は、家族にそのままは届かない）。
 - 返事の文で「押すと〜」「記録できます」「健診で聞けます」「どこへ行くか見る」と触れた動きは、必ず同じ返事で道具を呼んでボタンにする（文で言うだけにしない）。
 - 添える動きは、問いに関係する物だけ。聞かれていない別の手続きのボタンを足さない（関係する期限が迫っている時は、文で一言だけ触れる）。家族が言っていない事（日付・様子）を書き足さない。
 - 答えるだけで終わらず、次の一手を道具で返事の下に添える（画面へ連れて行く・どこへ行くか見る／下書き・済みにする・健診で聞く・記録する・渡す文）。動きは1つの返事に3つまで。要らなければ添えない。
@@ -187,6 +188,47 @@ const textOf = (res: Anthropic.Beta.BetaMessage) =>
     .replace(/\*\*/g, "")
     .trim();
 
+/** 道具を呼ぶ手に書いた文を、進み具合の thinking 塊（中身つき）で受け取る beta（無いと display: "updates" は 400） */
+const THINKING_UPDATES_BETA = "thinking-display-updates-2026-08-18";
+/** 応答が途中で止まった時に、最後の thinking 塊に入る決まった文（本文の候補にしない） */
+const INTERRUPTED_NOTE = "This part of the response was interrupted before it finished.";
+
+/**
+ * 1つの手で書かれた文（本文の候補）。text の塊と、中身の空でない thinking 塊を、塊の並びのまま（塊は種類で読み、位置で読まない）。
+ * Sonnet 5.5 は、道具を呼ぶ手に書いた1〜2文より長い文を、進み具合の thinking 塊で返す（display: "updates" で中身が入る。
+ * 推論そのものは空のまま）。text の塊だけを拾うと、動きの道具と同じ手に書いた本文（連絡先を含む）が消える（監査 llm-5）。
+ * 中断の決まった文は入れない。続く text の塊は、今までどおり間を空けずにつなぐ。
+ */
+export function saidOf(res: Pick<Anthropic.Beta.BetaMessage, "content">): string {
+  const parts: string[] = [];
+  let joinText = false;
+  for (const b of res.content) {
+    if (b.type === "text") {
+      if (joinText) parts[parts.length - 1] += b.text;
+      else parts.push(b.text);
+      joinText = true;
+      continue;
+    }
+    joinText = false;
+    if (b.type === "thinking" && b.thinking.trim() && b.thinking.trim() !== INTERRUPTED_NOTE) parts.push(b.thinking);
+  }
+  return parts
+    .map((s) => s.replace(/\*\*/g, "").trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+/** 手ごとの文を重ねて1つの返事に（同じ文と、ほかの文にまるごと含まれる文は1回だけ。頼み直しで前の一言を言い直した時に二重にしない） */
+function overlay(said: string[]): string {
+  const uniq = [...new Set(said)];
+  return uniq.filter((s, i) => !uniq.some((o, j) => j !== i && o.includes(s))).join("\n\n");
+}
+
+/** 返事の文が80字未満の時に1回だけ頼み直す文（前の手の本文が thinking 塊に入って、届いていないかもしれない時） */
+const ASK_FOR_BODY = "（ここまでをまとめて、家族への返事の本文を書いてください。伝える事は、すべてこの返事に入れてください）";
+/** 文が無いまま終わった時に1回だけ頼み直す文 */
+const ASK_FOR_TEXT = "（家族への返事の文がまだありません。ここまでに見た事を使って、返事の文だけを書いてください）";
+
 /** 次の妊婦健診の予約（「いま」の画面と同じ: 予約が無く、国の目安が7日以内の時だけ） */
 function prenatalBooking(family: Family, today: string): { when: string } | null {
   if (getPlan(family.id).next) return null;
@@ -288,9 +330,11 @@ export async function ask(input: AskInput): Promise<AskResult> {
 
   onStatus("考えています");
   let reply = "";
-  // 道具を呼ぶ前に書いた文も取っておく（道具の後の最後の返事が空の時、これで答える）
+  // 道具を呼ぶ前に書いた文も取っておく（道具の後の最後の返事が空の時、これで答える）。thinking 塊で返った文も入る（saidOf）
   const said: string[] = [];
   let nudged = false;
+  // 道具を呼んだ手に thinking 塊があったか（そこに本文が入って、text では届いていないかもしれない）
+  let thoughtBefore = false;
   for (let step = 0; step < MAX_STEPS; step++) {
     checkBudget();
     const last = step === MAX_STEPS - 1;
@@ -301,6 +345,10 @@ export async function ask(input: AskInput): Promise<AskResult> {
       messages,
       tools: TOOLS,
       ...(last ? { tool_choice: { type: "none" as const } } : {}),
+      // 道具を呼ぶ手に書いた文を、空でない thinking 塊で受け取る（既定の omitted では中身が空。推論は隠れたまま）。
+      // thinking 塊は手を加えずに会話へ返す（下の messages.push(res.content)）
+      thinking: { type: "adaptive", display: "updates" },
+      betas: [THINKING_UPDATES_BETA],
       output_config: { effort: "medium" },
     });
     recordSpend("ask", res.model ?? EVERYDAY_MODEL, res.usage, spendWho(currentSender()));
@@ -309,20 +357,30 @@ export async function ask(input: AskInput): Promise<AskResult> {
       break;
     }
     const calls = res.content.filter((b): b is Anthropic.Beta.BetaToolUseBlock => b.type === "tool_use");
-    const t = textOf(res);
+    const t = saidOf(res);
     if (t) said.push(t);
     if (res.stop_reason !== "tool_use" || calls.length === 0) {
       // 最後の一手が道具の返りへの短い一言だけの時は、前の手で書いた本文も残す（第31回: 「ボタンはまだ押されていないので…」だけになり、連絡先が消えた）
-      reply = t && (t.length >= 80 || said.length <= 1) ? t : [...new Set(said)].join("\n\n");
-      // 考えただけで文が無いまま終わった時は、1回だけ文を頼み直す
-      if (!reply && !nudged && !last) {
+      reply = t && (t.length >= 80 || said.length <= 1) ? t : overlay(said);
+      // 1回だけ頼み直す（最後の手ではしない＝MAX_STEPS を越えない）:
+      // ① 考えただけで文が無いまま終わった ② 最後の手の文が80字未満で、道具を呼んだ手に thinking 塊があった（本文がそこに入ったかもしれない）
+      const again = !reply ? ASK_FOR_TEXT : t.length < 80 && thoughtBefore ? ASK_FOR_BODY : null;
+      if (again && !nudged && !last) {
         nudged = true;
         messages.push({ role: "assistant", content: res.content.length ? res.content : [{ type: "text", text: "（考えています）" }] });
-        messages.push({ role: "user", content: "（家族への返事の文がまだありません。ここまでに見た事を使って、返事の文だけを書いてください）" });
+        // 途中で止まった手（max_tokens など）に道具の呼び出しが残っていれば、動かしていない事を返してから頼む（返さないと 400）
+        const open: Anthropic.Beta.BetaToolResultBlockParam[] = calls.map((c) => ({
+          type: "tool_result",
+          tool_use_id: c.id,
+          content: "途中で止まったので、この道具は動かしていません",
+          is_error: true,
+        }));
+        messages.push({ role: "user", content: open.length ? [...open, { type: "text", text: again }] : again });
         continue;
       }
       break;
     }
+    if (res.content.some((b) => b.type === "thinking")) thoughtBefore = true;
     messages.push({ role: "assistant", content: res.content });
     const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
     for (const call of calls) {

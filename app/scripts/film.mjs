@@ -58,7 +58,7 @@ async function renderCards(cards, dir) {
           ? `<html><body style="margin:0;width:${W}px;height:${H}px;background:transparent;display:flex;align-items:flex-end;justify-content:center;font-family:${FONT}">
                <div style="margin-bottom:56px;max-width:1080px;padding:14px 28px;border-radius:14px;background:rgba(0,0,0,.42);color:#fff;font-size:38px;line-height:1.5;text-align:center;font-weight:700">${esc(c.text)}</div></body></html>`
           : `<html><body style="margin:0;width:${W}px;height:${H}px;background:#fbfaf6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;font-family:${FONT};color:#2b2a33">
-               ${c.eyebrow ? `<div style="font-size:24px;letter-spacing:.4em;color:#c2557a">${esc(c.eyebrow)}</div>` : ""}
+               ${c.eyebrow ? `<div style="font-size:24px;letter-spacing:.4em;color:#a84468">${esc(c.eyebrow)}</div>` : ""}
                <div style="font-size:60px;font-weight:700;max-width:1100px;text-align:center;line-height:1.4">${esc(c.text)}</div>
                ${c.sub ? `<div style="font-size:30px;color:#6a6876;max-width:1000px;text-align:center;line-height:1.6">${esc(c.sub)}</div>` : ""}
                ${c.note ? `<div style="position:absolute;bottom:28px;font-size:20px;color:#6a6876">${esc(c.note)}</div>` : ""}</body></html>`;

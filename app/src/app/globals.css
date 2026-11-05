@@ -1,18 +1,20 @@
 @import "tailwindcss";
 
-/* 母子手帳の表紙の淡い色。ピンクは「家族の手帳」、空色は「時計・日付」 */
+/* 母子手帳の表紙の淡い色。ピンクは「家族の手帳」、空色は「時計・日付」。
+   字と主ボタンの4色（rose・sky・ok・warn）は、紙・白・淡い札の上で読みやすさの目安（WCAG AA 4.5:1）に届く濃さ
+   （2026-11-05 作り手が見比べて決めた。前は #c2557a・#3f7fa6・#2f7d5b・#b5650d。印刷の一冊と映画の字も同じ色） */
 :root {
   --paper: #fbfaf6;
   --card: #ffffff;
   --ink: #2b2a33;
   --muted: #6a6876;
   --line: #e4e1d8;
-  --rose: #c2557a;
+  --rose: #a84468;
   --rose-soft: #f7e6ec;
-  --sky: #3f7fa6;
+  --sky: #336e93;
   --sky-soft: #e5f0f6;
-  --ok: #2f7d5b;
-  --warn: #b5650d;
+  --ok: #2a7052;
+  --warn: #8f4f07;
   --alert: #b3261e;
 }
 

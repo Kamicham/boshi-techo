@@ -6,6 +6,7 @@
 // - 決まりで動く所（予定表・期限・急ぎの時の連絡先＝ask/bridge.ts）は、もともと鍵なしで動く
 import "server-only";
 import { ruleAdvice } from "./advisor";
+import { sureUrgent } from "./ask/bridge";
 import { DRAFTABLE } from "./draft-kinds";
 import type { DraftKind } from "./drafts";
 import { MILESTONES } from "./milestones";
@@ -28,10 +29,10 @@ type Content = string | readonly { type: string; text?: string }[];
 const textOf = (c: Content): string => (typeof c === "string" ? c : c.map((b) => (b.type === "text" ? (b.text ?? "") : "")).join("\n"));
 const firstDay = (s: string): string | null => s.match(/\d{4}-\d{2}-\d{2}/)?.[0] ?? null;
 
-/** 急ぎに見える言葉（見本の時も、連絡を勧める印だけは付ける。体の判断はしない） */
-const URGENT = /出血|破水|強い痛み|お腹が痛|胎動が(少な|無|ない)|ぐったり|高熱|けいれん|息が苦し|水も飲めない/;
+// 急ぎに見える言葉（見本の時も、連絡を勧める印だけは付ける。体の判断はしない）は、話す・撮るの床と同じ表（ask/bridge.ts の sureUrgent）。
+// 前はここに別の表を持っていた（2026-11-05 監査 llm-2: 2つの表が別々に育っていた）
 /** 気がかりに見える言葉（見本の時も、メモでなく気がかりにして、次の健診の「先生に聞く事」へ並べる道を通す。体の判断はしない） */
-const WORRY = /気にな|心配|不安|痛|足がつ|こむら返り|つる|眠れない|寝られない|寝つけない|かゆ|むくみ|張る|張って|吐き|吐いた|つわり|泣き止まない|泣きやまない|よく泣く|飲まない|食べない|熱|咳|せき|鼻水|湿疹|発疹|便秘|下痢/;
+const WORRY = /気にな|心配|不安|痛|苦し|ぐったり|足がつ|こむら返り|つる|眠れない|寝られない|寝つけない|かゆ|むくみ|張る|張って|吐き|吐いた|つわり|泣き止まない|泣きやまない|よく泣く|飲まない|食べない|熱|咳|せき|鼻水|湿疹|発疹|便秘|下痢/;
 
 /** 撮る・書く: 書いた文を、そのまま1つの記録として残す（気がかりに見える言葉なら気がかり、ほかはメモ） */
 function capture(content: Content) {
@@ -54,7 +55,7 @@ function capture(content: Content) {
   // context() の後ろに家族の文が来る。最後の空行の後を家族の文とみなす
   // capture() は「家族の時計など\n\n書いた事:\n<家族の文>」の形で渡す。最後の段の見出しの行を外す
   const said = all.split(/\n\s*\n/).pop()?.replace(/^[^\n]*[:：]\n/, "").trim() || all.trim();
-  const urgent = URGENT.test(said);
+  const urgent = sureUrgent(said);
   const worry = urgent || WORRY.test(said);
   // 話した事（文字起こし）か、書いた事か（capture() の見出しの行。話したのに「書いた文」と返さない）
   const spoken = /^話した事/m.test(all);
