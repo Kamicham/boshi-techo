@@ -92,3 +92,52 @@ describe("6番目の問い（その事だけに聞く）", () => {
     expect(q).not.toContain(DEMO_FAMILY.dueDate);
   });
 });
+
+describe("同じ名前の町（2026-11-05 監査）", () => {
+  it("府中市（東京都・広島県）は都道府県で分けて調べ、ほかの県の窓口を見せない", async () => {
+    const { fetchLocal, getLocal } = await import("./local");
+    const { DEMO_FAMILY } = await import("./demo-family");
+    const { MILESTONES } = await import("./milestones");
+    const m = MILESTONES.find((x) => x.id === "birth-registration") ?? MILESTONES[0];
+    const tokyo = { ...DEMO_FAMILY, id: "local-test-fuchu-tokyo", prefecture: "東京都", city: "府中市" };
+    const hiroshima = { ...DEMO_FAMILY, id: "local-test-fuchu-hiroshima", prefecture: "広島県", city: "府中市" };
+    const n = researchCalls.length;
+    expect((await fetchLocal(tokyo, m)).cached).toBe(false);
+    expect((await fetchLocal(hiroshima, m)).cached).toBe(false);
+    expect(researchCalls).toHaveLength(n + 2);
+    expect(researchCalls[n + 1].question).toContain("広島県府中市");
+    expect(getLocal(tokyo, m.id)?.prefecture).toBe("東京都");
+    expect(getLocal(hiroshima, m.id)?.prefecture).toBe("広島県");
+    // 同じ県の同じ町は、今までどおり使い回す
+    expect((await fetchLocal({ ...hiroshima, id: "local-test-fuchu-hiroshima-2" }, m)).cached).toBe(true);
+    expect(researchCalls).toHaveLength(n + 2);
+  });
+
+  it("前の鍵（町の名前だけ）で置いた行は、都道府県が合う時だけ使う（合えば調べ直さない）", async () => {
+    const { getLocal, PUBLIC_ID } = await import("./local");
+    const { put } = await import("./db");
+    const { DEMO_FAMILY } = await import("./demo-family");
+    const { MILESTONES } = await import("./milestones");
+    const m = MILESTONES.find((x) => x.id === "birth-registration") ?? MILESTONES[0];
+    const row = {
+      summary: "前に調べた",
+      where: "市役所 市民課",
+      office: "伊達市役所",
+      address: "",
+      bring: [],
+      online: "確かめる",
+      deadline: "生まれた日を入れて14日以内",
+      extras: "確かめる",
+      caution: "確かめる",
+      milestoneId: m.id,
+      title: m.title,
+      prefecture: "北海道",
+      city: "伊達市",
+      sources: [],
+      researchedAt: "2026-10-01",
+    };
+    put(PUBLIC_ID, "local", row, { id: `local:伊達市:${m.id}`, date: row.researchedAt });
+    expect(getLocal({ ...DEMO_FAMILY, prefecture: "北海道", city: "伊達市" }, m.id)?.office).toBe("伊達市役所");
+    expect(getLocal({ ...DEMO_FAMILY, prefecture: "福島県", city: "伊達市" }, m.id)).toBeNull();
+  });
+});

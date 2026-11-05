@@ -61,7 +61,16 @@ function officialFirst(sources: LocalInfo["sources"]): LocalInfo["sources"] {
 /** 町の調べ結果を置く、どの世帯の物でもない行の family_id */
 export const PUBLIC_ID = "public";
 
-export function localId(city: string, milestoneId: string): string {
+/**
+ * 町の調べ結果の鍵（町×事）。都道府県も入れる（府中市＝東京都・広島県、伊達市＝北海道・福島県のように、同じ名前の町がある。
+ * 前は町の名前だけで、先に調べた方の町の窓口を、ほかの県の同じ名前の町の家族にも見せていた。2026-11-05 監査）
+ */
+export function localId(prefecture: string, city: string, milestoneId: string): string {
+  return `local:${prefecture}${city}:${milestoneId}`;
+}
+
+/** 前の鍵（町の名前だけ）。前に調べた行は、行に残る都道府県が合う時だけ使う（調べ直しの費用を出さない） */
+function oldLocalId(city: string, milestoneId: string): string {
   return `local:${city}:${milestoneId}`;
 }
 
@@ -79,7 +88,7 @@ const YEARLY = new Set(["daycare-apply", "daycare-research"]);
 
 /**
  * どの町で調べるか。「里帰り先の町で確かめる」（第2波⑦）だけは里帰り先の町、ほかは住む町。
- * 調べた結果は町×事で1回だけ持ち、ほかの家族と使い回す（鍵は今までどおり localId）
+ * 調べた結果は町×事で1回だけ持ち、ほかの家族と使い回す（鍵は localId。都道府県も入る）
  */
 export function placeFor(family: Family, milestoneId: string): { prefecture: string; city: string; away: boolean } {
   const p = family.situation?.satogaeri ? family.situation.satogaeriPlace : undefined;
@@ -88,7 +97,12 @@ export function placeFor(family: Family, milestoneId: string): { prefecture: str
 }
 
 export function getLocal(family: Family, milestoneId: string): LocalInfo | null {
-  const d = get<LocalInfo & { format?: number }>(localId(placeFor(family, milestoneId).city, milestoneId))?.data;
+  const at = placeFor(family, milestoneId);
+  let d = get<LocalInfo & { format?: number }>(localId(at.prefecture, at.city, milestoneId))?.data;
+  if (!d) {
+    const old = get<LocalInfo & { format?: number }>(oldLocalId(at.city, milestoneId))?.data;
+    if (old?.prefecture === at.prefecture) d = old;
+  }
   if (d && YEARLY.has(milestoneId) && (d.format ?? 1) < LOCAL_FORMAT) return null;
   // 前の形で調べた物には office・address が無い
   return d ? { ...d, office: d.office ?? "", address: d.address ?? "", sources: officialFirst(d.sources) } : null;
@@ -151,7 +165,8 @@ const inflight = new Map<string, Promise<{ local: LocalInfo; cached: boolean }>>
 
 export async function fetchLocal(family: Family, m: MilestoneDef, force = false): Promise<{ local: LocalInfo; cached: boolean }> {
   if (!family.city) throw new HttpError(400, "わが家の設定で、住んでいる市区町村を入れてください");
-  const key = localId(placeFor(family, m.id).city, m.id);
+  const at = placeFor(family, m.id);
+  const key = localId(at.prefecture, at.city, m.id);
   const running = inflight.get(key);
   if (running) return running;
   const p = fetchLocalOnce(family, m, force).finally(() => inflight.delete(key));
@@ -218,7 +233,7 @@ async function fetchLocalOnce(home: Family, m: MilestoneDef, force: boolean): Pr
     format: LOCAL_FORMAT,
     researchedAt: jstToday(),
   };
-  put(PUBLIC_ID, "local", local, { id: localId(family.city, m.id), date: local.researchedAt });
+  put(PUBLIC_ID, "local", local, { id: localId(family.prefecture, family.city, m.id), date: local.researchedAt });
   if (!at.away) rememberOffice(family.id, local);
   return { local, cached: false };
 }
