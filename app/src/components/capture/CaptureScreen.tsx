@@ -18,6 +18,7 @@ import { PhotoChoice, type ReadKind } from "./PhotoChoice";
 import { TechoCandidates } from "./TechoCandidates";
 import { TypeSheet } from "./TypeSheet";
 import { RecordItem, Timeline } from "./Timeline";
+import { sampleReplyShown } from "./reply-text";
 import { afterConsentReturn, consentWaitKey, isClaudeConsentError, mayTrySend, readConsentState, type ClaudeConsentState } from "@/lib/claude-consent-flow";
 import { PUBLIC_UI, TRIAL_VOICE } from "@/lib/trial-words";
 import { t } from "@/lib/i18n";
@@ -487,7 +488,7 @@ export function CaptureScreen() {
 
       {last && !busy && (
         <section aria-label={t("いま書いた事")} className="flex flex-col gap-3 rounded-2xl bg-rose-soft p-5">
-          <p className="font-display text-xl leading-relaxed font-bold">{last.reply}</p>
+          <p className="font-display text-xl leading-relaxed font-bold">{sampleReplyShown(last.reply)}</p>
           {ask && ask.captureId === last.captureId && <AskBox ask={ask} answer={answer} setAnswer={setAnswer} onSend={() => void sendAnswer()} onSkip={() => void skipAsk()} />}
           {last.records.length > 0 && (
             <ul className="flex flex-col gap-2">

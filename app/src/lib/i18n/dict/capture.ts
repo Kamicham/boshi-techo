@@ -367,4 +367,63 @@ export default {
   その日のうちに産院へ電話: { zh: "当天打电话给产科医院", en: "Call your maternity clinic the same day" },
   次の健診で先生に聞く: { zh: "下次检查时问医生", en: "Ask the doctor at the next checkup" },
   次の健診で聞く: { zh: "下次检查时问", en: "Ask at the next checkup" },
+
+  // ── 見本の答えの返事（lib/samples.ts の capture・capture-page。体験版と鍵の無い見本の家族で出る）──
+  // サーバは日本語で組むので、出す時に components/capture/reply-text.ts が文ごとに引く（1文でも無ければ日本語のまま）。
+  // 札「（見本の答え）」と「この体験版では Claude を呼ばず、見本の答えを出しています。」は answers.ts の鍵を使う
+  "話した事を、そのままメモに残しました。": { zh: "已把你说的话原样记为备忘。", en: "Saved what you said as a note, word for word." },
+  "話した事を、そのまま気がかりに残しました。": { zh: "已把你说的话原样记为担心的事。", en: "Saved what you said as a concern, word for word." },
+  "書いた文を、そのままメモに残しました。": { zh: "已把你写的内容原样记为备忘。", en: "Saved what you wrote as a note, word for word." },
+  "書いた文を、そのまま気がかりに残しました。": { zh: "已把你写的内容原样记为担心的事。", en: "Saved what you wrote as a concern, word for word." },
+  "今日の体験で Claude を使える上限に達したので、見本の答えにしました。": {
+    zh: "今天体验中可以使用 Claude 的额度已经用完，所以改成了示例回答。",
+    en: "Today's limit for using Claude in the trial has been reached, so this is a sample answer.",
+  },
+  "明日はいつ・誰の事・期限を読み分けて、ここを Claude が書きます。": {
+    zh: "明天会由 Claude 分辨出时间、是谁的事和期限，写在这里。",
+    en: "Tomorrow, Claude will work out when it is, who it's about, and any deadline, and write this part.",
+  },
+  "Claude の鍵を入れると、いつ・誰の事・期限を読み分けて、ここを Claude が書きます。": {
+    zh: "填入 Claude 的密钥后，会由 Claude 分辨出时间、是谁的事和期限，写在这里。",
+    en: "Once a Claude key is added, Claude will work out when it is, who it's about, and any deadline, and write this part.",
+  },
+  "この体験版では Claude を呼ばないので、写真は読まず、残してもいません。": {
+    zh: "这个体验版不调用 Claude，所以没有读取照片，也没有保存。",
+    en: "This trial doesn't call Claude, so the photo wasn't read and hasn't been kept.",
+  },
+  "今日の体験で Claude を使える上限に達したので、写真は読まず、残してもいません。": {
+    zh: "今天体验中可以使用 Claude 的额度已经用完，所以没有读取照片，也没有保存。",
+    en: "Today's limit for using Claude in the trial has been reached, so the photo wasn't read and hasn't been kept.",
+  },
+  "見本なので、写真は読まず、残してもいません。": { zh: "因为是示例，所以没有读取照片，也没有保存。", en: "Because this is a sample, the photo wasn't read and hasn't been kept." },
+  "Claude を使う手帳では、写った紙（お知らせ・予約票など）の文字を読んで、記録と予定にします。": {
+    zh: "使用 Claude 时，手册会读取照片里纸上的文字（通知、预约单等），整理成记录和日程。",
+    en: "With Claude, the handbook reads the text on the paper in the photo (notices, appointment slips, and so on) and turns it into records and plans.",
+  },
+  "明日は写った紙の文字を読んで、記録と予定にします。": {
+    zh: "明天会读取照片里纸上的文字，整理成记录和日程。",
+    en: "Tomorrow, it will read the text on the paper in the photo and turn it into records and plans.",
+  },
+  "Claude の鍵を入れると、写った紙の文字を読んで、記録と予定にします。": {
+    zh: "填入 Claude 的密钥后，会读取照片里纸上的文字，整理成记录和日程。",
+    en: "Once a Claude key is added, it reads the text on the paper in the photo and turns it into records and plans.",
+  },
+  "Claude を使う手帳では、紙の母子手帳のページを読んで、行ごとに写します。": {
+    zh: "使用 Claude 时，手册会读取纸质母子健康手册的页面，逐行抄录下来。",
+    en: "With Claude, the handbook reads the pages of your paper Maternal and Child Health Handbook and copies them line by line.",
+  },
+  "明日は紙の母子手帳のページを読んで、行ごとに写します。": {
+    zh: "明天会读取纸质母子健康手册的页面，逐行抄录下来。",
+    en: "Tomorrow, it will read the pages of your paper Maternal and Child Health Handbook and copy them line by line.",
+  },
+  "Claude の鍵を入れると、紙の母子手帳のページを読んで、行ごとに写します。": {
+    zh: "填入 Claude 的密钥后，会读取纸质母子健康手册的页面，逐行抄录下来。",
+    en: "Once a Claude key is added, it reads the pages of your paper Maternal and Child Health Handbook and copies them line by line.",
+  },
+
+  // ── 体験版の「話す」で入る見本の文（lib/asr.ts の DEMO_NOTE。サーバが頼みの言葉で引いて、その言葉の文を記録にする）──
+  "今日は夜に胎動をたくさん感じた。お腹が少し張ったので、早めに横になった。": {
+    zh: "今天晚上感到了很多胎动。肚子有点发紧，所以早早躺下了。",
+    en: "I felt the baby move a lot tonight. My belly felt a little tight, so I lay down early.",
+  },
 } satisfies Entries;

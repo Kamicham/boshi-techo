@@ -4,6 +4,8 @@ import "server-only";
 import http from "node:http";
 import { madeFamilyKind } from "./family";
 import { HttpError } from "./http-error";
+import type { Lang } from "./i18n";
+import { tFor } from "./i18n/dicts";
 import { publicOn } from "./trial-cookie";
 
 export interface Transcript {
@@ -41,7 +43,8 @@ const DEMO_NOTE = "今日は夜に胎動をたくさん感じた。お腹が少�
  * familyId を渡すと、本物の世帯（作った家族でない）で文字起こしの機械が無い時は、デモの文に落とさず 503 で止める
  * （本物の記録・健診にデモの文が入らないように。2026-11-05 監査。わが家の本番は ASR_URL が無いと立たない＝lib/mode.ts）
  */
-export async function transcribe(audio: Buffer, prompt?: string, kind: "visit" | "note" = "note", familyId?: string): Promise<Transcript> {
+/** lang: 見本の文（DEMO_NOTE）を入れる時の言葉（頼みの言葉＝langOf。中文・English の体験版で、話した事が日本語の見本にならないように。健診の見本の録音は日本語のまま） */
+export async function transcribe(audio: Buffer, prompt?: string, kind: "visit" | "note" = "note", familyId?: string, lang: Lang = "ja"): Promise<Transcript> {
   const base = process.env.ASR_URL;
   // 体験版（公開版）は声を文字にしない（だれの声も、文字起こしの機械へ送らない。2026-11-05）
   if (!base || publicOn()) {
@@ -50,7 +53,7 @@ export async function transcribe(audio: Buffer, prompt?: string, kind: "visit" |
     }
     // 審査員がリポジトリを手元で動かしても、健診の1日を最後まで試せるようにする
     const { DEMO_TRANSCRIPT } = await import("@/components/visit/demoTranscript");
-    const text = kind === "visit" ? DEMO_TRANSCRIPT : DEMO_NOTE;
+    const text = kind === "visit" ? DEMO_TRANSCRIPT : tFor(lang, DEMO_NOTE);
     return { text, segments: [{ start: 0, end: 1, text }], duration: 0, elapsed: 0, demo: true };
   }
   const headers: Record<string, string> = { "content-type": "application/octet-stream" };
