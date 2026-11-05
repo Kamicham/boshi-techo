@@ -28,7 +28,7 @@
 | 書類・連絡 | 家族が一から書く | 職場へのメール・出生届の記入メモ・見学の予約文まで下書きする。外へは送らない |
 | 家族の分担 | 手帳を持つ母に寄る | パートナーも同じ手帳を開き、自分の番と自分の名前の下書きが出る |
 | 予定が崩れた時 | 家族が組み直す | 早く生まれた・引っ越した時に、気づいて組み直し案と渡せる文面を出す |
-| 健診 | 15分の説明を覚えて帰る | 録音して、先生の言葉のまま残し、次に聞く質問にする。体の判断はしない |
+| 健診 | 15分の説明を覚えて帰る | 録音して、聞こえた言葉を元のまま残し、次に聞く質問にする。聞こえた日付は「こう聞こえました」と見せて本人が決める。体の判断はしない |
 | 1000日の後 | 手帳が残る | 記録と家族の言葉が、子どもへ語りかける一冊になる |
 
 ### 1000日のうちの、ある日
@@ -70,7 +70,7 @@
 - **手帳のタブ**: 国の様式と同じ並び（妊婦健診 → 出産 → 新生児 → 便色カード → 成長・できた日 → 予防接種 → 相談した記録 → 一冊）で記録を見る。発育曲線は国の調査の値、便色カードは国の7色から親が番号を選ぶ（アプリは判定しない。注意書きは手帳と同じ文言）
 - **撮るだけ・話すだけで記録**: 紙の手帳のページを撮ると、Claude がどのページかを見分けて記録の候補を出す。「今日寝返りした」「BCG を受けた」と話しても候補になる。家族の「OK」で入る。紙の手帳が正本のまま、二重に書かせない
 - **相談できる人**: 時期ごとに1回だけ「子育てについて気軽に相談できる人はいますか。」と聞く（紙の手帳の保護者の記録の毎回の問い。言葉もそのまま）。「いない」なら、町のこども家庭センター・産後ケア・#8000・児童相談所の相談ダイヤルへ橋をかける
-- **急ぎの時**: 「迷ったら 119」と #8000、窒息の手当と心肺蘇生の要点（こども家庭庁の任意様式・日本蘇生協議会のガイドラインを元に短く）。電波が無くても開ける
+- **急ぎの時**: 命が危ないと思ったら迷わず 119、救急車を呼ぶか迷う時は #8000（子ども）と #7119（ママの体・実施している町）、窒息の手当と心肺蘇生の要点（こども家庭庁の任意様式・日本蘇生協議会のガイドラインを元に短く）。電波が無くても開ける
 
 作り手自身が、使う人の1号目です。家族の妊婦健診で、このアプリで先生の説明を録音して使っています（本物の記録は公開しません）。
 
@@ -85,7 +85,7 @@
 | 手帳に聞く（道具を自分で選ぶ。最大8手）と、見張りに言われた時の書き直し | Sonnet 5.5（`EVERYDAY_MODEL`） | 毎日の仕事 |
 | 調べ物（町の窓口・持ち物・期限。手帳に聞くの公式ページの検索と、引っ越しの時の前の町との差も） | Sonnet 5.5（`RESEARCH_MODEL`） | 1回に検索の結果を約8万トークン読む。書き出した文は後で整え、出典の URL も残すので、Sonnet で質を保てる |
 | 参謀の気づき（早く・遅く生まれた・町が変わった時の組み直し）と、時期ごとの見渡し | Opus 5.5（`MODEL`） | 深い仕事。家族の形・予定・記録を突き合わせて、決まりに無い事を見つける |
-| 健診の整理（先生が言った事・次までにやる事・次に聞く質問）と、院内の案内図から回る順番 | Opus 5.5（`MODEL`） | 深い仕事。先生の言葉を崩さずに分ける |
+| 健診の整理（先生が言った事・次までにやる事・次に聞く質問）と、院内の案内図から回る順番 | Opus 5.5（`MODEL`） | 深い仕事。聞こえた言葉を崩さずに分ける |
 | 一冊（1000日の記録と家族の言葉から、子どもへの本） | Opus 5.5（`MODEL`） | 深い仕事。一度きりの長い文 |
 | 手帳に聞くの見張り（体・心・栄養の判断の言葉を探す） | Haiku 5.5（`LIGHT_MODEL`） | 返事のたびに1回。軽い仕事 |
 | 調べ物の整え（調べた文を、窓口・持ち物・期限の形に） | Haiku 5.5（`LIGHT_MODEL`） | 形を整えるだけの軽い仕事 |
@@ -192,7 +192,7 @@ The paper handbook, and today's digital versions, are handbooks the family reads
 - **Paperwork**: it drafts the email to your boss, the birth-registration notes, the daycare visit request. Nothing is sent.
 - **Sharing the load**: the partner opens the same handbook and sees their own turn, with drafts in their own name.
 - **When plans break**: born early, moved to a new city: it notices, replans, and writes the message to hand over.
-- **Checkups**: record the doctor's explanation, keep the doctor's own words, and turn them into questions for next time. It never judges health.
+- **Checkups**: record the doctor's explanation, keep the words exactly as heard, and turn them into questions for next time. Dates it heard are shown as "this is what I heard — is it right?" and the family decides. It never judges health.
 - **After 1,000 days**: the records and the family's words become a book that speaks to the child.
 
 Compared with what exists: the national digital handbook (PMH) stores and shows records for municipalities, and apps such as Boshimo, ninaru and LINE Yahoo "Kosodate" notify and list tasks. This handbook takes the family's side, spans any city for the first 1,000 days, and drafts the paperwork for an OK. It complements PMH rather than competing with it ([docs/LANDSCAPE.md](docs/LANDSCAPE.md), in Japanese).
@@ -214,7 +214,7 @@ The national handbook format has been refined for 78 years. We keep its seven qu
 - **Handbook tab**: records in the same order as the national format (prenatal checkups, birth, newborn, stool color card, growth and milestones, vaccinations, consultations, and finally the book). Growth charts use national survey values; for the stool color card the parent picks one of the seven official colors (the app never judges; the notes are the handbook's own wording).
 - **Record by photo or voice**: photograph a page of the paper handbook and Claude identifies the page and proposes entries; saying "rolled over today" or "got the BCG shot" works too. Nothing is saved until the family taps OK. The paper handbook stays the original.
 - **Someone to talk to**: once per stage, the app asks the handbook's recurring question (kept word for word in Japanese), "Is there someone you can casually talk to about raising your child?" If not, it links to the city's child and family center, postpartum care, the #8000 pediatric line and the child guidance hotline.
-- **Emergency page**: "When in doubt, call 119" plus #8000, and short steps for choking and CPR (based on the Children and Families Agency's handbook pages and the Japan Resuscitation Council guidelines). It opens even offline.
+- **Emergency page**: call 119 without hesitation if a life may be in danger; if unsure whether to call an ambulance, #8000 (children) and #7119 (the mother's body, where the town offers it), and short steps for choking and CPR (based on the Children and Families Agency's handbook pages and the Japan Resuscitation Council guidelines). It opens even offline.
 
 The author is user #1, using it at a family member's real prenatal checkups (real records are never published).
 
@@ -229,7 +229,7 @@ Each job uses the model that fits it: everyday jobs run on Sonnet, deep reading 
 | "Ask the handbook" agent (picks its own tools, up to 8 steps) and rewrites when the guard flags a reply | Sonnet 5.5 (`EVERYDAY_MODEL`) | Everyday job |
 | Research with web search (city offices, what to bring, deadlines; also the agent's official-page search and the old-vs-new city comparison after a move) | Sonnet 5.5 (`RESEARCH_MODEL`) | Each call reads about 80k tokens of search results; the text is reshaped afterwards and the source URLs are kept, so Sonnet holds the quality |
 | Advisor: replanning when the baby comes early or late or the family moves, and a once-per-stage look across the family's records | Opus 5.5 (`MODEL`) | Deep work: cross-checks the family's situation, schedule and records to find what no fixed rule covers |
-| Checkup notes (what the doctor said, what to do next, questions for next time) and a route from a hospital floor map | Opus 5.5 (`MODEL`) | Deep work: keeps the doctor's own words intact |
+| Checkup notes (what the doctor said, what to do next, questions for next time) and a route from a hospital floor map | Opus 5.5 (`MODEL`) | Deep work: keeps the words as heard intact |
 | The book for the child (1,000 days of records and the family's words) | Opus 5.5 (`MODEL`) | Deep work: one long piece of writing |
 | Guard on every "Ask" reply (looks for medical, mental-health and nutrition judgments) | Haiku 5.5 (`LIGHT_MODEL`) | Light job, once per reply |
 | Reshaping research into office / what to bring / deadline fields | Haiku 5.5 (`LIGHT_MODEL`) | Light job, formatting only |
