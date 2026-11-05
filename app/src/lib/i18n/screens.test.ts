@@ -10,6 +10,7 @@
 //   描く所で t() を通しているかは、値が変数になると読めない（頭の定数を {TRIAL_BODY} とそのまま出す所だけは拾う）
 // - 体験の筋（PATH）の残りをファイルごとに数える（UX の残りの目安）:
 //   I18N_LEFT=1 npx vitest run src/lib/i18n/screens.test.ts --silent=false
+//   ほかの置き場を数える時は、道をカンマで並べる（例: I18N_LEFT=components/capture/,components/techo/ …）
 import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
@@ -359,7 +360,8 @@ describe("訳し終えた画面に、t() の外の日本語が残っていない
 
   // 残りを数える試験は I18N_LEFT=1 の時だけ作る（ふだんの試験の数と「飛ばした」に入れない）
   if (process.env.I18N_LEFT) it("体験の筋の残り（I18N_LEFT=1 の時だけ）", () => {
-    for (const entry of PATH) {
+    const wanted = process.env.I18N_LEFT && process.env.I18N_LEFT !== "1" ? process.env.I18N_LEFT.split(",") : PATH;
+    for (const entry of wanted) {
       const left = scanEntry(entry);
       const by = new Map<string, Finding[]>();
       for (const f of left) by.set(f.file, [...(by.get(f.file) ?? []), f]);

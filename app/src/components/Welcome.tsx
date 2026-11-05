@@ -12,6 +12,7 @@ import { setStageFocus } from "./today/stage-focus";
 import { clockAt, clockShort } from "@/lib/clock";
 import type { Family } from "@/lib/demo-family";
 import { listOf, t } from "@/lib/i18n";
+import { nameIn } from "@/lib/i18n/names";
 import { hideCounts } from "@/lib/situation";
 import { PUBLIC_UI, TRIAL_BANNER, TRIAL_BODY, TRIAL_KEEP } from "@/lib/trial-words";
 import { LangRow } from "./LangSwitch";
@@ -92,7 +93,7 @@ export function Welcome({ onClose, again = false }: { onClose: () => void; again
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const back = useRef<HTMLButtonElement>(null);
-  const names = listOf(family.members.map((m) => t("{name}さん", { name: m.name })));
+  const names = listOf(family.members.map((m) => t("{name}さん", { name: nameIn(m.name) })));
 
   // 開き直した時は、戻る道に手元を移し（キーボード・読み上げ）、Esc で閉じる。
   // 手元を移すのは開いた時の1回だけ（onClose は帯が描き直すたびに変わるので、ref で持つ）
