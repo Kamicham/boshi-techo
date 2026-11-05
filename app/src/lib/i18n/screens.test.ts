@@ -80,6 +80,19 @@ const DONE: readonly string[] = [
   "app/unlock/", // 体験版の合言葉
   "components/capture/", // 話す・撮る・打つ
   "app/capture/",
+  // 手帳のタブ（多言語化④・エージェントが訳した）。GrowthChart.tsx は思い出の会話が書き換え中なので、その取り込みの後に置き場ごと（components/techo/）にする
+  "app/techo/page.tsx",
+  "components/techo/DevelopmentList.tsx",
+  "components/techo/EntryCard.tsx",
+  "components/techo/EntryForm.tsx",
+  "components/techo/FeelingList.tsx",
+  "components/techo/MoneyLine.tsx",
+  "components/techo/PendingBox.tsx",
+  "components/techo/StoolCard.tsx",
+  "components/techo/TechoPhotos.tsx",
+  "components/techo/VaccineList.tsx",
+  "components/techo/labels.ts",
+  "components/techo/useTecho.ts",
 ];
 
 /** 体験の筋（③）。I18N_LEFT=1 で残りを数える */

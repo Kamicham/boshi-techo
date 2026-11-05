@@ -17,10 +17,11 @@ import now from "./dict/now";
 import shell from "./dict/shell";
 import stages from "./dict/stages";
 import start from "./dict/start";
+import techo from "./dict/techo";
 import today from "./dict/today";
 import welcome from "./dict/welcome";
 
-export const AREAS: Readonly<Record<string, Entries>> = { core, shell, welcome, start, stages, now, today, draft, milestones, ask, answers, album, book, memories, emergency, capture, basis };
+export const AREAS: Readonly<Record<string, Entries>> = { core, shell, welcome, start, stages, now, today, draft, milestones, ask, answers, album, book, memories, emergency, capture, techo, basis };
 
 function build(lang: "zh" | "en"): Dict {
   const out: Record<string, string> = {};

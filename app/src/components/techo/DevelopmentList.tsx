@@ -4,8 +4,9 @@
 // 出典: 母子健康手帳 府令様式（保護者の記録）。こども家庭庁「母子健康手帳について」2026年版。
 import { useState } from "react";
 import { Btn } from "@/components/ui";
+import { t } from "@/lib/i18n";
 import { DEVELOPMENT_ITEMS, DEVELOPMENT_NOTE } from "@/lib/techo";
-import { jpDay } from "./labels";
+import { head, jpDay } from "./labels";
 import { PhotoSlot } from "./TechoPhotos";
 import type { TechoItem } from "./useTecho";
 
@@ -45,7 +46,7 @@ export function DevelopmentList({ items, today, onAdd }: { items: TechoItem[]; t
           return (
             <li key={name} className="flex flex-col gap-2 py-1">
               <div className="flex min-h-11 items-center justify-between gap-2">
-                <span className="text-base">{name}</span>
+                <span className="text-base">{head(t(name))}</span>
                 {d ? (
                   <span className="flex items-center gap-2">
                     <span className="text-base font-semibold text-rose">{jpDay(d)}</span>
@@ -60,21 +61,21 @@ export function DevelopmentList({ items, today, onAdd }: { items: TechoItem[]; t
                       setDate(today);
                     }}
                   >
-                    できた日を入れる
+                    {t("できた日を入れる")}
                   </button>
                 )}
               </div>
               {editing === name && (
                 <div className="flex flex-wrap items-end gap-2 pb-2">
                   <label className="flex flex-col gap-1 text-sm text-muted">
-                    できた日
+                    {t("できた日")}
                     <input type="date" value={date} max={today} onChange={(e) => setDate(e.target.value)} className="min-h-11 rounded-lg border border-line bg-card px-3 text-base" />
                   </label>
                   <Btn onClick={() => void save(name)} disabled={busy}>
-                    {busy ? "入れています…" : "入れる"}
+                    {busy ? t("入れています…") : t("入れる")}
                   </Btn>
                   <Btn kind="quiet" onClick={() => setEditing(null)}>
-                    やめる
+                    {t("やめる")}
                   </Btn>
                 </div>
               )}
@@ -83,7 +84,7 @@ export function DevelopmentList({ items, today, onAdd }: { items: TechoItem[]; t
         })}
       </ul>
       {error && <p className="text-sm text-alert">{error}</p>}
-      <p className="rounded-xl bg-sky-soft px-3 py-2 text-base">{DEVELOPMENT_NOTE}</p>
+      <p className="rounded-xl bg-sky-soft px-3 py-2 text-base">{t(DEVELOPMENT_NOTE)}</p>
     </div>
   );
 }

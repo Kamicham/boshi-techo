@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useFamily } from "@/components/FamilyProvider";
 import { DateCheck, initialDate, type DateUnsure } from "@/components/capture/DateCheck";
 import { Btn, Notice, plainError, Why } from "@/components/ui";
+import { t } from "@/lib/i18n";
 import { TECHO_PAGES } from "@/lib/techo";
 import { EntryCard } from "./EntryCard";
 import type { TechoItem } from "./useTecho";
@@ -61,13 +62,13 @@ export function PendingBox({
   return (
     <section className="flex flex-col gap-3 rounded-2xl bg-sky-soft p-4" aria-labelledby="pending-title">
       <h2 id="pending-title" className="font-display text-lg font-bold">
-        手帳の候補 {items.length}つ
+        {t("手帳の候補 {n}つ", { n: items.length })}
       </h2>
-      <p className="text-base">急がなくても消えません。手があいた時に、紙の手帳と見比べて、合っていれば OK。</p>
-      <p className="text-sm text-muted">日付が違う時は直してから OK。中身が違う時は「違う（消す）」。OK した後も手帳から消せます。</p>
+      <p className="text-base">{t("急がなくても消えません。手があいた時に、紙の手帳と見比べて、合っていれば OK。")}</p>
+      <p className="text-sm text-muted">{t("日付が違う時は直してから OK。中身が違う時は「違う（消す）」。OK した後も手帳から消せます。")}</p>
       {items.map((it) => (
         <div key={it.id} className="flex flex-col gap-1">
-          <p className="text-sm font-semibold text-muted">{pageTitle(it.page)}</p>
+          <p className="text-sm font-semibold text-muted">{t(pageTitle(it.page))}</p>
           <EntryCard item={it}>
             <div className="flex flex-col gap-2 pt-1">
               <DateCheck
@@ -80,21 +81,21 @@ export function PendingBox({
               />
               <div className="grid grid-cols-2 gap-2">
                 <Btn onClick={() => void ok(it)} disabled={busy != null || !dateOf(it)}>
-                  {busy === it.id ? "入れています…" : "OK"}
+                  {busy === it.id ? t("入れています…") : "OK"}
                 </Btn>
                 <Btn kind="secondary" onClick={() => void no(it)} disabled={busy != null}>
-                  {busy === `no-${it.id}` ? "消しています…" : "違う（消す）"}
+                  {busy === `no-${it.id}` ? t("消しています…") : t("違う（消す）")}
                 </Btn>
               </div>
             </div>
           </EntryCard>
         </div>
       ))}
-      {error && <Notice title="手帳に届きませんでした" safe="候補はそのまま残っています。もう一度押してください。" detail={error} />}
+      {error && <Notice title={t("手帳に届きませんでした")} safe={t("候補はそのまま残っています。もう一度押してください。")} detail={error} />}
       <Why>
-        <p>撮った写真や話した言葉から読み取った物は、まだ候補です。読めなかった値は入れていません。</p>
-        <p>紙に日付が無い時は、今日の日付にせず、ページの題と生まれた日から推した日を出します。</p>
-        <p>手帳に入れるのは、家族が OK した物だけです。違う候補は消せます。OK した後も、手帳の記録の「消す」で消せます。</p>
+        <p>{t("撮った写真や話した言葉から読み取った物は、まだ候補です。読めなかった値は入れていません。")}</p>
+        <p>{t("紙に日付が無い時は、今日の日付にせず、ページの題と生まれた日から推した日を出します。")}</p>
+        <p>{t("手帳に入れるのは、家族が OK した物だけです。違う候補は消せます。OK した後も、手帳の記録の「消す」で消せます。")}</p>
       </Why>
     </section>
   );
