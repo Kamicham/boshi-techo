@@ -5,7 +5,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useSyncExternalStore } from "react";
-import { clockAt } from "@/lib/clock";
+import { clockAt, clockShort } from "@/lib/clock";
 import { hideCounts } from "@/lib/situation";
 import { recordingBusy, recordingBusyServer, subscribeRecording } from "@/lib/recording-state";
 import { TABS } from "@/lib/app-guide";
@@ -86,7 +86,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               {/* つらい別れの間は、週数・日数を出さない（lib/situation.ts の hideCounts） */}
               {hideCounts(family) ? null : (
                 <>
-                  ・<b className="font-semibold">{clockAt(family, today).label.replace(/(\d+週)\d+日/, "$1")}</b>
+                  ・<b className="font-semibold">{clockShort(clockAt(family, today))}</b>
                 </>
               )}
               {me ? <span className="text-muted">（{me.name}）</span> : null}

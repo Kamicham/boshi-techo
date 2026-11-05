@@ -9,7 +9,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { api, useFamily } from "./FamilyProvider";
 import { demoStages, StagePicker } from "./today/StagePicker";
 import { setStageFocus } from "./today/stage-focus";
-import { clockAt } from "@/lib/clock";
+import { clockAt, clockShort } from "@/lib/clock";
 import type { Family } from "@/lib/demo-family";
 import { hideCounts } from "@/lib/situation";
 import { PUBLIC_UI, TRIAL_BANNER, TRIAL_BODY, TRIAL_KEEP } from "@/lib/trial-words";
@@ -48,7 +48,7 @@ export function readWelcomed(): boolean {
 
 /** 見本の家族の「いつ」を短く（妊娠37週3日 → 37週）。上の帯の札と、開き直した入口の「見ていた手帳に戻る」で同じ言い方にする */
 export function shortClock(family: Family, today: string): string {
-  return clockAt(family, today).label.replace(/^妊娠/, "").replace(/(\d+週)\d+日/, "$1");
+  return clockShort(clockAt(family, today), true);
 }
 
 /** 何のアプリかを、手帳がする事3つで見せる（作った例） */

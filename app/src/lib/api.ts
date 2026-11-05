@@ -1,8 +1,9 @@
-// API ルートの共通の包み。エラーを日本語の JSON にして返す。
+// API ルートの共通の包み。エラーを JSON にして返す（言葉は頼みのクッキー boshi_lang で訳す。lib/i18n。訳の無い言葉は日本語のまま）。
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { HttpError } from "./family";
+import { langOf, tFor } from "./i18n/dicts";
 
 /**
  * 関所を先に通してから multipart の中身を読む（技術監査 (5)①・2026-11-05。写真と声の手紙の口）。
@@ -29,12 +30,14 @@ export function route<A extends unknown[]>(fn: (...args: A) => Promise<unknown>)
       const out = await fn(...args);
       return out instanceof Response ? out : NextResponse.json(out);
     } catch (e) {
-      if (e instanceof HttpError) return NextResponse.json({ error: e.message }, { status: e.status });
-      if (e instanceof Anthropic.RateLimitError) return NextResponse.json({ error: "Claude が混み合っています。少し待ってもう一度" }, { status: 429 });
-      if (e instanceof Anthropic.AuthenticationError) return NextResponse.json({ error: "いま Claude につながりません。手帳の予定と記録はそのまま使えます" }, { status: 500 });
-      if (e instanceof Anthropic.APIError) return NextResponse.json({ error: `Claude の呼び出しに失敗しました（${e.status}）` }, { status: 502 });
+      const lang = langOf(args[0]);
+      const say = (error: string, vars?: Record<string, string | number>) => ({ error: tFor(lang, error, vars) });
+      if (e instanceof HttpError) return NextResponse.json(say(e.message), { status: e.status });
+      if (e instanceof Anthropic.RateLimitError) return NextResponse.json(say("Claude が混み合っています。少し待ってもう一度"), { status: 429 });
+      if (e instanceof Anthropic.AuthenticationError) return NextResponse.json(say("いま Claude につながりません。手帳の予定と記録はそのまま使えます"), { status: 500 });
+      if (e instanceof Anthropic.APIError) return NextResponse.json(say("Claude の呼び出しに失敗しました（{status}）", { status: String(e.status) }), { status: 502 });
       console.error(e);
-      return NextResponse.json({ error: e instanceof Error ? e.message : "うまくいきませんでした" }, { status: 500 });
+      return NextResponse.json(say(e instanceof Error ? e.message : "うまくいきませんでした"), { status: 500 });
     }
   };
 }

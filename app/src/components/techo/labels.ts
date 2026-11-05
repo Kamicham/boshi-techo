@@ -1,4 +1,5 @@
 // 記録の値（TechoValueKeys のキー）を、画面の言葉と単位にする。判定の言葉は付けない。
+import { currentLang } from "@/lib/i18n";
 import type { TechoEntry } from "@/lib/techo";
 
 const LABELS: Record<string, [label: string, unit?: string]> = {
@@ -57,8 +58,10 @@ export function valueLines(values: TechoEntry["values"], skip: string[] = []): s
   return out;
 }
 
+/** 2026年11月3日（中文も同じ書き方）。English は Nov 3, 2026（画面の言葉で。lib/i18n） */
 export function jpDay(s: string): string {
   const [y, m, d] = s.split("-").map(Number);
+  if (currentLang() === "en") return new Intl.DateTimeFormat("en-US", { timeZone: "UTC", year: "numeric", month: "short", day: "numeric" }).format(new Date(Date.UTC(y, m - 1, d)));
   return `${y}年${m}月${d}日`;
 }
 

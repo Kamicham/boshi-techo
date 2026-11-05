@@ -12,7 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { Btn } from "@/components/ui";
 import { field, Msg } from "@/components/settings/account-ui";
-import { clockAt, diffDays } from "@/lib/clock";
+import { clockAt, clockShort, diffDays } from "@/lib/clock";
 import type { Family } from "@/lib/demo-family";
 import { deadlineKindOf, scheduleFor, statusOf } from "@/lib/milestones";
 import { planToday, withAssignee } from "@/components/today/task";
@@ -242,7 +242,7 @@ function Preview({ a, today, busy, msg, onEdit, onKeep, canKeep }: { a: Answers;
     <main className="flex flex-col gap-4 px-4 pt-4 pb-10">
       <div className="flex min-h-11 items-center justify-between gap-2 rounded-full bg-rose-soft px-4 text-sm">
         <span>
-          あなたの手帳 ・ <b>{c.label.replace(/(\d+週)\d+日/, "$1")}</b>
+          あなたの手帳 ・ <b>{clockShort(c)}</b>
         </span>
         <button type="button" onClick={onEdit} className="min-h-11 font-semibold text-rose">
           答えを直す

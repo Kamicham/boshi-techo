@@ -1,6 +1,9 @@
 // 家族の時計: 「今日」が家族の1000日のどこにいるかを計算する。
 // 1000日 = 妊娠の始まり（最終月経から2週後）〜 2歳の誕生日。
 // 日付はすべて "YYYY-MM-DD"（日本時間の暦日）で扱い、時刻は持たない。
+// label（人が読む言い方）は画面の言葉で書く（lib/i18n。サーバ・試験・Claude への頼みではいつも日本語）。
+// 中文・English の言い方は外国語版の母子健康手帳（こども家庭庁 R5・2024-03）に合わせた: 妊娠24周3天・出生后3天・1岁3个月 / 24 weeks pregnant・3 months old・1 year old
+import { currentLang } from "./i18n";
 
 export type Phase = "trying" | "pregnant" | "child" | "after";
 
@@ -91,18 +94,13 @@ export function clockAt(f: FamilyDates, today: string): ClockState {
     const ageDays = diffDays(today, f.birthDate!);
     const ageMonths = monthsBetween(f.birthDate!, today);
     const after = diffDays(today, secondBirthday(f)) > 0;
-    let label: string;
-    if (ageDays === 0) label = "生まれた日";
-    else if (ageDays < 28) label = `生後${ageDays}日`;
-    else if (ageMonths < 12) label = `生後${ageMonths}か月`;
-    else label = `${Math.floor(ageMonths / 12)}歳${ageMonths % 12 ? `${ageMonths % 12}か月` : ""}`;
-    return { today, phase: after ? "after" : "child", ageDays, ageMonths, dayOf1000, label };
+    return { today, phase: after ? "after" : "child", ageDays, ageMonths, dayOf1000, label: bornLabel(ageDays, ageMonths) };
   }
 
   const sinceLmp = diffDays(today, lmpFromDue(f.dueDate));
   // 妊娠週数は最終月経の初日から数える（医療での数え方）。それより前は「授かる前」
   if (sinceLmp < 0) {
-    return { today, phase: "trying", dayOf1000, label: "授かる前" };
+    return { today, phase: "trying", dayOf1000, label: { ja: "授かる前", zh: "怀孕前", en: "Before pregnancy" }[currentLang()] };
   }
   const pregnancyWeek = Math.floor(sinceLmp / 7);
   const pregnancyDay = sinceLmp % 7;
@@ -112,6 +110,61 @@ export function clockAt(f: FamilyDates, today: string): ClockState {
     pregnancyWeek,
     pregnancyDay,
     dayOf1000,
-    label: `妊娠${pregnancyWeek}週${pregnancyDay}日`,
+    label: pregnantLabel(pregnancyWeek, pregnancyDay),
   };
+}
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+/** 生まれた後: 生まれた日・生後12日・生後3か月・1歳3か月（1歳ちょうどは「1歳」） */
+function bornLabel(ageDays: number, ageMonths: number): string {
+  const years = Math.floor(ageMonths / 12);
+  const months = ageMonths % 12;
+  switch (currentLang()) {
+    case "zh":
+      if (ageDays === 0) return "出生当天";
+      if (ageDays < 28) return `出生后${ageDays}天`;
+      // 「3个月」だけだと妊娠の月（妊娠3个月）とも読めるので、「出生后」を付ける
+      if (ageMonths < 12) return `出生后${ageMonths}个月`;
+      return `${years}岁${months ? `${months}个月` : ""}`;
+    case "en":
+      if (ageDays === 0) return "Day of birth";
+      if (ageDays < 28) return `${plural(ageDays, "day", "days")} old`;
+      if (ageMonths < 12) return `${plural(ageMonths, "month", "months")} old`;
+      return `${plural(years, "year", "years")}${months ? ` ${plural(months, "month", "months")}` : ""} old`;
+    default:
+      if (ageDays === 0) return "生まれた日";
+      if (ageDays < 28) return `生後${ageDays}日`;
+      if (ageMonths < 12) return `生後${ageMonths}か月`;
+      return `${years}歳${months ? `${months}か月` : ""}`;
+  }
+}
+
+/** 妊娠中: 妊娠24週3日（0日も書く＝医療の数え方）。English は 0 日を書かない（24 weeks pregnant） */
+function pregnantLabel(week: number, day: number): string {
+  switch (currentLang()) {
+    case "zh":
+      return `妊娠${week}周${day}天`;
+    case "en":
+      return `${plural(week, "week", "weeks")}${day ? ` ${plural(day, "day", "days")}` : ""} pregnant`;
+    default:
+      return `妊娠${week}週${day}日`;
+  }
+}
+
+/**
+ * 帯や札の短い言い方: 妊娠中は週まで（妊娠37週3日 → 妊娠37週）。bare は「妊娠」も外す（37週・Week 37）。
+ * 生まれた後と授かる前は label のまま（前は label を正規表現で削っていた。訳した言い方でも同じに短くするため、ここで書く）
+ */
+export function clockShort(c: ClockState, bare = false): string {
+  if (c.phase !== "pregnant" || c.pregnancyWeek === undefined) return c.label;
+  const w = c.pregnancyWeek;
+  switch (currentLang()) {
+    case "zh":
+      return `${bare ? "" : "妊娠"}${w}周`;
+    case "en":
+      return bare ? `Week ${w}` : `${plural(w, "week", "weeks")} pregnant`;
+    default:
+      return `${bare ? "" : "妊娠"}${w}週`;
+  }
 }

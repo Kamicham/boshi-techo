@@ -3,6 +3,7 @@
 // アカウントの画面（ログイン・世帯・同意・招待）で共通の小さな部品。
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/components/FamilyProvider";
+import { currentLang, INTL_LOCALE } from "@/lib/i18n";
 import type { Consent, Subject } from "@/lib/households";
 
 /** Better Auth の失敗を日本語に（英語の文を画面に出さない） */
@@ -76,11 +77,11 @@ export function useHouseholdDetail(familyId: string | null) {
   return { data, error, load };
 }
 
-/** 日時を「2026年11月3日 14:05」に */
+/** 日時を「2026年11月3日 14:05」に（画面の言葉で。中文 2026年11月3日 14:05・English November 3, 2026 at 02:05 PM） */
 export function jpDateTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  const p = new Intl.DateTimeFormat("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  const p = new Intl.DateTimeFormat(INTL_LOCALE[currentLang()], { timeZone: "Asia/Tokyo", year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" });
   return p.format(d);
 }
 

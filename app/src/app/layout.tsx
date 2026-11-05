@@ -2,6 +2,10 @@ import type { Metadata, Viewport } from "next";
 import { Zen_Maru_Gothic, Noto_Sans_JP } from "next/font/google";
 import { AppFrame, RegisterEmergencySW } from "./emergency/Frame";
 import "./globals.css";
+import { LocaleProvider } from "@/components/LocaleProvider";
+import { HTML_LANG } from "@/lib/i18n";
+import { dictFor } from "@/lib/i18n/dicts";
+import { requestLang } from "@/lib/i18n/server";
 import { PUBLIC_UI } from "@/lib/trial-words";
 
 const display = Zen_Maru_Gothic({ variable: "--font-display", weight: ["500", "700"], subsets: ["latin"] });
@@ -22,13 +26,17 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  // 言葉（日本語・简体中文・English）: クッキー boshi_lang。画面へは今の言葉の辞書だけを渡す（lib/i18n。2026-11-05 多言語化）
+  const lang = await requestLang();
   return (
-    <html lang="ja">
+    <html lang={HTML_LANG[lang]}>
       <body className={`${display.variable} ${body.variable} antialiased`}>
-        {/* 急ぎの時（/emergency）だけは家族の読み込みを待たずに出す。ほかは FamilyProvider と Shell で包む */}
-        {/* 公開版（体験）の「作った家族です」は、入口の1枚と上の帯（見本の家族 ・ 時期を変える）で言う（最初の1分 2026-11-04。注意書きが自己紹介より先に出ていた） */}
-        <AppFrame>{children}</AppFrame>
+        <LocaleProvider lang={lang} dict={dictFor(lang)}>
+          {/* 急ぎの時（/emergency）だけは家族の読み込みを待たずに出す。ほかは FamilyProvider と Shell で包む */}
+          {/* 公開版（体験）の「作った家族です」は、入口の1枚と上の帯（見本の家族 ・ 時期を変える）で言う（最初の1分 2026-11-04。注意書きが自己紹介より先に出ていた） */}
+          <AppFrame>{children}</AppFrame>
+        </LocaleProvider>
         {/* 急ぎの時のページを通信が無くても開けるように（本番だけ。sw.js は /emergency とその部品しか扱わない） */}
         <RegisterEmergencySW />
       </body>
