@@ -135,7 +135,7 @@ export function ConsentScreen({
           })}
           {hasChild && <p className="rounded-xl bg-sky-soft px-3 py-2 text-sm">{t(CHILD_NOTE)}</p>}
           {waiting.length > 0 && (
-            <p className="text-sm text-muted">{t("{who}の分は、本人（子は管理の人）が押すまで、その人の記録は残しません。", { who: listOf(waiting.map(subjectLabel)) })}</p>
+            <p className="text-sm text-muted">{t("{who}の分は、本人（子は管理の人）が押すまで、手帳の上に同意の案内が出ます。同意のない本人の記録を、サーバの側で止める仕組みは準備中です。", { who: listOf(waiting.map(subjectLabel)) })}</p>
           )}
           {open.length > 0 ? (
             <Btn onClick={() => void grant()} disabled={busy || picked.size === 0} full>
