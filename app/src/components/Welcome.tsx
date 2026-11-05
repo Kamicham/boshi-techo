@@ -235,14 +235,14 @@ export function StageSheet({ onClose }: { onClose: () => void }) {
                   onClick={() => setMeId(m.id)}
                   className={`flex min-h-11 flex-1 items-center justify-center rounded-full border px-3 text-base ${on ? "border-rose bg-rose text-white font-bold" : "border-line bg-card text-ink"}`}
                 >
-                  {t("{name}の画面", { name: m.name })}
+                  {t("{name}の画面", { name: nameIn(m.name) })}
                 </button>
               );
             })}
           </div>
         </fieldset>
         <p className="text-sm text-muted">
-          {t("見本の家族（{names}）の1000日の、どの日の手帳を見るか。", { names: listOf(family.members.map((m) => t("{name}さん", { name: m.name }))) })}
+          {t("見本の家族（{names}）の1000日の、どの日の手帳を見るか。", { names: listOf(family.members.map((m) => t("{name}さん", { name: nameIn(m.name) }))) })}
         </p>
         <StagePicker
           family={family}

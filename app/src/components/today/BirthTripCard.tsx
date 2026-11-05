@@ -368,7 +368,7 @@ function FirstRow({
  */
 export function TripFolded({ fold, family, today, open, onToggle }: { fold: TripFold<ShownTask>; family: Family; today: string; open: boolean; onToggle: () => void }) {
   const person = family.members.find((m) => m.role === fold.who);
-  const name = person ? t("{name}さん", { name: person.name }) : t("パートナー");
+  const name = person ? t("{name}さん", { name: nameIn(person.name) }) : t("パートナー");
   const due = fold.due ? `${t("{name}は", { name: dueName(fold.due.task) })} ${untilWords(fold.due.left, fold.due.date, today)}` : null;
   const count = t("済んだ {done}/{total}", { done: fold.done, total: fold.total });
   const text = fold.due ? nudgeText(fold.items.length, fold.due, today) : "";
