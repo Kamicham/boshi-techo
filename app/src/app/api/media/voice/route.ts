@@ -5,6 +5,7 @@ import { route } from "@/lib/api";
 import { withHousehold } from "@/lib/access";
 import { transcribe } from "@/lib/asr";
 import { HttpError } from "@/lib/http-error";
+import { readBytes } from "@/lib/read-body";
 import { contributorFrom, saveAudio, toClient, VOICE_MOMENTS, type VoiceMoment } from "@/lib/media";
 
 export const maxDuration = 120;
@@ -17,7 +18,8 @@ export const POST = route(async (req: Request) => {
   // 家族の記録を書ける人と、みんなの章に足せる人（祖父母など）が通る
   const ctx = await withHousehold(req, q.get("familyId"), "media:contribute");
   const from = contributorFrom(ctx, q.get("relation"));
-  const audio = Buffer.from(await req.arrayBuffer());
+  // 生の中身は readBytes で読む（32MB を超える・途中で切れた中身は 413。lib/read-body.ts）
+  const audio = await readBytes(req);
   if (audio.length < 1000) throw new HttpError(400, "録音が短すぎました。もう少し長く押してください");
   const m = q.get("moment") ?? "";
   if (!MOMENTS.includes(m)) throw new HttpError(400, "録り方が分かりません");

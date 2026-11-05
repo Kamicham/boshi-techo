@@ -2,7 +2,7 @@
 // BOSHI_LOGIN_GATE=1 の時は、ログインの札を持つ人も通し、ログインの画面と API は門の前でも開ける（lib/gate.ts）。
 // 合言葉（BOSHI_PASSCODE）が空なら、今までどおり門は開いたまま。
 import { NextResponse, type NextRequest } from "next/server";
-import { bodyTooBig } from "@/lib/body-limit";
+import { BIG_BODY, bodyTooBig } from "@/lib/body-limit";
 import { GATE_COOKIE, gateToken, hasSessionCookie, isLoginPath, loginGateOn } from "@/lib/gate";
 import { newTrialId, publicOn, TRIAL_COOKIE, TRIAL_DAYS, trialIdFromCookie } from "@/lib/trial-cookie";
 
@@ -38,6 +38,10 @@ function publicGate(req: NextRequest): NextResponse {
 
 export async function middleware(req: NextRequest) {
   if (publicOn()) return publicGate(req);
+  // 公開版の外（わが家の本番・シミュレーション・手元の試し）でも、名乗った長さが写真と声の上限（32MB）を超える頼みは、中身を読まずに 413。
+  // Next.js 15.5.29 は門のために写す中身を 32MB で黙って切るので、切れた写真や声が口に届いて残る前に断る（lib/body-limit.ts・lib/read-body.ts）
+  const tooBig = bodyTooBig(req.method, req.nextUrl.pathname, req.headers.get("content-length"), BIG_BODY);
+  if (tooBig) return NextResponse.json({ error: tooBig }, { status: 413 });
   const passcode = process.env.BOSHI_PASSCODE;
   if (!passcode) return NextResponse.next();
   const { pathname } = req.nextUrl;

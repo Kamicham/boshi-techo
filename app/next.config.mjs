@@ -12,8 +12,10 @@ const nextConfig = {
   // better-sqlite3 はネイティブの部品なので、束ねずにそのまま読む
   serverExternalPackages: ["better-sqlite3"],
   experimental: {
-    // middleware があると、Next.js は口へ渡す中身を middleware のために写し、既定では 10MB で切る（それより大きい写真や声は途中で切れていた）。
-    // 公開版の門の上限（写真と声は 32MB・src/lib/body-limit.ts の BIG_BODY）と揃える。長さの無い送り方も、ここで 32MB に収まる
+    // middleware があると、Next.js は口へ渡す中身を middleware のために写す。15.5.29 は写す中身を既定で 10MB に切り、
+    // 超えた所から先を黙って捨てる（口には切れた中身が届く）。写真と声の上限（32MB・src/lib/body-limit.ts の BIG_BODY）と揃える。
+    // この名前は Next 15.5.29 から効く。15.5.4 は知らない名前として無視し（立つ時に Unrecognized の注意が出る）、上限なしで写す。
+    // 名乗った長さが 32MB を超える頼みは門が読む前に止め、生の中身を読む口は切れていないかも見る（src/lib/read-body.ts）
     middlewareClientMaxBodySize: 32 * 1024 * 1024,
   },
 };

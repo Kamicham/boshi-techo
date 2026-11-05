@@ -6,6 +6,7 @@ import { transcribe } from "@/lib/asr";
 import { capture } from "@/lib/capture";
 import { assertConsent, sendingAs } from "@/lib/claude";
 import { HttpError } from "@/lib/family";
+import { readBytes } from "@/lib/read-body";
 import { familyFor, WRITE_AND_SEND } from "../../_lib/household";
 import { todayOf } from "../shared";
 import { publicOn } from "@/lib/trial-cookie";
@@ -16,7 +17,8 @@ export const POST = route(async (req: Request) => {
   const h = await familyFor(req, q.get("familyId"), WRITE_AND_SEND);
   const family = h.family;
   const today = todayOf(q.get("today"));
-  const audio = Buffer.from(await req.arrayBuffer());
+  // 生の中身は readBytes で読む（32MB を超える・途中で切れた中身は 413。lib/read-body.ts）
+  const audio = await readBytes(req);
   if (audio.length < 1000) throw new HttpError(400, "録音が短すぎました。もう少し長く押してください");
   if (audio.length > 30 * 1024 * 1024) throw new HttpError(400, "録音が長すぎます");
   // 聞き取った言葉は Claude に送るので、文字起こし（時間がかかる）の前に同意を確かめる
