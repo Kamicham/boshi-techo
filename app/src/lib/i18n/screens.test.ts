@@ -24,6 +24,7 @@ const SRC = path.join(process.cwd(), "src");
 const DONE: readonly string[] = [
   "components/Welcome.tsx", // 入口の1枚（多言語化③の1・9424bad）
   "components/Shell.tsx", // 上の帯と下のタブ
+  "components/FamilyProvider.tsx", // 家族の手帳を読めなかった時の画面（LostNotebook）
   "components/today/StagePicker.tsx", // 時期の札
   "components/LangSwitch.tsx", // 言葉の切り替え（言葉の名前は、それぞれの言葉で書く＝「訳さない」の注）
   "components/Techo.tsx", // いま（今やる1つ・ほかに今やる事・近づいたら・済んだ事・静かにする家族の今日）

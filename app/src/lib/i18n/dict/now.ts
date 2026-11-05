@@ -14,6 +14,8 @@ export default {
     en: "We undid that mark. Please tap it again where you have a signal.",
   },
   "済んだの印を、読み込めませんでした": { zh: "无法读取“完成”的标记", en: "Couldn't load the “done” marks" },
+  // 家族の手帳を読めなかった時の画面（components/FamilyProvider.tsx の LostNotebook。下の2つも同じ画面で使う）
+  手帳を読めませんでした: { zh: "无法读取手册", en: "Couldn't load the handbook" },
   "記録は消えていません。電波のある所で、もう一度読んでください。": {
     zh: "记录没有丢失。请在有信号的地方重新读取。",
     en: "Your records are safe. Please reload where you have a signal.",

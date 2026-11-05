@@ -119,14 +119,14 @@ function LostNotebook({ retry }: { retry: () => Promise<void> }) {
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-5 px-4 pb-16">
       <div role="alert" className="flex flex-col gap-2">
-        <h1 className="font-display text-2xl leading-snug font-bold">手帳を読めませんでした</h1>
-        <p className="text-base">記録は消えていません。電波のある所で、もう一度読んでください。</p>
+        <h1 className="font-display text-2xl leading-snug font-bold">{t("手帳を読めませんでした")}</h1>
+        <p className="text-base">{t("記録は消えていません。電波のある所で、もう一度読んでください。")}</p>
       </div>
       <Btn onClick={() => void again()} disabled={busy} full>
-        {busy ? "読んでいます…" : "もう一度読む"}
+        {busy ? t("読んでいます…") : t("もう一度読む")}
       </Btn>
       <a href="/emergency" className="inline-flex min-h-11 items-center self-start text-base font-semibold text-alert underline-offset-2 hover:underline">
-        急ぎの時 ›
+        {t("急ぎの時")} ›
       </a>
     </main>
   );
@@ -273,6 +273,7 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
   // 設定で選んだ人。
   // 選んでいなければ、ログインした人に結んだ本人（母・パートナー）、それも無ければ母（いなければ最初の人）
   const linked = households.find((h) => h.id === family.id)?.me;
+  // 訳さない: 役の値（保存する値。family.members の role と比べる）
   const linkedRole = linked?.kind === "mother" ? "母" : linked?.kind === "partner" ? "パートナー" : null;
   const linkedMember = linkedRole
     ? (family.members.find((m) => m.role === linkedRole && m.name === linked?.name) ?? family.members.find((m) => m.role === linkedRole))
@@ -332,6 +333,7 @@ export function FamilyProvider({ children }: { children: React.ReactNode }) {
 
 export function useFamily(): Ctx {
   const c = useContext(FamilyCtx);
+  // 訳さない: 作る人向けの誤り（画面には出ない）
   if (!c) throw new Error("FamilyProvider の外で useFamily が呼ばれました");
   return c;
 }
