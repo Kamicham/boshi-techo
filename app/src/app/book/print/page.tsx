@@ -10,11 +10,8 @@ import { useMedia } from "@/components/album/useMedia";
 import { Btn } from "@/components/ui";
 import type { Book } from "@/lib/book";
 import type { ClientMedia } from "@/lib/media-shared";
-
-function jpDay(s: string) {
-  const [y, m, d] = s.split("-").map(Number);
-  return `${y}年${m}月${d}日`;
-}
+import { t } from "@/lib/i18n";
+import { dayLong } from "@/lib/memory-words";
 
 const CSS = `
 @page { size: 148mm 210mm; margin: 0; }
@@ -64,13 +61,13 @@ export default function BookPrintPage() {
       <style>{CSS}</style>
       <div className="no-print flex flex-col gap-2">
         <Link href="/book" className="inline-flex min-h-11 items-center self-start text-sm text-muted underline-offset-2 hover:underline">
-          ‹ 一冊へ
+          {t("‹ 一冊へ")}
         </Link>
-        <h1 className="font-display text-xl font-bold">印刷用（A5）</h1>
-        <p className="text-sm text-muted">「印刷・PDF にする」を押し、iPhone は「プリント」、Mac は「PDF として保存」を選びます。写真の会社に印刷を頼む時は、その会社に写真が渡ります。</p>
-        {state === "ok" && <Btn onClick={() => window.print()}>印刷・PDF にする</Btn>}
-        {state === "load" && <p className="text-base text-muted">一冊を開いています…</p>}
-        {state === "none" && <p className="text-base text-muted">まだ一冊がありません。一冊の画面で作ってから開いてください。</p>}
+        <h1 className="font-display text-xl font-bold">{t("印刷用（A5）")}</h1>
+        <p className="text-sm text-muted">{t("「印刷・PDF にする」を押し、iPhone は「プリント」、Mac は「PDF として保存」を選びます。写真の会社に印刷を頼む時は、その会社に写真が渡ります。")}</p>
+        {state === "ok" && <Btn onClick={() => window.print()}>{t("印刷・PDF にする")}</Btn>}
+        {state === "load" && <p className="text-base text-muted">{t("一冊を開いています…")}</p>}
+        {state === "none" && <p className="text-base text-muted">{t("まだ一冊がありません。一冊の画面で作ってから開いてください。")}</p>}
         {state === "error" && <p className="rounded-xl bg-alert/10 px-4 py-3 text-base text-alert">{error}</p>}
       </div>
 
@@ -81,18 +78,18 @@ export default function BookPrintPage() {
               // eslint-disable-next-line @next/next/no-img-element
               <img src={img(book.cover)} alt="" style={{ maxHeight: "55%", width: "100%", objectFit: "cover", borderRadius: 6 }} />
             )}
-            <p style={{ fontSize: 10, letterSpacing: "0.4em", color: "#a84468" }}>1000 日 の 記 録</p>
+            <p style={{ fontSize: 10, letterSpacing: "0.4em", color: "#a84468" }}>{t("1000 日 の 記 録")}</p>
             <h2 className="font-display" style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.4 }}>
               {book.title}
             </h2>
-            <p className="font-display">{book.childName}へ</p>
+            <p className="font-display">{t("{name}へ", { name: book.childName })}</p>
             <p style={{ fontSize: 10, color: "#6a6876" }}>
-              {jpDay(book.range.start)} — {jpDay(book.range.end)}
+              {dayLong(book.range.start)} — {dayLong(book.range.end)}
             </p>
           </section>
 
           <section className="sheet justify-center">
-            <p style={{ textAlign: "center", fontSize: 10, letterSpacing: "0.3em", color: "#6a6876" }}>はじめに</p>
+            <p style={{ textAlign: "center", fontSize: 10, letterSpacing: "0.3em", color: "#6a6876" }}>{t("はじめに")}</p>
             <p className="font-display" style={{ fontSize: 15 }}>
               {book.dedication}
             </p>
@@ -104,25 +101,25 @@ export default function BookPrintPage() {
               <div key={i} className="contents">
                 <section className="sheet">
                   <p style={{ fontSize: 10, letterSpacing: "0.3em", color: "#a84468" }}>
-                    第{i + 1}章・{ch.period}
+                    {t("第{n}章・{period}", { n: i + 1, period: t(ch.period) })}
                   </p>
                   <h2 className="font-display" style={{ fontSize: 19, fontWeight: 700 }}>
                     {ch.title}
                   </h2>
                   {ch.text
                     .split(/\n+/)
-                    .map((t) => t.trim())
+                    .map((s) => s.trim())
                     .filter(Boolean)
-                    .map((t, j) => (
+                    .map((s, j) => (
                       <p key={j} style={{ fontSize: 12, textIndent: "1em" }}>
-                        {t}
+                        {s}
                       </p>
                     ))}
                   {ch.moments.length > 0 && (
                     <ol style={{ fontSize: 11, borderTop: "1px dashed #e4e1d8", paddingTop: 8 }}>
                       {ch.moments.map((m, j) => (
                         <li key={j}>
-                          <span style={{ color: "#336e93" }}>{/^\d{4}-\d{2}-\d{2}$/.test(m.date) ? jpDay(m.date) : m.date}</span>　{m.text}
+                          <span style={{ color: "#336e93" }}>{/^\d{4}-\d{2}-\d{2}$/.test(m.date) ? dayLong(m.date) : m.date}</span>　{m.text}
                         </li>
                       ))}
                     </ol>
@@ -148,17 +145,17 @@ export default function BookPrintPage() {
           })}
 
           <section className="sheet justify-center">
-            <p style={{ textAlign: "center", fontSize: 10, letterSpacing: "0.3em", color: "#6a6876" }}>おわりに</p>
+            <p style={{ textAlign: "center", fontSize: 10, letterSpacing: "0.3em", color: "#6a6876" }}>{t("おわりに")}</p>
             {book.closing
               .split(/\n+/)
-              .map((t) => t.trim())
+              .map((s) => s.trim())
               .filter(Boolean)
-              .map((t, j) => (
+              .map((s, j) => (
                 <p key={j} style={{ fontSize: 12 }}>
-                  {t}
+                  {s}
                 </p>
               ))}
-            <p style={{ textAlign: "right", fontSize: 10, color: "#6a6876" }}>{jpDay(book.asOf)}</p>
+            <p style={{ textAlign: "right", fontSize: 10, color: "#6a6876" }}>{dayLong(book.asOf)}</p>
           </section>
         </div>
       )}

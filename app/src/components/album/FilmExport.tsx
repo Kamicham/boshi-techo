@@ -4,12 +4,14 @@
 // 動画は家族の鍵で守って置き、開く時だけ解く。祖父母など読む人は見る・保存するだけ、作るのは記録を書ける人。
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useFamily } from "@/components/FamilyProvider";
+import { t } from "@/lib/i18n";
+import { tr } from "@/lib/i18n/rich";
 import { TRIAL_FILM_CLOSED } from "@/lib/trial-words";
 
 type Video = { id: string; url: string; download: string; bytes: number; durationSec: number | null; createdAt: string };
 
 const mb = (n: number) => `${(n / 1024 / 1024).toFixed(1)}MB`;
-const minSec = (s: number) => `${Math.floor(s / 60)}分${String(Math.round(s % 60)).padStart(2, "0")}秒`;
+const minSec = (s: number) => t("{m}分{s}秒", { m: Math.floor(s / 60), s: String(Math.round(s % 60)).padStart(2, "0") });
 
 export function FilmExport({ bookKey }: { bookKey: string }) {
   const { family, today } = useFamily();
@@ -39,8 +41,8 @@ export function FilmExport({ bookKey }: { bookKey: string }) {
   useEffect(() => {
     if (!making) return;
     const t0 = Date.now();
-    const t = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 500);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setElapsed(Math.floor((Date.now() - t0) / 1000)), 500);
+    return () => clearInterval(timer);
   }, [making]);
   useEffect(
     () => () => {
@@ -55,7 +57,7 @@ export function FilmExport({ bookKey }: { bookKey: string }) {
     try {
       const r = await fetch("/api/book/film", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ familyId: family.id, today }) });
       const j = (await r.json().catch(() => ({}))) as { video?: Video; error?: string };
-      if (!r.ok || !j.video) throw new Error(j.error ?? `作れませんでした（${r.status}）`);
+      if (!r.ok || !j.video) throw new Error(j.error ?? t("作れませんでした（{status}）", { status: r.status }));
       setVideo(j.video);
     } catch (e) {
       setError((e as Error).message);
@@ -68,7 +70,7 @@ export function FilmExport({ bookKey }: { bookKey: string }) {
   const file = async (v: Video) => {
     if (blob.current) return blob.current;
     const r = await fetch(v.url);
-    if (!r.ok) throw new Error(`読めませんでした（${r.status}）`);
+    if (!r.ok) throw new Error(t("読めませんでした（{status}）", { status: r.status }));
     const b = await r.blob();
     const name = `${family.childName ?? "family"}-film-${v.createdAt.slice(0, 10)}.mp4`;
     blob.current = { url: URL.createObjectURL(b), file: new File([b], name, { type: "video/mp4" }) };
@@ -80,40 +82,38 @@ export function FilmExport({ bookKey }: { bookKey: string }) {
     try {
       const f = await file(v);
       const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
-      if (nav.share && nav.canShare?.({ files: [f.file] })) await nav.share({ files: [f.file], title: `${family.childName ?? ""}への一冊` });
+      if (nav.share && nav.canShare?.({ files: [f.file] })) await nav.share({ files: [f.file], title: t("{child}への一冊", { child: family.childName ?? "" }) });
       else window.location.href = v.download;
     } catch (e) {
       if ((e as Error).name !== "AbortError") setMsg((e as Error).message);
     }
   };
 
-  if (!video && !canMake) return closed ? <p className="text-sm text-muted">{TRIAL_FILM_CLOSED}</p> : null;
+  if (!video && !canMake) return closed ? <p className="text-sm text-muted">{t(TRIAL_FILM_CLOSED)}</p> : null;
   return (
     <div className="flex flex-col gap-2 rounded-2xl border border-line bg-card px-4 py-3">
       {video ? (
         <>
-          <p className="text-sm">
-            🎞 動画にしました（{video.durationSec ? minSec(video.durationSec) : ""}・{mb(video.bytes)}・横長）。LINE やテレビでそのまま流せます。
-          </p>
+          <p className="text-sm">{t("🎞 動画にしました（{dur}・{size}・横長）。LINE やテレビでそのまま流せます。", { dur: video.durationSec ? minSec(video.durationSec) : "", size: mb(video.bytes) })}</p>
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={() => void share(video)} className="inline-flex min-h-11 items-center rounded-full bg-rose px-5 text-base font-semibold text-white">
-              家族に渡す
+              {t("家族に渡す")}
             </button>
             <a href={video.download} className="inline-flex min-h-11 items-center rounded-full border border-ink/20 bg-card px-5 text-base font-semibold text-ink">
-              保存する
+              {t("保存する")}
             </a>
           </div>
         </>
       ) : making ? (
         <p role="status" className="text-sm">
-          動画を組んでいます…（<span className="tabular">{elapsed}</span>秒）写真の多い一冊は1〜2分かかります。この画面のままお待ちください。
+          {tr("動画を組んでいます…（{n}秒）写真の多い一冊は1〜2分かかります。この画面のままお待ちください。", { n: <span className="tabular">{elapsed}</span> })}
         </p>
       ) : (
         <>
           <button type="button" onClick={() => void make()} className="inline-flex min-h-11 items-center justify-center rounded-full border border-ink/20 bg-card px-5 text-base font-semibold text-ink">
-            🎞 動画にする（mp4）
+            {t("🎞 動画にする（mp4）")}
           </button>
-          <p className="text-xs text-muted">映画を1本の動画にして、家族に送ったりテレビで流したりできるようにします。組むのは手帳の中だけで、AI（Claude）にも外のサービスにも送りません。</p>
+          <p className="text-xs text-muted">{t("映画を1本の動画にして、家族に送ったりテレビで流したりできるようにします。組むのは手帳の中だけで、AI（Claude）にも外のサービスにも送りません。")}</p>
         </>
       )}
       {(error || msg) && <p className="text-sm text-alert">{error || msg}</p>}

@@ -7,6 +7,8 @@ import { api, useFamily } from "@/components/FamilyProvider";
 import { jpDate } from "@/components/today/dates";
 import { thanksLog, type Thanks } from "@/lib/done-words";
 import { childView } from "@/lib/call-name";
+import { t } from "@/lib/i18n";
+import { tr } from "@/lib/i18n/rich";
 import { scheduleFor } from "@/lib/milestones";
 
 export function useThanksLog() {
@@ -30,19 +32,18 @@ export function ThanksChapter() {
   const log = useThanksLog();
   if (!log.length) return null;
   return (
-    <section aria-label="家族のありがとう" className="flex flex-col gap-2 rounded-2xl border border-line bg-card p-4">
+    <section aria-label={t("家族のありがとう")} className="flex flex-col gap-2 rounded-2xl border border-line bg-card p-4">
       <h2 className="font-display text-lg font-bold">
-        家族のありがとう <span className="tabular text-base font-normal text-muted">{log.length}</span>
+        {t("家族のありがとう")} <span className="tabular text-base font-normal text-muted">{log.length}</span>
       </h2>
-      <p className="text-sm text-muted">手帳の中で、家族が交わしたありがとうです。</p>
+      <p className="text-sm text-muted">{t("手帳の中で、家族が交わしたありがとうです。")}</p>
       <ul className="flex flex-col">
         {log.map((x) => (
           <li key={x.id} className="flex flex-col border-b border-line py-2 last:border-b-0">
-            <span className="text-base">
-              🌷 <b>{childView(family, x.from.name)}</b>から <b>{childView(family, x.to.name)}</b>へ
-            </span>
+            <span className="text-base">{tr("🌷 {from}から {to}へ", { from: <b>{childView(family, x.from.name)}</b>, to: <b>{childView(family, x.to.name)}</b> })}</span>
             <span className="text-sm text-muted">
-              {x.title ? `「${x.title}」に` : ""}（{jpDate(x.on, today)}）
+              {x.title ? t("「{title}」に", { title: t(x.title) }) : ""}
+              {t("（{x}）", { x: jpDate(x.on, today) })}
             </span>
           </li>
         ))}

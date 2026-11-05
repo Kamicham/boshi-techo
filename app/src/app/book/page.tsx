@@ -16,6 +16,9 @@ import { FilmExport } from "@/components/album/FilmExport";
 import { FilmLink } from "@/components/album/FilmLink";
 import { readWelcomed, WELCOMED_KEY } from "@/components/Welcome";
 import type { ClientMedia } from "@/lib/media-shared";
+import { t } from "@/lib/i18n";
+import { tr } from "@/lib/i18n/rich";
+import { dayLong, parens } from "@/lib/memory-words";
 
 /** 一冊に描ける写真（ある・隠していない）。消した写真の id は飛ばして描く */
 type Photos = Map<string, ClientMedia>;
@@ -25,11 +28,6 @@ function usePhotos(): Photos {
   const m = new Map<string, ClientMedia>();
   for (const x of [...media, ...voices]) if (!x.hidden) m.set(x.id, x);
   return m;
-}
-
-function jpDay(s: string) {
-  const [y, m, d] = s.split("-").map(Number);
-  return `${y}年${m}月${d}日`;
 }
 
 type Page =
@@ -135,7 +133,7 @@ export default function BookPage() {
     }
   };
 
-  const child = family.childName ?? "赤ちゃん";
+  const child = family.childName ?? t("赤ちゃん");
   // 妊娠中で記録がまだ少ない時は、本を作るより記録を足すのが先（言葉と分け方は lib/book-intro.ts）
   const born = !!family.birthDate && family.birthDate <= today;
   const intro = bookIntro({ childName: family.childName, count: count ?? 0, born, isDemo });
@@ -144,66 +142,69 @@ export default function BookPage() {
 
   return (
     <main className="flex flex-col gap-4 px-4 pt-4">
-      <h1 className="sr-only">{child}への一冊</h1>
+      <h1 className="sr-only">{t("{child}への一冊", { child })}</h1>
       {fromTecho && (
         <Link href="/techo" className="inline-flex min-h-11 items-center self-start text-sm text-muted underline-offset-2 hover:underline">
-          ‹ 手帳へ
+          {t("‹ 手帳へ")}
         </Link>
       )}
 
       {loading ? (
-        <p className="text-base text-muted">本棚を見ています…</p>
+        <p className="text-base text-muted">{t("本棚を見ています…")}</p>
       ) : book ? (
         <>
           {book.bundled && (
             <p className="text-sm text-muted">
-              見本の家族（作った家族）の{jpDay(book.asOf)}までの記録 {book.sourceCount} 件から、
               {book.writer
                 ? // API を呼ばずに Claude Code が書いた一冊は、そう書く（demo-books.json の writer の頭。例「Claude Code（Claude Opus 5.5）」）
-                  `${book.writer.split("。")[0]}が、本番と同じ書き方の決まりで実際に書いた一冊です`
-                : "Claude が実際に書いた一冊です"}
-              。あなたの手帳では、あなたの記録から書きます。
+                  t("見本の家族（作った家族）の{date}までの記録 {n} 件から、{writer}が、本番と同じ書き方の決まりで実際に書いた一冊です。あなたの手帳では、あなたの記録から書きます。", {
+                    date: dayLong(book.asOf),
+                    n: book.sourceCount,
+                    writer: parens(book.writer.split("。")[0]),
+                  })
+                : t("見本の家族（作った家族）の{date}までの記録 {n} 件から、Claude が実際に書いた一冊です。あなたの手帳では、あなたの記録から書きます。", { date: dayLong(book.asOf), n: book.sourceCount })}
             </p>
           )}
           <Reader book={book} page={page} setPage={setPage} />
           {book.film.length > 0 && <FilmLink book={book} />}
           {book.outdated && (
             <div className="flex flex-col gap-2 rounded-xl bg-rose-soft px-4 py-3">
-              <p className="text-base">この一冊は前の決まりで作ったので、「聞く」で相談した気がかりが文に入っているかもしれません。今の決まりでは、気がかりは一冊に入れません。</p>
+              <p className="text-base">{t("この一冊は前の決まりで作ったので、「聞く」で相談した気がかりが文に入っているかもしれません。今の決まりでは、気がかりは一冊に入れません。")}</p>
               <div>
                 <Btn kind="secondary" onClick={() => void make()}>
-                  今の決まりで作り直す
+                  {t("今の決まりで作り直す")}
                 </Btn>
               </div>
             </div>
           )}
           {/* 本の下は「映画で見る」だけ。書き出しと作り直しは1つの畳みへ */}
-          <Fold title="書き出す・作り直す">
+          <Fold title={t("書き出す・作り直す")}>
             {book.film.length > 0 && <FilmExport bookKey={book.generatedAt} />}
             <div className="flex flex-wrap items-center gap-2">
-              <ShareButton title={book.title} text={bookText(book)} label="家族に渡す" fallback={false} />
-              <CopyButton text={bookText(book)} label="全部コピー" />
+              <ShareButton title={book.title} text={bookText(book)} label={t("家族に渡す")} fallback={false} />
+              <CopyButton text={bookText(book)} label={t("全部コピー")} />
               <Btn kind="secondary" href="/book/print">
-                印刷用（A5・PDF）
+                {t("印刷用（A5・PDF）")}
               </Btn>
             </div>
             {book.photoCount != null && (
               <p className="text-sm text-muted">
-                Claude に渡したのは、写真の日付・一言・結んだ記録{book.voiceCount ? "・声の題と最初の一文" : ""}の文字だけです（写真 {book.photoCount} 枚
-                {book.voiceCount ? `・声 ${book.voiceCount} 本` : ""}の候補。画像も声も渡していません）。
+                {book.voiceCount
+                  ? t("Claude に渡したのは、写真の日付・一言・結んだ記録・声の題と最初の一文の文字だけです（写真 {p} 枚・声 {v} 本の候補。画像も声も渡していません）。", { p: book.photoCount, v: book.voiceCount })
+                  : t("Claude に渡したのは、写真の日付・一言・結んだ記録の文字だけです（写真 {p} 枚の候補。画像も声も渡していません）。", { p: book.photoCount })}
               </p>
             )}
             <p className="text-base">
-              {jpDay(book.asOf)}までの記録 <b className="tabular">{book.sourceCount}</b> 件から作りました
+              {tr("{date}までの記録 {n} 件から作りました", { date: dayLong(book.asOf), n: <b className="tabular">{book.sourceCount}</b> })}
               {count != null && count > book.sourceCount && (
                 <>
                   {" "}
-                  <Pill tone="rose">いま {count} 件</Pill>
+                  <Pill tone="rose">{t("いま {n} 件", { n: count })}</Pill>
                 </>
               )}
             </p>
             <Btn kind="secondary" onClick={() => void make()}>
-              今日までの記録で作り直す
+              {t("今日までの記録で作り直す")}
             </Btn>
           </Fold>
         </>
@@ -212,12 +213,12 @@ export default function BookPage() {
           <Btn href="/capture">{intro.cta}</Btn>
           {intro.tryMake && (
             <Btn kind="quiet" onClick={() => void make()}>
-              いまの記録でまとめてみる
+              {t("いまの記録でまとめてみる")}
             </Btn>
           )}
           {intro.sample && (
             <button type="button" onClick={readSample} className="inline-flex min-h-11 items-center px-1 text-sm text-muted underline underline-offset-2">
-              {SAMPLE_BOOK_LABEL}
+              {t(SAMPLE_BOOK_LABEL)}
             </button>
           )}
           <BookWhy />
@@ -234,7 +235,7 @@ export default function BookPage() {
           <p className="w-full text-base">{intro.sub}</p>
           {intro.kind === "seed" ? (
             <Btn onClick={() => void seed()} disabled={seeding}>
-              {seeding ? "入れています…" : intro.cta}
+              {seeding ? t("入れています…") : intro.cta}
             </Btn>
           ) : (
             <Btn onClick={() => void make()}>{intro.cta}</Btn>
@@ -252,7 +253,7 @@ export default function BookPage() {
       )}
       {error && <p className="rounded-xl bg-alert/10 px-4 py-3 text-base text-alert">{error}</p>}
       <Link href="/album" className="flex min-h-12 items-center justify-between rounded-2xl border border-ok/40 bg-ok/5 px-4 text-base font-semibold text-ok">
-        <span>🌸 アルバム（月ごとの写真）</span>
+        <span>{t("🌸 アルバム（月ごとの写真）")}</span>
         <span aria-hidden>›</span>
       </Link>
       <div className="pb-6" />
@@ -264,12 +265,12 @@ export default function BookPage() {
 function BookWhy() {
   return (
     <div className="w-full">
-      <Why label="何が本になる？">
-        <p>話す・撮る: 胎動を感じた日、はじめて笑った顔</p>
-        <p>健診: 先生と話した事（体の良し悪しは書きません）</p>
-        <p>済んだ手続き: 家族がした事の題だけ</p>
-        <p>手帳: できた日・気持ちの記録・出産の記録</p>
-        <p>写真: アルバムの写真（Claude には写真の文字だけを渡し、画像は見せません）</p>
+      <Why label={t("何が本になる？")}>
+        <p>{t("話す・撮る: 胎動を感じた日、はじめて笑った顔")}</p>
+        <p>{t("健診: 先生と話した事（体の良し悪しは書きません）")}</p>
+        <p>{t("済んだ手続き: 家族がした事の題だけ")}</p>
+        <p>{t("手帳: できた日・気持ちの記録・出産の記録")}</p>
+        <p>{t("写真: アルバムの写真（Claude には写真の文字だけを渡し、画像は見せません）")}</p>
       </Why>
     </div>
   );
@@ -277,9 +278,10 @@ function BookWhy() {
 
 /** 一冊を、そのまま送れる文に */
 function bookText(book: Book): string {
-  const parts = [book.title, `${book.childName}へ`, "", book.dedication];
-  book.chapters.forEach((ch, i) => parts.push("", `第${i + 1}章　${ch.title}（${ch.period}）`, "", ch.text.trim()));
-  parts.push("", "おわりに", "", book.closing.trim(), "", jpDay(book.asOf));
+  // 枠の言葉（宛名・章・おわりに・日付）は今の言葉で。一冊の文そのものは書いた言葉のまま
+  const parts = [book.title, t("{name}へ", { name: book.childName }), "", book.dedication];
+  book.chapters.forEach((ch, i) => parts.push("", t("第{n}章　{title}（{period}）", { n: i + 1, title: ch.title, period: t(ch.period) }), "", ch.text.trim()));
+  parts.push("", t("おわりに"), "", book.closing.trim(), "", dayLong(book.asOf));
   return parts.join("\n");
 }
 
@@ -288,8 +290,8 @@ function Binding({ child }: { child: string }) {
   const [sec, setSec] = useState(0);
   const step = Math.min(WAIT_STEPS.length - 1, Math.floor(sec / 12));
   useEffect(() => {
-    const t = setInterval(() => setSec((s) => s + 1), 1000);
-    return () => clearInterval(t);
+    const timer = setInterval(() => setSec((s) => s + 1), 1000);
+    return () => clearInterval(timer);
   }, []);
   return (
     <main className="flex flex-col items-center gap-6 px-4 pt-16 text-center" aria-live="polite">
@@ -302,14 +304,14 @@ function Binding({ child }: { child: string }) {
           />
         ))}
         <div className="absolute inset-0 flex translate-x-2 -translate-y-2 flex-col items-center justify-center gap-2 rounded-r-lg border-l-4 border-rose bg-rose-soft">
-          <span className="font-display text-lg font-bold text-rose">{child}へ</span>
-          <span className="text-xs text-muted">1000日の記録</span>
+          <span className="font-display text-lg font-bold text-rose">{t("{name}へ", { name: child })}</span>
+          <span className="text-xs text-muted">{t("1000日の記録")}</span>
         </div>
       </div>
       <div className="flex flex-col gap-2">
-        <p className="font-display text-lg font-bold">一冊を綴じています</p>
-        <p className="text-base text-ink">{WAIT_STEPS[step]}…</p>
-        <p className="tabular text-sm text-muted">{sec} 秒・数分かかります。この画面のままで</p>
+        <p className="font-display text-lg font-bold">{t("一冊を綴じています")}</p>
+        <p className="text-base text-ink">{t(WAIT_STEPS[step])}…</p>
+        <p className="tabular text-sm text-muted">{t("{n} 秒・数分かかります。この画面のままで", { n: sec })}</p>
       </div>
     </main>
   );
@@ -364,15 +366,15 @@ function Reader({ book, page, setPage }: { book: Book; page: number; setPage: (n
         <PageBody book={book} page={pages[p]} photos={photos} />
         {p > 0 && <p className="tabular mt-8 text-center text-sm text-muted">— {p} —</p>}
       </div>
-      <nav className="flex items-center justify-between" aria-label="ページをめくる">
+      <nav className="flex items-center justify-between" aria-label={t("ページをめくる")}>
         <button onClick={() => go(p - 1)} disabled={p === 0} className="min-h-11 rounded-full border border-line bg-card px-5 text-base font-semibold disabled:opacity-30">
-          ← 前へ
+          {t("← 前へ")}
         </button>
         <span className="tabular text-sm text-muted">
           {p + 1} / {pages.length}
         </span>
         <button onClick={() => go(p + 1)} disabled={p === pages.length - 1} className="min-h-11 rounded-full border border-line bg-card px-5 text-base font-semibold disabled:opacity-30">
-          次へ →
+          {t("次へ →")}
         </button>
       </nav>
     </section>
@@ -428,7 +430,7 @@ function ChapterVoices({ list, media }: { list: { voiceId: string; line: string 
   });
   if (!xs.length) return null;
   return (
-    <ul aria-label="この章の声" className="flex flex-col gap-1.5">
+    <ul aria-label={t("この章の声")} className="flex flex-col gap-1.5">
       {xs.map(({ m }) => (
         <VoiceItem key={m.id} m={m} canWrite={false} />
       ))}
@@ -445,14 +447,14 @@ function PageBody({ book, page, photos }: { book: Book; page: Page; photos: Phot
           // eslint-disable-next-line @next/next/no-img-element
           <img src={cover.urls.view} alt="" className="max-h-64 w-full rounded-lg object-cover" />
         )}
-        <p className="text-xs tracking-[0.4em] text-rose">1000 日 の 記 録</p>
+        <p className="text-xs tracking-[0.4em] text-rose">{t("1000 日 の 記 録")}</p>
         <h2 className="font-display text-3xl font-bold leading-snug text-balance [word-spacing:0.6em]">
           <TitleLines text={book.title} />
         </h2>
         <div className="h-px w-16 bg-rose/40" />
-        <p className="font-display text-lg">{book.childName}へ</p>
+        <p className="font-display text-lg">{t("{name}へ", { name: book.childName })}</p>
         <p className="tabular text-xs text-muted">
-          {jpDay(book.range.start)} — {jpDay(book.range.end)}
+          {dayLong(book.range.start)} — {dayLong(book.range.end)}
         </p>
       </div>
     );
@@ -460,7 +462,7 @@ function PageBody({ book, page, photos }: { book: Book; page: Page; photos: Phot
   if (page.kind === "dedication") {
     return (
       <div className="flex min-h-[24rem] flex-col justify-center gap-6">
-        <p className="text-center text-xs tracking-[0.3em] text-muted">はじめに</p>
+        <p className="text-center text-xs tracking-[0.3em] text-muted">{t("はじめに")}</p>
         <p className="font-display text-xl leading-[2.2]">{book.dedication}</p>
       </div>
     );
@@ -468,9 +470,9 @@ function PageBody({ book, page, photos }: { book: Book; page: Page; photos: Phot
   if (page.kind === "closing") {
     return (
       <div className="flex min-h-[24rem] flex-col justify-center gap-6">
-        <p className="text-center text-xs tracking-[0.3em] text-muted">おわりに</p>
+        <p className="text-center text-xs tracking-[0.3em] text-muted">{t("おわりに")}</p>
         <Paragraphs text={book.closing} />
-        <p className="text-right text-sm text-muted">{jpDay(book.asOf)}</p>
+        <p className="text-right text-sm text-muted">{dayLong(book.asOf)}</p>
       </div>
     );
   }
@@ -479,7 +481,7 @@ function PageBody({ book, page, photos }: { book: Book; page: Page; photos: Phot
     <article className="flex flex-col gap-6">
       <header className="flex flex-col gap-2 border-b border-line pb-4">
         <p className="text-xs tracking-[0.3em] text-rose">
-          第{page.index + 1}章・{ch.period}
+          {t("第{n}章・{period}", { n: page.index + 1, period: t(ch.period) })}
         </p>
         <h2 className="font-display text-2xl font-bold leading-snug">{ch.title}</h2>
       </header>
@@ -490,7 +492,7 @@ function PageBody({ book, page, photos }: { book: Book; page: Page; photos: Phot
         <ol className="flex flex-col gap-2 border-t border-dashed border-line pt-4 text-base">
           {ch.moments.map((m, i) => (
             <li key={i} className="grid grid-cols-[7.5rem_1fr] gap-2 leading-relaxed">
-              <span className="tabular text-sm text-sky">{/^\d{4}-\d{2}-\d{2}$/.test(m.date) ? jpDay(m.date) : m.date}</span>
+              <span className="tabular text-sm text-sky">{/^\d{4}-\d{2}-\d{2}$/.test(m.date) ? dayLong(m.date) : m.date}</span>
               <span>{m.text}</span>
             </li>
           ))}

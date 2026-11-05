@@ -5,9 +5,12 @@ import { useEffect, useState } from "react";
 import { useFamily } from "@/components/FamilyProvider";
 import { Btn } from "@/components/ui";
 import type { TechoItem } from "@/components/techo/useTecho";
-import { ageLabel, isPhotoPage, milestoneById, type ClientMedia } from "@/lib/media-shared";
+import { t } from "@/lib/i18n";
+import { isPhotoPage, keptLine, type ClientMedia } from "@/lib/media-shared";
+import { dot } from "@/lib/memory-words";
 import { patchMedia, trashMedia } from "./useMedia";
 
+// 日本語のまま持ち、出す時に t() を通す（辞書は lib/i18n/dict/album.ts）
 const FROM: Record<NonNullable<ClientMedia["takenAtFrom"]>, string> = {
   exif: "写真に入っていた撮った日",
   file: "ファイルの日付",
@@ -39,15 +42,14 @@ export function PhotoSheet({ photo, techo, canWrite, onClose }: { photo: ClientM
       setBusy(false);
     }
   };
-  const ms = milestoneById(m.milestone);
   const choices = techo.filter((t) => !t.pending && isPhotoPage(t.page) && t.date === m.date);
   const linked = techo.filter((t) => m.techoIds.includes(t.id));
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="写真" className="fixed inset-0 z-30 flex flex-col bg-ink/90">
+    <div role="dialog" aria-modal="true" aria-label={t("写真")} className="fixed inset-0 z-30 flex flex-col bg-ink/90">
       <div className="flex justify-end px-4 pt-3">
         <button type="button" onClick={onClose} className="min-h-11 rounded-full bg-card px-5 text-base font-semibold">
-          閉じる
+          {t("閉じる")}
         </button>
       </div>
       <div className="flex min-h-0 flex-1 items-center justify-center px-2 py-2">
@@ -56,12 +58,10 @@ export function PhotoSheet({ photo, techo, canWrite, onClose }: { photo: ClientM
       </div>
       <div className="max-h-[55dvh] overflow-y-auto rounded-t-3xl bg-paper px-4 pt-4" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
         <div className="mx-auto flex max-w-md flex-col gap-3">
-          <p className="text-base font-semibold">
-            {Number(m.date.slice(5, 7))}月{Number(m.date.slice(8, 10))}日・{ageLabel(family, m.date)}
-            {ms ? `・${ms.label}のころ` : ""}
-          </p>
-          {m.made && <p className="text-sm text-muted">AI で作った家族と写真です</p>}
-          {linked.length > 0 && <p className="text-sm text-muted">手帳: {linked.map((t) => t.title).join("・")}</p>}
+          {/* 「11月3日・生後3か月・お食い初めのころ」（残した時の一行と同じ。lib/media-shared の keptLine） */}
+          <p className="text-base font-semibold">{keptLine(family, m)}</p>
+          {m.made && <p className="text-sm text-muted">{t("AI で作った家族と写真です")}</p>}
+          {linked.length > 0 && <p className="text-sm text-muted">{t("手帳: {titles}", { titles: linked.map((x) => x.title).join(dot()) })}</p>}
           {canWrite ? (
             <>
               <div className="flex flex-wrap gap-2">
@@ -72,8 +72,8 @@ export function PhotoSheet({ photo, techo, canWrite, onClose }: { photo: ClientM
                   onClick={() => void save({ star: !m.starredByMe })}
                   className={`min-h-11 rounded-full border px-4 text-sm font-semibold ${m.starredByMe ? "border-warn bg-warn/10 text-warn" : "border-line bg-card"}`}
                 >
-                  {m.starredByMe ? "★ この1枚" : "☆ この1枚"}
-                  {m.star > (m.starredByMe ? 1 : 0) && <span className="ml-1 font-normal">（ほかに{m.star - (m.starredByMe ? 1 : 0)}人）</span>}
+                  {m.starredByMe ? t("★ この1枚") : t("☆ この1枚")}
+                  {m.star > (m.starredByMe ? 1 : 0) && <span className="ml-1 font-normal">{t("（ほかに{n}人）", { n: m.star - (m.starredByMe ? 1 : 0) })}</span>}
                 </button>
                 <button
                   type="button"
@@ -82,33 +82,33 @@ export function PhotoSheet({ photo, techo, canWrite, onClose }: { photo: ClientM
                   onClick={() => void save({ hidden: !m.hidden })}
                   className={`min-h-11 rounded-full border px-4 text-sm ${m.hidden ? "border-ink bg-ink/10 font-semibold" : "border-line bg-card"}`}
                 >
-                  {m.hidden ? "一冊・動画に入れない" : "一冊・動画に入れる"}
+                  {m.hidden ? t("一冊・動画に入れない") : t("一冊・動画に入れる")}
                 </button>
               </div>
               <label className="flex flex-col gap-1 text-sm text-muted">
-                一言
+                {t("一言")}
                 <input
                   value={caption}
                   onChange={(e) => setCaption(e.target.value)}
                   onBlur={() => caption !== (m.caption ?? "") && void save({ caption })}
-                  placeholder="例: はじめてのお散歩"
+                  placeholder={t("例: はじめてのお散歩")}
                   className="min-h-11 rounded-lg border border-line bg-card px-3 text-base text-ink"
                 />
               </label>
               <label className="flex flex-col gap-1 text-sm text-muted">
-                撮った日（{m.takenAtFrom ? FROM[m.takenAtFrom] : "分からない"}）
+                {t("撮った日（{from}）", { from: m.takenAtFrom ? t(FROM[m.takenAtFrom]) : t("分からない") })}
                 <span className="flex gap-2">
                   <input type="date" value={date} max={today} onChange={(e) => setDate(e.target.value)} className="min-h-11 flex-1 rounded-lg border border-line bg-card px-3 text-base text-ink" />
                   {date !== m.date && (
                     <Btn kind="secondary" onClick={() => void save({ date })} disabled={busy}>
-                      直す
+                      {t("直す")}
                     </Btn>
                   )}
                 </span>
               </label>
               {choices.length > 0 && (
                 <div className="flex flex-col gap-1">
-                  <p className="text-sm text-muted">この日の手帳の記録に結ぶ</p>
+                  <p className="text-sm text-muted">{t("この日の手帳の記録に結ぶ")}</p>
                   <div className="flex flex-wrap gap-2">
                     {choices.map((c) => {
                       const on = m.techoIds.includes(c.id);
@@ -131,13 +131,13 @@ export function PhotoSheet({ photo, techo, canWrite, onClose }: { photo: ClientM
               )}
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3">
                 <a href={`${m.urls.orig}&download=1`} className="min-h-11 content-center text-sm text-muted underline">
-                  元の写真を保存
+                  {t("元の写真を保存")}
                 </a>
                 <Btn
                   kind="secondary"
                   disabled={busy}
                   onClick={async () => {
-                    if (!window.confirm("この写真をゴミ箱に入れますか？（30日たつと消えます。それまではゴミ箱から戻せます）")) return;
+                    if (!window.confirm(t("この写真をゴミ箱に入れますか？（30日たつと消えます。それまではゴミ箱から戻せます）"))) return;
                     try {
                       await trashMedia(family.id, m.id);
                       onClose();
@@ -146,7 +146,7 @@ export function PhotoSheet({ photo, techo, canWrite, onClose }: { photo: ClientM
                     }
                   }}
                 >
-                  ゴミ箱へ
+                  {t("ゴミ箱へ")}
                 </Btn>
               </div>
             </>
@@ -154,7 +154,7 @@ export function PhotoSheet({ photo, techo, canWrite, onClose }: { photo: ClientM
             m.caption && <p className="text-base">{m.caption}</p>
           )}
           {error && <p className="text-sm text-alert">{error}</p>}
-          <p className="pb-2 text-sm text-muted">Claude には見せていません</p>
+          <p className="pb-2 text-sm text-muted">{t("Claude には見せていません")}</p>
         </div>
       </div>
     </div>

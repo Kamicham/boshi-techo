@@ -13,7 +13,7 @@ export default {
   "1. いつ？": { zh: "1. 什么时候？", en: "1. When?" },
   おなかにいる: { zh: "还在肚子里", en: "Still expecting" },
   もう生まれた: { zh: "已经出生了", en: "Already born" },
-  生まれた日: { zh: "出生日期", en: "Date of birth" },
+  // 「生まれた日」は思い出の辞書（memories.ts）の訳を使う（欄の名前としても読める形）
   出産予定日: { zh: "预产期", en: "Due date" },
   生まれてから2歳までの日を入れてください: { zh: "请填写2岁以内孩子的出生日期", en: "Please enter the birth date of a child up to 2 years old" },
   "今日から先、およそ10か月までの日を入れてください": { zh: "请填写从今天起大约10个月以内的日期", en: "Please enter a date from today up to about 10 months ahead" },

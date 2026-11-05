@@ -4,7 +4,11 @@
 // - 月齢・節目・時期（一冊と同じ4つ）・毎月の「この1枚」の仮選び
 // Claude には何も渡さない（画像を Claude に渡せるのは lib/media.ts の mediaForClaude だけ）。
 // 体の判断はしない。節目は行事の日の目安だけで、発達や体の事には触れない。
-import { addDays, addMonths, diffDays, lmpFromDue, monthsBetween } from "./clock";
+// 人が読む言い方（月齢・月の見出し・節目の一言・声の題）は画面の言葉で書く（lib/i18n。辞書は dict/memories.ts）。
+// サーバ（保存する題・一冊を書く Claude への頼み）ではいつも日本語。保存する値（時期の名前・節目の id）は日本語のまま。
+import { addDays, addMonths, clockAt, diffDays, lmpFromDue, monthsBetween } from "./clock";
+import { currentLang, t, withLang } from "./i18n";
+import { dayLong, dot, monthDay } from "./memory-words";
 
 // ───────── 型 ─────────
 
@@ -75,12 +79,24 @@ export function voiceMomentsFor(birthDate: string | undefined, today: string): (
 export function voiceMomentById(id: string | null | undefined) {
   return VOICE_MOMENTS.find((m) => m.id === id);
 }
-/** 声の題（「翔太から おなかへ」）。Claude を使わず、録り方と話した人から作る */
+/** 声の題（「翔太から おなかへ」）。Claude を使わず、録り方と話した人から作る（保存はサーバで日本語。画面では今の言葉） */
 export function voiceTitle(m: { moment?: string; who?: string; spokenTo?: string }): string {
   const mo = voiceMomentById(m.moment);
-  const from = m.who ? `${m.who}から` : "";
-  if (mo) return [from, mo.short === "名前" ? "名前を呼んだ声" : mo.short].filter(Boolean).join(" ");
-  return [from, m.spokenTo ? `${m.spokenTo}へ` : "の声"].filter(Boolean).join(" ") || "声";
+  const who = m.who;
+  if (mo?.id === "belly") return who ? t("{who}から おなかへ", { who }) : t("おなかへ");
+  if (mo?.id === "bedtime") return who ? t("{who}から おやすみ", { who }) : t("おやすみ");
+  if (mo) return who ? t("{who}から 名前を呼んだ声", { who }) : t("名前を呼んだ声");
+  if (m.spokenTo) return who ? t("{who}から {to}へ", { who, to: m.spokenTo }) : t("{name}へ", { name: m.spokenTo });
+  return who ? t("{who}から の声", { who }) : t("の声");
+}
+/**
+ * 画面に出す声の題。サーバが録り方から作ったままの題（日本語）は、画面の言葉で作り直す。
+ * 一冊の中で Claude が付けた一行など、ほかの題はそのまま出す（家族の言葉とデータは訳さない）
+ */
+export function voiceTitleShown(m: { title?: string; moment?: string; who?: string; spokenTo?: string }): string {
+  if (!m.title) return t("声");
+  if (currentLang() === "ja") return m.title;
+  return m.title === withLang("ja", () => voiceTitle(m)) ? voiceTitle(m) : m.title;
 }
 /** 声1本の上限（原本） */
 export const MAX_VOICE_BYTES = 30 * 1024 * 1024;
@@ -554,9 +570,9 @@ export const PHOTO_MILESTONES: readonly PhotoMilestone[] = [
   { id: "second-birthday", label: "2歳の誕生日", today: "今日は2歳の誕生日です", around: "2歳の誕生日のころです", at: (b) => addMonths(b, 24), win: [-3, 14] },
 ];
 
-/** 節目の一言（その日だけ「今日は」。前後の日は「…のころです」） */
+/** 節目の一言（その日だけ「今日は」。前後の日は「…のころです」）。画面の言葉で */
 export function milestoneSay(m: PhotoMilestone, birthDate: string, today: string): string {
-  return diffDays(today, m.at(birthDate)) === 0 ? m.today : m.around;
+  return t(diffDays(today, m.at(birthDate)) === 0 ? m.today : m.around);
 }
 
 export function milestoneById(id: string | undefined): PhotoMilestone | null {
@@ -702,20 +718,16 @@ export function birthNewsText(f: { birthDate: string; childName?: string }): str
   return `うれしいお知らせです。${m}月${d}日に、${f.childName ?? "赤ちゃん"}が生まれました。`;
 }
 
-/** 写真の見出しの月齢（「生後3か月」「生後12日」「妊娠7か月」「1歳2か月」） */
+/**
+ * 写真の見出しの月齢（「生後3か月」「生後12日」「妊娠7か月」「1歳2か月」）。画面の言葉で書く。
+ * 生まれた後と授かる前は、上の帯と同じ言い方（lib/clock の clockAt の label。生まれた日・生後12日・生後3か月・1歳2か月・授かる前）
+ */
 export function ageLabel(f: { dueDate: string; birthDate?: string }, date: string): string {
-  if (f.birthDate && diffDays(date, f.birthDate) >= 0) {
-    const days = diffDays(date, f.birthDate);
-    if (days === 0) return "生まれた日";
-    if (days < 28) return `生後${days}日`;
-    const m = monthsBetween(f.birthDate, date);
-    if (m < 12) return `生後${m}か月`;
-    return `${Math.floor(m / 12)}歳${m % 12 ? `${m % 12}か月` : ""}`;
-  }
   const since = diffDays(date, lmpFromDue(f.dueDate));
-  if (since < 0) return "授かる前";
-  // 妊娠の月数（4週で1か月・0〜3週が1か月目）
-  return `妊娠${Math.floor(since / 28) + 1}か月`;
+  if ((f.birthDate && diffDays(date, f.birthDate) >= 0) || since < 0) return clockAt(f, date).label;
+  // 妊娠の月数（4週で1か月・0〜3週が1か月目）。中文は週数と同じく「妊娠」（外国語版の母子健康手帳）
+  const n = Math.floor(since / 28) + 1;
+  return { ja: `妊娠${n}か月`, zh: `妊娠${n}个月`, en: `Month ${n} of pregnancy` }[currentLang()];
 }
 
 /**
@@ -732,11 +744,11 @@ export function monthGroupOf(f: { dueDate: string; birthDate?: string }, date: s
     const months = days < 28 ? 0 : monthsBetween(f.birthDate, date);
     if (months === 0 && days <= 6) {
       key = "c000a";
-      head = "生まれて1週間";
+      head = t("生まれて1週間");
       from = f.birthDate;
     } else if (months === 0) {
       key = "c000b";
-      head = "生まれて1か月まで";
+      head = t("生まれて1か月まで");
       from = addDays(f.birthDate, 7);
     } else {
       key = `c${String(months).padStart(3, "0")}`;
@@ -747,11 +759,11 @@ export function monthGroupOf(f: { dueDate: string; birthDate?: string }, date: s
     const lmp = lmpFromDue(f.dueDate);
     const since = diffDays(date, lmp);
     head = ageLabel(f, date);
-    key = `p${head}`;
+    // 並べる鍵は言葉で変えない（日本語の月齢で作る）
+    key = `p${withLang("ja", () => ageLabel(f, date))}`;
     from = since < 0 ? date : addDays(lmp, Math.floor(since / 28) * 28);
   }
-  const [y, m, d] = from.split("-").map(Number);
-  return { key, label: `${head}（${y}年${m}月${d}日〜）` };
+  return { key, label: t("{head}（{date}〜）", { head, date: dayLong(from) }) };
 }
 
 /** 写真の日付（YYYY-MM-DD）。撮った日、無ければ足した日（日本時間） */
@@ -808,11 +820,10 @@ export function groupForAlbum(f: { dueDate: string; birthDate?: string }, items:
   return PERIODS.map((period) => ({ period, months: [...months.values()].filter((g) => g.period === period) })).filter((p) => p.months.length);
 }
 
-/** 「11月3日・生後3か月・お食い初めのころ」 */
+/** 「11月3日・生後3か月・お食い初めのころ」（画面の言葉で。English は Nov 3 · 3 months old · around First-meal ceremony） */
 export function keptLine(f: { dueDate: string; birthDate?: string }, m: Pick<ClientMedia, "date" | "milestone">): string {
-  const [, mo, d] = m.date.split("-").map(Number);
   const ms = milestoneById(m.milestone);
-  return [`${mo}月${d}日`, ageLabel(f, m.date), ms ? `${ms.label}のころ` : null].filter(Boolean).join("・");
+  return [monthDay(m.date), ageLabel(f, m.date), ms ? t("{label}のころ", { label: t(ms.label) }) : null].filter(Boolean).join(dot());
 }
 
 /** 容量の言い方 */

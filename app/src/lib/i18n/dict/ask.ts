@@ -71,7 +71,7 @@ export default {
     zh: "无法连接网络。请检查信号后再问一次",
     en: "Couldn't connect. Please check your signal and ask again",
   },
-  消せませんでした: { zh: "没能删除", en: "Couldn't delete" },
+  // 「消せませんでした」はアルバムの辞書（album.ts）の訳を使う
 
   // ── 書く欄 ──
   聞きたい事: { zh: "想问的事", en: "Your question" },

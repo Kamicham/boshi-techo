@@ -1,6 +1,9 @@
 // 未来の手紙（画面とサーバの両方で使う）。開く日の選び方と、画面に渡す形。
 // 開く日は「誕生日から」の選び方なら、読むたびに今の家族の設定（生まれた日・予定日）から計算し直す（生まれる前に書いた手紙も、生まれた日に合う）。
+// 選び方の名前（label・short）は日本語のまま持ち、画面で t() を通す（辞書は lib/i18n/dict/memories.ts）。
 import { addDays, diffDays, monthsBetween } from "./clock";
+import { t } from "./i18n";
+import { dayLong } from "./memory-words";
 
 export const LETTER_OPENS = [
   { id: "1y", label: "1歳の誕生日", short: "1歳の誕生日に" },
@@ -79,6 +82,14 @@ export function openLine(l: Pick<ClientLetter, "open" | "openOn">): string {
   return o && o.short && l.open !== "date" ? `${o.short}（${day}）` : `${day}に`;
 }
 
+/** 画面の「…開きます」の1文（openLine に「開きます」を付けた物と同じ。中文・English は語の順が違うので、文ごと訳す） */
+export function opensLine(l: Pick<ClientLetter, "open" | "openOn">): string {
+  if (!l.openOn) return t("いつでも読めます");
+  const day = dayLong(l.openOn);
+  const o = LETTER_OPENS.find((x) => x.id === l.open);
+  return o && o.short && l.open !== "date" ? t("{when}（{day}）開きます", { when: t(o.short), day }) : t("{day}に開きます", { day });
+}
+
 /** 開いた知らせを出す間（開いた日から） */
 export const LETTER_NEWS_DAYS = 14;
 export function recentlyOpened(l: Pick<ClientLetter, "openOn" | "opened">, today: string): boolean {
@@ -90,7 +101,7 @@ export function recentlyOpened(l: Pick<ClientLetter, "openOn" | "opened">, today
  * （年の数字の差だけで数えると、1年2か月前を「1年前」、11か月前も年をまたげば「1年前」と言ってしまう）
  */
 export function openedNewsLine(l: Pick<ClientLetter, "sealedOn" | "openOn">, f: { birthDate?: string } | null): string {
-  if (f?.birthDate && diffDays(l.sealedOn, f.birthDate) < 0) return "おなかにいた頃の手紙が開きました";
+  if (f?.birthDate && diffDays(l.sealedOn, f.birthDate) < 0) return t("おなかにいた頃の手紙が開きました");
   const years = l.openOn ? Math.floor(monthsBetween(l.sealedOn, l.openOn) / 12) : 0;
-  return years > 0 ? `${years}年前の手紙が開きました` : "封をした手紙が開きました";
+  return years > 0 ? t("{n}年前の手紙が開きました", { n: years }) : t("封をした手紙が開きました");
 }

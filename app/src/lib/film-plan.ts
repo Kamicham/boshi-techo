@@ -4,6 +4,9 @@
 // 手紙は、開く日を過ぎて声のある物だけ（封の間の手紙は数も出さない）。手紙の文字は映画に出さず、誰から誰へ・書いた日と開いた日と、声だけ。
 // 声のある場面は、声が終わるまで映す（18秒まで。祖父母の声はゆっくりで長い）。声は場面が映ってから 0.6 秒置いて話し始める。
 // 画面とは別に読む（server-only ではない）。Claude には何も送らない。
+// 人が読む言い方（日付・手紙の一行・みんなの章の字幕）は画面の言葉で（lib/i18n。書き出す動画はサーバで組むので日本語）。
+import { t } from "./i18n";
+import { dayLong } from "./memory-words";
 
 export interface FilmMedia {
   id: string;
@@ -66,7 +69,7 @@ export function filmShots<M extends FilmMedia>(film: readonly FilmCue[], media: 
   const minna: Shot<M>[] = fromPhotos.map((photo) => {
     const vi = fromVoices.findIndex((v) => v.from!.name === photo.from!.name);
     const voice = vi >= 0 ? fromVoices.splice(vi, 1)[0] : null;
-    return { kind: "photo" as const, photo, caption: photo.caption ?? `${photo.from!.name}から`, sec: voice ? voiceSec(voice, 5) : 5, voice };
+    return { kind: "photo" as const, photo, caption: photo.caption ?? t("{name}から", { name: photo.from!.name }), sec: voice ? voiceSec(voice, 5) : 5, voice };
   });
   // 開いた声の手紙（開いた日の順）。封の間・声の無い手紙は入れない
   const opened: Shot<M>[] = letters
@@ -112,11 +115,10 @@ export function firstSentences(s: string): string {
 }
 
 export function dayLine(d: string): string {
-  const [y, m, day] = d.split("-").map(Number);
-  return `${y}年${m}月${day}日`;
+  return dayLong(d);
 }
 
 /** 手紙の場面の言葉: 「2027年3月1日に書いて、2028年4月26日に開いた手紙」 */
 export function letterLine(l: Pick<FilmLetter, "sealedOn" | "openOn">): string {
-  return l.openOn ? `${dayLine(l.sealedOn)}に書いて、${dayLine(l.openOn)}に開いた手紙` : `${dayLine(l.sealedOn)}に書いた手紙`;
+  return l.openOn ? t("{a}に書いて、{b}に開いた手紙", { a: dayLine(l.sealedOn), b: dayLine(l.openOn) }) : t("{a}に書いた手紙", { a: dayLine(l.sealedOn) });
 }

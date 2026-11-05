@@ -12,7 +12,8 @@ import { voiceUrl } from "@/components/album/VoiceItem";
 import { useThanksLog } from "@/components/album/ThanksChapter";
 import type { Book } from "@/lib/book";
 import { childView } from "@/lib/call-name";
-import type { ClientMedia } from "@/lib/media-shared";
+import { t } from "@/lib/i18n";
+import { voiceTitleShown, type ClientMedia } from "@/lib/media-shared";
 import { MusicBox } from "./music";
 import { dayLine, filmShots, firstSentences, letterLine, type FilmLetter, type Shot as FilmShot } from "@/lib/film-plan";
 
@@ -39,12 +40,12 @@ export default function FilmPage() {
   const shots = useMemo<Shot[]>(() => (book ? filmShots(book.film, [...photos, ...voices], letters ?? []) : []), [book, photos, voices, letters]);
 
   if (error) return <Frame><p className="text-paper">{error}</p></Frame>;
-  if (!book || lp || lv || !letters) return <Frame><p className="text-paper/70">映画を用意しています…</p></Frame>;
+  if (!book || lp || lv || !letters) return <Frame><p className="text-paper/70">{t("映画を用意しています…")}</p></Frame>;
   if (!shots.length)
     return (
       <Frame>
-        <p className="text-paper">映画にする写真がまだありません。アルバムに写真を残して、一冊を作り直すと映画になります。</p>
-        <Link href="/book" className="text-paper underline">一冊へ戻る</Link>
+        <p className="text-paper">{t("映画にする写真がまだありません。アルバムに写真を残して、一冊を作り直すと映画になります。")}</p>
+        <Link href="/book" className="text-paper underline">{t("一冊へ戻る")}</Link>
       </Frame>
     );
   return <Player book={book} shots={shots} />;
@@ -193,34 +194,34 @@ function Player({ book, shots }: { book: Book; shots: Shot[] }) {
         <div key={`cap${i}`} className="film-cap absolute inset-x-0 bottom-0 flex flex-col items-center gap-1 px-6 pb-[max(3rem,env(safe-area-inset-bottom))] text-center">
           <p className="font-display text-2xl font-bold leading-snug drop-shadow-[0_1px_8px_rgba(0,0,0,0.6)]">{cur.caption}</p>
           <p className="tabular text-sm opacity-80">{dayLine(cur.photo.date)}</p>
-          {cur.voice && <p className="mt-1 rounded-full bg-black/40 px-3 py-1 text-xs">♪ {cur.voice.title}</p>}
+          {cur.voice && <p className="mt-1 rounded-full bg-black/40 px-3 py-1 text-xs">♪ {voiceTitleShown(cur.voice)}</p>}
         </div>
       )}
 
       {cur?.kind === "letter" && (
         <div key={`letter${i}`} className="film-cap absolute inset-0 flex flex-col items-center justify-center gap-4 bg-[#1f1812] px-8 text-center">
           <span aria-hidden className="text-5xl opacity-80">✉</span>
-          <p className="text-xs tracking-[0.5em] opacity-70">未 来 の 手 紙</p>
+          <p className="text-xs tracking-[0.5em] opacity-70">{t("未 来 の 手 紙")}</p>
           <p className="font-display text-3xl font-bold">
-            {childView(family, cur.letter.from)}から {cur.letter.to}へ
+            {t("{from}から {to}へ", { from: childView(family, cur.letter.from), to: cur.letter.to })}
           </p>
           <p className="tabular text-sm opacity-85 [text-wrap:balance]">{letterLine(cur.letter)}</p>
-          <p className="mt-2 rounded-full bg-black/40 px-3 py-1 text-xs">♪ 声の手紙</p>
+          <p className="mt-2 rounded-full bg-black/40 px-3 py-1 text-xs">{t("♪ 声の手紙")}</p>
         </div>
       )}
 
       {(cur?.kind === "title" || i < 0) && (
         <div className="film-cap absolute inset-0 flex flex-col items-center justify-center gap-4 px-8 text-center">
-          <p className="text-xs tracking-[0.5em] opacity-70">1000 日 の 記 録</p>
+          <p className="text-xs tracking-[0.5em] opacity-70">{t("1000 日 の 記 録")}</p>
           <h1 className="font-display text-3xl font-bold leading-snug">{book.title}</h1>
-          <p className="font-display text-lg opacity-90">{book.childName}へ</p>
+          <p className="font-display text-lg opacity-90">{t("{name}へ", { name: book.childName })}</p>
           {i < 0 && (
             <>
               <button type="button" onClick={start} className="mt-6 min-h-14 rounded-full bg-[#f4f1ea] px-8 font-display text-lg font-bold text-[#0d0c10]">
-                ▶ 再生する
+                {t("▶ 再生する")}
               </button>
               <p className="text-xs opacity-60">
-                約{Math.round(total / 60) || 1}分・音が出ます。画面を押すと止まります
+                {t("約{n}分・音が出ます。画面を押すと止まります", { n: Math.round(total / 60) || 1 })}
               </p>
             </>
           )}
@@ -234,10 +235,11 @@ function Player({ book, shots }: { book: Book; shots: Shot[] }) {
           {/* 手帳の中で家族が交わしたありがとう（数と、新しい2つ） */}
           {thanks.length > 0 && (
             <div className="flex flex-col items-center gap-1 text-sm opacity-85">
-              <p>家族が交わしたありがとう {thanks.length}</p>
+              <p>{t("家族が交わしたありがとう {n}", { n: thanks.length })}</p>
               {thanks.slice(-2).map((x) => (
                 <p key={x.id} className="opacity-80">
-                  {childView(family, x.from.name)}から {childView(family, x.to.name)}へ{x.title ? `（${x.title}）` : ""}
+                  {t("{from}から {to}へ", { from: childView(family, x.from.name), to: childView(family, x.to.name) })}
+                  {x.title ? t("（{x}）", { x: t(x.title) }) : ""}
                 </p>
               ))}
             </div>
@@ -245,10 +247,10 @@ function Player({ book, shots }: { book: Book; shots: Shot[] }) {
           {done && (
             <div className="mt-4 flex gap-3">
               <button type="button" onClick={start} className="min-h-12 rounded-full border border-[#f4f1ea]/60 px-6">
-                もう一度
+                {t("もう一度")}
               </button>
               <Link href="/book" className="inline-flex min-h-12 items-center rounded-full bg-[#f4f1ea] px-6 font-bold text-[#0d0c10]">
-                一冊へ
+                {t("一冊へ")}
               </Link>
             </div>
           )}
@@ -257,9 +259,9 @@ function Player({ book, shots }: { book: Book; shots: Shot[] }) {
 
       <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pt-[max(0.75rem,env(safe-area-inset-top))]">
         <Link href="/book" onClick={(e) => e.stopPropagation()} className="min-h-11 rounded-full bg-black/40 px-4 py-2 text-sm">
-          ✕ 閉じる
+          {t("✕ 閉じる")}
         </Link>
-        {i >= 0 && !done && paused && <span className="rounded-full bg-black/40 px-3 py-1 text-xs">止めています・押すと続き</span>}
+        {i >= 0 && !done && paused && <span className="rounded-full bg-black/40 px-3 py-1 text-xs">{t("止めています・押すと続き")}</span>}
       </div>
       {i >= 0 && !done && (
         <div className="absolute inset-x-0 bottom-0 h-1 bg-white/10">

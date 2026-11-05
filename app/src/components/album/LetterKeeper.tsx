@@ -8,7 +8,9 @@ import { useEffect, useState } from "react";
 import { useRecorder, type Recorded } from "@/components/capture/useRecorder";
 import { useFamily } from "@/components/FamilyProvider";
 import { Btn } from "@/components/ui";
-import { LETTER_OPENS, letterOpenOn, MAX_LETTER_CHARS, MAX_LETTER_VOICE_SEC, openLine, type ClientLetter, type LetterOpen } from "@/lib/letters-shared";
+import { t } from "@/lib/i18n";
+import { LETTER_OPENS, letterOpenOn, MAX_LETTER_CHARS, MAX_LETTER_VOICE_SEC, opensLine, type ClientLetter, type LetterOpen } from "@/lib/letters-shared";
+import { sentences } from "@/lib/memory-words";
 
 export function LetterKeeper({ unavailable }: { unavailable?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -16,15 +18,15 @@ export function LetterKeeper({ unavailable }: { unavailable?: boolean }) {
   if (unavailable) return null;
   const quiet = family.situation?.quiet;
   return (
-    <section aria-label="未来へ手紙" className="flex flex-col gap-2 rounded-2xl border border-line bg-card p-3">
-      <h2 className="font-display text-lg font-bold">未来へ手紙</h2>
+    <section aria-label={t("未来へ手紙")} className="flex flex-col gap-2 rounded-2xl border border-line bg-card p-3">
+      <h2 className="font-display text-lg font-bold">{t("未来へ手紙")}</h2>
       <p className="text-sm text-muted">
         {quiet === "loss"
-          ? "伝えたい事がある時だけ、手紙にして残せます。封をせず、いつでも読める形にもできます。"
-          : `開く日を決めて封をします。${family.childName ?? "子ども"}が大きくなった日に、一冊の中で開きます。`}
+          ? t("伝えたい事がある時だけ、手紙にして残せます。封をせず、いつでも読める形にもできます。")
+          : t("開く日を決めて封をします。{child}が大きくなった日に、一冊の中で開きます。", { child: family.childName ?? t("子ども") })}
       </p>
       <Btn kind="secondary" full onClick={() => setOpen(true)}>
-        ✉ 手紙を書く
+        {t("✉ 手紙を書く")}
       </Btn>
       {open && <LetterSheet onClose={() => setOpen(false)} />}
     </section>
@@ -69,7 +71,7 @@ export function LetterSheet({ onClose }: { onClose: () => void }) {
       // familyId は道にも付ける（声を添えた時、サーバは関所を通ってから声を読む・lib/api.ts の formAfterGate）
       const r = await fetch(`/api/letters?familyId=${encodeURIComponent(family.id)}`, init);
       const j = (await r.json().catch(() => ({}))) as { letter?: ClientLetter; error?: string };
-      if (!r.ok || !j.letter) throw new Error(j.error ?? `残せませんでした（${r.status}）`);
+      if (!r.ok || !j.letter) throw new Error(j.error ?? t("残せませんでした（{status}）", { status: r.status }));
       setDone(j.letter);
     } catch (e) {
       setError((e as Error).message);
@@ -79,67 +81,78 @@ export function LetterSheet({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="手紙を書く" className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40" onClick={busy || rec.recording ? undefined : onClose}>
+    <div role="dialog" aria-modal="true" aria-label={t("手紙を書く")} className="fixed inset-0 z-40 flex items-end justify-center bg-ink/40" onClick={busy || rec.recording ? undefined : onClose}>
       <div
         className="flex max-h-[92dvh] w-full max-w-lg flex-col gap-3 overflow-y-auto rounded-t-3xl bg-card px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="font-display text-xl font-bold">{done ? "封をしました" : "未来へ手紙"}</h3>
+        <h3 className="font-display text-xl font-bold">{done ? t("封をしました") : t("未来へ手紙")}</h3>
         {done ? (
           <>
             <p className="text-base">
-              {done.to}へ{done.voiceSec !== undefined ? "、声を添えて" : ""}。{done.openOn ? `${openLine(done)}開きます。それまでは、書いたあなたも${done.voiceSec !== undefined ? "読めず、声も聞けません" : "読めません"}。` : "いつでも読めます。"}
+              {done.openOn
+                ? done.voiceSec !== undefined
+                  ? t("{to}へ、声を添えて。{opens}。それまでは、書いたあなたも読めず、声も聞けません。", { to: done.to, opens: opensLine(done) })
+                  : t("{to}へ。{opens}。それまでは、書いたあなたも読めません。", { to: done.to, opens: opensLine(done) })
+                : done.voiceSec !== undefined
+                  ? t("{to}へ、声を添えて。いつでも読めます。", { to: done.to })
+                  : t("{to}へ。いつでも読めます。", { to: done.to })}
             </p>
-            <p className="text-sm text-muted">一冊の「未来の手紙」に並びます。消したい時は、そこから消せます。</p>
+            <p className="text-sm text-muted">{t("一冊の「未来の手紙」に並びます。消したい時は、そこから消せます。")}</p>
             <div className="flex gap-2">
-              <Btn href="/book#letters">一冊で見る</Btn>
+              <Btn href="/book#letters">{t("一冊で見る")}</Btn>
               <Btn kind="quiet" onClick={onClose}>
-                閉じる
+                {t("閉じる")}
               </Btn>
             </div>
           </>
         ) : (
           <>
             <label className="flex flex-col gap-1 text-sm">
-              <span className="text-muted">誰へ</span>
+              <span className="text-muted">{t("誰へ")}</span>
               <input value={to} onChange={(e) => setTo(e.target.value)} maxLength={40} className="rounded-lg border border-line bg-paper px-3 py-2 text-base" />
             </label>
             <fieldset className="flex flex-col gap-1.5">
-              <legend className="mb-1 text-sm text-muted">いつ開くか</legend>
+              <legend className="mb-1 text-sm text-muted">{t("いつ開くか")}</legend>
               <div className="grid grid-cols-2 gap-2">
                 {LETTER_OPENS.map((o) => (
                   <label key={o.id} className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm ${when === o.id ? "border-rose bg-rose-soft font-bold text-rose" : "border-line"}`}>
                     <input type="radio" name="when" value={o.id} checked={when === o.id} onChange={() => setWhen(o.id)} className="sr-only" />
-                    {o.label}
+                    {t(o.label)}
                   </label>
                 ))}
               </div>
               {when === "date" && (
-                <input type="date" value={date} min={today} onChange={(e) => setDate(e.target.value)} aria-label="開く日" className="rounded-lg border border-line bg-paper px-3 py-2 text-base" />
+                <input type="date" value={date} min={today} onChange={(e) => setDate(e.target.value)} aria-label={t("開く日")} className="rounded-lg border border-line bg-paper px-3 py-2 text-base" />
               )}
-              <p className="tabular text-xs text-muted">{preview ? `${openLine({ open: when, openOn: preview })}開きます` : when === "now" ? "封をせず、いつでも読める手紙にします" : ""}</p>
+              <p className="tabular text-xs text-muted">{preview ? opensLine({ open: when, openOn: preview }) : when === "now" ? t("封をせず、いつでも読める手紙にします") : ""}</p>
             </fieldset>
             <label className="flex flex-col gap-1 text-sm">
-              <span className="text-muted">手紙</span>
+              <span className="text-muted">{t("手紙")}</span>
               <textarea
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 rows={7}
                 maxLength={MAX_LETTER_CHARS}
-                placeholder={`${to || "あなた"}へ。`}
+                placeholder={t("{to}へ。", { to: to || t("あなた") })}
                 className="rounded-lg border border-line bg-paper px-3 py-2 text-base leading-relaxed"
               />
             </label>
             <VoiceRow voice={voice} open={voiceOpen} rec={rec} onOpen={() => setVoiceOpen(true)} onClear={() => setVoice(null)} />
             {(error || rec.error) && <p className="text-sm text-alert">{error || rec.error}</p>}
             <Btn full onClick={() => void seal()} disabled={busy || rec.recording || (!body.trim() && !voice) || (when === "date" && !date)}>
-              {busy ? "封をしています…" : when === "now" ? "残す" : "封をする"}
+              {busy ? t("封をしています…") : when === "now" ? t("残す") : t("封をする")}
             </Btn>
             <p className="text-xs text-muted">
-              {when === "now" ? "" : `封をすると、開く日まで書いたあなたも${voice ? "読めず、声も聞けません" : "読めません"}。`}手紙{voice ? "と声" : ""}は家族の鍵で守って、この手帳の中だけに残します。AI（Claude）には送りません。
+              {sentences(
+                when !== "now" && (voice ? t("封をすると、開く日まで書いたあなたも読めず、声も聞けません。") : t("封をすると、開く日まで書いたあなたも読めません。")),
+                voice
+                  ? t("手紙と声は家族の鍵で守って、この手帳の中だけに残します。AI（Claude）には送りません。")
+                  : t("手紙は家族の鍵で守って、この手帳の中だけに残します。AI（Claude）には送りません。"),
+              )}
             </p>
             <Link href="/book#letters" className="text-sm text-muted underline-offset-2 hover:underline">
-              書いた手紙を見る ›
+              {t("書いた手紙を見る ›")}
             </Link>
           </>
         )}
@@ -167,14 +180,14 @@ function VoiceRow({
   if (voice)
     return (
       <div className="flex flex-col gap-2 rounded-xl border border-rose/40 bg-rose-soft px-3 py-2">
-        <p className="tabular text-sm font-semibold text-rose">🎙 声を添えます（{mmss(voice.sec)}）</p>
+        <p className="tabular text-sm font-semibold text-rose">{t("🎙 声を添えます（{time}）", { time: mmss(voice.sec) })}</p>
         <audio controls src={voice.url} className="w-full" />
         <div className="flex gap-3 text-sm">
           <button type="button" onClick={() => { onClear(); void rec.start(); }} className="min-h-11 text-rose underline-offset-2 hover:underline">
-            録り直す
+            {t("録り直す")}
           </button>
           <button type="button" onClick={onClear} className="min-h-11 text-muted underline-offset-2 hover:underline">
-            声を外す
+            {t("声を外す")}
           </button>
         </div>
       </div>
@@ -182,7 +195,7 @@ function VoiceRow({
   if (!open && !rec.recording)
     return (
       <button type="button" onClick={onOpen} className="flex min-h-11 items-center gap-2 self-start rounded-full border border-rose/40 px-4 text-sm font-semibold text-rose">
-        🎙 声も添える
+        {t("🎙 声も添える")}
       </button>
     );
   const on = rec.recording;
@@ -193,9 +206,11 @@ function VoiceRow({
       aria-pressed={on}
       className={`flex min-h-20 flex-col items-center justify-center gap-0.5 rounded-2xl border-2 border-rose transition ${on ? "bg-rose text-white" : "bg-rose-soft text-rose"}`}
     >
-      <span className="font-display text-xl font-bold">{on ? "止める" : "🎙 録る"}</span>
+      <span className="font-display text-xl font-bold">{on ? t("止める") : t("🎙 録る")}</span>
       <span className={`tabular text-xs ${on ? "text-white/90" : "text-muted"}`}>
-        {on ? `${mmss(rec.secs)} / ${mmss(MAX_LETTER_VOICE_SEC)}・押すと止めます` : `押して話し、もう一度押して止めます（${MAX_LETTER_VOICE_SEC / 60}分まで）`}
+        {on
+          ? t("{now} / {max}・押すと止めます", { now: mmss(rec.secs), max: mmss(MAX_LETTER_VOICE_SEC) })
+          : t("押して話し、もう一度押して止めます（{n}分まで）", { n: MAX_LETTER_VOICE_SEC / 60 })}
       </span>
     </button>
   );

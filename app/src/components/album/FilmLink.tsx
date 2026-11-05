@@ -8,6 +8,8 @@ import { api, useFamily } from "@/components/FamilyProvider";
 import { useMedia } from "./useMedia";
 import type { Book } from "@/lib/book";
 import { filmShots, type FilmLetter } from "@/lib/film-plan";
+import { t } from "@/lib/i18n";
+import { dot } from "@/lib/memory-words";
 
 export function FilmLink({ book }: { book: Book }) {
   const { family, today } = useFamily();
@@ -29,10 +31,16 @@ export function FilmLink({ book }: { book: Book }) {
   return (
     <Link href="/book/film" className="flex min-h-14 items-center justify-between gap-3 rounded-2xl bg-ink px-5 text-paper">
       <span className="flex flex-col">
-        <span className="font-display text-lg font-bold">▶ 映画で見る</span>
+        <span className="font-display text-lg font-bold">{t("▶ 映画で見る")}</span>
         <span className="text-xs opacity-80">
-          写真 {nPhotos} 枚{nVoices ? `・家族の声 ${nVoices} 本` : ""}
-          {nLetters ? `・声の手紙 ${nLetters} 通` : ""}・約{Math.max(1, Math.round(sec / 60))}分
+          {[
+            t("写真 {n} 枚", { n: nPhotos }),
+            nVoices ? t("家族の声 {n} 本", { n: nVoices }) : null,
+            nLetters ? t("声の手紙 {n} 通", { n: nLetters }) : null,
+            t("約{n}分", { n: Math.max(1, Math.round(sec / 60)) }),
+          ]
+            .filter(Boolean)
+            .join(dot())}
         </span>
       </span>
       <span aria-hidden>›</span>
