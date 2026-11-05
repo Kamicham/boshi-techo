@@ -5,9 +5,24 @@
 import { useEffect, useRef, useState } from "react";
 import { addDays, clockAt, conceptionDate, diffDays, totalDays } from "@/lib/clock";
 import type { Family } from "@/lib/demo-family";
+import { t } from "@/lib/i18n";
 import { demoStages, type Stage } from "./stages";
 
 export { demoFirstDay, demoStages, type Stage } from "./stages";
+
+/**
+ * 札の言葉を画面の言葉に（多言語化 11/5。辞書は lib/i18n/dict/stages.ts）。札のデータ（stages.ts）は日本語のまま持ち、描く時に訳す。
+ * 日付や週数の入った言葉は、形を見て差し込みの鍵で引く（stages.ts の書き方と合わせる）
+ */
+export function stageWords(s: string): string {
+  const early = /^(.+)。(\d+)週早く生まれて、手帳が予定を組み直した日$/.exec(s);
+  if (early) return t("{what}。{n}週早く生まれて、手帳が予定を組み直した日", { what: t(early[1]), n: Number(early[2]) });
+  const off = /^(.+)。予定と違う日に生まれて、手帳が予定を組み直した日$/.exec(s);
+  if (off) return t("{what}。予定と違う日に生まれて、手帳が予定を組み直した日", { what: t(off[1]) });
+  const ifs = /^もしも: (.+)$/.exec(s);
+  if (ifs) return t("もしも: {what}", { what: t(ifs[1]) });
+  return t(s);
+}
 
 /** 今日に一番近い時期（帯の「妊娠30週」などは clockAt で出すので、ここは選んだ印だけ） */
 function nearest(stages: Stage[], today: string): string | null {
@@ -34,8 +49,8 @@ export function StagePicker({ family, today, onPick, slider = false }: { family:
                 }`}
               >
                 <span className="flex min-w-0 flex-col">
-                  <b className={`text-base ${!picked && s.tone === "sky" ? "text-sky" : ""}`}>{s.label}</b>
-                  <span className={`text-sm ${picked ? "text-white/90" : "text-muted"}`}>{s.what}</span>
+                  <b className={`text-base ${!picked && s.tone === "sky" ? "text-sky" : ""}`}>{stageWords(s.label)}</b>
+                  <span className={`text-sm ${picked ? "text-white/90" : "text-muted"}`}>{stageWords(s.what)}</span>
                 </span>
                 <span aria-hidden className={picked ? "text-white" : "text-muted"}>
                   ›
@@ -92,7 +107,7 @@ function DaySlider({ family, today, onPick }: { family: Family; today: string; o
   const label = clockAt(family, addDays(start, value - 1)).label;
   return (
     <label className="flex flex-col gap-1 pt-2 text-sm text-muted">
-      <span>1000日のどこでも（{label}）</span>
+      <span>{t("1000日のどこでも（{label}）", { label })}</span>
       <input
         ref={input}
         type="range"

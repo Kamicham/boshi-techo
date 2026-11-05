@@ -3,8 +3,11 @@
 // 辞書の場所を足したら AREAS に並べる。同じ鍵が2つの場所にあると試験が落ちる（i18n.test.ts）
 import { detectLang, langFromCookieHeader, translate, type Dict, type Entries, type Lang, type Vars } from ".";
 import core from "./dict/core";
+import shell from "./dict/shell";
+import stages from "./dict/stages";
+import welcome from "./dict/welcome";
 
-export const AREAS: Readonly<Record<string, Entries>> = { core };
+export const AREAS: Readonly<Record<string, Entries>> = { core, shell, welcome, stages };
 
 function build(lang: "zh" | "en"): Dict {
   const out: Record<string, string> = {};

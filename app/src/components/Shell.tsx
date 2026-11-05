@@ -4,15 +4,17 @@
 // タブの並びは lib/app-guide.ts（手帳に聞くが使い方を答える画面の地図）と共有する。
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { clockAt, clockShort } from "@/lib/clock";
 import { hideCounts } from "@/lib/situation";
 import { recordingBusy, recordingBusyServer, subscribeRecording } from "@/lib/recording-state";
 import { TABS } from "@/lib/app-guide";
+import { listOf, t } from "@/lib/i18n";
 import { PUBLIC_UI, TRIAL_BANNER } from "@/lib/trial-words";
 import { AskButton } from "./ask/AskSheet";
 import { useFamily } from "./FamilyProvider";
-import { readWelcomed, shortClock, StageSheet, Welcome } from "./Welcome";
+import { LangPicker } from "./LangSwitch";
+import { clearHomeAgain, readHomeAgain, readWelcomed, shortClock, StageSheet, Welcome } from "./Welcome";
 
 
 export function Shell({ children }: { children: React.ReactNode }) {
@@ -23,8 +25,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
   // 見本の家族を初めて開いた時だけ、入口の1枚（何のアプリか・時期を選ぶ）。Shell は家族を読み終えてから描くので、端末の記憶をそのまま読める
   const [welcomed, setWelcomed] = useState(() => (typeof window === "undefined" ? true : readWelcomed()));
   const [stageOpen, setStageOpen] = useState(false);
-  // 左上の「‹ はじめの画面」で、入口の1枚を開き直す（作り手 11/5「一番上の画面に戻れるようにしておいて」）
-  const [home, setHome] = useState(false);
+  // 左上の「‹ はじめの画面」で、入口の1枚を開き直す（作り手 11/5「一番上の画面に戻れるようにしておいて」）。
+  // 開き直した入口で言葉を変えた時は、読み直した後も開いたまま（印は描いた後に消す）
+  const [home, setHome] = useState(() => typeof window !== "undefined" && readHomeAgain());
+  useEffect(() => clearHomeAgain(), []);
   // 合言葉・ログイン・招待の画面では、家族の切り替えもタブも出さない
   if (path === "/unlock" || path === "/login" || path === "/start" || (path.startsWith("/invite/") && path !== "/invite/new")) return <div className="mx-auto min-h-dvh max-w-md">{children}</div>;
   // 映画は画面いっぱいに映す（タブも家族の切り替えも出さない）
@@ -32,8 +36,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
   const here = households.find((h) => h.id === family.id);
   const labelOf = (f: (typeof families)[number]) => {
     const h = households.find((x) => x.id === f.id);
-    if (h) return h.name || "わが家";
-    return f.id === "mine" ? "わが家" : `デモ（作った家族）: ${f.members.map((m) => m.name).join("・")}`;
+    if (h) return h.name || t("わが家");
+    return f.id === "mine" ? t("わが家") : t("デモ（作った家族）: {names}", { names: listOf(f.members.map((m) => m.name)) });
   };
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col">
@@ -43,7 +47,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             切り替えは1行を使う: 帯と同じ行に並べると、わが家と見本の両方がある端末で帯が「見‥」に切れていた（統括の足し 6・2026-11-05） */}
         {households.length > 1 || (isDemo && families.length > 1) ? (
           <label className="flex min-w-0 basis-full items-center gap-1 text-muted">
-            <span className="sr-only">見ている手帳</span>
+            <span className="sr-only">{t("見ている手帳")}</span>
             <select
               id="family-select"
               value={family.id}
@@ -67,13 +71,13 @@ export function Shell({ children }: { children: React.ReactNode }) {
             type="button"
             onClick={() => setHome(true)}
             disabled={recording}
-            aria-label="はじめの画面へ戻る（説明と時期の一覧）"
+            aria-label={t("はじめの画面へ戻る（説明と時期の一覧）")}
             className="flex min-h-11 shrink-0 items-center gap-1 px-1 text-sm font-semibold whitespace-nowrap text-sky disabled:opacity-50"
           >
             <span aria-hidden className="text-base leading-none">
               ‹
             </span>
-            はじめの画面
+            {t("はじめの画面")}
           </button>
         ) : (
         <div className={`flex min-w-0 shrink items-center gap-1 whitespace-nowrap ${recording ? "invisible" : ""}`}>
@@ -82,25 +86,29 @@ export function Shell({ children }: { children: React.ReactNode }) {
             {/* 何を見ているかを、見本の家族の帯とそろえる（だれの手帳か・いつか）。押すと設定（家族・町・あなたは） */}
             <span className="truncate">
               {/* 狭い電話でも「（パートナー）」まで切れずに出るよう、点の前後の空きを詰める（UX 2026-11-04） */}
-              あなたの手帳
+              {t("あなたの手帳")}
               {/* つらい別れの間は、週数・日数を出さない（lib/situation.ts の hideCounts） */}
               {hideCounts(family) ? null : (
                 <>
                   ・<b className="font-semibold">{clockShort(clockAt(family, today))}</b>
                 </>
               )}
-              {me ? <span className="text-muted">（{me.name}）</span> : null}
+              {me ? <span className="text-muted">{t("（{x}）", { x: me.name })}</span> : null}
             </span>
             <span className="text-muted" aria-hidden>▾</span>
           </Link>
         </div>
         )}
-        {/* 急ぎの案内は録音中でも隠さない（産院・119・#8000 への橋）。
-            いつも見える所を赤で塗ると、夜中に開くたびに緊張させるので、文字は ink・赤は直径6pxの点だけ（赤は命の橋の印） */}
-        <Link href="/emergency" className="flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-1 font-semibold text-ink underline-offset-2 hover:underline">
-          <span aria-hidden className="inline-block size-1.5 shrink-0 rounded-full bg-alert" />
-          急ぎの時
-        </Link>
+        {/* 右上: 言葉（🌐・多言語化 11/5。録音中は変えない＝読み直すと録音が止まる）と急ぎの時を1つにまとめて、右に寄せる */}
+        <div className="flex shrink-0 items-center gap-1">
+          <LangPicker disabled={recording} />
+          {/* 急ぎの案内は録音中でも隠さない（産院・119・#8000 への橋）。
+              いつも見える所を赤で塗ると、夜中に開くたびに緊張させるので、文字は ink・赤は直径6pxの点だけ（赤は命の橋の印） */}
+          <Link href="/emergency" className="flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-1 font-semibold text-ink underline-offset-2 hover:underline">
+            <span aria-hidden className="inline-block size-1.5 shrink-0 rounded-full bg-alert" />
+            {t("急ぎの時")}
+          </Link>
+        </div>
         {isDemo ? (
           /* 見本の家族の札: 「デモ」「わたし: 美咲」を、何を見ているかの1本にまとめる（だれの手帳か・いつか・変える所）。幅いっぱいの1行 */
           <button
@@ -110,14 +118,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
             className="flex min-h-11 min-w-0 basis-full items-center justify-between gap-1.5 rounded-full bg-sky-soft px-3 text-left text-sm text-ink disabled:opacity-50"
           >
             <span className="truncate">
-              見本{me ? <span className="text-muted">（{me.name}）</span> : null} ・ <b className="font-semibold">{shortClock(family, today)}</b>
+              {t("見本")}
+              {me ? <span className="text-muted">{t("（{x}）", { x: me.name })}</span> : null} ・ <b className="font-semibold">{shortClock(family, today)}</b>
             </span>
-            <span className="shrink-0 font-semibold whitespace-nowrap text-sky">ほかの時期 ▾</span>
+            <span className="shrink-0 font-semibold whitespace-nowrap text-sky">{t("ほかの時期")} ▾</span>
           </button>
         ) : null}
       </div>
       {/* 体験版（公開版）: 何を触っているかを、どの画面でも上の帯の下に1つ（AI を呼ばず、前に Claude が書いた一冊と見本の答えで動く） */}
-      {PUBLIC_UI && !recording && <p className="px-4 pt-1 text-xs leading-snug text-muted">{TRIAL_BANNER}</p>}
+      {PUBLIC_UI && !recording && <p className="px-4 pt-1 text-xs leading-snug text-muted">{t(TRIAL_BANNER)}</p>}
       {/* 入口の1枚: 初めての時と、左上の「‹ はじめの画面」から開き直した時（again） */}
       {isDemo && (!welcomed || home) && (
         <Welcome
@@ -135,34 +144,34 @@ export function Shell({ children }: { children: React.ReactNode }) {
       {/* 手帳に聞く（どの画面からも）。録音中・急ぎの時・家族の読み込み前は出さない */}
       <AskButton hidden={recording || !ready || path === "/emergency"} />
       <nav
-        aria-label="画面の切り替え"
+        aria-label={t("画面の切り替え")}
         className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-card/95 backdrop-blur"
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
         {recording && (
           <p className="mx-auto max-w-md px-4 py-3 text-center text-sm font-semibold text-rose">
-            録音中です。ほかの画面へ移ると録音が止まるので、終わるまでこの画面のままにしてください
+            {t("録音中です。ほかの画面へ移ると録音が止まるので、終わるまでこの画面のままにしてください")}
           </p>
         )}
         <ul className={`mx-auto flex max-w-md justify-between px-2 ${recording ? "hidden" : ""}`}>
-          {TABS.map((t) => {
-            const on = t.href === "/" ? path === "/" || path.startsWith("/visit") : path.startsWith(t.href);
+          {TABS.map((tab) => {
+            const on = tab.href === "/" ? path === "/" || path.startsWith("/visit") : path.startsWith(tab.href);
             // 話す・撮るは、家族の口（記録の入口）なので真ん中で丸く目立たせる
-            const mouth = t.href === "/capture";
+            const mouth = tab.href === "/capture";
             return (
-              <li key={t.href} className="flex-1">
+              <li key={tab.href} className="flex-1">
                 <Link
-                  href={t.href}
+                  href={tab.href}
                   className={`flex min-h-12 flex-col items-center justify-center py-1 text-xs font-semibold ${on ? "text-rose" : "text-muted"}`}
                   aria-current={on ? "page" : undefined}
                 >
                   {mouth ? (
                     <span className={`flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1.5 text-sm ${on ? "bg-rose text-white" : "bg-rose-soft text-rose"}`}>
                       <span aria-hidden>🎤</span>
-                      {t.label}
+                      {t(tab.label)}
                     </span>
                   ) : (
-                    t.label
+                    t(tab.label)
                   )}
                 </Link>
               </li>
@@ -180,9 +189,9 @@ function AccountBar({ isDemo, signedIn, hasOwn, consentFor }: { isDemo: boolean;
   if (consentFor)
     return (
       <p className={`${row} bg-rose-soft`}>
-        <span>はじめに「記録を残す同意」をしてください</span>
+        <span>{t("はじめに「記録を残す同意」をしてください")}</span>
         <Link href={`/account/consent?familyId=${encodeURIComponent(consentFor)}`} className="flex min-h-11 shrink-0 items-center font-semibold text-rose underline underline-offset-2">
-          同意の画面へ
+          {t("同意の画面へ")}
         </Link>
       </p>
     );
@@ -191,9 +200,9 @@ function AccountBar({ isDemo, signedIn, hasOwn, consentFor }: { isDemo: boolean;
   if (!signedIn || !hasOwn)
     return (
       <p className={`${row} bg-sky-soft`}>
-        <span>自分の手帳は、3つの質問に答えると作れます</span>
+        <span>{t("自分の手帳は、3つの質問に答えると作れます")}</span>
         <Link href="/start" className="flex min-h-11 shrink-0 items-center font-semibold text-sky underline underline-offset-2">
-          作る
+          {t("作る")}
         </Link>
       </p>
     );

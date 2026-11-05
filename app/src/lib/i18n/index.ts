@@ -93,6 +93,12 @@ export function t(key: string, vars?: Vars): string {
   return translate(now.dict, key, vars);
 }
 
+/** 名前などを並べる。日本語は「・」（前と同じ）、中文・English は Intl.ListFormat（美咲和健太・Misaki and Kenta） */
+export function listOf(items: readonly string[]): string {
+  if (now.lang === "ja" || items.length < 2) return items.join("・");
+  return new Intl.ListFormat(INTL_LOCALE[now.lang], { style: "long", type: "conjunction" }).format(items);
+}
+
 /**
  * lang の言葉で fn を回す（同期だけ。終わったら元に戻す）。試験と、言葉を決めて書く所に使う
  * （例: 画面は中国語でも、勤め先あての文書の日付は日本語で書く → withLang("ja", () => jpDate(d))）
