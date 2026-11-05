@@ -11,7 +11,7 @@ import { useMedia } from "@/components/album/useMedia";
 import { voiceUrl } from "@/components/album/VoiceItem";
 import { useThanksLog } from "@/components/album/ThanksChapter";
 import type { Book } from "@/lib/book";
-import { childView } from "@/lib/call-name";
+import { madeOf, nameOf, personOf } from "@/lib/memory-words";
 import { t } from "@/lib/i18n";
 import { voiceTitleShown, type ClientMedia } from "@/lib/media-shared";
 import { MusicBox } from "./music";
@@ -37,7 +37,9 @@ export default function FilmPage() {
       .catch(() => setLetters([]));
   }, [family.id, today]);
 
-  const shots = useMemo<Shot[]>(() => (book ? filmShots(book.film, [...photos, ...voices], letters ?? []) : []), [book, photos, voices, letters]);
+  // みんなの章の「{name}から」の名前を画面の言葉に（作った家族か）
+  const made = madeOf(family).made;
+  const shots = useMemo<Shot[]>(() => (book ? filmShots(book.film, [...photos, ...voices], letters ?? [], { made }) : []), [book, photos, voices, letters, made]);
 
   if (error) return <Frame><p className="text-paper">{error}</p></Frame>;
   if (!book || lp || lv || !letters) return <Frame><p className="text-paper/70">{t("映画を用意しています…")}</p></Frame>;
@@ -194,7 +196,7 @@ function Player({ book, shots }: { book: Book; shots: Shot[] }) {
         <div key={`cap${i}`} className="film-cap absolute inset-x-0 bottom-0 flex flex-col items-center gap-1 px-6 pb-[max(3rem,env(safe-area-inset-bottom))] text-center">
           <p className="font-display text-2xl font-bold leading-snug drop-shadow-[0_1px_8px_rgba(0,0,0,0.6)]">{cur.caption}</p>
           <p className="tabular text-sm opacity-80">{dayLine(cur.photo.date)}</p>
-          {cur.voice && <p className="mt-1 rounded-full bg-black/40 px-3 py-1 text-xs">♪ {voiceTitleShown(cur.voice)}</p>}
+          {cur.voice && <p className="mt-1 rounded-full bg-black/40 px-3 py-1 text-xs">♪ {voiceTitleShown(cur.voice, madeOf(family))}</p>}
         </div>
       )}
 
@@ -203,7 +205,7 @@ function Player({ book, shots }: { book: Book; shots: Shot[] }) {
           <span aria-hidden className="text-5xl opacity-80">✉</span>
           <p className="text-xs tracking-[0.5em] opacity-70">{t("未 来 の 手 紙")}</p>
           <p className="font-display text-3xl font-bold">
-            {t("{from}から {to}へ", { from: childView(family, cur.letter.from), to: cur.letter.to })}
+            {t("{from}から {to}へ", { from: personOf(family, cur.letter.from), to: nameOf(family, cur.letter.to) })}
           </p>
           <p className="tabular text-sm opacity-85 [text-wrap:balance]">{letterLine(cur.letter)}</p>
           <p className="mt-2 rounded-full bg-black/40 px-3 py-1 text-xs">{t("♪ 声の手紙")}</p>
@@ -214,7 +216,7 @@ function Player({ book, shots }: { book: Book; shots: Shot[] }) {
         <div className="film-cap absolute inset-0 flex flex-col items-center justify-center gap-4 px-8 text-center">
           <p className="text-xs tracking-[0.5em] opacity-70">{t("1000 日 の 記 録")}</p>
           <h1 className="font-display text-3xl font-bold leading-snug">{book.title}</h1>
-          <p className="font-display text-lg opacity-90">{t("{name}へ", { name: book.childName })}</p>
+          <p className="font-display text-lg opacity-90">{t("{name}へ", { name: nameOf(family, book.childName) })}</p>
           {i < 0 && (
             <>
               <button type="button" onClick={start} className="mt-6 min-h-14 rounded-full bg-[#f4f1ea] px-8 font-display text-lg font-bold text-[#0d0c10]">
@@ -238,7 +240,7 @@ function Player({ book, shots }: { book: Book; shots: Shot[] }) {
               <p>{t("家族が交わしたありがとう {n}", { n: thanks.length })}</p>
               {thanks.slice(-2).map((x) => (
                 <p key={x.id} className="opacity-80">
-                  {t("{from}から {to}へ", { from: childView(family, x.from.name), to: childView(family, x.to.name) })}
+                  {t("{from}から {to}へ", { from: personOf(family, x.from.name), to: personOf(family, x.to.name) })}
                   {x.title ? t("（{x}）", { x: t(x.title) }) : ""}
                 </p>
               ))}

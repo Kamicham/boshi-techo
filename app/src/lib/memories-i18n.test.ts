@@ -6,10 +6,11 @@ import { withLang, type Lang } from "./i18n";
 import { DICTS } from "./i18n/dicts";
 import { tr } from "./i18n/rich";
 import { bookIntro } from "./book-intro";
-import { letterLine } from "./film-plan";
+import { DEMO_FAMILY } from "./demo-family";
+import { filmShots, letterLine } from "./film-plan";
 import { openedNewsLine, opensLine } from "./letters-shared";
-import { keptLine, monthGroupOf, voiceTitle, voiceTitleShown } from "./media-shared";
-import { dayLong, monthDay, parens } from "./memory-words";
+import { birthNewsText, keptLine, monthGroupOf, voiceTitle, voiceTitleShown } from "./media-shared";
+import { dayLong, madeOf, monthDay, nameOf, parens, personOf } from "./memory-words";
 
 const inLang = <T,>(lang: Lang, fn: () => T) => withLang(lang, fn, DICTS[lang]);
 const fam = { dueDate: "2027-05-10", birthDate: "2027-04-26" };
@@ -119,11 +120,61 @@ describe("思い出の言葉を3つの言葉で", () => {
     expect(inLang("ja", () => parens("Claude Code（Claude Opus 5.5）"))).toBe("Claude Code（Claude Opus 5.5）");
   });
 
+  it("生まれた翌日に家族へ送る文は画面の言葉で組む（日本語は前と同じ字。名前は English でローマ字）", () => {
+    const f = { birthDate: "2027-04-26", childName: "ひなた" };
+    const noName = { birthDate: "2027-04-26" };
+    expect(inLang("ja", () => [birthNewsText(f), birthNewsText(noName)])).toEqual(["うれしいお知らせです。4月26日に、ひなたが生まれました。", "うれしいお知らせです。4月26日に、赤ちゃんが生まれました。"]);
+    expect(inLang("zh", () => [birthNewsText(f), birthNewsText(noName)])).toEqual(["跟大家分享一个好消息：ひなた在4月26日出生了。", "跟大家分享一个好消息：宝宝在4月26日出生了。"]);
+    expect(inLang("en", () => [birthNewsText(f), birthNewsText(noName)])).toEqual(["Some happy news: Hinata was born on April 26.", "Some happy news: the baby was born on April 26."]);
+  });
+
   it("tr() は訳した文の {名前} に部品を差し込む（語の順が変わっても部品は1つ）", () => {
     const parts = (lang: Lang) =>
       inLang(lang, () => (tr("写真 {n} 枚", { n: createElement("b", null, "12") }) as ReactElement<{ children: unknown[] }>).props.children.map((c) => (isValidElement(c) ? "<b>" : c)));
     expect(parts("ja")).toEqual(["写真 ", "<b>", " 枚"]);
     expect(parts("zh")).toEqual(["照片 ", "<b>", " 张"]);
     expect(parts("en")).toEqual(["Photos: ", "<b>"]);
+  });
+});
+
+// 家族のデータの名前を、思い出の画面（アルバム・一冊・映画・印刷）で画面の言葉に（lib/i18n/names.ts を memory-words の nameOf・personOf で通す）
+describe("思い出の画面の名前", () => {
+  const demo = DEMO_FAMILY; // 作った家族（美咲＝ママ・翔太＝パパ）
+  const real = { ...DEMO_FAMILY, id: "mine" }; // 本物の家族（同じ名前でも、中文の ばあば は書いたまま）
+
+  it("子どもから見た呼び名つきの札（ママ（美咲））と、名前1つ。日本語は1字も変えない", () => {
+    const row = (f: typeof demo) => [personOf(f, "美咲"), personOf(f, "翔太"), personOf(f, "ばあば"), nameOf(f, "ひなた"), nameOf(f, "じいじ")];
+    expect(inLang("ja", () => row(demo))).toEqual(["ママ（美咲）", "パパ（翔太）", "ばあば", "ひなた", "じいじ"]);
+    expect(inLang("en", () => row(demo))).toEqual(["Mom (Misaki)", "Dad (Shota)", "Grandma", "Hinata", "Grandpa"]);
+    expect(inLang("en", () => row(real))).toEqual(["Mom (Misaki)", "Dad (Shota)", "Grandma", "Hinata", "Grandpa"]);
+    // 中文: ばあば・じいじは作った家族の時だけ 外婆・爷爷（本物の家族は父方か母方か分からないので書いたまま）
+    expect(inLang("zh", () => row(demo))).toEqual(["妈妈（美咲）", "爸爸（翔太）", "外婆", "ひなた", "爷爷"]);
+    expect(inLang("zh", () => row(real))).toEqual(["妈妈（美咲）", "爸爸（翔太）", "ばあば", "ひなた", "じいじ"]);
+    expect(nameOf(demo, undefined)).toBeUndefined();
+  });
+
+  it("声の題の名前: サーバが作った題だけ画面の言葉で作り直す（保存する日本語の題は名前を変えない）", () => {
+    const v = { title: "ばあばから ひなたへ", who: "ばあば", spokenTo: "ひなた" };
+    expect(inLang("ja", () => voiceTitleShown(v, madeOf(demo)))).toBe("ばあばから ひなたへ");
+    expect(inLang("en", () => voiceTitleShown(v, madeOf(demo)))).toBe("From Grandma to Hinata");
+    expect(inLang("zh", () => voiceTitleShown(v, madeOf(demo)))).toBe("外婆对ひなた说的话");
+    expect(inLang("zh", () => voiceTitleShown(v, madeOf(real)))).toBe("ばあば对ひなた说的话");
+    expect(inLang("ja", () => voiceTitle(v, { made: true }))).toBe("ばあばから ひなたへ");
+    // 家族が付けた題はそのまま
+    expect(inLang("en", () => voiceTitleShown({ ...v, title: "ばあばの子守唄" }, madeOf(demo)))).toBe("ばあばの子守唄");
+  });
+
+  it("映画のみんなの章: 一言の無い写真の「{name}から」も画面の言葉の名前で（書き出す動画＝日本語は前と同じ）", () => {
+    const media = [
+      { id: "p1", kind: "photo", date: "2027-05-01" },
+      { id: "g1", kind: "photo", date: "2027-05-06", from: { name: "ばあば" } },
+    ];
+    const film = [{ mediaId: "p1", sec: 4, caption: "一", voiceId: "" }];
+    const caps = (lang: Lang, made: boolean) => inLang(lang, () => filmShots(film, media, [], { made }).flatMap((s) => (s.kind === "photo" ? [s.caption] : [])));
+    expect(caps("ja", true)).toEqual(["一", "ばあばから"]);
+    expect(inLang("ja", () => filmShots(film, media).flatMap((s) => (s.kind === "photo" ? [s.caption] : [])))).toEqual(["一", "ばあばから"]);
+    expect(caps("en", true)).toEqual(["一", "From Grandma"]);
+    expect(caps("zh", true)).toEqual(["一", "来自外婆"]);
+    expect(caps("zh", false)).toEqual(["一", "来自ばあば"]);
   });
 });

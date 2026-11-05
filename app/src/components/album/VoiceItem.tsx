@@ -6,7 +6,7 @@ import { useFamily } from "@/components/FamilyProvider";
 import { t } from "@/lib/i18n";
 import { keptLine, voiceTitleShown, type ClientMedia } from "@/lib/media-shared";
 import { minnaVoiceLabel } from "@/lib/book-intro";
-import { dot, quote } from "@/lib/memory-words";
+import { dot, madeOf, nameOf, quote } from "@/lib/memory-words";
 import { patchMedia, trashMedia } from "./useMedia";
 
 /** 声の中身を読んで、端末の中だけの URL にする（Safari の audio は範囲の読み出しを求めるので、まとめて読む） */
@@ -81,12 +81,12 @@ export function VoiceItem({ m, canWrite, full = canWrite, focus, minna }: { m: C
         </button>
         <button type="button" onClick={() => setOpen((o) => !o)} className="flex min-w-0 flex-1 flex-col text-left">
           <span className="truncate text-base font-semibold">
-            {minna && m.from ? minnaVoiceLabel(m.from.name, m.durationSec) : voiceTitleShown(m)}
+            {minna && m.from ? minnaVoiceLabel(nameOf(family, m.from.name), m.durationSec) : voiceTitleShown(m, madeOf(family))}
             {m.star > 0 && <span className="ml-1 text-warn">★</span>}
             {m.from && !minna && <span className="ml-2 rounded-full bg-rose-soft px-2 py-0.5 text-xs font-bold text-rose">{t("みんなの章")}</span>}
           </span>
           <span className="text-xs text-muted">
-            {minna && m.from && m.title ? `${voiceTitleShown(m)}${dot()}` : ""}
+            {minna && m.from && m.title ? `${voiceTitleShown(m, madeOf(family))}${dot()}` : ""}
             {keptLine(family, m)}
             {!minna && m.durationSec ? `${dot()}${t("{n}秒", { n: Math.round(m.durationSec) })}` : ""}
           </span>

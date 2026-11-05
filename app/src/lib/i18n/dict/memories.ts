@@ -13,6 +13,13 @@ export default {
   はじめての一年: { zh: "第一年", en: "The first year" },
   二歳までの一年: { zh: "到两岁的一年", en: "The year until age two" },
 
+  // ── 子どもから見た呼び名（lib/i18n/names.ts の labelIn が「パパ（翔太）」の役の言葉として引く。ママは today.ts）──
+  // ばあば・じいじは辞書に入れない（nameIn が見る。中文の 外婆・爷爷 は作った家族の時だけ＝本物の家族は父方か母方か分からない）
+  パパ: { zh: "爸爸", en: "Dad" },
+
+  // ── 生まれた翌日に家族へ送る文（lib/media-shared.ts の birthNewsText。体重・時刻・体の様子は書かない）──
+  "うれしいお知らせです。{date}に、{name}が生まれました。": { zh: "跟大家分享一个好消息：{name}在{date}出生了。", en: "Some happy news: {name} was born on {date}." },
+
   // ── アルバムの月の見出し（monthGroupOf）──
   生まれて1週間: { zh: "出生后第一周", en: "First week after birth" },
   生まれて1か月まで: { zh: "出生后到满月", en: "Until 1 month old" },

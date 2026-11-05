@@ -6,14 +6,12 @@
 // - 動画の書き出し（/api/book/film）は日本語のまま（ここを通さない）
 import "server-only";
 import type { Book } from "./book";
-import type { Entries, Lang } from "./i18n";
+import { withLang, type Entries, type Lang } from "./i18n";
 import { DICTS } from "./i18n/dicts";
 import sampleBooks from "./i18n/dict/sample-books";
+import { nameIn } from "./i18n/names";
 
 const SAMPLE_BOOKS: Entries = sampleBooks;
-
-/** 見本の家族の子の名前の English の書き方（表紙の「To ○○」。中文は日本語のまま。名前の決め事は sample-books.ts の頭） */
-const CHILD_EN: Readonly<Record<string, string>> = { ひなた: "Hinata" };
 
 /** 見本の一冊の1つの文の訳（訳が無ければ日本語のまま） */
 export function sampleBookLine(lang: Lang, s: string): string {
@@ -30,7 +28,8 @@ export function localizeSampleBook<B extends Book | null>(book: B, lang: Lang): 
     title: tr(book.title),
     dedication: tr(book.dedication),
     closing: tr(book.closing),
-    childName: lang === "en" ? (CHILD_EN[book.childName] ?? book.childName) : book.childName,
+    // 表紙の宛名（「To ○○」）。名前の決め事は画面と同じ lib/i18n/names.ts（見本の一冊は作った家族の物）
+    childName: withLang(lang, () => nameIn(book.childName, { made: true })),
     chapters: book.chapters.map((c) => ({
       ...c,
       title: tr(c.title),

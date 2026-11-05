@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { jpDate } from "@/components/today/dates";
 import { thanksLog, type Thanks } from "@/lib/done-words";
-import { childView } from "@/lib/call-name";
+import { personOf } from "@/lib/memory-words";
 import { t } from "@/lib/i18n";
 import { tr } from "@/lib/i18n/rich";
 import { scheduleFor } from "@/lib/milestones";
@@ -40,7 +40,7 @@ export function ThanksChapter() {
       <ul className="flex flex-col">
         {log.map((x) => (
           <li key={x.id} className="flex flex-col border-b border-line py-2 last:border-b-0">
-            <span className="text-base">{tr("🌷 {from}から {to}へ", { from: <b>{childView(family, x.from.name)}</b>, to: <b>{childView(family, x.to.name)}</b> })}</span>
+            <span className="text-base">{tr("🌷 {from}から {to}へ", { from: <b>{personOf(family, x.from.name)}</b>, to: <b>{personOf(family, x.to.name)}</b> })}</span>
             <span className="text-sm text-muted">
               {x.title ? t("「{title}」に", { title: t(x.title) }) : ""}
               {t("（{x}）", { x: jpDate(x.on, today) })}

@@ -10,7 +10,7 @@ import { Btn } from "@/components/ui";
 import { useTecho } from "@/components/techo/useTecho";
 import { t } from "@/lib/i18n";
 import { bytesLabel, groupForAlbum, milestoneById, TRASH_DAYS, type ClientMedia } from "@/lib/media-shared";
-import { dot } from "@/lib/memory-words";
+import { dot, nameOf } from "@/lib/memory-words";
 import { tr } from "@/lib/i18n/rich";
 import { KeepButtons } from "./KeepButtons";
 import { PhotoSheet } from "./PhotoSheet";
@@ -25,7 +25,7 @@ export function AlbumScreen() {
   // 準備中の時は、仕組みの言葉（エラーの文）を家族に見せない
   const { items: techo } = useTecho();
   const [open, setOpen] = useState<string | null>(null);
-  const child = family.childName ?? t("赤ちゃん");
+  const child = nameOf(family, family.childName) ?? t("赤ちゃん");
 
   // 手帳の写真の枠から来た時（/album?photo=<id>）は、その1枚を開く
   useEffect(() => {
@@ -97,7 +97,7 @@ export function AlbumScreen() {
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={m.urls.thumb} alt="" loading="lazy" className={`h-full w-full object-cover ${m.hidden ? "opacity-40" : ""}`} />
                                 {m.star > 0 && <span className="absolute top-0.5 right-1 text-sm text-warn">★</span>}
-                                {m.from && <span className="absolute bottom-0.5 left-0.5 rounded-full bg-card/90 px-1.5 text-[10px] font-bold text-rose">{m.from.name}</span>}
+                                {m.from && <span className="absolute bottom-0.5 left-0.5 rounded-full bg-card/90 px-1.5 text-[10px] font-bold text-rose">{nameOf(family, m.from.name)}</span>}
                               </button>
                             </li>
                           ))}

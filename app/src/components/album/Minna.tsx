@@ -10,10 +10,9 @@ import { useMedia } from "./useMedia";
 import { VoiceItem } from "./VoiceItem";
 import { LetterSheet } from "./LetterKeeper";
 import { opensLine, type ClientLetter } from "@/lib/letters-shared";
-import { childView } from "@/lib/call-name";
 import { t } from "@/lib/i18n";
 import type { ClientMedia } from "@/lib/media-shared";
-import { dayLong as jpDay, dot } from "@/lib/memory-words";
+import { dayLong as jpDay, dot, nameOf, personOf } from "@/lib/memory-words";
 import { tr } from "@/lib/i18n/rich";
 
 /** みんなの章: 足した人ごとに、写真と声と一言 */
@@ -32,7 +31,7 @@ export function MinnaChapter() {
     return (
       <section aria-label={t("みんなの章")} className="flex flex-col gap-2 rounded-2xl border border-line bg-card px-5 py-4">
         <p className="text-xs tracking-[0.4em] text-rose">{t("み ん な の 章")}</p>
-        <p className="text-base">{t("家族や周りの人に、{child}へのひと言を頼めます。招いた人が足した写真・声・手紙が、ここに並びます。", { child: family.childName ?? t("赤ちゃん") })}</p>
+        <p className="text-base">{t("家族や周りの人に、{child}へのひと言を頼めます。招いた人が足した写真・声・手紙が、ここに並びます。", { child: nameOf(family, family.childName) ?? t("赤ちゃん") })}</p>
         <div>
           <Btn kind="secondary" href={inviteHref}>
             {t("家族に頼む（招く）")}
@@ -47,12 +46,12 @@ export function MinnaChapter() {
     <section aria-label={t("みんなの章")} className="flex flex-col gap-4 rounded-2xl border border-line bg-card px-5 py-5">
       <div className="flex flex-col gap-1 text-center">
         <p className="text-xs tracking-[0.4em] text-rose">{t("み ん な の 章")}</p>
-        <h2 className="font-display text-xl font-bold">{t("{child}を待っていた人たち", { child: family.childName ?? t("あなた") })}</h2>
+        <h2 className="font-display text-xl font-bold">{t("{child}を待っていた人たち", { child: nameOf(family, family.childName) ?? t("あなた") })}</h2>
       </div>
       {[...byName].map(([name, xs]) => (
         <div key={name} className="flex flex-col gap-2 border-t border-line pt-3">
           <p className="font-display text-base font-bold">
-            {name}
+            {nameOf(family, name)}
             {xs[0].from?.relation && <span className="ml-2 text-xs font-normal text-muted">{xs[0].from.relation}</span>}
           </p>
           {xs.map((m) =>
@@ -127,7 +126,7 @@ export function FutureLetters() {
         <p className="text-base">
           {quiet
             ? t("伝えたい事がある時だけ、手紙にして残せます。封をせず、いつでも読める形にもできます。")
-            : t("開く日を決めて封をする手紙です。例: {child}の1歳の誕生日に開く。開く日までは、書いた人も読めません。", { child: family.childName ?? t("赤ちゃん") })}
+            : t("開く日を決めて封をする手紙です。例: {child}の1歳の誕生日に開く。開く日までは、書いた人も読めません。", { child: nameOf(family, family.childName) ?? t("赤ちゃん") })}
         </p>
         {write}
         {sheet}
@@ -197,7 +196,7 @@ function LetterRow({ l, onRemoved }: { l: ClientLetter; onRemoved: () => void })
           {l.opened ? "💌" : "✉️"}
         </span>
         <span className="flex min-w-0 flex-1 flex-col">
-          <span className="text-base font-semibold">{t("{from}から {to}へ", { from: childView(family, l.from), to: l.to })}</span>
+          <span className="text-base font-semibold">{t("{from}から {to}へ", { from: personOf(family, l.from), to: nameOf(family, l.to) })}</span>
           <span className="tabular text-xs text-muted">
             {l.opened ? (l.openOn ? t("{date}に開きました", { date: jpDay(l.openOn) }) : t("いつでも読めます")) : opensLine(l)}
             {dot()}
@@ -207,7 +206,7 @@ function LetterRow({ l, onRemoved }: { l: ClientLetter; onRemoved: () => void })
         </span>
         {l.opened && <span className="text-sm font-bold text-rose">{body === null ? t("読む") : t("閉じる")}</span>}
       </button>
-      {body !== null && voiceUrl && <audio controls autoPlay src={voiceUrl} aria-label={t("{name}の声", { name: childView(family, l.from) })} className="w-full" />}
+      {body !== null && voiceUrl && <audio controls autoPlay src={voiceUrl} aria-label={t("{name}の声", { name: personOf(family, l.from) })} className="w-full" />}
       {body !== null && body && <p className="whitespace-pre-wrap font-display text-base leading-loose">{body}</p>}
       {l.mine && (
         <div className="flex items-center gap-2 text-sm">
