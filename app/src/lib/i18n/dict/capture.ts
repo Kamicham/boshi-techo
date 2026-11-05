@@ -350,4 +350,9 @@ export default {
   "時刻（あれば）": { zh: "时间（如有）", en: "Time (if any)" },
   "期限にする（いまの「やる事」に並ぶ）": { zh: "设为期限（会排进“今天”的“要做的事”）", en: "Make it a deadline (it shows up in your to-dos on Today)" },
   手帳に入れる: { zh: "记进手册", en: "Add to handbook" },
+
+  // ── 記録の題と本文の決まった形（保存は日本語のまま。出す時に components/capture/record-text.ts が引く） ──
+  "体温 {n}℃": { zh: "体温 {n}℃", en: "Temperature {n}°C" },
+  "{time}から": { zh: "{time}开始", en: "From {time}" },
+  "期限。出どころ: {source}": { zh: "期限。来源：{source}", en: "Deadline. Source: {source}" },
 } satisfies Entries;

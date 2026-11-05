@@ -4,6 +4,7 @@
 import { clockAt } from "@/lib/clock";
 import type { CaptureRecord, RecordKind, RecordSource } from "@/lib/capture";
 import { isLegalDeadline, urgentNoteFor } from "./urgent-note";
+import { recordDetailShown, recordTitleShown } from "./record-text";
 import type { Family } from "@/lib/demo-family";
 import { jpDate } from "@/components/Techo";
 import { Countdown, daysUntil, Fold, HandoffRow, Pill } from "@/components/ui";
@@ -52,15 +53,15 @@ export function RecordItem({ r, family, today }: { r: CaptureRecord; family: Fam
           <Countdown days={days} dateLabel={jpDate(date)} size="sm" kind="start" />
         )}
       </div>
-      {/* 題と中身は、Claude が読み取った記録・家族が書いた文なので、そのまま出す */}
-      <p className="text-base leading-snug font-semibold">{r.data.title}</p>
-      {r.data.detail && <p className="line-clamp-2 text-sm leading-relaxed text-ink/90">{r.data.detail}</p>}
+      {/* 題と中身は、Claude が読み取った記録・家族が書いた文なので、そのまま出す（アプリが決まった形で書いた所だけ訳す＝record-text.ts） */}
+      <p className="text-base leading-snug font-semibold">{recordTitleShown(r.data.title)}</p>
+      {r.data.detail && <p className="line-clamp-2 text-sm leading-relaxed text-ink/90">{recordDetailShown(r.data.detail)}</p>}
       {r.data.urgent && (
         <p role="note" className="rounded-lg bg-alert/10 px-3 py-2 text-sm font-semibold text-alert">
           {t(urgentNoteFor(r, family))}
         </p>
       )}
-      {ahead && <HandoffRow calendar={{ title: r.data.title, date, details: r.data.detail }} />}
+      {ahead && <HandoffRow calendar={{ title: recordTitleShown(r.data.title), date, details: r.data.detail && recordDetailShown(r.data.detail) }} />}
       <p className="text-xs text-muted">
         {[clockAt(family, date).label, t(SOURCE_LABEL[r.data.source] ?? "記録"), r.data.who ? labelIn(r.data.who, { made: isMadeId(family.id) }) : "", r.data.seed ? t("デモ用") : ""]
           .filter(Boolean)
