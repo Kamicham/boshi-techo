@@ -195,8 +195,8 @@ export default {
   "まだ残せていません。入れた事は画面に残っています（{e}）": { zh: "还没能保存。填的内容还留在画面上（{e}）", en: "Not saved yet. What you entered is still on the screen ({e})" },
   "生まれたら、ここから": { zh: "出生后，从这里开始", en: "Once the baby is born, start here" },
   "生まれた日を入れると、出生届から先の14日を手帳が組み直します": {
-    zh: "填入出生日期后，手册会重新安排出生登记（出生届）起的14天",
-    en: "Enter the date of birth and the handbook will replan the 14 days from the birth registration (出生届) on",
+    zh: "填入出生日期后，手册会从出生登记（出生届）开始，重新安排接下来14天要办的事",
+    en: "Enter the date of birth, and the handbook will replan the next 14 days, starting with the birth registration (出生届)",
   },
   生まれました: { zh: "出生了", en: "The baby is born" },
   "見本の家族は、押すと{date}（生まれた日）へ進みます": { zh: "示例家庭按下后会前进到{date}（出生日期）", en: "For the sample family, tapping jumps to {date} (date of birth)" },

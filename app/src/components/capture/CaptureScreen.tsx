@@ -20,6 +20,7 @@ import { TypeSheet } from "./TypeSheet";
 import { RecordItem, Timeline } from "./Timeline";
 import { afterConsentReturn, consentWaitKey, isClaudeConsentError, mayTrySend, readConsentState, type ClaudeConsentState } from "@/lib/claude-consent-flow";
 import { PUBLIC_UI, TRIAL_VOICE } from "@/lib/trial-words";
+import { t } from "@/lib/i18n";
 
 /** note: 見本の文を使った時の訳（文字起こしの機械が無い・体験版は声を文字にしない＝api/capture/voice） */
 type Last = CaptureResult & { transcript?: string; source: RecordSource; note?: string };
@@ -419,7 +420,7 @@ export function CaptureScreen() {
         />
       </section>
       {/* 体験版: 話しても、その声は文字にしない（決まった見本の文が入る。2026-11-05） */}
-      {PUBLIC_UI && <p className="text-sm text-muted">{TRIAL_VOICE}</p>}
+      {PUBLIC_UI && <p className="text-sm text-muted">{t(TRIAL_VOICE)}</p>}
 
       {typing && (
         <TypeSheet
@@ -495,7 +496,8 @@ export function CaptureScreen() {
           {last.transcript && (
             <Why label="聞き取った言葉">
               <p>「{last.transcript}」</p>
-              {last.note && <p className="text-sm text-muted">{last.note}</p>}
+              {/* サーバの一言（体験版・デモの文）は日本語の鍵のまま来るので、描く時に訳す */}
+              {last.note && <p className="text-sm text-muted">{t(last.note)}</p>}
             </Why>
           )}
         </section>

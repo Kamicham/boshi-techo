@@ -34,6 +34,22 @@ export default {
     zh: "本应用不对身体状况做判断。有担心的事，请联系分娩医院、儿科，或儿童医疗咨询热线（#8000）。",
     en: "This app doesn't judge anything about your body. If something worries you, contact your maternity clinic, a pediatrician, or the Children's Medical Hotline (#8000).",
   },
+  // サーバの断り（route() が頼みの言葉で訳す）: Claude を呼ぶ所（lib/claude.ts）・写しを作れず読むだけで開いた時（lib/access.ts）
+  "この体験版では AI（Claude）を呼びません。見本の答えがある所は見本で動きます。予定表・期限・急ぎの時・手で入れる記録は、そのまま使えます。": {
+    zh: "这个体验版不调用 AI（Claude）。有示例回答的地方，会用示例来运行。日程表、期限、紧急情况和手动输入的记录，照样可以用。",
+    en: "This trial doesn't call the AI (Claude). Where there's a sample answer, the sample is used. The schedule, deadlines, emergency help, and records you enter by hand work as usual.",
+  },
+  "いまは体験の写しを新しく作れないので、見本の家族を読むだけで開いています（話す・撮る・残すは閉じています）。時間をおいて開き直すと、自分の写しで試せます。": {
+    zh: "现在无法新建体验用的副本，所以示例家庭只能阅读（说、拍、保存已关闭）。过一会儿重新打开，就能用自己的副本试用。",
+    en: "We can't make a new trial copy right now, so the sample family is open read-only (Talk, Snap, and Save are closed). Open it again a little later to try it with your own copy.",
+  },
+  この操作はできません: { zh: "无法进行这个操作", en: "You can't do this" },
+  // 話す（体験版は声を文字にしない・lib/asr.ts）。画面の札と、声を送った後の一言
+  "体験版は声を文字にしません。決まった見本の文が入ります。": {
+    zh: "体验版不会把声音转成文字，会填入固定的示例文字。",
+    en: "The trial doesn't turn your voice into text. A fixed sample sentence is entered instead.",
+  },
+  "文字起こしの機械が無いので、デモの文を使いました": { zh: "没有语音转文字的功能，所以用了演示用的文字", en: "There's no speech-to-text here, so a demo sentence was used" },
   "開いた端末の住所（IP）を、写しと一緒に7日まで残します（使い過ぎを止めるため）。": {
     zh: "为防止过度使用，打开本页的设备地址（IP）会和副本一起保存，最长7天。",
     en: "To prevent overuse, we keep the address (IP) of the device that opened this, together with your copy, for up to 7 days.",
