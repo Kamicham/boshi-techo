@@ -66,6 +66,9 @@ export function Techo() {
   // 予防接種の次の回の打てる最短日（/api/done の retime。手帳の接種の日付から数え直した物）
   const [retime, setRetime] = useState<Record<string, Retime>>({});
   const [doneError, setDoneError] = useState("");
+  // 済んだ印を読み込めなかった時（電波・サーバの入れ替え）。押した印の失敗（doneError）と分け、「元に戻しました」と言わない。reload は「もう一度読む」
+  const [loadError, setLoadError] = useState("");
+  const [reload, setReload] = useState(0);
   // 誰が済ませたか（家族の一人の id）と、済ませた人へ届いたありがとう（/api/done の doneBy・thanks。11/5 より前の記録には無い）
   const [doneBy, setDoneBy] = useState<Record<string, string>>({});
   const [thanks, setThanks] = useState<Record<string, Thanks>>({});
@@ -119,6 +122,7 @@ export function Techo() {
     setThanks({});
     setLastDone(null);
     setDoneError("");
+    setLoadError("");
     setKeep(null);
     setSent(new Set());
     setPrepared({});
@@ -127,9 +131,13 @@ export function Techo() {
     setSentReady(false);
     const fid = encodeURIComponent(family.id);
     api<DoneRes>(`/api/done?familyId=${fid}&today=${today}`)
-      .then((j) => alive && readDone(j))
-      .catch((e: Error) => alive && setDoneError(e.message))
-      .finally(() => alive && setDoneReady(true));
+      .then((j) => {
+        if (!alive) return;
+        readDone(j);
+        setDoneReady(true);
+      })
+      // 読めなかった時は、済んだ事が「まだ」に見えないよう骨組みのまま（doneReady を立てない）、「もう一度読む」を出す
+      .catch((e: Error) => alive && setLoadError(e.message));
     api<{ keep: Keep }>(`/api/keep?familyId=${fid}`)
       .then((j) => alive && setKeep(j.keep ?? null))
       .catch(() => {});
@@ -138,7 +146,7 @@ export function Techo() {
     };
     // 手帳で済んだ事は「今日」までの記録から決まるので、今日が変わった時も読み直す
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [family.id, today]);
+  }, [family.id, today, reload]);
 
   // 下書きの印は、ほかの画面・ほかの端末でも付く。開いた時と、画面に戻ってきた時に読み直す
   useEffect(() => {
@@ -168,7 +176,8 @@ export function Techo() {
       window.removeEventListener("focus", load);
       window.removeEventListener("boshi:done", load);
     };
-  }, [family.id, today, readDone]);
+    // reload: 「もう一度読む」で上の読み込みが下書きの印も空にするので、ここも読み直す
+  }, [family.id, today, readDone, reload]);
 
   // 気づいた事が今あるか（機械で見つけるだけなので速い。Claude が書くのは AdvisorCard が読む時）
   useEffect(() => {
@@ -447,6 +456,13 @@ export function Techo() {
 
       {doneError && (
         <Notice title="済んだの印を、まだ保存できていません" safe="押した印は元に戻しました。電波のある所で、もう一度押してください。" detail={doneError} />
+      )}
+      {loadError && (
+        <Notice title="済んだの印を、読み込めませんでした" safe="記録は消えていません。電波のある所で、もう一度読んでください。" detail={loadError}>
+          <Btn kind="secondary" onClick={() => setReload((n) => n + 1)}>
+            もう一度読む
+          </Btn>
+        </Notice>
       )}
       {/* 押した場所から見える所（下のタブの上）に、数秒だけ出す */}
       {lastDone && (

@@ -318,15 +318,21 @@ function Reader({ book, page, setPage }: { book: Book; page: number; setPage: (n
   const touchX = useRef<number | null>(null);
   const top = useRef<HTMLDivElement>(null);
 
+  // めくったら、本の頭へ戻す（本の下の「次へ」で、次のページを途中から読み始めていた。スクロールするのは窓なので、この箱の scrollTo では動かない）。
+  // 開いた時は動かさない。頭がもう画面に見えている時も動かさない
+  const shown = useRef(p);
   useEffect(() => {
-    top.current?.scrollTo({ top: 0 });
+    if (shown.current === p) return;
+    shown.current = p;
+    const el = top.current;
+    if (el && el.getBoundingClientRect().top < 0) el.scrollIntoView({ block: "start" });
   }, [p]);
 
   return (
     <section className="flex flex-col gap-3">
       <div
         ref={top}
-        className="min-h-[28rem] overflow-hidden rounded-r-2xl rounded-l-md border border-line border-l-4 border-l-rose/40 bg-card px-5 py-8 shadow-[0_2px_12px_rgba(43,42,51,0.08)]"
+        className="min-h-[28rem] scroll-mt-4 overflow-hidden rounded-r-2xl rounded-l-md border border-line border-l-4 border-l-rose/40 bg-card px-5 py-8 shadow-[0_2px_12px_rgba(43,42,51,0.08)]"
         onTouchStart={(e) => (touchX.current = e.touches[0].clientX)}
         onTouchEnd={(e) => {
           if (touchX.current == null) return;

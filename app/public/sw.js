@@ -1,9 +1,13 @@
 // 急ぎの時（/emergency）を、通信が無くても開けるように取っておく service worker。
 // 扱うのは /emergency のページと、そのページが読む部品（/_next/static/ の CSS・JS・文字）だけ。ほかの通信には手を出さない。
-// いつも先に通信で取りに行き（新しい中身を出す）、通信できない時だけ取っておいた物を出す。
+// ページは先に通信で取りに行き（新しい中身を出す）、2.5 秒で届かない・通信できない時は、取っておいた写しを出す（届いた中身で、写しは裏で新しくする）。
+// 部品は名前に中身の印（ハッシュ）が入っていて中身が変わらないので、写しがあれば写しを先に出す（弱い電波でも、写しのページがすぐ描ける）。
 // 登録は app/emergency/Frame.tsx（本番の時だけ）。
-const CACHE = "boshi-emergency-v1";
+// v2（2026-11-05）: 11/4 に乳児の胸骨圧迫の手順を直したので、名前を上げて全部の端末で写しを取り直す（前の版の写しは activate で消す）。
+const CACHE = "boshi-emergency-v2";
 const PAGE = "/emergency";
+/** ページを通信で待つ長さ。過ぎたら写しを出す */
+const WAIT_MS = 2500;
 
 /** ページの HTML から、読み込む部品（/_next/static/…）の住所を拾う */
 function assetsOf(html) {
@@ -18,34 +22,39 @@ function fontsOf(css) {
   return [...out];
 }
 
-/** /emergency と部品を取って、取っておく（古い部品は消す） */
+/** 文字の形（フォント）と画像。欠けても、端末のほかの字体で読める */
+const optional = (url) => url.startsWith("/_next/static/media/");
+
+/**
+ * /emergency と部品を取って、写しを入れ替える。入れ替わるのは、最後にページを入れた時。
+ * CSS・JS は全部そろった時だけページを入れる。1つでも取れなければページも古い部品もそのまま（前の写しを残す）。
+ * 文字は数百（日本語の字形を分けたファイル）あるので、取れた物だけ（1つの失敗で、新しい手順の写しを止めない。前の写しにある物は消さない）。
+ * 部品は取れた物から写しへ流し込む（中身を読まずに数百を抱えると、つながりがふさがって次の取得が始まらない）。
+ * 部品の名前には中身の印（ハッシュ）が入っているので、先に入れても、今の写しのページが読む物は変わらない
+ */
 async function refresh(pageResponse) {
-  const cache = await caches.open(CACHE);
   const res = pageResponse ?? (await fetch(PAGE, { cache: "no-store", credentials: "same-origin" }));
   // 合言葉の画面へ回された時などは取っておかない
   if (!res.ok || res.redirected || !new URL(res.url).pathname.startsWith(PAGE)) return;
   const html = await res.clone().text();
-  const keep = new Set([new URL(PAGE, self.location.origin).href]);
-  await cache.put(PAGE, res.clone());
-  for (const a of assetsOf(html)) {
-    try {
-      const r = await fetch(a, { credentials: "same-origin" });
-      if (!r.ok) continue;
-      await cache.put(a, r.clone());
-      keep.add(new URL(a, self.location.origin).href);
-      if (a.endsWith(".css")) {
-        for (const f of fontsOf(await r.text())) {
-          const fr = await fetch(f).catch(() => null);
-          if (fr && fr.ok) {
-            await cache.put(f, fr);
-            keep.add(new URL(f, self.location.origin).href);
-          }
-        }
-      }
-    } catch {
-      // 1つ取れなくても、ほかは取っておく
-    }
-  }
+  const cache = await caches.open(CACHE);
+  /** 1つ取って写しへ入れる（取れなければ投げる）。CSS なら、中で読む文字の住所を返す */
+  const save = async (url) => {
+    const r = await fetch(url, { credentials: "same-origin" });
+    if (!r.ok) throw new Error(`${url} ${r.status}`);
+    // 住所の後ろに ?v=… が付く事がある（開発サーバ）ので、道の部分で見る
+    const css = new URL(url, self.location.origin).pathname.endsWith(".css") ? r.clone().text() : null;
+    await cache.put(url, r);
+    return css ? fontsOf(await css) : [];
+  };
+  const assets = assetsOf(html);
+  const need = assets.filter((u) => !optional(u));
+  const fonts = new Set(assets.filter(optional));
+  for (const list of await Promise.all(need.map(save))) for (const f of list) fonts.add(f);
+  await Promise.all([...fonts].map((f) => save(f).catch(() => {})));
+  await cache.put(PAGE, res);
+  // 新しいページが読まない古い部品を消す
+  const keep = new Set([PAGE, ...need, ...fonts].map((u) => new URL(u, self.location.origin).href));
   for (const req of await cache.keys()) if (!keep.has(req.url)) await cache.delete(req);
 }
 
@@ -78,16 +87,27 @@ function mine(request) {
   }
 }
 
+/** ページ: 通信を WAIT_MS まで待つ。届かない・通信できない・サーバが答えられない（5xx）時は写しを出す。写しが無ければ通信を待つ */
+async function pageOf(net) {
+  let timer;
+  const late = new Promise((resolve) => (timer = setTimeout(resolve, WAIT_MS, null)));
+  const res = await Promise.race([net.catch(() => null), late]);
+  clearTimeout(timer);
+  if (res && res.status < 500) return res;
+  const kept = await caches.match(PAGE, { cacheName: CACHE });
+  return kept ?? res ?? net;
+}
+
 self.addEventListener("fetch", (event) => {
   if (!mine(event.request)) return;
-  const isPage = event.request.mode === "navigate";
-  event.respondWith(
-    fetch(event.request)
-      .then((res) => {
-        // 通信できた時はそのまま出す。ページなら、取っておく中身も新しくする
-        if (isPage && res.ok && !res.redirected) event.waitUntil(refresh(res.clone()).catch(() => {}));
-        return res;
-      })
-      .catch(async () => (await caches.match(isPage ? PAGE : event.request, { cacheName: CACHE })) ?? Response.error()),
-  );
+  if (event.request.mode !== "navigate") {
+    // 部品: 写しがあれば写しを先に（中身が変わらない名前なので）。無ければ通信
+    event.respondWith(caches.match(event.request, { cacheName: CACHE }).then((kept) => kept ?? fetch(event.request)));
+    return;
+  }
+  const net = fetch(event.request);
+  // 届いたページで写しも新しくする（2.5 秒を過ぎて写しを出した後も、裏で続ける）。複製は、ページを出す前に作る
+  const fresh = net.then((res) => (res.ok && !res.redirected ? res.clone() : null), () => null);
+  event.waitUntil(fresh.then((res) => res && refresh(res)).catch(() => {}));
+  event.respondWith(pageOf(net));
 });
