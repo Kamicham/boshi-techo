@@ -254,6 +254,20 @@ describe("公開版の門", () => {
     expect(again.cookies.get("boshi_try")).toBeUndefined();
   });
 
+  it("見張りの口（/api/health）は札を配らず、写しも作らない（fly.toml の checks・15秒ごと）", async () => {
+    const r = await mw("/api/health");
+    expect(r.status).toBe(200);
+    expect(r.cookies.get("boshi_try")).toBeUndefined();
+    expect(r.headers.get("x-middleware-override-headers")).toBeNull();
+    const { GET } = await import("@/app/api/health/route");
+    const j = (await GET().json()) as { ok: boolean; free: number };
+    expect(j.ok).toBe(true);
+    expect(j.free).toBeGreaterThan(0);
+    // 見張りの道を fly.toml に書いてある
+    const toml = fs.readFileSync(path.join(process.cwd(), "fly.toml"), "utf8");
+    expect(toml).toMatch(/\[\[http_service\.checks\]\][\s\S]*path = "\/api\/health"/);
+  });
+
   it("送る中身が上限を超えたら、中身を読まずに 413（写真と声は 32MB・ほかは 1MB。技術監査 (5)①）", async () => {
     const { middleware } = await import("@/middleware");
     const send = (url: string, n: number) =>

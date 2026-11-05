@@ -13,8 +13,12 @@ import { newTrialId, publicOn, TRIAL_COOKIE, TRIAL_DAYS, trialIdFromCookie } fro
 const CLOSED_API = [/^\/api\/auth\/(?!get-session)/, /^\/api\/account\//, /^\/api\/household(\/|$)/, /^\/api\/export(\/|$)/, /^\/api\/sim\//, /^\/api\/unlock$/];
 const CLOSED_PAGE = [/^\/login(\/|$)/, /^\/account(\/|$)/, /^\/invite(\/|$)/, /^\/unlock$/];
 
+/** 見張りの口（fly.toml の checks・15秒ごと）。札を配らずに通す（配ると、見張りのたびに札が増える） */
+const HEALTH = "/api/health";
+
 function publicGate(req: NextRequest): NextResponse {
   const { pathname } = req.nextUrl;
+  if (pathname === HEALTH) return NextResponse.next();
   if (CLOSED_API.some((r) => r.test(pathname))) return NextResponse.json({ error: "公開版（体験）では使えません" }, { status: 404 });
   if (pathname.startsWith("/api/visit") && req.method !== "GET")
     return NextResponse.json({ error: "体験版の健診の録音は準備中です。健診の日の流れは、録音の無い形で見られます" }, { status: 403 });
