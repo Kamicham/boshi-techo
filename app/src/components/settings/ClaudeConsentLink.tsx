@@ -4,6 +4,8 @@
 // 同意は世帯を作った時に続けて聞かず、初めて話す・撮る・聞く時に、要る所で聞く。
 // 出す時: サーバの失敗の文が ConsentRequiredError の時（error）か、送る前に同意がまだと分かった時（need）。
 import type { ReactNode } from "react";
+import { t } from "@/lib/i18n";
+import { tr } from "@/lib/i18n/rich";
 import { Btn } from "../ui";
 import { useFamily } from "../FamilyProvider";
 import { CLAUDE_CONSENT_MARK, isClaudeConsentError } from "@/lib/claude-consent-flow";
@@ -34,24 +36,22 @@ export function ClaudeConsentLink({
   if (waitMother)
     return (
       <div className="flex flex-col gap-2 rounded-2xl bg-sky-soft px-4 py-3">
-        <p className="text-base">ママが手帳に入って同意すると、話す・撮る・手帳に聞くが使えます（ママの記録の同意は、ママ本人だけが押せます）。予定表・やる事は、今のまま使えます。</p>
+        <p className="text-base">
+          {t("ママが手帳に入って同意すると、話す・撮る・手帳に聞くが使えます（ママの記録の同意は、ママ本人だけが押せます）。予定表・やる事は、今のまま使えます。")}
+        </p>
         <Btn href={`/invite/new?familyId=${encodeURIComponent(family.id)}`} full>
-          ママを手帳に入れる
+          {t("ママを手帳に入れる")}
         </Btn>
       </div>
     );
   return (
     <div className="flex flex-col gap-2 rounded-2xl bg-sky-soft px-4 py-3">
       <p className="text-base">
-        {lead ?? (
-          <>
-            手帳の欄に分けるには、<b>米国の Claude に送る同意</b>が要ります。何を送るかは、次の画面に書いてあります。
-          </>
-        )}
+        {lead ?? tr("手帳の欄に分けるには、{consent}が要ります。何を送るかは、次の画面に書いてあります。", { consent: <b>{t("米国の Claude に送る同意")}</b> })}
       </p>
       <span onClickCapture={onGo} className="contents">
         <Btn href={`/account/consent/claude?familyId=${encodeURIComponent(family.id)}&next=${encodeURIComponent(back)}`} full>
-          読んで決める
+          {t("読んで決める")}
         </Btn>
       </span>
     </div>

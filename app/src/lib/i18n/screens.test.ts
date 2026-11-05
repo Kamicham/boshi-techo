@@ -33,6 +33,7 @@ const DONE: readonly string[] = [
   "components/ask/AskSheet.tsx", // 手帳に聞く
   "app/start/page.tsx", // はじめの画面（自分の手帳を始める・3つ答えた後の予告）
   "lib/start-preview.ts", // 予告の文
+  "components/settings/ClaudeConsentLink.tsx", // 米国の Claude に送る同意がまだの時の札
   "components/album/", // アルバム（写真・声・残す・みんなの章・未来の手紙・映画への入口と書き出し）
   "app/book/", // 一冊（読む・映画・印刷）
 ];

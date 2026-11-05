@@ -5,6 +5,8 @@
 import { body, route } from "@/lib/api";
 import { list } from "@/lib/db";
 import { HttpError } from "@/lib/family";
+import { withLang } from "@/lib/i18n";
+import { dictFor, langOf } from "@/lib/i18n/dicts";
 import { familyFor } from "../_lib/household";
 import type { Family } from "@/lib/demo-family";
 import { doneFromTechoFor, markDone, markStartedLateOpen, removeDone, thankDone, vaxRetimeFor, type DoneData } from "./_lib/done";
@@ -39,7 +41,8 @@ export const GET = route(async (req: Request) => {
     /** 始める前に期限が過ぎて済みにした事（open: まだと答えた） */
     startedLate: docs.filter((d) => d.data.auto === "started-late" || d.data.auto === "started-late-open").map((d) => ({ id: d.data.milestoneId, open: d.data.auto === "started-late-open" })),
     /** 予防接種の次の回の打てる最短日（手帳の接種の日付から数え直した物。表の日より遅い時だけ） */
-    retime: vaxRetimeFor(family, today),
+    // なぜその日かの一言は、頼みの言葉で組む（言葉を切り替えるとページを読み直すので、取り直される）
+    retime: withLang(langOf(req), () => vaxRetimeFor(family, today), dictFor(langOf(req))),
     /** 済んだにした家族の一人（分かる物だけ。11/5 より前の記録には無い） */
     doneBy: Object.fromEntries(docs.filter((d) => d.data.by && !d.data.auto).map((d) => [d.data.milestoneId, d.data.by!])),
     /** 済ませた人へ届いたありがとう */

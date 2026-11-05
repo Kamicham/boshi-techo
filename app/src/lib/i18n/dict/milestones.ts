@@ -654,4 +654,23 @@ export default {
   "{name}の日本脳炎の予防接種": { zh: "{name}：日本脑炎预防接种", en: "{name}: Japanese encephalitis vaccination" },
   "{name}の日本脳炎の追加": { zh: "{name}：日本脑炎加强针", en: "{name}: Japanese encephalitis booster" },
   "{name}の麻しん風しん（MR）の2期": { zh: "{name}：第2期麻疹风疹（MR）疫苗", en: "{name}: phase 2 measles-rubella (MR) vaccine" },
+
+  // ── 予防接種の打てる最短日の一言（lib/vax-next.ts。サーバは頼みの言葉で組み、画面は「打てる最短日: {date}（{note}）」に入れる） ──
+  "{date}の{vaccine}{dose}回目から中{n}日": {
+    zh: "{date}打的{vaccine}第{dose}次之后，中间隔满{n}天",
+    en: "{n} full {n:day|days} after dose {dose} of {vaccine} on {date}",
+  },
+  "{date}の{vaccine}{dose}回目から{n}か月": {
+    zh: "{date}打的{vaccine}第{dose}次之后{n}个月",
+    en: "{n} {n:month|months} after dose {dose} of {vaccine} on {date}",
+  },
+  B型肝炎: { zh: "乙型肝炎", en: "hepatitis B" },
+  小児用肺炎球菌: { zh: "小儿肺炎球菌", en: "pediatric pneumococcal" },
+  五種混合: { zh: "五联疫苗", en: "5-in-1" },
+  水ぼうそう: { zh: "水痘", en: "chickenpox" },
+  日本脳炎: { zh: "日本脑炎", en: "Japanese encephalitis" },
+  "公費で受けられる年齢（{date}まで）を過ぎる見込み。小児科・保健センターに確かめる": {
+    zh: "预计会超过可以公费接种的年龄（到{date}为止）。请向儿科或保健中心确认",
+    en: "Likely to pass the age for publicly funded shots (until {date}). Check with a pediatrician or the health center",
+  },
 } satisfies Entries;

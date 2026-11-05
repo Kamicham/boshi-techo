@@ -22,6 +22,20 @@ export default {
     en: "Couldn't connect. Please check your signal and tap again",
   },
   "うまくいきませんでした（{status}）": { zh: "没有成功（{status}）", en: "Something went wrong ({status})" },
+  // 米国の Claude に送る同意（components/settings/ClaudeConsentLink.tsx・下書き・話す撮る）。
+  // サーバの断りの全文（lib/claude-consent-flow.ts の CONSENT_REQUIRED_TEXT）は辞書に入れない: route() が訳すと、
+  // 画面の見分け（isClaudeConsentError は日本語の「米国の Claude に送る同意」を探す）が外れる。全文は画面に出さず、見分けて下の札を出す
+  "米国の Claude に送る同意": { zh: "同意发送给美国的 Claude", en: "consent to send data to Claude in the US" },
+  "手帳の欄に分けるには、{consent}が要ります。何を送るかは、次の画面に書いてあります。": {
+    zh: "要分到手册的各栏里，需要{consent}。要发送什么，写在下一个页面上。",
+    en: "To sort this into the handbook's sections, the handbook needs your {consent}. The next screen explains what is sent.",
+  },
+  "ママが手帳に入って同意すると、話す・撮る・手帳に聞くが使えます（ママの記録の同意は、ママ本人だけが押せます）。予定表・やる事は、今のまま使えます。": {
+    zh: "妈妈加入手册并同意后，就能使用“说·拍·写”和“问手册”（妈妈记录的同意，只有妈妈本人能点）。日程表和要做的事，现在照样能用。",
+    en: "Once Mom joins the handbook and agrees, Talk · Snap · Type and Ask the handbook become available (only Mom can agree for her own records). The schedule and to-dos work as they do now.",
+  },
+  ママを手帳に入れる: { zh: "邀请妈妈加入手册", en: "Add Mom to the handbook" },
+  読んで決める: { zh: "阅读后决定", en: "Read and decide" },
 
   // ── API の言葉 ──
   "Claude が混み合っています。少し待ってもう一度": {

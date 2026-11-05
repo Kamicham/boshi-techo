@@ -6,6 +6,7 @@
 // 体の判断はしない。標準から外れて始めた子の回数の変化（肺炎球菌・五種混合）は数えず、「小児科で確かめる」と添える。
 // 画面とサーバの両方で使う純関数。
 import { addDays, addMonths } from "./clock";
+import { currentLang, t } from "./i18n";
 import { deadlineKindOf } from "./milestones";
 import type { Vax } from "./techo-done";
 
@@ -41,9 +42,20 @@ const NEEDS: Record<string, Need[]> = {
   "je-vaccine-1-booster": [{ kind: "je", dose: 3, from: 2, months: 6, label: "日本脳炎の追加" }],
 };
 
-/** 間隔の言い方（中27日・6か月など） */
-function gapWord(n: Need): string {
-  return n.months ? `${n.months}か月` : `中${(n.days ?? 0) - 1}日`;
+/** 月と日（日本語・中文は「11月5日」、English は「Nov 5」） */
+function monthDay(iso: string): string {
+  const [, mo, da] = iso.split("-").map(Number);
+  if (currentLang() === "en") return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(Date.UTC(2000, mo - 1, da));
+  return `${mo}月${da}日`;
+}
+
+/**
+ * なぜその日か（例: 11月5日のB型肝炎1回目から中27日・11月1日の水ぼうそう1回目から3か月）。
+ * サーバ（app/api/done）は頼みの言葉の withLang の中で呼ぶ。名前は回の数を外した物を辞書で引く
+ */
+function retimeWords(n: Need, prev: string): string {
+  const vars = { date: monthDay(prev), vaccine: t(n.label.replace(/\d回目|の追加/, "")), dose: n.from };
+  return n.months ? t("{date}の{vaccine}{dose}回目から{n}か月", { ...vars, n: n.months }) : t("{date}の{vaccine}{dose}回目から中{n}日", { ...vars, n: (n.days ?? 0) - 1 });
 }
 
 export interface Retime {
@@ -78,8 +90,7 @@ export function vaxRetime(hist: Hist, schedule: { id: string; startDate: string 
       if (!best || d > best.date) best = { date: d, need: n, prev: prev.date, facility: prev.facility };
     }
     if (best && best.date > m.startDate) {
-      const [, mo, da] = best.prev.split("-").map(Number);
-      out[m.id] = { start: best.date, note: `${mo}月${da}日の${best.need.label.replace(/\d回目|の追加/, "")}${best.need.from}回目から${gapWord(best.need)}`, doses, lastDate: best.prev, ...((best.facility ?? fac) ? { lastFacility: best.facility ?? fac } : {}) };
+      out[m.id] = { start: best.date, note: retimeWords(best.need, best.prev), doses, lastDate: best.prev, ...((best.facility ?? fac) ? { lastFacility: best.facility ?? fac } : {}) };
     }
   }
   return out;
@@ -87,8 +98,7 @@ export function vaxRetime(hist: Hist, schedule: { id: string; startDate: string 
 
 /** 公費（定期接種）で受けられる年齢の期限を過ぎる見込みの一言（判断はしない。確かめる先だけ添える） */
 function beyondPublicWord(deadline: string): string {
-  const [, mo, da] = deadline.split("-").map(Number);
-  return `公費で受けられる年齢（${mo}月${da}日まで）を過ぎる見込み。小児科・保健センターに確かめる`;
+  return t("公費で受けられる年齢（{date}まで）を過ぎる見込み。小児科・保健センターに確かめる", { date: monthDay(deadline) });
 }
 
 /**
@@ -104,7 +114,7 @@ export function applyRetime<T extends { id: string; startDate: string; deadlineD
     const retime = { doses: x.doses, lastDate: x.lastDate, lastFacility: x.lastFacility };
     if (deadlineKindOf(m) === "期限") {
       const beyond = !!m.deadlineDate && x.start > m.deadlineDate;
-      return { ...m, startDate: x.start, retimeNote: beyond ? `${x.note}。${beyondPublicWord(m.deadlineDate!)}` : x.note, retime, ...(beyond ? { beyondPublic: true } : {}) };
+      return { ...m, startDate: x.start, retimeNote: beyond ? `${x.note}${currentLang() === "en" ? ". " : "。"}${beyondPublicWord(m.deadlineDate!)}` : x.note, retime, ...(beyond ? { beyondPublic: true } : {}) };
     }
     const shift = Math.round((Date.parse(x.start) - Date.parse(m.startDate)) / 86_400_000);
     return { ...m, startDate: x.start, deadlineDate: m.deadlineDate ? addDays(m.deadlineDate, shift) : undefined, retimeNote: x.note, retime };

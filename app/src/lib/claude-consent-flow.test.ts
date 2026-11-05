@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { tFor } from "./i18n/dicts";
 import {
   afterConsentReturn,
   afterDraftConsentReturn,
@@ -55,6 +56,16 @@ describe("Claude に送る同意の順番", () => {
     expect(isClaudeConsentError(CONSENT_REQUIRED_TEXT)).toBe(true);
     expect(CONSENT_REQUIRED_TEXT).toContain("書く・答える・分ける");
     expect(CONSENT_REQUIRED_TEXT).not.toMatch(/話した事・撮った紙を/);
+  });
+
+  it("同意がまだの文の全文は辞書に入れない（route() が訳すと、中文・English の画面で見分けが外れる。画面は全文を出さず、見分けて訳した札を出す）", () => {
+    for (const l of ["zh", "en"] as const) {
+      const said = tFor(l, CONSENT_REQUIRED_TEXT);
+      expect(said, l).toBe(CONSENT_REQUIRED_TEXT);
+      expect(isClaudeConsentError(said), l).toBe(true);
+    }
+    // 札の太字の言葉は訳す（全文とは別の鍵）
+    expect(tFor("en", CLAUDE_CONSENT_MARK)).toBe("consent to send data to Claude in the US");
   });
 });
 

@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { withLang } from "./i18n";
+import { DICTS } from "./i18n/dicts";
 import { vaxHistory } from "./techo-done";
 import { applyRetime, callMemo, vaxRetime } from "./vax-next";
 import { deadlineKindOf, scheduleFor } from "./milestones";
@@ -80,5 +82,21 @@ describe("予防接種の数え直し（第1波⑥）", () => {
     const m = callMemo({ plain: "予防接種の2回目", start: "2027-05-18", doses: ["B型肝炎2回目"] });
     expect(m).toContain("（子の名前）");
     expect(m).not.toMatch(/熱|副反応|\d{2,4}-\d{2,4}-\d{3,4}/);
+  });
+});
+
+describe("なぜその日かの一言を、画面の言葉で（2026-11-05 多言語化）", () => {
+  // サーバ（app/api/done）は頼みの言葉の withLang の中で数え直し、画面は今の言葉で applyRetime する。ここは両方を同じ言葉で包む
+  const at = (lang: "zh" | "en", fn: () => string | undefined) => withLang(lang, fn, DICTS[lang]);
+  const note = (h: ReturnType<typeof vaxHistory>, id: string) => applyRetime(sched, vaxRetime(h, sched)).find((m) => m.id === id)!.retimeNote;
+  it("中文・English: 日付・名前・回・間隔と、公費の年齢を越える見込みの一言（日本語は上の試験のまま）", () => {
+    const hepb = vaxHistory([v("2027-09-01", "B型肝炎", "1"), v("2027-10-01", "B型肝炎", "2")], "2027-10-15");
+    expect(at("zh", () => note(hepb, "vaccines-7m"))).toBe("9月1日打的乙型肝炎第1次之后，中间隔满139天。预计会超过可以公费接种的年龄（到1月9日为止）。请向儿科或保健中心确认");
+    expect(at("en", () => note(hepb, "vaccines-7m"))).toBe(
+      "139 full days after dose 1 of hepatitis B on Sep 1. Likely to pass the age for publicly funded shots (until Jan 9). Check with a pediatrician or the health center",
+    );
+    const vari = vaxHistory([v("2028-06-01", "水痘", "1")], "2028-06-15");
+    expect(at("en", () => note(vari, "vaccines-18m"))).toBe("3 months after dose 1 of chickenpox on Jun 1");
+    expect(at("zh", () => note(vari, "vaccines-18m"))).toBe("6月1日打的水痘第1次之后3个月");
   });
 });
