@@ -1,5 +1,8 @@
 // 名前を画面の言葉で書く（lib/i18n/names.ts）の試験。日本語は1字も変えない
 import { describe, expect, it } from "vitest";
+import { registrationLine } from "../../components/today/welcome";
+import { DEMO_FAMILY } from "../demo-family";
+import { scheduleFor } from "../milestones";
 import { withLang, type Lang } from ".";
 import { DICTS } from "./dicts";
 import { isMadeId, labelIn, nameIn } from "./names";
@@ -32,6 +35,17 @@ describe("名前を画面の言葉で", () => {
     expect(at("zh", () => [nameIn("ひなた"), nameIn("美咲"), nameIn("ばあば"), nameIn("じいじ")])).toEqual(["ひなた", "美咲", "ばあば", "じいじ"]);
     expect(at("zh", () => [nameIn("ばあば", { made: true }), nameIn("じいじ", { made: true })])).toEqual(["外婆", "爷爷"]);
     expect(at("zh", () => labelIn("ママ（美咲）"))).toBe("妈妈（美咲）");
+  });
+  it("出生届の一言（いまの「ようこそ」の1枚）も、English は名前をローマ字で", () => {
+    const m = scheduleFor(DEMO_FAMILY, DEMO_FAMILY.birthDate!).find((x) => x.id === "birth-registration")!;
+    const [mother, partner] = DEMO_FAMILY.members;
+    const toPartner = { ...m, status: "今やる" as const, who: "パートナー" as const };
+    const en = at("en", () => registrationLine(DEMO_FAMILY, mother, toPartner));
+    expect(en).toContain("Shota's turn");
+    expect(at("en", () => registrationLine(DEMO_FAMILY, partner, { ...m, status: "今やる" as const }))).toContain("So Misaki can rest.");
+    expect(en).not.toMatch(/翔太|美咲/);
+    // 日本語は前と同じ
+    expect(registrationLine(DEMO_FAMILY, mother, toPartner)).toContain("翔太の番です");
   });
   it("作った家族の id（見本・体験の写し・30家族・1000組）", () => {
     expect(["demo-sato", `try-${"a".repeat(32)}`, "sim-01", "pop-0001"].map(isMadeId)).toEqual([true, true, true, true]);

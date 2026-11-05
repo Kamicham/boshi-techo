@@ -166,7 +166,6 @@ export function WelcomeBaby({
         <button type="button" onClick={() => void share()} className={`${link} text-left`}>
           <span className="min-w-0">
             💌 {t("家族に知らせる")}
-            {/* 知らせる文（birthNewsText・lib/media-shared.ts）は、そちらの言葉のまま */}
             <span className="block text-sm font-normal text-muted">{copied ? t("文を写しました。LINE などに貼れます") : t("「{text}」", { text: news })}</span>
           </span>
           <span className="text-muted" aria-hidden>
