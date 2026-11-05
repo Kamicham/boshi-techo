@@ -27,6 +27,8 @@ describe("名前を画面の言葉で", () => {
       "Grandpa",
       "健太",
     ]);
+    // 見本の記録で話した人（美咲の母）
+    expect(at("en", () => nameIn("和子"))).toBe("Kazuko");
     expect(at("en", () => labelIn("ママ（美咲）"))).toBe("Mom (Misaki)");
     expect(at("en", () => labelIn("パートナー（翔太）"))).toBe("Partner (Shota)");
     expect(at("en", () => labelIn("ママ"))).toBe("Mom");

@@ -81,6 +81,8 @@ const DONE: readonly string[] = [
   // からだの記録（家族の声②・プランの B）。新しい部品は最初から t() で書いた。手帳のタブのほかの所は UX の訳を待つ
   "components/techo/PregnancyBody.tsx", // 妊婦健診の表と体重の線・目安の括弧と出どころ
   "components/techo/GrowthLines.tsx", // 発育曲線の描く所（帯なし・子ごとの線・横軸の幅）
+  "components/techo/HomeEntry.tsx", // 家で測った体重・血圧の口と一覧
+  "components/techo/BodyCard.tsx", // 手帳のタブの一番上の「からだの記録」の1枚
   "components/capture/", // 話す・撮る・打つ
   "app/capture/",
   // 手帳のタブ（多言語化④・エージェントが訳し、成長曲線は思い出の会話の書き換えの後に UX が訳した）

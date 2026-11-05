@@ -1,5 +1,5 @@
 // 名前を画面の言葉で書く（2026-11-05 多言語化⑤・統括の決め方）。データの名前は日本語のまま持ち、描く時だけ通す（保存する値には使わない）。
-// - English: 見本の家族の名前はローマ字（ひなた→Hinata・美咲→Misaki・翔太→Shota）。ばあば・じいじは Grandma・Grandpa（どの家族でも）
+// - English: 見本の家族の名前はローマ字（ひなた→Hinata・美咲→Misaki・翔太→Shota・和子→Kazuko＝美咲の母。見本の記録の誰が話したかに出る）。ばあば・じいじは Grandma・Grandpa（どの家族でも）
 // - 中文: 名前は日本語のまま。ばあば・じいじは、作った家族（見本・体験の写し・30家族と1000組）の時だけ 外婆・爷爷
 //   （見本の家族では、ばあば＝美咲の母・じいじ＝翔太の父。本物の家族は父方か母方か分からないので、家族が書いたまま）
 // - 日本語: 1字も変えない
@@ -8,7 +8,7 @@ import { DEMO_FAMILY } from "../demo-family";
 import { isTrialId } from "../trial-cookie";
 import { currentLang, t } from ".";
 
-const EN: Readonly<Record<string, string>> = { ひなた: "Hinata", 美咲: "Misaki", 翔太: "Shota", ばあば: "Grandma", じいじ: "Grandpa" };
+const EN: Readonly<Record<string, string>> = { ひなた: "Hinata", 美咲: "Misaki", 翔太: "Shota", 和子: "Kazuko", ばあば: "Grandma", じいじ: "Grandpa" };
 const ZH_MADE: Readonly<Record<string, string>> = { ばあば: "外婆", じいじ: "爷爷" };
 
 /** 作った家族の id か（lib/techo-seed.ts の isMadeFamily と同じ形。画面からも読めるよう、形だけで見る） */

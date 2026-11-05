@@ -43,6 +43,37 @@ export default {
   どの子の数字か: { zh: "是哪个孩子的数字", en: "Which child" },
   どの子の数字かを選んでください: { zh: "请选择是哪个孩子的数字", en: "Choose which child these numbers are for" },
 
+  // ── 空の時の1行（入力を促す言葉は使わない）──
+  "健診の数字が入ると、ここに紙の手帳と同じ表と体重の線が出ます。": {
+    zh: "填入健康检查的数字后，这里会显示和纸质手册相同的表格和体重折线。",
+    en: "Once checkup numbers are in, a table like the one in the paper handbook and a weight line appear here.",
+  },
+  "見本の家族は、上の「{other}」で「{stage}」にすると、表と線が見られます。": {
+    zh: "示例家庭可以在上方的“{other}”里选“{stage}”，就能看到表格和折线。",
+    en: "For the sample family, choose “{stage}” under “{other}” at the top to see the table and the line.",
+  },
+
+  // ── 家で測った物を入れる口（HomeEntry）。体重・血圧・測った日・入れる は capture、数字を1つ以上… は techo の鍵 ──
+  "体重 {kg}kg": { zh: "体重 {kg}kg", en: "Weight {kg} kg" },
+  "血圧 {hi}/{lo}": { zh: "血压 {hi}/{lo}", en: "Blood pressure {hi}/{lo}" },
+  "体温 {c}℃": { zh: "体温 {c}℃", en: "Temperature {c}°C" },
+  /** 1行の中で数字を並べる区切り */
+  "、": { zh: "，", en: ", " },
+  体重の数字の桁を確かめてください: { zh: "请确认体重数字的位数", en: "Please check the digits of the weight" },
+  血圧は上と下の両方の数字を入れてください: { zh: "血压请填入高压和低压两个数字", en: "For blood pressure, enter both the upper and lower numbers" },
+  "家で測った体重（kg）": { zh: "在家测量的体重（kg）", en: "Weight measured at home (kg)" },
+  血圧も: { zh: "也记血压", en: "Blood pressure too" },
+  "家で測った記録（{n}件）": { zh: "在家测量的记录（{n}条）", en: "Measured at home ({n})" },
+
+  // ── 手帳のタブの一番上の1枚（BodyCard）──
+  からだの記録: { zh: "身体记录", en: "Body records" },
+  ママの体重: { zh: "妈妈的体重", en: "Mom's weight" },
+  "{name}の体重": { zh: "{name}的体重", en: "{name}'s weight" },
+
+  // ── 打つ画面の札（TypeSheet。家で測った物は妊婦健診のページに入れない＝健診の回数がずれない）──
+  "家で測った体重・血圧": { zh: "在家测量的体重和血压", en: "Weight and blood pressure at home" },
+  "からだの記録に入れました（体重の線に点が付きます）": { zh: "已记入身体记录（体重折线上会多一个点）", en: "Added to body records (a point appears on the weight line)" },
+
   // ── 目安の出どころ（畳んでおく）──
   目安の出どころ: { zh: "参考范围的出处", en: "Where the guide comes from" },
   "日本産科婦人科学会「妊娠中の体重増加指導の目安」": { zh: "日本妇产科学会《妊娠期体重增加指导参考》", en: "Japan Society of Obstetrics and Gynecology, “Guide for Weight Gain during Pregnancy”" },

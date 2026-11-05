@@ -28,6 +28,11 @@ describe("画面の地図", () => {
     expect(TECHO_ANCHORS).toHaveLength(TECHO_PAGES.length);
   });
 
+  it("手帳の一番上の「からだの記録」の1枚へ飛べる（家族の声②・プランの B の5）", () => {
+    expect(isKnownHref("/techo#body")).toBe(true);
+    expect(guideText()).toContain("/techo#body");
+  });
+
   it("地図に無い行き先は通さない", () => {
     expect(isKnownHref("https://example.com")).toBe(false);
     expect(isKnownHref("/api/ask")).toBe(false);
