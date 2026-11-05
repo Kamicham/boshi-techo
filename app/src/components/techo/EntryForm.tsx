@@ -2,6 +2,9 @@
 
 // 手帳の欄に打って入れる（撮る・話すと同じ重さで。VISION ①「入力ゼロ、でも押し付けない」）。紙の母子手帳の欄の名前のまま。値の良し悪しは言わない。
 // 開いた時に、週数・生後の日数・医療機関など手帳が知っている値を先に入れておく（lib/techo-prefill.ts）。
+// 閉じた形は［＋ 入れる］1つ（家族の声①への直し A。前はページごとに［打って入れる］［話す・撮る］が並んでいた）。押すと打つ欄が開き、
+// 欄の頭に「話す・撮るで入れる ›」（手帳のタブの上の［話す・撮る・打つ］と同じ口）。head を渡すと、空のページの見出しの右にボタンを置く1行になる。
+import Link from "next/link";
 import { useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
 import { techoPrefill } from "@/lib/techo-prefill";
@@ -17,10 +20,13 @@ export function EntryForm({
   page,
   today,
   add,
+  head,
 }: {
   page: TechoPageId;
   today: string;
   add: Add;
+  /** 空のページの見出し（題と「いつ・何を撮ると入るか」）。渡すと、その右に［＋ 入れる］を置いた1行にする */
+  head?: React.ReactNode;
 }) {
   const form = TECHO_FORMS[page];
   const [open, setOpen] = useState(false);
@@ -42,15 +48,19 @@ export function EntryForm({
     }
   };
   if (!open) {
-    return (
-      <div className="grid grid-cols-2 gap-2">
-        <Btn kind="secondary" full onClick={() => void start()}>
-          {t("打って入れる")}
-        </Btn>
-        <Btn kind="secondary" full href="/capture">
-          {t("話す・撮る")}
-        </Btn>
+    // 妊婦健診のページは、家で測った体重の［入れる］（components/techo/HomeEntry.tsx）と紛れないよう、何を入れるかを言う
+    const button = (
+      <Btn kind="secondary" onClick={() => void start()}>
+        {page === "pregnancy-checkup" ? t("＋ 健診の記録を入れる") : t("＋ 入れる")}
+      </Btn>
+    );
+    return head ? (
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-1">{head}</div>
+        <span className="shrink-0">{button}</span>
       </div>
+    ) : (
+      <div>{button}</div>
     );
   }
   const field =
@@ -76,8 +86,12 @@ export function EntryForm({
       setBusy(false);
     }
   };
-  return (
+  const sheet = (
     <div className="flex flex-col gap-2 rounded-xl border border-line p-3">
+      <Link href="/capture" className="inline-flex min-h-11 items-center gap-1 self-start text-sm font-semibold text-sky">
+        <span className="underline underline-offset-2">{t("話す・撮るで入れる")}</span>
+        <span aria-hidden>›</span>
+      </Link>
       <p className="text-sm text-muted">
         {t("分かる欄だけで足ります。週数・医療機関など手帳が知っている所は入れてあります（違えば直してください）。")}
       </p>
@@ -129,5 +143,13 @@ export function EntryForm({
         </Btn>
       </div>
     </div>
+  );
+  return head ? (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-1">{head}</div>
+      {sheet}
+    </div>
+  ) : (
+    sheet
   );
 }

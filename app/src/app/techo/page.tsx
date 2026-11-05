@@ -47,6 +47,12 @@ const WHEN: Partial<Record<TechoPageId, string>> = {
   vaccine: "接種の日に、シールが貼られた欄を撮っても入ります",
 };
 
+/**
+ * 打って入れる欄だけのページ（PageBody の残りの形＝EntryForm だけ）。記録が0件の時は、見出しの右に［＋ 入れる］を置いた1行の札にする
+ * （家族の声①への直し A「空の欄は1行に」）。表や線・できた日の一覧など、ページ自身の入れ方を持つページは入れない
+ */
+const ONE_LINE_EMPTY = new Set<TechoPageId>(["mother-health", "pregnancy-test", "birth", "postpartum", "newborn", "child-checkup"]);
+
 /** 生後何日を過ぎたら新生児の時期を「過ぎた」とするか（便色カードは生後1か月ごろまでの物＝手帳の説明。余裕を見て2か月） */
 const NEWBORN_PAST_DAYS = 60;
 
@@ -273,24 +279,33 @@ export default function TechoPage() {
               </details>
             );
           }
+          const head = (
+            <>
+              <h3 className="font-display text-lg font-bold">
+                {t(p.title)}
+                {list.length > 0 && (
+                  <span className="ml-2 text-sm font-normal text-muted">
+                    {t("{n}件", { n: list.length })}
+                  </span>
+                )}
+              </h3>
+              <p className="text-sm text-muted">{t(when ?? p.note)}</p>
+            </>
+          );
           return (
             <article
               key={p.id}
               id={`page-${p.id}`}
               className="flex scroll-mt-4 flex-col gap-3 rounded-2xl border border-line bg-card p-4"
             >
-              <div className="flex flex-col gap-1">
-                <h3 className="font-display text-lg font-bold">
-                  {t(p.title)}
-                  {list.length > 0 && (
-                    <span className="ml-2 text-sm font-normal text-muted">
-                      {t("{n}件", { n: list.length })}
-                    </span>
-                  )}
-                </h3>
-                <p className="text-sm text-muted">{t(when ?? p.note)}</p>
-              </div>
-              {body}
+              {list.length === 0 && ONE_LINE_EMPTY.has(p.id) ? (
+                <EntryForm page={p.id} today={today} add={add} head={head} />
+              ) : (
+                <>
+                  <div className="flex flex-col gap-1">{head}</div>
+                  {body}
+                </>
+              )}
             </article>
           );
         })}

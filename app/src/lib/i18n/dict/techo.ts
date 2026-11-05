@@ -370,4 +370,8 @@ export default {
   "退院の前に、病院が書いた新生児の欄を撮ると入ります": { zh: "出院前，拍下医院填写的新生儿栏目就能记入", en: "Before leaving the hospital, take a photo of the newborn section the hospital filled in and it goes in" },
   "健診で測った日に、身長・体重の欄を撮っても入ります": { zh: "在健康检查测量的那天，拍下身高、体重的栏目也能记入", en: "On the day of a checkup measurement, you can also take a photo of the height and weight section" },
   "接種の日に、シールが貼られた欄を撮っても入ります": { zh: "在接种那天，拍下贴着贴纸的栏目也能记入", en: "On the day of the shot, you can also take a photo of the section with the sticker on it" },
+  // 入力のボタン（家族の声①への直し A: ページごとの2つを「＋ 入れる」1つに）
+  "＋ 入れる": { zh: "＋ 记入", en: "+ Add" },
+  "＋ 健診の記録を入れる": { zh: "＋ 记入健康检查的记录", en: "+ Add a checkup record" },
+  "話す・撮るで入れる": { zh: "用说话或拍照记入", en: "Add by talking or taking a photo" },
 } satisfies Entries;

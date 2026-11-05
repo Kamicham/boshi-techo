@@ -6,6 +6,7 @@
 // 正本は紙の手帳の「予防接種の記録」欄（医療機関が書く・シールを貼る）。ここは家族の控え。
 // 妊娠中の RS ウイルスの母子免疫ワクチン（2026年度から妊婦の定期接種）は、手帳の予防接種の記録の頭に「妊娠週数-日」の欄がある
 // （こども家庭庁 府令様式 2026年4月施行版 p.52・厚生労働省「RSウイルスワクチン」）。ここでは回の代わりに妊娠週数を dose に残す（「妊娠30週2日」）。
+import Link from "next/link";
 import { useState } from "react";
 import { Btn, Why } from "@/components/ui";
 import { t } from "@/lib/i18n";
@@ -82,14 +83,12 @@ function AddVaccine({ today, onAdd }: { today: string; onAdd: (v: { vaccine: str
   const [facility, setFacility] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // 閉じた形は［＋ 入れる］1つ（家族の声①への直し A。手帳のほかのページの components/techo/EntryForm.tsx と同じ）。話す・撮るは開いた欄の頭に
   if (!open) {
     return (
-      <div className="grid grid-cols-2 gap-2">
-        <Btn kind="secondary" full onClick={() => setOpen(true)}>
-          {t("打って入れる")}
-        </Btn>
-        <Btn kind="secondary" full href="/capture">
-          {t("話す・撮る")}
+      <div>
+        <Btn kind="secondary" onClick={() => setOpen(true)}>
+          {t("＋ 入れる")}
         </Btn>
       </div>
     );
@@ -119,6 +118,10 @@ function AddVaccine({ today, onAdd }: { today: string; onAdd: (v: { vaccine: str
   };
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-line p-3">
+      <Link href="/capture" className="inline-flex min-h-11 items-center gap-1 self-start text-sm font-semibold text-sky">
+        <span className="underline underline-offset-2">{t("話す・撮るで入れる")}</span>
+        <span aria-hidden>›</span>
+      </Link>
       <label className="flex flex-col gap-1 text-sm text-muted">
         {t("受けた日")}
         <input type="date" value={date} max={today} onChange={(e) => setDate(e.target.value)} className={field} />
