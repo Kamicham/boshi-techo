@@ -152,9 +152,9 @@ fly deploy --remote-only   # 組み立ては Fly の機械で。像は、きれ�
 
 ### 確かめ方
 
-- **試験 79ファイル・945件**（2026-11-05 時点・`npm test`）。Claude は呼ばず、鍵も使わない。main への push と PR のたびに、GitHub Actions（`.github/workflows/check.yml`）が型・lint・試験・早送り・組み立て（next build）を回す
+- **試験 100ファイル・1128件**（2026-11-05 時点・`npm test`）。Claude は呼ばず、鍵も使わない。main への push と PR のたびに、GitHub Actions（`.github/workflows/check.yml`）が型・lint・試験・早送り・組み立て（next build）を回す
 - **早送り: 20の決まり（a〜t）× 1030家族 × 1000日**（`npm run sim`）。公的な統計から作った1000組（のべ 1,035,345日）と、珍しい型の30家族（のべ 28,767日）の毎日を、「今日」の画面と同じ関数に通す。手帳の記録の決まり t1〜t8 は、見本の家族を足した1031家族で確かめる。今はすべて守れている
-- **世帯をまたぐ試験**: 家族Aのログインで家族Bの記録・済んだ事・手帳・写真の id を叩くと、どれも 404（`app/src/sim/cross-household.test.ts`）。API の口が（健診の録音を除いて）すべて、関所（`withHousehold`）か理由つきの公開の口を通るかを、コードを読んで確かめる（`app/src/sim/api-guard.test.ts`）
+- **世帯をまたぐ試験**: 家族Aのログインで家族Bの記録・済んだ事・手帳・写真の id を叩くと、どれも 404（`app/src/sim/cross-household.test.ts`）。API の口が（健診の口も）すべて、関所（`withHousehold`）か理由つきの公開の口を通るかを、コードを読んで確かめる（`app/src/sim/api-guard.test.ts`）
 
 修正のたびに、公的な統計の割合から作った1000家族（すべて作った家族）でアプリの1000日を早送りしています。使った割合と出典: [docs/SIM_STATS.md](docs/SIM_STATS.md)
 
@@ -246,9 +246,9 @@ The source of truth is the four constants in [`app/src/lib/claude.ts`](app/src/l
 
 ## Tests
 
-- **945 tests in 79 files** (as of 2026-11-05, `npm test`). No Claude calls and no keys. GitHub Actions (`.github/workflows/check.yml`) runs types, lint, tests, the fast-forward and `next build` on every push to main and every PR.
+- **1,128 tests in 100 files** (as of 2026-11-05, `npm test`). No Claude calls and no keys. GitHub Actions (`.github/workflows/check.yml`) runs types, lint, tests, the fast-forward and `next build` on every push to main and every PR.
 - **Fast-forward: 20 rules (a–t) × 1,030 families × 1,000 days** (`npm run sim`). 1,000 synthetic families drawn from public statistics (1,035,345 family-days) and 30 hand-made rare cases (28,767 family-days) pass every day through the same functions as the Today screen. The 8 handbook-record rules (t1–t8) are checked on 1,031 families (adding the demo family). All pass today.
-- **Cross-household tests**: with family A's login, every record, done item, handbook entry and photo id of family B returns 404 (`app/src/sim/cross-household.test.ts`). A source-reading test checks that every API route (except the checkup recording) goes through the household gate (`withHousehold`) or is a public route with a stated reason (`app/src/sim/api-guard.test.ts`).
+- **Cross-household tests**: with family A's login, every record, done item, handbook entry and photo id of family B returns 404 (`app/src/sim/cross-household.test.ts`). A source-reading test checks that every API route (including the checkup routes) goes through the household gate (`withHousehold`) or is a public route with a stated reason (`app/src/sim/api-guard.test.ts`).
 
 Every change is fast-forwarded through 1,000 days with 1,000 synthetic families drawn from Japanese public statistics (sources: [docs/SIM_STATS.md](docs/SIM_STATS.md), in Japanese). Results: [docs/SIMULATION_RESULTS.md](docs/SIMULATION_RESULTS.md). How it was built with Claude Code: [docs/BUILT_WITH_CLAUDE_CODE.md](docs/BUILT_WITH_CLAUDE_CODE.md). Architecture, run modes and where it would live at national scale: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (in Japanese). After the hackathon it would move to a major cloud (Google Cloud or AWS) together with a rewrite to a managed database, object storage and KMS; of the docs we checked on 2026-11-05, only Amazon Bedrock (Tokyo and Osaka) confirms in-Japan processing for Claude, and it has no web search tool, so city research would need rework there.
 

@@ -4,7 +4,7 @@
 // ここの関数は「誰が見てよいか」を確かめない。API からは必ず lib/access.ts の withHousehold を通ってから呼ぶ。
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { ensureAccountSchema } from "./db";
+import { ensureAccountSchema, removeFilesDir } from "./db";
 import { destroyHouseholdKey, ensureHouseholdKey } from "./crypto";
 import { householdPrefix, storage, subjectPrefix } from "./storage";
 import { HttpError } from "./http-error";
@@ -245,6 +245,8 @@ export async function purgeHousehold(householdId: string, byAccount: string | nu
   const d = ensureAccountSchema();
   destroyHouseholdKey(householdId); // 先に鍵を消す（ファイルを消し損ねても読めない）
   await storage().delete(householdPrefix(householdId));
+  // 健診の録音（files/<世帯>/visits/…。世帯の鍵の外で置いている）も消す
+  removeFilesDir(householdId);
   d.transaction(() => {
     d.prepare(`DELETE FROM docs WHERE family_id = ?`).run(householdId);
     d.prepare(`DELETE FROM media WHERE household_id = ?`).run(householdId);

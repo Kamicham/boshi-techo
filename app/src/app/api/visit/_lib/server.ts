@@ -1,11 +1,14 @@
 // ⑤ 健診の1日: サーバ側の処理（録音のつなぎ・文字起こし・Claude で整理・道案内）。
+// 関所（2026-11-05 監査 #2）: どの口も visitFor（健診を id で引き、その健診の世帯で「セッション → 世帯 → 権限」）か、
+// familyFor（家族の id で世帯を指す口）を通る。よその世帯の健診は、在るかどうかも見せずに 404。
 import "server-only";
 import fs from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { get, list, patch, put, remove, filesDir, type Doc } from "@/lib/db";
 import { HttpError, requireFamily } from "@/lib/family";
-import { structured, imageBlock } from "@/lib/claude";
+import type { Perm } from "@/lib/access";
+import { MODEL, structured, imageBlock, type SendWho } from "@/lib/claude";
 import { transcribe } from "@/lib/asr";
 import { getKeep, remember } from "@/lib/keep";
 import {
@@ -29,14 +32,37 @@ import {
   type VisitData,
   type VisitPlan,
 } from "@/lib/visit";
+import { familyFor, type FamilyAccess } from "../../_lib/household";
 
 export type VisitDoc = Doc<VisitData>;
+
+const NOT_FOUND = "この健診の記録が見つかりません";
 
 /** 健診を1つ引く（無ければ 404） */
 export function requireVisit(id: string): VisitDoc {
   const d = get<VisitData>(id);
-  if (!d || d.type !== "visit" || d.data.kind !== "visit") throw new HttpError(404, "この健診の記録が見つかりません");
+  if (!d || d.type !== "visit" || d.data.kind !== "visit") throw new HttpError(404, NOT_FOUND);
   return d;
+}
+
+/**
+ * 健診1回分の関所: 健診を id で引き、その健診の世帯について「セッション → 世帯 → 権限」を通す（familyFor → withHousehold）。
+ * よその世帯の健診・家族の設定が無い世帯の健診は、在るかどうかも見せずに 404。ログインが要る（401）・権限が無い（403）・そのほかの失敗は、そのまま返す
+ * （403 は世帯の一員にだけ出るので、よその人には健診が在るかどうかが漏れない）。
+ * 公開版で見本の家族の健診を頼んだ時は、関所がその人の体験の写しに置き換えるので、id が合わず 404（共有の見本の健診は書かせない）。
+ * アカウントの仕組みを動かす前（わが家の置き場）は、今までどおり健診の家族の id で通す（api/_lib/household.ts の legacyAccess）。
+ */
+export async function visitFor(req: Request, id: string, perm: Perm | readonly Perm[]): Promise<{ v: VisitDoc; h: FamilyAccess }> {
+  const v = requireVisit(id);
+  let h: FamilyAccess;
+  try {
+    h = await familyFor(req, v.familyId, perm);
+  } catch (e) {
+    if (e instanceof HttpError && e.status === 404) throw new HttpError(404, NOT_FOUND);
+    throw e;
+  }
+  if (h.id !== v.familyId) throw new HttpError(404, NOT_FOUND);
+  return { v, h };
 }
 
 export function visitsOf(familyId: string): VisitDoc[] {
@@ -155,8 +181,8 @@ export function isRunning(id: string) {
   return running.has(id);
 }
 
-/** finish: すぐ返し、処理は裏で続ける */
-export function startFinish(v: VisitDoc, transcriptText?: string): VisitData {
+/** finish: すぐ返し、処理は裏で続ける。who は Claude に送る時の印（関所の h.who。同意と使った額の記録に使う） */
+export function startFinish(v: VisitDoc, who: SendWho, transcriptText?: string): VisitData {
   if (running.has(v.id)) return v.data;
   const now = new Date().toISOString();
   let reuse = false;
@@ -178,11 +204,11 @@ export function startFinish(v: VisitDoc, transcriptText?: string): VisitData {
     patch<VisitData>(v.id, { status: "transcribing", processingSince: now, error: undefined, failedAt: undefined });
   }
   running.add(v.id);
-  void runPipeline(v.id, reuse).finally(() => running.delete(v.id));
+  void runPipeline(v.id, reuse, who).finally(() => running.delete(v.id));
   return requireVisit(v.id).data;
 }
 
-async function runPipeline(id: string, reuseTranscript: boolean) {
+async function runPipeline(id: string, reuseTranscript: boolean, who: SendWho) {
   let stage: "transcribe" | "organize" = "transcribe";
   try {
     let v = requireVisit(id);
@@ -195,7 +221,8 @@ async function runPipeline(id: string, reuseTranscript: boolean) {
       let lastErr: unknown = null;
       for (const [i, j] of joined.entries()) {
         try {
-          const t = await transcribe(fs.readFileSync(j.file), ASR_HINT, "visit");
+          // 家族を渡す: 文字起こしの機械が無い時、本物の世帯はデモの文字起こしを入れずに止める（作った家族だけデモに落とす）
+          const t = await transcribe(fs.readFileSync(j.file), ASR_HINT, "visit", v.familyId);
           parts.push(t);
           // 文字起こしの機械が無い環境（審査員の手元など）: 用意したデモの会話を1回だけ使う
           if (t.demo) {
@@ -221,7 +248,10 @@ async function runPipeline(id: string, reuseTranscript: boolean) {
     stage = "organize";
     const fam = requireFamily(v.familyId);
     const result = await structured(OrganizedSchema, ORGANIZE_SYSTEM, organizePrompt(v.data, fam.members.map((m) => `${m.name}（${m.role}）`)), {
+      model: MODEL,
       effort: "medium",
+      who,
+      task: "visit-organize",
     });
     const nextDate = result.nextAppointment ? resolveAppointmentDate(v.data.date, result.nextAppointment) : null;
     patch<VisitData>(id, { result, nextDate, status: "done", processingSince: undefined, failedAt: undefined });
@@ -287,12 +317,15 @@ const GUIDE_SYSTEM = `あなたの役目: 病院の案内図・受付票・番�
 - 受付票に回る順（例: 受付→採尿→計測→診察→会計）が書いてあれば、その順を正とする。無ければ妊婦健診の一般的な流れ（受付・採尿・体重と血圧・診察・会計）を案内図に当てはめ、unsure にそう書く。
 - what は短く（例「尿を取って、窓口に出す」）。note は番号札・持って行く物・待つ場所など。体の判断はしない。`;
 
-export async function makeGuide(v: VisitDoc, images: string[]) {
+export async function makeGuide(v: VisitDoc, images: string[], who: SendWho) {
   if (!images.length) throw new HttpError(400, "写真がありません");
   if (images.length > 6) throw new HttpError(400, "写真は6枚までにしてください");
   const blocks = images.map((d) => imageBlock(d));
   const out = await structured(GuideSchema, GUIDE_SYSTEM, [...blocks, { type: "text", text: `健診の日: ${v.data.date}（${v.data.label}）。今日回る順番を作ってください。` }], {
+    model: MODEL,
     effort: "low",
+    who,
+    task: "visit-guide",
   });
   const guide = { steps: out.steps, done: [] as number[], at: new Date().toISOString(), unsure: out.unsure };
   patch<VisitData>(v.id, { guide });

@@ -74,10 +74,9 @@ describe("生の中身を読む（readBytes）", () => {
     };
     walk(api);
     expect(routes.length).toBeGreaterThan(20);
-    // 健診の録音の一切れ（visit/[id]/chunk）は、健診の口を世帯の関所へ移す時（監査 #2・11/5 14:30 以降）に readBytes へ揃える
-    const LATER = new Set(["visit/[id]/chunk/route.ts"]);
-    const direct = routes.map((p) => path.relative(api, p)).filter((r) => !LATER.has(r) && /req\.arrayBuffer\(\)/.test(fs.readFileSync(path.join(api, r), "utf8")));
+    const direct = routes.map((p) => path.relative(api, p)).filter((r) => /req\.arrayBuffer\(\)/.test(fs.readFileSync(path.join(api, r), "utf8")));
     expect(direct).toEqual([]);
-    for (const r of ["capture/voice/route.ts", "ask/voice/route.ts", "media/voice/route.ts"]) expect(fs.readFileSync(path.join(api, r), "utf8"), r).toContain("readBytes(req");
+    for (const r of ["capture/voice/route.ts", "ask/voice/route.ts", "media/voice/route.ts", "visit/[id]/chunk/route.ts"])
+      expect(fs.readFileSync(path.join(api, r), "utf8"), r).toContain("readBytes(req");
   });
 });
