@@ -32,23 +32,29 @@ export const shareViewerOf = recordViewerOf;
 export type ShareBundle = "body" | "growth" | "checkups" | "vaccines" | "next" | "questions" | "motherHealth";
 
 /**
- * 束の並び（1枚の上からこの順）。mother はママ本人だけが選べる束。
+ * 束の並び（1枚の上からこの順）。mother はママ本人だけが選べる束。visit は健診の記録（次の予定・気がかり）から作る束で、
+ * 読むだけの人（reader）には選ぶ所も出さない（C の3: 読むだけの人には健診の口を開かない・2026-11-05。子の分も一緒に隠れる）。
  * body＝母の体（妊婦健診の値・家で測った物・身長と妊娠前の体重）／ growth＝子の成長 ／ checkups＝健診の日 ／ vaccines＝接種 ／
  * next＝次の予定 ／ questions＝健診で聞きたい事 ／ motherHealth＝妊婦の健康状態（これまでの病気・アレルギー・薬など。既定でオフ）
  */
-export const SHARE_BUNDLES: readonly { id: ShareBundle; mother: boolean; defaultOn: boolean }[] = [
+export const SHARE_BUNDLES: readonly { id: ShareBundle; mother: boolean; visit?: true; defaultOn: boolean }[] = [
   { id: "body", mother: true, defaultOn: true },
   { id: "growth", mother: false, defaultOn: true },
   { id: "checkups", mother: false, defaultOn: true },
   { id: "vaccines", mother: false, defaultOn: true },
-  { id: "next", mother: false, defaultOn: true },
-  { id: "questions", mother: false, defaultOn: true },
+  { id: "next", mother: false, visit: true, defaultOn: true },
+  { id: "questions", mother: false, visit: true, defaultOn: true },
   { id: "motherHealth", mother: true, defaultOn: false },
 ];
 
-/** その人が選べる束と、はじめの入り切り（ママ本人でなければ、ママの束は出さない） */
+/** その人が選べる束か（ママの束はママ本人だけ・健診の記録の束は読むだけの人には出さない） */
+function canChoose(b: (typeof SHARE_BUNDLES)[number], viewer: ShareViewer): boolean {
+  return (!b.mother || viewer === "mother") && (!b.visit || viewer !== "reader");
+}
+
+/** その人が選べる束と、はじめの入り切り（ママ本人でなければママの束、読むだけの人には健診の記録の束を出さない） */
 export function shareChoices(viewer: ShareViewer): { id: ShareBundle; on: boolean }[] {
-  return SHARE_BUNDLES.filter((b) => !b.mother || viewer === "mother").map((b) => ({ id: b.id, on: b.defaultOn }));
+  return SHARE_BUNDLES.filter((b) => canChoose(b, viewer)).map((b) => ({ id: b.id, on: b.defaultOn }));
 }
 
 // ───────── 1枚の形（id・名前・題・元の言葉・メモ・施設名・ロット・医師を持たない） ─────────
@@ -178,7 +184,7 @@ export function shareView(input: ShareInput, opts: { viewer: ShareViewer; bundle
   const mother = opts.viewer === "mother";
   const quiet = hideCounts(input.family);
   const today = DATE.test(input.today) ? input.today : "0000-00-00";
-  const bundles = SHARE_BUNDLES.filter((b) => (!b.mother || mother) && opts.bundles.includes(b.id)).map((b) => b.id);
+  const bundles = SHARE_BUNDLES.filter((b) => canChoose(b, opts.viewer) && opts.bundles.includes(b.id)).map((b) => b.id);
   const want = new Set(bundles);
   const live = input.entries.filter((e) => e && !e.pending && typeof e.date === "string" && DATE.test(e.date) && e.date <= today && (mother || !isMotherEntry(e)));
   // 体の数字は B と同じ拾い方（どの束でも、何人目かの番号をそろえるために毎回作る）

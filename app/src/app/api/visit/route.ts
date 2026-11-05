@@ -2,13 +2,15 @@
 import { body, route } from "@/lib/api";
 import { familyFor } from "../_lib/household";
 import { concernSide, nextAgenda, type VisitData } from "@/lib/visit";
-import { bornOn, createVisit, getPlan, ongoingVisit, visitsOf } from "./_lib/server";
+import { bornOn, createVisit, getPlan, notForReaders, ongoingVisit, visitsOf } from "./_lib/server";
 import { prenatalState } from "@/lib/prenatal";
 import { listTecho } from "@/lib/techo-store";
 
 export const GET = route(async (req: Request) => {
   const q = new URL(req.url).searchParams;
-  const { family: fam } = await familyFor(req, q.get("familyId"), "record:read");
+  const h = await familyFor(req, q.get("familyId"), "record:read");
+  notForReaders(h);
+  const fam = h.family;
   const today = q.get("today") ?? new Date().toISOString().slice(0, 10);
   const docs = visitsOf(fam.id);
   const plan = getPlan(fam.id);

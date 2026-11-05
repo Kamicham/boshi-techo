@@ -1,7 +1,7 @@
 // ママの記録の見分け方と、読むだけの人（祖父母など・member）に見せてよい形（2026-11-05 家族の声②の C・統括の割り振り）。
 // 作り手の決め（承認したプラン https://claude.ai/artifact/3XseGBAg5LzK2UWgvoCJRK の「決める事4」）:
 // 読むだけの人には、ママの体の図と、健診で見せる1枚のママの欄を見せない。ママが1枚で渡した時だけ。
-// 健診で見せる1枚（lib/share-view.ts）・手帳の一覧（/api/techo）・書き出し（/api/export）が、同じこの決まりを使う。
+// 健診で見せる1枚（lib/share-view.ts）・手帳の一覧（/api/techo）・書き出し（/api/export）・健診の口（api/visit の notForReaders）が、同じこの決まりを使う。
 // 画面からもサーバからも読む純粋な関数（試験は mother-records.test.ts）。
 //
 // 招く時にママが選ぶ「見せる項目」（components/settings/consent-texts.ts の SHARE_ITEMS・proxies.scope）は、まだどこでも読んでいない

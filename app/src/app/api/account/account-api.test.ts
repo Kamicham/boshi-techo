@@ -428,6 +428,30 @@ describe("アカウントの画面の API", () => {
     expect(m.get("はじめに.txt")!.toString()).not.toContain("読むだけの方");
   });
 
+  it("読むだけの人（祖父母）には、健診の口（一覧・1回分）を開かない（403）。書く口は前から閉じている。ママは今までどおり", async () => {
+    const V = await import("../visit/route");
+    const one = await import("../visit/[id]/route");
+    const plan = await import("../visit/plan/route");
+    const at = (id: string) => ({ params: Promise.resolve({ id }) });
+    const made = await json<{ visit: { id: string } }>(V.POST(rq("/api/visit", mom, "POST", { familyId: hid, date: "2027-06-01" })));
+    expect(made.status).toBe(200);
+    const id = made.body.visit.id;
+    expect((await V.GET(rq(`/api/visit?familyId=${hid}&today=2027-06-01`, mom))).status).toBe(200);
+    expect((await one.GET(rq(`/api/visit/${id}`, mom), at(id))).status).toBe(200);
+
+    const list = await json<{ error?: string; visits?: unknown }>(V.GET(rq(`/api/visit?familyId=${hid}&today=2027-06-01`, grandma)));
+    expect(list.status).toBe(403);
+    expect(list.body.visits).toBeUndefined();
+    expect(JSON.stringify(list.body)).toContain("健診の記録は、ママと、記録を書ける家族だけが開けます");
+    expect((await one.GET(rq(`/api/visit/${id}`, grandma), at(id))).status).toBe(403);
+    expect((await one.PATCH(rq(`/api/visit/${id}`, grandma, "PATCH", { label: "x" }), at(id))).status).toBe(403);
+    expect((await one.DELETE(rq(`/api/visit/${id}`, grandma, "DELETE"), at(id))).status).toBe(403);
+    expect((await V.POST(rq("/api/visit", grandma, "POST", { familyId: hid, date: "2027-06-02" }))).status).toBe(403);
+    expect((await plan.POST(rq("/api/visit/plan", grandma, "POST", { familyId: hid, concern: "x" }))).status).toBe(403);
+    // よその人は、在るかどうかも見せない（404）
+    expect((await one.GET(rq(`/api/visit/${id}`, stranger), at(id))).status).toBe(404);
+  });
+
   it("祖父母は、自分の分でない本人を消せない。持ち主は「消す」と入れれば本人の分を消せる", async () => {
     const H = await import("./household/route");
     const S = await import("./subject/route");

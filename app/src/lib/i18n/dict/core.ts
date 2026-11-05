@@ -9,6 +9,8 @@ export default {
   閉じる: { zh: "关闭", en: "Close" },
   /** 名前・時期を括弧で添える（English は半角の括弧と空き） */
   "（{x}）": { zh: "（{x}）", en: " ({x})" },
+  /** 引用を括弧で包む（中文・English は “ ”。2026-11-05 today.ts から移した＝急ぎの時の画面の辞書にも入るよう） */
+  "「{text}」": { zh: "“{text}”", en: "“{text}”" },
   /** 人の名前に付ける「さん」（中文・English は名前だけ） */
   "{name}さん": { zh: "{name}", en: "{name}" },
   赤ちゃん: { zh: "宝宝", en: "the baby" },
