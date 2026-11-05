@@ -19,6 +19,7 @@ import { FeelingList } from "@/components/techo/FeelingList";
 import { GrowthChart } from "@/components/techo/GrowthChart";
 import { PendingBox } from "@/components/techo/PendingBox";
 import { PregnancyBody } from "@/components/techo/PregnancyBody";
+import { BodyCard } from "@/components/techo/BodyCard";
 import { StoolCard } from "@/components/techo/StoolCard";
 import { useTecho, type TechoItem } from "@/components/techo/useTecho";
 import { VaccineList } from "@/components/techo/VaccineList";
@@ -175,6 +176,9 @@ export default function TechoPage() {
         </Notice>
       )}
       {loading && <p className="text-base text-muted">{t("手帳を開いています…")}</p>}
+
+      {/* からだの記録の1枚（家族の声②・プランの B の5）。最新の値と小さな線。押すと図へ */}
+      <BodyCard items={confirmed} />
 
       <PendingBox items={pending} onConfirm={confirm} onRemove={remove} />
 
@@ -365,7 +369,9 @@ function PageBody({
       // からだの記録（家族の声②）: 紙と同じ表と体重の線。1件ずつの記録は、表がある時は畳む
       return (
         <>
-          <PregnancyBody items={all}>{list.length > 0 && <RecentList list={list} onRemove={remove} />}</PregnancyBody>
+          <PregnancyBody items={all} add={add} remove={remove}>
+            {list.length > 0 && <RecentList list={list} onRemove={remove} />}
+          </PregnancyBody>
           <EntryForm page={id} today={today} add={add} />
         </>
       );

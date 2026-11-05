@@ -147,12 +147,12 @@ export const ALWAYS = [
 export function isKnownHref(href: string): boolean {
   if (SCREENS.some((s) => s.href === href)) return true;
   if (TECHO_ANCHORS.some((a) => a.href === href)) return true;
-  return href === "/techo#book";
+  return href === "/techo#book" || href === "/techo#body";
 }
 
 /** Claude に渡す画面の地図の文 */
 export function guideText(): string {
   const screens = SCREENS.map((s) => `■ ${s.name}（${s.href}）行き方: ${s.reach}\n${s.can.map((c) => `- ${c}`).join("\n")}`).join("\n\n");
   const anchors = TECHO_ANCHORS.map((a) => `- ${a.name}: ${a.href}`).join("\n");
-  return `${screens}\n\n■ どの画面にもある物\n${ALWAYS.map((a) => `- ${a}`).join("\n")}\n\n■ 手帳のページへ直に飛ぶ行き先\n${anchors}\n- 手帳の「一冊」: /techo#book`;
+  return `${screens}\n\n■ どの画面にもある物\n${ALWAYS.map((a) => `- ${a}`).join("\n")}\n\n■ 手帳のページへ直に飛ぶ行き先\n${anchors}\n- 手帳の「一冊」: /techo#book\n- 手帳の「からだの記録」（妊娠中はママの体重と健診の表、生まれた後は赤ちゃんの体重。読むだけの家族には妊娠中のママの物は出ない）: /techo#body`;
 }

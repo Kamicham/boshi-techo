@@ -7,13 +7,16 @@
 // 矢印・前回との差・評価の言葉を出さない。図の下には、いつも同じ一言。
 // 目安の幅（日本産科婦人科学会 2021年3月8日）は 40週の所に括弧を1本だけ。内か外かで点の色・形・文を変えない。区分の名前は出さない。
 // 読むだけの家族（member）とつらい別れの家族には出さない（作り手が決めた・lib/body-series.ts）。
+// 図の下に、家で測った体重・血圧を1行で入れる口（HomeEntry・プランの B の6）。妊娠中だけ。空の時は1行で案内する（入力を促す言葉は使わない）。
 import { useMemo, type ReactNode } from "react";
 import { useFamily } from "@/components/FamilyProvider";
 import { Why } from "@/components/ui";
 import { bodySeries, GAIN_GUIDE_SOURCE, gainGuide, type GainGuide, type MotherBody } from "@/lib/body-series";
 import { clockAt, clockShort } from "@/lib/clock";
 import { t } from "@/lib/i18n";
+import { HomeEntry } from "./HomeEntry";
 import type { TechoItem } from "./useTecho";
+import type { TechoEntry } from "@/lib/techo";
 
 /** 家族のデータの数を、そのまま出す（小数は書いてあるまで。0 を足さない） */
 const n = (v: number | undefined) => (v === undefined ? "" : String(Math.round(v * 10) / 10));
@@ -29,16 +32,43 @@ export function useReadOnly(): boolean {
  * 妊婦健診のページの上に置く、表と体重の線。children は1件ずつの記録（消す・直す）で、表を出す時は畳む。
  * 数が1つも無い時・読むだけの家族・つらい別れの家族は、表と線を出さず children をそのまま
  */
-export function PregnancyBody({ items, children }: { items: TechoItem[]; children?: ReactNode }) {
-  const { family, today } = useFamily();
+export function PregnancyBody({
+  items,
+  children,
+  add,
+  remove,
+}: {
+  items: TechoItem[];
+  children?: ReactNode;
+  add?: (entry: Omit<TechoEntry, "source">) => Promise<void>;
+  remove?: (ids: string[]) => Promise<void>;
+}) {
+  const { family, today, isDemo } = useFamily();
   const readOnly = useReadOnly();
   const s = useMemo(() => bodySeries(items, family, today), [items, family, today]);
   const m = s && !readOnly ? s.mother : null;
-  if (!m || (!m.checkups.length && !m.home.some((h) => h.weightKg !== undefined))) return <>{children}</>;
+  const born = !!family.birthDate && family.birthDate <= today;
+  // 家で測った物の口は、妊娠中・書ける家族・つらい別れでない家族だけ
+  const mama = family.members.find((x) => x.role === "母");
+  const homeRows = items.filter((it) => it.page === "home" && !it.pending);
+  const entry =
+    m && !born && add && remove ? <HomeEntry today={today} rows={homeRows} add={add} remove={remove} who={mama?.name} /> : null;
+  if (!m || (!m.checkups.length && !m.home.some((h) => h.weightKg !== undefined))) {
+    if (!entry) return <>{children}</>;
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-base text-muted">{t("健診の数字が入ると、ここに紙の手帳と同じ表と体重の線が出ます。")}</p>
+        {isDemo && <p className="text-sm text-muted">{t("見本の家族は、上の「{other}」で「{stage}」にすると、表と線が見られます。", { other: t("ほかの時期"), stage: t("妊娠37週") })}</p>}
+        {entry}
+        {children}
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col gap-3">
       <CheckupTable mother={m} dueDate={family.dueDate} />
       <WeightLine mother={m} />
+      {entry}
       {children && (
         <details className="group">
           <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-sm text-muted [&::-webkit-details-marker]:hidden">

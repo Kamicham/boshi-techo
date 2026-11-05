@@ -4,6 +4,7 @@
 // 話す・撮ると同じ重さで並べる3つ目の入れ方。打つ方が早い物（体重・血圧・体温・身長・日付・時刻・短い一言）を、その場で打つ。
 // 打った物は家族が自分で書いた物なので、Claude を通さず、OK 待ちにもせず、そのまま手帳と記録に入る。
 // 数字は数字のキーボード、日付は日付の選び、予定は時刻も。週数・医療機関などは手帳が知っている値を先に入れておく（lib/techo-prefill.ts）。
+// 妊娠中の「家で測った体重・血圧」は手帳の page "home" に入れる（からだの記録・家族の声②・プランの B の4。妊婦健診のページには入れない＝健診の回数と受診券の残りがずれない）。
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { api, useFamily } from "@/components/FamilyProvider";
@@ -14,10 +15,11 @@ import { isMadeId, labelIn } from "@/lib/i18n/names";
 import { tr } from "@/lib/i18n/rich";
 import { MANUAL_KINDS, type ManualKind } from "@/lib/manual-entry";
 import { dot } from "@/lib/memory-words";
+import { HOME_PAGE_ID } from "@/lib/techo";
 import { TECHO_FORMS } from "@/lib/techo-fields";
 import { techoPrefill } from "@/lib/techo-prefill";
 
-type Pick = "checkup" | "size" | "temp" | "note" | "plan";
+type Pick = "checkup" | "home" | "size" | "temp" | "note" | "plan";
 
 const field = "min-h-11 w-full rounded-lg border border-line bg-card px-3 text-base text-ink";
 
@@ -73,6 +75,7 @@ export function TypeSheet({ onClose, onSaved }: { onClose: () => void; onSaved: 
   // 時期に合わせて「よく打つ物」を上に並べる
   const picks: { key: Pick; label: string; sub: string }[] = [
     born ? { key: "size", label: t("体重・身長"), sub: [head(childName), "kg", "cm"].join(dot()) } : { key: "checkup", label: t("健診の体重・血圧"), sub: t("週数は入っています") },
+    ...(born ? [] : [{ key: "home" as const, label: t("家で測った体重・血圧"), sub: ["kg", "mmHg"].join(dot()) }]),
     { key: "temp", label: t("体温"), sub: "℃" },
     { key: "note", label: t("ひとこと"), sub: t("できごと・気がかり・メモ") },
     { key: "plan", label: t("予定・期限"), sub: t("日付と時刻") },
@@ -98,7 +101,13 @@ export function TypeSheet({ onClose, onSaved }: { onClose: () => void; onSaved: 
     setBusy(true);
     setError("");
     try {
-      if (pick === "checkup" || pick === "size") {
+      if (pick === "home") {
+        const values = Object.fromEntries(["weightKg", "bpHigh", "bpLow"].map((k) => [k, (raw[k] ?? "").trim()]).filter(([, v]) => v));
+        if (!Object.keys(values).length) throw new Error(t("数字を1つ入れてください"));
+        // 訳さない: 保存する見出し（手帳の記録の題。画面では題を出さず、数字を画面の言葉で組む）
+        await add({ page: HOME_PAGE_ID, date, title: "家で測った", ...(mama ? { who: mama.name } : {}), values });
+        onSaved(t("からだの記録に入れました（体重の線に点が付きます）"));
+      } else if (pick === "checkup" || pick === "size") {
         const keys = pick === "checkup" ? checkupFields.map((f) => f.key) : ["weightKg", "heightCm", "headCm"];
         const values = Object.fromEntries(keys.map((k) => [k, (raw[k] ?? "").trim()]).filter(([, v]) => v));
         // 週数と医療機関は先に入っているので、体の数字が1つも無い時は止める
@@ -176,6 +185,19 @@ export function TypeSheet({ onClose, onSaved }: { onClose: () => void; onSaved: 
               </label>
             ),
           )}
+        </div>
+      )}
+
+      {pick === "home" && (
+        <div className="grid grid-cols-2 gap-2">
+          <div className="col-span-2">
+            <DateField label={t("測った日")} value={date} onChange={setDate} max={today} />
+          </div>
+          <div className="col-span-2">
+            <NumberField label={t("体重")} unit="kg" value={raw.weightKg ?? ""} onChange={set("weightKg")} />
+          </div>
+          <NumberField label={t("血圧（上）")} unit="mmHg" value={raw.bpHigh ?? ""} onChange={set("bpHigh")} />
+          <NumberField label={t("血圧（下）")} unit="mmHg" value={raw.bpLow ?? ""} onChange={set("bpLow")} />
         </div>
       )}
 
