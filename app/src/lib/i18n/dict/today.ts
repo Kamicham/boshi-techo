@@ -276,7 +276,7 @@ export default {
   "ほかに{n}件": { zh: "另外还有{n}件", en: "{n} more" },
   "{who}さんの番 {n}件": { zh: "轮到{who}的事 {n}件", en: "{who}'s turn: {n} {n:thing|things}" },
   "近づいたら出す事 {n}件": { zh: "临近时会显示的事 {n}件", en: "Coming up later: {n} {n:thing|things}" },
-  "{city}のこども家庭センター・保健センター": { zh: "{city}的儿童家庭中心（こども家庭センター）、保健中心", en: "{city} Children and Families Center (こども家庭センター) / health center" },
+  "{city}のこども家庭センター・保健センター": { zh: "{city}的儿童家庭中心（こども家庭センター）、保健中心", en: "{city} Children and Family Center (こども家庭センター) / health center" },
   "妊娠中から子育てまで、何でも聞ける町の窓口です（保健師さんがいます）": {
     zh: "从怀孕到育儿，什么都可以咨询的市区町村窗口（有保健师）",
     en: "Your city's office for anything from pregnancy to raising a child (public health nurses are there)",
@@ -285,7 +285,7 @@ export default {
   町の窓口の電話番号を調べる: { zh: "查市区町村窗口的电话号码", en: "Look up the city office's phone number" },
   "「{city} こども家庭センター」で調べると、町の公式のページに電話番号があります": {
     zh: "搜索儿童家庭中心（{city} こども家庭センター），市区町村的官方网页上有电话号码",
-    en: "Search for the Children and Families Center (“{city} こども家庭センター”); the number is on the city's official page",
+    en: "Search for the Children and Family Center (“{city} こども家庭センター”); the number is on the city's official page",
   },
   調べる: { zh: "搜索", en: "Search" },
   産後ケア: { zh: "产后护理（産後ケア）", en: "Postpartum care (産後ケア)" },
@@ -340,7 +340,7 @@ export default {
   },
   "こども家庭センターは、2024年4月から市区町村に置かれ始めた相談の窓口です（児童福祉法。2025年5月で約7割の市区町村。まだの町は保健センターが窓口です）。産後ケアは出産後1年までの母と子のための市区町村の事業で、使える人や料金は町ごとに違います（母子保健法）。": {
     zh: "儿童家庭中心（こども家庭センター）是2024年4月起开始在各市区町村设立的咨询窗口（儿童福利法。截至2025年5月约7成市区町村已设立，尚未设立的地方由保健中心作为窗口）。产后护理（産後ケア）是市区町村为产后1年内的母亲和孩子开展的项目，可以使用的人和费用因地而异（母子保健法）。",
-    en: "Children and Families Centers (こども家庭センター) are support offices that cities began setting up in April 2024 (Child Welfare Act; about 7 in 10 cities as of May 2025; where there isn't one yet, the health center is the contact). Postpartum care (産後ケア) is a city program for mothers and babies up to 1 year after birth; who can use it and the fees differ by city (Maternal and Child Health Act).",
+    en: "Children and Family Centers (こども家庭センター) are support offices that cities began setting up in April 2024 (Child Welfare Act; about 7 in 10 cities as of May 2025; where there isn't one yet, the health center is the contact). Postpartum care (産後ケア) is a city program for mothers and babies up to 1 year after birth; who can use it and the fees differ by city (Maternal and Child Health Act).",
   },
   "0570-064-556 は厚生労働省の「こころの健康相談統一ダイヤル」で、かけた場所の都道府県・政令市の公的な相談窓口につながります（ナビダイヤルなので通話料がかかり、050 の IP 電話からはつながりません）。": {
     zh: "0570-064-556 是厚生劳动省的“心理健康咨询统一热线（こころの健康相談統一ダイヤル）”，会接通拨打地所在都道府县或政令指定市的公共咨询窗口（这是导航拨号号码，需付通话费，用 050 开头的 IP 电话打不通）。",
@@ -504,6 +504,24 @@ export default {
   // 文面の相手（AdvisorCard の toIn）と、文面が日本語のままである事の一言
   "{city}の子育ての窓口": { zh: "{city}的育儿窗口", en: "the {city} childcare office" },
   "文面は、相手が読む日本語のままです": { zh: "文稿保持日语原文，方便对方阅读", en: "The message stays in Japanese for the person reading it" },
+
+  // ── 妊娠中の思い出の誘い（BumpMoment・表は lib/media-shared.ts の BUMP_MOMENTS。「おなかに話しかける」は memories.ts、「未来の手紙」は album.ts） ──
+  エコーの写真: { zh: "B超照片", en: "Ultrasound photo" },
+  "健診でもらったエコーの写真を、手帳に残せます": { zh: "可以把产检时拿到的B超照片存进手册", en: "You can keep the ultrasound photo from your checkup in the handbook" },
+  "紙の写真は、年月で薄くなります。撮っておくと、ずっと見られます": { zh: "纸质照片会随着岁月褪色。拍下来，就能一直看。", en: "Paper photos fade over the years. Take a picture of it and you can look at it for good." },
+  "📷 写真を残す": { zh: "📷 保存照片", en: "📷 Save a photo" },
+  妊娠5か月: { zh: "怀孕5个月", en: "5 months pregnant" },
+  "妊娠5か月。安産祈願（戌の日）に行く家族もいます": { zh: "怀孕5个月。有的家庭会去祈求平安生产（戌日）。", en: "5 months pregnant. Some families visit a shrine to pray for a safe birth (on the Day of the Dog, 戌の日)." },
+  "行った日の写真や、おなかの写真を残せます": { zh: "可以保存去的那天的照片，或者肚子的照片", en: "You can save photos from that day, or of your bump" },
+  "おなかに話しかける声を、残してみませんか": { zh: "要不要把对肚子说的话录下来？", en: "Why not record your voice talking to the bump?" },
+  "生まれたあと、一緒に聞けます": { zh: "出生以后，可以一起听。", en: "You can listen together after the baby is born." },
+  "🎙 声を残す": { zh: "🎙 录下声音", en: "🎙 Record your voice" },
+  名前のこと: { zh: "关于名字", en: "About the name" },
+  "名前の候補や由来を、声で残せます（任意）": { zh: "可以用声音记下名字的候选和由来（可选）", en: "You can record name ideas and what they mean (optional)" },
+  "決まる前の迷いも、いつか一緒に聞けます": { zh: "决定之前的犹豫，以后也能一起听。", en: "Even the back-and-forth before you decide is something you can listen to together someday." },
+  "1歳の誕生日に開く手紙を、書いてみませんか": { zh: "要不要写一封在1岁生日时打开的信？", en: "Why not write a letter to open on the first birthday?" },
+  "封をして、その日まで手帳が守ります": { zh: "封好后，手册会保管到那一天。", en: "Seal it, and the handbook will keep it safe until that day." },
+  "💌 手紙を書く": { zh: "💌 写信", en: "💌 Write a letter" },
 
   // ── 家族から・手紙・誕生日・1000日（FamilyNews・LetterNews・BirthdayCard・ThousandDays・MilestoneDay） ──
   家族から: { zh: "来自家人", en: "From your family" },
