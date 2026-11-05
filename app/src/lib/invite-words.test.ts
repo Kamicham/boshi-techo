@@ -38,7 +38,9 @@ describe("招待の言葉", () => {
 
   it("受ける画面の見られる物: 共同の管理は全部。読むだけにも、今は母の記録を含む文字の記録が見える事を隠さない", () => {
     expect(inviteSeeLine("admin", [])).toContain("母の記録も");
-    expect(inviteSeeLine("member", [])).toBe("見られる物: 手帳の文字の記録（今は母の記録も見えます）と、子の写真・声（記録を足す・直すはできません）");
+    expect(inviteSeeLine("member", [])).toBe(
+      "見られる物: 子の手帳の記録と、子の写真・声（手帳のママの頁は見えません。話した記録や一冊などには、今は母の記録も入ります。記録を足す・直すはできません）",
+    );
     // 母が項目を1つでも選ぶと、写真・声は母の分も見える（lib/access.ts の visibleSubjects）
     expect(inviteSeeLine("member", ["母の写真"])).toContain("子と母の写真・声");
     // 「子の記録だけ」「選んだ項目だけ」と約束しない
