@@ -1,6 +1,7 @@
-// 次の予約日と、家族が足す気がかり。
+// 次の予約日と、家族が足す気がかり。関所は familyFor（家族の id で世帯を指し、「セッション → 世帯 → 権限」）。
 import { body, route } from "@/lib/api";
-import { HttpError, requireFamily } from "@/lib/family";
+import { HttpError } from "@/lib/family";
+import { familyFor } from "../../_lib/household";
 import { patch } from "@/lib/db";
 import type { VisitData } from "@/lib/visit";
 import { getPlan, newId, ongoingVisit, savePlan } from "../_lib/server";
@@ -20,7 +21,7 @@ export const POST = route(async (req: Request) => {
     paid?: { date: string; yen: number };
     removePaid?: string;
   }>(req);
-  const fam = requireFamily(b.familyId);
+  const { family: fam } = await familyFor(req, b.familyId, "record:write");
   const plan = getPlan(fam.id);
   if (b.next !== undefined) {
     if (b.next && !/^\d{4}-\d{2}-\d{2}$/.test(b.next.date)) throw new HttpError(400, "予約の日付が読めません");

@@ -1,6 +1,6 @@
-// 健診の一覧と、新しい健診を始める。
+// 健診の一覧と、新しい健診を始める。関所は familyFor（家族の id で世帯を指し、「セッション → 世帯 → 権限」）。
 import { body, route } from "@/lib/api";
-import { requireFamily } from "@/lib/family";
+import { familyFor } from "../_lib/household";
 import { concernSide, nextAgenda, type VisitData } from "@/lib/visit";
 import { bornOn, createVisit, getPlan, ongoingVisit, visitsOf } from "./_lib/server";
 import { prenatalState } from "@/lib/prenatal";
@@ -8,7 +8,7 @@ import { listTecho } from "@/lib/techo-store";
 
 export const GET = route(async (req: Request) => {
   const q = new URL(req.url).searchParams;
-  const fam = requireFamily(q.get("familyId"));
+  const { family: fam } = await familyFor(req, q.get("familyId"), "record:read");
   const today = q.get("today") ?? new Date().toISOString().slice(0, 10);
   const docs = visitsOf(fam.id);
   const plan = getPlan(fam.id);
@@ -55,8 +55,10 @@ export const GET = route(async (req: Request) => {
 
 export const POST = route(async (req: Request) => {
   const b = await body<{ familyId?: string; date?: string; demo?: boolean; agenda?: string[] }>(req);
-  const fam = requireFamily(b.familyId);
-  const demo = !!b.demo && fam.id.startsWith("demo");
+  const h = await familyFor(req, b.familyId, "record:write");
+  const fam = h.family;
+  // デモの健診（持ち越しに触らない）は、見本の家族だけ
+  const demo = !!b.demo && h.kind === "demo";
   const doc = createVisit(fam.id, b.date ?? "", { demo, demoAgenda: demo && Array.isArray(b.agenda) ? b.agenda.map(String).slice(0, 10) : undefined });
   return { visit: { id: doc.id, ...(doc.data as VisitData) } };
 });

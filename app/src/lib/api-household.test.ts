@@ -173,6 +173,64 @@ describe("アカウントの仕組みが動いている時（BOSHI_DATA_DIR を�
     expect((await techo.GET(req(`/api/techo?familyId=${hidB}&today=2027-01-01`, { cookie: bob }))).status).toBe(200);
   });
 
+  it("健診の口（api/visit）: 自分の世帯の健診は通る。他人の世帯の健診は、見る・直す・消す・録音・終える・道案内のどれも 404、ログインなしは 401（監査 #2）", async () => {
+    const V = await import("@/app/api/visit/_lib/server");
+    const list = await import("@/app/api/visit/route");
+    const plan = await import("@/app/api/visit/plan/route");
+    const one = await import("@/app/api/visit/[id]/route");
+    const chunk = await import("@/app/api/visit/[id]/chunk/route");
+    const take = await import("@/app/api/visit/[id]/take/route");
+    const finish = await import("@/app/api/visit/[id]/finish/route");
+    const guide = await import("@/app/api/visit/[id]/guide/route");
+    const at = (id: string) => ({ params: Promise.resolve({ id }) });
+
+    // 自分の世帯（alice）で健診を始める
+    const made = await json(await list.POST(req("/api/visit", { cookie: alice, body: { familyId: hidA, date: "2027-01-12" } })));
+    expect(made.status).toBe(200);
+    const id = (made.body.visit as { id: string }).id;
+    const before = JSON.stringify(V.requireVisit(id).data);
+    const audio = (cookie?: string, extra: Record<string, string> = {}) =>
+      new Request(`${BASE}/api/visit/${id}/chunk?seq=0&take=0&ext=webm`, {
+        method: "POST",
+        headers: { "content-type": "audio/webm", ...(cookie ? { cookie } : {}), ...extra },
+        body: new Uint8Array(2000),
+      });
+
+    // 他人の世帯（bob）からは、どの口も 404（有る・無いを漏らさない）
+    expect((await one.GET(req(`/api/visit/${id}`, { cookie: bob }), at(id))).status).toBe(404);
+    expect((await one.PATCH(req(`/api/visit/${id}`, { cookie: bob, method: "PATCH", body: { consent: true } }), at(id))).status).toBe(404);
+    expect((await one.DELETE(req(`/api/visit/${id}`, { cookie: bob, method: "DELETE" }), at(id))).status).toBe(404);
+    expect((await chunk.POST(audio(bob), at(id))).status).toBe(404);
+    expect((await take.POST(req(`/api/visit/${id}/take`, { cookie: bob, method: "POST" }), at(id))).status).toBe(404);
+    expect((await finish.POST(req(`/api/visit/${id}/finish`, { cookie: bob, body: { transcriptText: "横取りした文" } }), at(id))).status).toBe(404);
+    expect((await guide.POST(req(`/api/visit/${id}/guide`, { cookie: bob, body: { images: [] } }), at(id))).status).toBe(404);
+    // 世帯を家族の id で指す口（一覧・始める・予定と気がかり）も 404
+    expect((await list.GET(req(`/api/visit?familyId=${hidA}`, { cookie: bob }))).status).toBe(404);
+    expect((await list.POST(req("/api/visit", { cookie: bob, body: { familyId: hidA, date: "2027-01-13" } }))).status).toBe(404);
+    expect((await plan.POST(req("/api/visit/plan", { cookie: bob, body: { familyId: hidA, concern: "横取りした気がかり" } }))).status).toBe(404);
+    // ログインなしは 401
+    expect((await one.GET(req(`/api/visit/${id}`), at(id))).status).toBe(401);
+    expect((await chunk.POST(audio(), at(id))).status).toBe(401);
+    // alice の健診は、そのまま
+    expect(JSON.stringify(V.requireVisit(id).data)).toBe(before);
+    expect(V.getPlan(hidA).concerns.map((c) => c.text)).not.toContain("横取りした気がかり");
+
+    // 自分の世帯は通る
+    const mine = await json(await one.GET(req(`/api/visit/${id}`, { cookie: alice }), at(id)));
+    expect(mine.status).toBe(200);
+    expect((mine.body.visit as { familyId: string }).familyId).toBe(hidA);
+    expect((await list.GET(req(`/api/visit?familyId=${hidA}&today=2027-01-12`, { cookie: alice }))).status).toBe(200);
+    expect((await chunk.POST(audio(alice), at(id))).status).toBe(200);
+    expect(V.requireVisit(id).data.takes?.[0]?.chunks).toBe(1);
+    // 録音は1回 32MB まで（中身を読まずに 413）
+    expect((await chunk.POST(audio(alice, { "content-length": String(33 * 1024 * 1024) }), at(id))).status).toBe(413);
+    // 書き起こしを Claude に送る口は、本物の世帯では claude_us の同意が要る（まだ無いので 403。整理は始まらない）
+    const fin = await json(await finish.POST(req(`/api/visit/${id}/finish`, { cookie: alice, body: { transcriptText: "作った書き起こし" } }), at(id)));
+    expect(fin.status).toBe(403);
+    expect(String(fin.body.error)).toContain("同意");
+    expect(V.requireVisit(id).data.status).toBe("recording");
+  });
+
   it("済んだの「誰が」とありがとう: 11/4 までの形（by・thanks の無い済んだ）も読め、ありがとうは誰が済ませたか分かる物だけ・家族の一人から・自分以外へ", async () => {
     const done = await import("@/app/api/done/route");
     const { put } = await import("./db");
@@ -283,6 +341,29 @@ describe("アカウントの仕組みが動いている時（BOSHI_DATA_DIR を�
     expect(() => checkHouseholdBudget(hidA)).toThrow(/^[^$]+$/);
     expect(() => checkHouseholdBudget(hidB)).not.toThrow();
     delete process.env.BOSHI_HOUSEHOLD_DAILY_USD;
+  });
+
+  it("世帯を消すと、健診の録音の置き場（files/<世帯>）も消える（監査 #2）", async () => {
+    const carol = await signIn("carol-made@example.com");
+    const hh = await import("@/app/api/household/route");
+    const c = await json(await hh.POST(req("/api/household", { cookie: carol, body: { name: "作った世帯C" } })));
+    const hidC = (c.body.household as { id: string }).id;
+    const fam = await import("@/app/api/family/route");
+    expect((await fam.POST(req("/api/family", { cookie: carol, body: { ...PROFILE, familyId: hidC } }))).status).toBe(200);
+    const list = await import("@/app/api/visit/route");
+    const chunk = await import("@/app/api/visit/[id]/chunk/route");
+    const made = await json(await list.POST(req("/api/visit", { cookie: carol, body: { familyId: hidC, date: "2027-01-12" } })));
+    const id = (made.body.visit as { id: string }).id;
+    const up = new Request(`${BASE}/api/visit/${id}/chunk?seq=0&take=0&ext=webm`, {
+      method: "POST",
+      headers: { "content-type": "audio/webm", cookie: carol },
+      body: new Uint8Array(2000),
+    });
+    expect((await chunk.POST(up, { params: Promise.resolve({ id }) })).status).toBe(200);
+    const files = path.join(dir, "files", hidC.replace(/[^a-zA-Z0-9_-]/g, ""));
+    expect(fs.existsSync(path.join(files, "visits", id))).toBe(true);
+    await H.purgeHousehold(hidC, null);
+    expect(fs.existsSync(files)).toBe(false);
   });
 });
 

@@ -120,6 +120,14 @@ export function filesDir(familyId: string, ...sub: string[]): string {
   return dir;
 }
 
+/** 家族ごとのファイル（健診の録音など）を、置き場ごと消す（世帯を消す時。lib/households.ts の purgeHousehold） */
+export function removeFilesDir(familyId: string): void {
+  assertNotHomeInTests();
+  const id = familyId.replace(/[^a-zA-Z0-9_-]/g, "");
+  if (!id) return;
+  fs.rmSync(path.join(DATA_DIR, "files", id), { recursive: true, force: true });
+}
+
 // ───────── 家族ごとのアカウント（世帯・本人・同意・写真の台帳・世帯の鍵） ─────────
 //
 // 表は「初めて使う時」に作る（ensureAccountSchema）。今までの docs だけを使う道（健診の録音など）は、

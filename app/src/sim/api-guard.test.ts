@@ -1,4 +1,4 @@
-// 関所の書き忘れを見つける試験: app/src/app/api/**/route.ts（健診の録音 visit を除く）を読み、どの口も
+// 関所の書き忘れを見つける試験: app/src/app/api/**/route.ts を読み、どの口も
 // 「withHousehold（セッション → 世帯 → 権限）」か、理由つきの公開の口を通る事を、コードの文字で確かめる（設計 ⑨の「関所の書き忘れ」）。
 //
 // 決まり:
@@ -6,7 +6,7 @@
 //      family の一覧や世帯を作る口のように、世帯を指さない口は requireAccount / currentAccount でもよい（familyId を受け取らない時だけ）
 //   2) 古い関所 requireFamily（家族の id を信じるだけ）を使わない
 //   3) 公開の口（下の PUBLIC）は、理由と、その口が守るべき印（文字）を持つ
-// 健診の録音（api/visit/**）は 11/5 の健診が済むまで触らない約束なので、ここでは数えない（関所は 11/5 の後に主担当が足す）。
+// 健診（api/visit/**）も数える（2026-11-05 の健診の後に関所 visitFor を足した。健診を id で引き、その健診の世帯で関所を通す）。
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -32,7 +32,7 @@ function walk(d: string): string[] {
 }
 
 const rel = (p: string) => path.relative(API, p).split(path.sep).join("/");
-const routes = walk(API).filter((p) => !rel(p).startsWith("visit/"));
+const routes = walk(API);
 
 /** コメントと文字列の中の「withHousehold」で騙されないよう、コメントを外す（文字列はそのまま。呼び出しの形で見る） */
 const stripComments = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
@@ -140,9 +140,19 @@ function check(file: string): Verdict {
   return { route: r, ok: problems.length === 0, problems };
 }
 
-describe("関所の書き忘れ（api/**/route.ts を読む。visit は 11/5 の後）", () => {
+describe("関所の書き忘れ（api/**/route.ts を読む）", () => {
   it("route.ts が見つかる（数えそこねていない）", () => {
     expect(routes.length).toBeGreaterThan(10);
+    // 健診の口（一覧・予定・1回分・録音・番号・終える・道案内の7本）も数えている
+    expect(routes.map(rel).filter((r) => r.startsWith("visit/")).sort()).toEqual([
+      "visit/[id]/chunk/route.ts",
+      "visit/[id]/finish/route.ts",
+      "visit/[id]/guide/route.ts",
+      "visit/[id]/route.ts",
+      "visit/[id]/take/route.ts",
+      "visit/plan/route.ts",
+      "visit/route.ts",
+    ]);
   });
 
   it("公開の口の一覧に、無くなった route が残っていない（一覧は実際の道だけ）", () => {
