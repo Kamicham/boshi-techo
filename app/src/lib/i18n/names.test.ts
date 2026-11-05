@@ -1,6 +1,7 @@
 // 名前を画面の言葉で書く（lib/i18n/names.ts）の試験。日本語は1字も変えない
 import { describe, expect, it } from "vitest";
 import { registrationLine } from "../../components/today/welcome";
+import { msWords } from "./milestone-words";
 import { DEMO_FAMILY } from "../demo-family";
 import { scheduleFor } from "../milestones";
 import { withLang, type Lang } from ".";
@@ -52,5 +53,17 @@ describe("名前を画面の言葉で", () => {
   it("作った家族の id（見本・体験の写し・30家族・1000組）", () => {
     expect(["demo-sato", `try-${"a".repeat(32)}`, "sim-01", "pop-0001"].map(isMadeId)).toEqual([true, true, true, true]);
     expect(["mine", "h_123", "", null, undefined, "try-x"].map(isMadeId)).toEqual([false, false, false, false, false, false]);
+  });
+});
+
+describe("予定の名前に入る呼び名", () => {
+  it("English では見本の家族の呼び名をローマ字に（「Tell 翔太's work…」と漢字のまま出ていた）。日本語は1字も変えない", () => {
+    expect(msWords("翔太の職場に生まれた事を伝える")).toBe("翔太の職場に生まれた事を伝える");
+    expect(at("en", () => msWords("翔太の職場に生まれた事を伝える"))).toBe("Tell Shota's work the baby is born");
+    expect(at("en", () => msWords("翔太の育休の始まりを早める"))).toBe("Move up the start of Shota's childcare leave");
+    // 表に無い呼び名はそのまま
+    expect(at("en", () => msWords("健太の職場に生まれた事を伝える"))).toBe("Tell 健太's work the baby is born");
+    // 中文は漢字の名前のまま
+    expect(at("zh", () => msWords("翔太の職場に生まれた事を伝える"))).toBe("告诉翔太的工作单位宝宝出生了");
   });
 });
