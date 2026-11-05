@@ -3,7 +3,9 @@
 // 家族の形を聞く欄（母とパートナーの働き方・パートナーの育休・上の子・生まれる子の数・里帰り）。
 // どの問いも「わからない・答えない」を選べる（小さな文字で列の最後）。答えない欄は、今までどおりの予定が出る。
 // 押す所は 44px 以上。iPhone の 390px で横にはみ出さないよう、選びは折り返す。
+// 言葉（2026-11-05 多言語化）: 選びの言葉は保存する値のまま持ち、描く所（Choice）で t() で訳す。町の名前は日本語で入れてもらう。
 import { useState } from "react";
+import { t } from "@/lib/i18n";
 import { LEAVE_LENS, MAX_OLDER_KIDS, OLDER_CARES, RETURN_ATS, SATOGAERI_BACKS, type Leave, type MotherWork, type OlderKid, type Situation, type Work } from "@/lib/situation";
 
 const MOTHER_WORKS: MotherWork[] = ["会社員・公務員", "パート・派遣", "自営・フリー", "仕事なし", "出産で辞める"];
@@ -32,7 +34,7 @@ export function SituationForm({ value, onChange, hasPartner, disabled, born }: {
   const set = (patch: Partial<Situation>) => onChange({ ...value, ...patch });
 
   const motherWork = (
-    <Ask label="ママの働き方（妊娠中）">
+    <Ask label={t("ママの働き方（妊娠中）")}>
       <Choice options={MOTHER_WORKS} value={value.motherWork} onPick={(v) => set({ motherWork: v })} name="mother-work" />
     </Ask>
   );
@@ -41,7 +43,7 @@ export function SituationForm({ value, onChange, hasPartner, disabled, born }: {
   const askReturn = mw === undefined || mw === "会社員・公務員" || mw === "パート・派遣" || mw === "自営・フリー";
   const beforeBirth = (
     <>
-      <Ask label="生まれる子は何人？">
+      <Ask label={t("生まれる子は何人？")}>
         <Choice
           options={["1人", "双子", "三つ子"] as const}
           value={value.babies === undefined ? undefined : value.babies === 2 ? "双子" : value.babies === 3 ? "三つ子" : "1人"}
@@ -50,35 +52,35 @@ export function SituationForm({ value, onChange, hasPartner, disabled, born }: {
         />
       </Ask>
 
-      <Ask label="里帰り出産は？">
-        <YesNo yes="する" no="しない" value={value.satogaeri} onPick={(v) => set({ satogaeri: v, ...(v ? {} : { satogaeriPlace: undefined, satogaeriBack: undefined }) })} name="satogaeri" />
+      <Ask label={t("里帰り出産は？")}>
+        <YesNo words={["する", "しない"]} value={value.satogaeri} onPick={(v) => set({ satogaeri: v, ...(v ? {} : { satogaeriPlace: undefined, satogaeriBack: undefined }) })} name="satogaeri" />
       </Ask>
       {value.satogaeri === true && (
         <>
-          <Ask label="里帰り先の町（実家のある所）">
+          <Ask label={t("里帰り先の町（実家のある所）")}>
             <div className="flex flex-wrap gap-2">
               <input
                 id="satogaeri-pref"
-                aria-label="里帰り先の都道府県"
+                aria-label={t("里帰り先の都道府県")}
                 value={value.satogaeriPlace?.prefecture ?? ""}
                 maxLength={10}
-                placeholder="例: 鹿児島県"
+                placeholder={t("例: 鹿児島県")}
                 onChange={(e) => set({ satogaeriPlace: { prefecture: e.target.value, city: value.satogaeriPlace?.city ?? "" } })}
                 className="min-h-11 w-36 rounded-lg border border-line bg-card px-2 text-base text-ink"
               />
               <input
                 id="satogaeri-city"
-                aria-label="里帰り先の市区町村"
+                aria-label={t("里帰り先の市区町村")}
                 value={value.satogaeriPlace?.city ?? ""}
                 maxLength={20}
-                placeholder="例: 霧島市"
+                placeholder={t("例: 霧島市")}
                 onChange={(e) => set({ satogaeriPlace: { prefecture: value.satogaeriPlace?.prefecture ?? "", city: e.target.value } })}
                 className="min-h-11 min-w-0 flex-1 rounded-lg border border-line bg-card px-2 text-base text-ink"
               />
             </div>
-            <p className="text-sm text-muted">里帰り先の町の赤ちゃん訪問・受診券の扱い・出生届を出せる所を、その町のページで調べます</p>
+            <p className="text-sm text-muted">{t("里帰り先の町の赤ちゃん訪問・受診券の扱い・出生届を出せる所を、その町のページで調べます")}</p>
           </Ask>
-          <Ask label="住む町に戻る時期">
+          <Ask label={t("住む町に戻る時期")}>
             <Choice options={SATOGAERI_BACKS} value={value.satogaeriBack} onPick={(v) => set({ satogaeriBack: v })} name="satogaeri-back" />
           </Ask>
         </>
@@ -91,50 +93,58 @@ export function SituationForm({ value, onChange, hasPartner, disabled, born }: {
       {!born && motherWork}
 
       {askReturn && (
-        <Ask label="ママが仕事に戻りたい時期（保育園の申し込みの時期が決まります）">
-          <Choice options={RETURN_ATS.map((r) => (r === "1歳まで" ? "1歳になるまでに" : "1歳を過ぎてから")) as ("1歳になるまでに" | "1歳を過ぎてから")[]} value={value.returnAt === "1歳まで" ? "1歳になるまでに" : value.returnAt === "1歳を過ぎて" ? "1歳を過ぎてから" : undefined} onPick={(v) => set({ returnAt: v === "1歳になるまでに" ? "1歳まで" : v === "1歳を過ぎてから" ? "1歳を過ぎて" : undefined })} name="return-at" />
-          <p className="text-sm text-muted">育休は原則1歳まで。1歳を過ぎてからは、保育園に入れなかった時に延ばせます（育児・介護休業法）</p>
+        <Ask label={t("ママが仕事に戻りたい時期（保育園の申し込みの時期が決まります）")}>
+          {/* 保存する値（1歳まで・1歳を過ぎて）を、画面では labels の言葉で出す */}
+          <Choice options={RETURN_ATS} labels={{ "1歳まで": "1歳になるまでに", "1歳を過ぎて": "1歳を過ぎてから" }} value={value.returnAt} onPick={(v) => set({ returnAt: v })} name="return-at" />
+          <p className="text-sm text-muted">{t("育休は原則1歳まで。1歳を過ぎてからは、保育園に入れなかった時に延ばせます（育児・介護休業法）")}</p>
         </Ask>
       )}
 
       {hasPartner ? (
         <>
-          <Ask label="パートナーの働き方">
+          <Ask label={t("パートナーの働き方")}>
             <Choice options={WORKS} value={value.partnerWork} onPick={(v) => set({ partnerWork: v })} name="partner-work" />
           </Ask>
           {employed(value.partnerWork) && (
-            <Ask label="パートナーの育休">
+            <Ask label={t("パートナーの育休")}>
               <Choice options={LEAVES} value={value.partnerLeave} onPick={(v) => set({ partnerLeave: v, ...(v === "取る" ? {} : { partnerLeaveLen: undefined }) })} name="partner-leave" />
             </Ask>
           )}
           {employed(value.partnerWork) && value.partnerLeave === "取る" && (
-            <Ask label="パートナーの育休の長さ（生まれて8週の間に）">
+            <Ask label={t("パートナーの育休の長さ（生まれて8週の間に）")}>
               <Choice options={LEAVE_LENS} value={value.partnerLeaveLen} onPick={(v) => set({ partnerLeaveLen: v })} name="partner-leave-len" />
-              <p className="text-sm text-muted">14日以上だと、2025年4月からの給付の上乗せの条件の1つに届きます（雇用保険法）</p>
+              <p className="text-sm text-muted">{t("14日以上だと、2025年4月からの給付の上乗せの条件の1つに届きます（雇用保険法）")}</p>
             </Ask>
           )}
         </>
       ) : (
-        <p className="text-sm text-muted">一緒に育てる人を「家族は？」で足すと、その人の働き方も聞きます</p>
+        <p className="text-sm text-muted">{t("一緒に育てる人を「家族は？」で足すと、その人の働き方も聞きます")}</p>
       )}
 
       {/* 生まれた日の届けの行き先が変わる2問（第1波②）: 児童手当は公務員なら勤め先、赤ちゃんの保険が国保なら役所に14日以内 */}
-      <Ask label="ママかパートナーは公務員？（公務員だと、児童手当の申し込み先が町ではなく職場になります）">
-        <YesNo yes="はい" no="いいえ" value={value.publicServant} onPick={(v) => set({ publicServant: v })} name="public-servant" />
+      <Ask label={t("ママかパートナーは公務員？（公務員だと、児童手当の申し込み先が町ではなく職場になります）")}>
+        <YesNo words={["はい", "いいえ"]} value={value.publicServant} onPick={(v) => set({ publicServant: v })} name="public-servant" />
       </Ask>
-      <Ask label="赤ちゃんの保険証は、どれになりそう？">
-        <Choice options={["勤め先", "国保"] as const} labels={{ 勤め先: "親の勤め先の保険", 国保: "国民健康保険（町の保険）" }} value={value.babyInsurance} onPick={(v) => set({ babyInsurance: v })} name="baby-insurance" />
+      <Ask label={t("赤ちゃんの保険証は、どれになりそう？")}>
+        <Choice
+          // 訳さない: 保存する値（画面には出さず、labels の言葉を出す）
+          options={["勤め先", "国保"] as const}
+          labels={{ 勤め先: "親の勤め先の保険", 国保: "国民健康保険（町の保険）" }}
+          value={value.babyInsurance}
+          onPick={(v) => set({ babyInsurance: v })}
+          name="baby-insurance"
+        />
       </Ask>
 
-      <Ask label="上の子は？">
-        <YesNo yes="いる" no="いない" value={value.olderChildren} onPick={(v) => set({ olderChildren: v, ...(v === true ? {} : { olderKids: undefined }) })} name="older" />
+      <Ask label={t("上の子は？")}>
+        <YesNo words={["いる", "いない"]} value={value.olderChildren} onPick={(v) => set({ olderChildren: v, ...(v === true ? {} : { olderKids: undefined }) })} name="older" />
       </Ask>
       {value.olderChildren === true && <OlderKids kids={value.olderKids ?? []} onChange={(k) => set({ olderKids: k.length ? k : undefined })} />}
 
       {born ? (
         <details className="group">
           <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-base text-muted">
-            <span className="underline underline-offset-2">生まれる前の事（妊娠中の働き方・生まれた子の数・里帰り）</span>
+            <span className="underline underline-offset-2">{t("生まれる前の事（妊娠中の働き方・生まれた子の数・里帰り）")}</span>
             <span className="transition-transform group-open:rotate-90" aria-hidden>›</span>
           </summary>
           <div className="flex flex-col gap-5 pt-2">
@@ -149,21 +159,21 @@ export function SituationForm({ value, onChange, hasPartner, disabled, born }: {
       {/* 静かにする（安心のデザイン #5）。目立たせず、一番下に畳んでおく */}
       <details className="group" open={value.quiet !== undefined}>
         <summary className="inline-flex min-h-11 cursor-pointer list-none items-center gap-1 text-base text-muted">
-          <span className="underline underline-offset-2">赤ちゃんの事で、伝えたい事がある時</span>
+          <span className="underline underline-offset-2">{t("赤ちゃんの事で、伝えたい事がある時")}</span>
           <span className="transition-transform group-open:rotate-90" aria-hidden>›</span>
         </summary>
         <div className="flex flex-col gap-3 pt-2">
-          <p className="text-base text-muted">選ぶと、今日の画面の日数・週数・お知らせを止めて、静かにします。手帳の記録は消えません。いつでもここで戻せます。</p>
+          <p className="text-base text-muted">{t("選ぶと、今日の画面の日数・週数・お知らせを止めて、静かにします。手帳の記録は消えません。いつでもここで戻せます。")}</p>
           <div className="flex flex-wrap gap-2" role="group">
             <Chip on={value.quiet === "nicu"} onClick={() => set({ quiet: value.quiet === "nicu" ? undefined : "nicu" })} id="quiet-nicu" quiet>
-              赤ちゃんが入院している
+              {t("赤ちゃんが入院している")}
             </Chip>
             <Chip on={value.quiet === "loss"} onClick={() => set({ quiet: value.quiet === "loss" ? undefined : "loss" })} id="quiet-loss" quiet>
-              つらい別れがあった
+              {t("つらい別れがあった")}
             </Chip>
             {value.quiet !== undefined && (
               <Chip on={false} onClick={() => set({ quiet: undefined })} id="quiet-off" quiet>
-                いつもの画面に戻す
+                {t("いつもの画面に戻す")}
               </Chip>
             )}
           </div>
@@ -182,12 +192,13 @@ function OlderKids({ kids, onChange }: { kids: OlderKid[]; onChange: (k: OlderKi
   const list = kids.length ? kids : [];
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-line p-3">
-      <p className="text-base text-muted">上の子の生まれた日を入れると、上の子の健診・予防接種も「いま」に一緒に出します。園に通っていれば、育休中も通い続けられるかの確かめも出します。</p>
+      <p className="text-base text-muted">{t("上の子の生まれた日を入れると、上の子の健診・予防接種も「いま」に一緒に出します。園に通っていれば、育休中も通い続けられるかの確かめも出します。")}</p>
       {list.map((k, i) => (
         <fieldset key={i} className="flex min-w-0 flex-col gap-2 border-t border-line pt-3 first:border-t-0 first:pt-0">
-          <legend className="pb-1 text-base font-bold">{list.length > 1 ? `上の子 ${i + 1}人目` : "上の子"}</legend>
+          <legend className="pb-1 text-base font-bold">{list.length > 1 ? t("上の子 {n}人目", { n: i + 1 }) : t("上の子")}</legend>
           <label className="flex flex-col gap-1 text-sm text-muted" htmlFor={`older-${i}-birth`}>
-            生まれた日{k.monthOnly ? "（年と月）" : ""}
+            {t("生まれた日")}
+            {k.monthOnly ? t("（年と月）") : ""}
             <input
               id={`older-${i}-birth`}
               type={k.monthOnly ? "month" : "date"}
@@ -202,16 +213,16 @@ function OlderKids({ kids, onChange }: { kids: OlderKid[]; onChange: (k: OlderKi
           </label>
           <label className="inline-flex min-h-11 items-center gap-2 text-sm text-muted">
             <input type="checkbox" checked={!!k.monthOnly} onChange={(e) => put(i, { monthOnly: e.target.checked || undefined, birthDate: e.target.checked ? `${k.birthDate.slice(0, 7)}-01` : k.birthDate })} />
-            年と月だけで答える（日は1日として数えます）
+            {t("年と月だけで答える（日は1日として数えます）")}
           </label>
           <label className="flex flex-col gap-1 text-sm text-muted" htmlFor={`older-${i}-name`}>
-            呼び名（なくても大丈夫）
-            <input id={`older-${i}-name`} value={k.name ?? ""} maxLength={20} onChange={(e) => put(i, { name: e.target.value || undefined })} className="min-h-11 rounded-lg border border-line bg-card px-2 text-base text-ink" placeholder="例: はるくん" />
+            {t("呼び名（なくても大丈夫）")}
+            <input id={`older-${i}-name`} value={k.name ?? ""} maxLength={20} onChange={(e) => put(i, { name: e.target.value || undefined })} className="min-h-11 rounded-lg border border-line bg-card px-2 text-base text-ink" placeholder={t("例: はるくん")} />
           </label>
-          <p className="text-sm text-muted">日中は</p>
+          <p className="text-sm text-muted">{t("日中は")}</p>
           <Choice options={OLDER_CARES} value={k.care} onPick={(v) => put(i, { care: v })} name={`older-${i}-care`} />
           <button type="button" onClick={() => onChange(kids.filter((_, j) => j !== i))} className="min-h-11 self-start text-sm text-muted underline underline-offset-2">
-            この子を外す
+            {t("この子を外す")}
           </button>
         </fieldset>
       ))}
@@ -221,7 +232,7 @@ function OlderKids({ kids, onChange }: { kids: OlderKid[]; onChange: (k: OlderKi
           onClick={() => onChange([...kids, { birthDate: "" }])}
           className="min-h-11 self-start rounded-full bg-rose-soft px-4 text-base font-semibold text-rose"
         >
-          {kids.length ? "上の子をもう1人足す" : "上の子の生まれた日を入れる"}
+          {kids.length ? t("上の子をもう1人足す") : t("上の子の生まれた日を入れる")}
         </button>
       )}
     </div>
@@ -243,7 +254,10 @@ function Ask({ label, children }: { label: string; children: React.ReactNode }) 
  * 未回答と「わからない」は値で見分けられないので、この画面で押したかどうかで見分ける。
  * まだ答えていない問いは、どれも同じ薄い色（答え済みに見せない）。押した物だけ濃くする。
  */
-/** labels: 保存する値とは別に、画面に出す言葉（制度の略語を、初めての人に分かる言葉で） */
+/**
+ * labels: 保存する値とは別に、画面に出す言葉（制度の略語を、初めての人に分かる言葉で）。
+ * 選びの言葉（options の値か labels）は日本語の鍵のまま受け取り、ここで t() で訳す（保存する値と id は日本語のまま）
+ */
 function Choice<T extends string>({ options, labels, value, onPick, name }: { options: readonly T[]; labels?: Partial<Record<T, string>>; value: T | undefined; onPick: (v: T | undefined) => void; name: string }) {
   const [saidUnknown, setSaidUnknown] = useState(false);
   return (
@@ -258,7 +272,7 @@ function Choice<T extends string>({ options, labels, value, onPick, name }: { op
           }}
           id={`${name}-${o}`}
         >
-          {labels?.[o] ?? o}
+          {t(labels?.[o] ?? o)}
         </Chip>
       ))}
       <button
@@ -271,14 +285,14 @@ function Choice<T extends string>({ options, labels, value, onPick, name }: { op
         }}
         className={`min-h-11 rounded-full px-3 text-sm ${value === undefined && saidUnknown ? "bg-rose font-semibold text-white" : "text-muted underline underline-offset-2"}`}
       >
-        わからない・答えない
+        {t("わからない・答えない")}
       </button>
     </div>
   );
 }
 
-/** はい・いいえの選び（わからない = undefined） */
-function YesNo<Y extends string, N extends string>({ yes, no, value, onPick, name }: { yes: Y; no: N; value: boolean | undefined; onPick: (v: boolean | undefined) => void; name: string }) {
+/** はい・いいえの選び（words は「はい」と「いいえ」に当たる日本語の言葉。描く時に Choice が訳す。わからない = undefined） */
+function YesNo<Y extends string, N extends string>({ words: [yes, no], value, onPick, name }: { words: readonly [Y, N]; value: boolean | undefined; onPick: (v: boolean | undefined) => void; name: string }) {
   return (
     <Choice<Y | N>
       options={[yes, no]}
