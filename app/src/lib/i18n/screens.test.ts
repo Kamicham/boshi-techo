@@ -309,7 +309,8 @@ describe("訳し終えた画面に、t() の外の日本語が残っていない
     expect(show(files.flatMap(({ rel }) => topLevelT(rel, parse(path.join(SRC, rel)))))).toEqual([]);
   });
 
-  it.runIf(process.env.I18N_LEFT)("体験の筋の残り（I18N_LEFT=1 の時だけ）", () => {
+  // 残りを数える試験は I18N_LEFT=1 の時だけ作る（ふだんの試験の数と「飛ばした」に入れない）
+  if (process.env.I18N_LEFT) it("体験の筋の残り（I18N_LEFT=1 の時だけ）", () => {
     for (const entry of PATH) {
       const left = scanEntry(entry);
       const by = new Map<string, Finding[]>();
