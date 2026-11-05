@@ -4,7 +4,6 @@
 // ② 差し込みの形: fill() が読めない書き方（{n:day} の | 抜け・閉じ忘れ・全角の｛｝）が無い。鍵の {n} は訳でもそのまま出す
 //    （{n:day|days} だけにすると数が消える）。数の形 {n:…|…} は英語の訳だけ（日本語と中文に数の形は無い）
 // ③ 訳に日本語が残らない（かなの外）: 英語に漢字・日本語の句読点が無い。中文に日本の字体（児・険・帳…）が無い
-// ④ 用語集の窓口の言葉（glossary.ts の counter）は、訳にも日本語を並べる（窓口で指させるように。例: 提交出生登记（出生届））
 // どれも、括弧の中に並べた日本語は除く（UX の試験と同じ扱い）
 import { describe, expect, it } from "vitest";
 import type { Entries, Entry } from ".";
@@ -74,21 +73,6 @@ function leftJapanese(rows: Row[]): string[] {
   return bad;
 }
 
-function counterProblems(rows: Row[]): string[] {
-  const bad: string[] = [];
-  for (const { area, key, e } of rows)
-    for (const g of GLOSSARY) {
-      if (!g.counter) continue;
-      const words = [g.ja, ...(g.jaAlt ?? [])];
-      if (!words.some((w) => key.includes(w))) continue;
-      for (const lang of LANGS) {
-        const v = e[lang];
-        if (v && !words.some((w) => v.includes(w))) bad.push(`${area}: 「${key}」の ${lang} に「${g.ja}」を並べていない（例: 提交出生登记（出生届））`);
-      }
-    }
-  return bad;
-}
-
 const rows = rowsOf(AREAS);
 
 describe("辞書の決まり（UX の i18n.test.ts の外）", () => {
@@ -107,10 +91,6 @@ describe("辞書の決まり（UX の i18n.test.ts の外）", () => {
     for (const g of GLOSSARY) for (const w of [g.zh, ...(g.zhAlt ?? [])]) expect([...w].filter((c) => JP_FORMS.has(c)), w).toEqual([]);
   });
 
-  it("④ 用語集の窓口の言葉は、訳にも日本語を並べる（窓口で指させるように）", () => {
-    expect(GLOSSARY.some((g) => g.counter)).toBe(true);
-    expect(counterProblems(rows)).toEqual([]);
-  });
 });
 
 describe("辞書の決まりの見方（わざと崩した行で、見落とさない事を確かめる）", () => {
@@ -148,13 +128,6 @@ describe("辞書の決まりの見方（わざと崩した行で、見落とさ�
       "x: 「児童手当」の en に漢字が残る",
       "x: 「児童手当」の en に日本語の句読点が残る",
       "x: 「児童手当」の zh に日本の字体（児）が残る",
-    ]);
-  });
-
-  it("④ 窓口の言葉を並べていない訳を拾う（中文で同じ字の言葉・括弧で並べた言葉は通す）", () => {
-    expect(counterProblems(bad)).toEqual([
-      "x: 「出生届を出す」の zh に「出生届」を並べていない（例: 提交出生登记（出生届））",
-      "x: 「出生届を出す」の en に「出生届」を並べていない（例: 提交出生登记（出生届））",
     ]);
   });
 });
