@@ -8,7 +8,8 @@
 // サーバ（保存する題・一冊を書く Claude への頼み）ではいつも日本語。保存する値（時期の名前・節目の id）は日本語のまま。
 import { addDays, addMonths, clockAt, diffDays, lmpFromDue, monthsBetween } from "./clock";
 import { currentLang, t, withLang } from "./i18n";
-import { dayLong, dot, monthDay } from "./memory-words";
+import { nameIn } from "./i18n/names";
+import { dayLong, dot, monthDay, monthDayFull } from "./memory-words";
 
 // ───────── 型 ─────────
 
@@ -79,24 +80,28 @@ export function voiceMomentsFor(birthDate: string | undefined, today: string): (
 export function voiceMomentById(id: string | null | undefined) {
   return VOICE_MOMENTS.find((m) => m.id === id);
 }
-/** 声の題（「翔太から おなかへ」）。Claude を使わず、録り方と話した人から作る（保存はサーバで日本語。画面では今の言葉） */
-export function voiceTitle(m: { moment?: string; who?: string; spokenTo?: string }): string {
+/**
+ * 声の題（「翔太から おなかへ」）。Claude を使わず、録り方と話した人から作る（保存はサーバで日本語。画面では今の言葉）。
+ * 話した人と宛先の名前は lib/i18n/names.ts の nameIn で画面の言葉に（日本語は1字も変えない。made は作った家族か）
+ */
+export function voiceTitle(m: { moment?: string; who?: string; spokenTo?: string }, opts?: { made?: boolean }): string {
   const mo = voiceMomentById(m.moment);
-  const who = m.who;
+  const who = nameIn(m.who, opts);
+  const to = nameIn(m.spokenTo, opts);
   if (mo?.id === "belly") return who ? t("{who}から おなかへ", { who }) : t("おなかへ");
   if (mo?.id === "bedtime") return who ? t("{who}から おやすみ", { who }) : t("おやすみ");
   if (mo) return who ? t("{who}から 名前を呼んだ声", { who }) : t("名前を呼んだ声");
-  if (m.spokenTo) return who ? t("{who}から {to}へ", { who, to: m.spokenTo }) : t("{name}へ", { name: m.spokenTo });
+  if (to) return who ? t("{who}から {to}へ", { who, to }) : t("{name}へ", { name: to });
   return who ? t("{who}から の声", { who }) : t("の声");
 }
 /**
- * 画面に出す声の題。サーバが録り方から作ったままの題（日本語）は、画面の言葉で作り直す。
+ * 画面に出す声の題。サーバが録り方から作ったままの題（日本語）は、画面の言葉で作り直す（名前も画面の言葉に）。
  * 一冊の中で Claude が付けた一行など、ほかの題はそのまま出す（家族の言葉とデータは訳さない）
  */
-export function voiceTitleShown(m: { title?: string; moment?: string; who?: string; spokenTo?: string }): string {
+export function voiceTitleShown(m: { title?: string; moment?: string; who?: string; spokenTo?: string }, opts?: { made?: boolean }): string {
   if (!m.title) return t("声");
   if (currentLang() === "ja") return m.title;
-  return m.title === withLang("ja", () => voiceTitle(m)) ? voiceTitle(m) : m.title;
+  return m.title === withLang("ja", () => voiceTitle(m)) ? voiceTitle(m, opts) : m.title;
 }
 /** 声1本の上限（原本） */
 export const MAX_VOICE_BYTES = 30 * 1024 * 1024;
@@ -714,8 +719,9 @@ export function welcomeFor(f: { birthDate?: string; situation?: { quiet?: string
 
 /** 家族に知らせる文。名前と生まれた日だけ（体重・時刻・体の事は書かない。送る前に家族が直せる） */
 export function birthNewsText(f: { birthDate: string; childName?: string }): string {
-  const [, m, d] = f.birthDate.split("-").map(Number);
-  return `うれしいお知らせです。${m}月${d}日に、${f.childName ?? "赤ちゃん"}が生まれました。`;
+  // 画面の言葉で組む（中国語の話者の家族が中国の親へ送る時は中文が要る。2026-11-05 UX の勧め）。日本語は前と1字も変わらない。
+  // 名前は lib/i18n/names.ts（English は見本の家族をローマ字。子の名前なので、作った家族かは問わない）
+  return t("うれしいお知らせです。{date}に、{name}が生まれました。", { date: monthDayFull(f.birthDate), name: nameIn(f.childName) ?? t("赤ちゃん") });
 }
 
 /**

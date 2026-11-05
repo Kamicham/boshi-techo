@@ -6,6 +6,7 @@
 // 画面とは別に読む（server-only ではない）。Claude には何も送らない。
 // 人が読む言い方（日付・手紙の一行・みんなの章の字幕）は画面の言葉で（lib/i18n。書き出す動画はサーバで組むので日本語）。
 import { t } from "./i18n";
+import { nameIn } from "./i18n/names";
 import { dayLong } from "./memory-words";
 
 export interface FilmMedia {
@@ -52,7 +53,8 @@ export const CROSSFADE_SEC = 1;
 
 const voiceSec = (voice: FilmMedia, base: number) => Math.min(MAX_VOICE_SHOT_SEC, Math.max(base, (voice.durationSec ?? base) + 1.2));
 
-export function filmShots<M extends FilmMedia>(film: readonly FilmCue[], media: readonly M[], letters: readonly FilmLetter[] = []): Shot<M>[] {
+/** opts.made: 作った家族か（みんなの章の「{name}から」の名前を画面の言葉にする時。lib/i18n/names.ts） */
+export function filmShots<M extends FilmMedia>(film: readonly FilmCue[], media: readonly M[], letters: readonly FilmLetter[] = [], opts?: { made?: boolean }): Shot<M>[] {
   const byId = new Map(media.filter((m) => !m.hidden).map((m) => [m.id, m]));
   const xs: Shot<M>[] = film.flatMap((x) => {
     const photo = byId.get(x.mediaId);
@@ -69,7 +71,7 @@ export function filmShots<M extends FilmMedia>(film: readonly FilmCue[], media: 
   const minna: Shot<M>[] = fromPhotos.map((photo) => {
     const vi = fromVoices.findIndex((v) => v.from!.name === photo.from!.name);
     const voice = vi >= 0 ? fromVoices.splice(vi, 1)[0] : null;
-    return { kind: "photo" as const, photo, caption: photo.caption ?? t("{name}から", { name: photo.from!.name }), sec: voice ? voiceSec(voice, 5) : 5, voice };
+    return { kind: "photo" as const, photo, caption: photo.caption ?? t("{name}から", { name: nameIn(photo.from!.name, opts) }), sec: voice ? voiceSec(voice, 5) : 5, voice };
   });
   // 開いた声の手紙（開いた日の順）。封の間・声の無い手紙は入れない
   const opened: Shot<M>[] = letters

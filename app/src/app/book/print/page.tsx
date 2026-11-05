@@ -11,7 +11,7 @@ import { Btn } from "@/components/ui";
 import type { Book } from "@/lib/book";
 import type { ClientMedia } from "@/lib/media-shared";
 import { t } from "@/lib/i18n";
-import { dayLong } from "@/lib/memory-words";
+import { dayLong, nameOf } from "@/lib/memory-words";
 
 const CSS = `
 @page { size: 148mm 210mm; margin: 0; }
@@ -82,7 +82,7 @@ export default function BookPrintPage() {
             <h2 className="font-display" style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.4 }}>
               {book.title}
             </h2>
-            <p className="font-display">{t("{name}へ", { name: book.childName })}</p>
+            <p className="font-display">{t("{name}へ", { name: nameOf(family, book.childName) })}</p>
             <p style={{ fontSize: 10, color: "#6a6876" }}>
               {dayLong(book.range.start)} — {dayLong(book.range.end)}
             </p>

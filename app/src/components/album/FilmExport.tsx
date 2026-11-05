@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useFamily } from "@/components/FamilyProvider";
 import { t } from "@/lib/i18n";
 import { tr } from "@/lib/i18n/rich";
+import { nameOf } from "@/lib/memory-words";
 import { TRIAL_FILM_CLOSED } from "@/lib/trial-words";
 
 type Video = { id: string; url: string; download: string; bytes: number; durationSec: number | null; createdAt: string };
@@ -82,7 +83,7 @@ export function FilmExport({ bookKey }: { bookKey: string }) {
     try {
       const f = await file(v);
       const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
-      if (nav.share && nav.canShare?.({ files: [f.file] })) await nav.share({ files: [f.file], title: t("{child}への一冊", { child: family.childName ?? "" }) });
+      if (nav.share && nav.canShare?.({ files: [f.file] })) await nav.share({ files: [f.file], title: t("{child}への一冊", { child: nameOf(family, family.childName) ?? "" }) });
       else window.location.href = v.download;
     } catch (e) {
       if ((e as Error).name !== "AbortError") setMsg((e as Error).message);

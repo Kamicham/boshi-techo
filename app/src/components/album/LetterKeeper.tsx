@@ -10,7 +10,7 @@ import { useFamily } from "@/components/FamilyProvider";
 import { Btn } from "@/components/ui";
 import { t } from "@/lib/i18n";
 import { LETTER_OPENS, letterOpenOn, MAX_LETTER_CHARS, MAX_LETTER_VOICE_SEC, opensLine, type ClientLetter, type LetterOpen } from "@/lib/letters-shared";
-import { sentences } from "@/lib/memory-words";
+import { nameOf, sentences } from "@/lib/memory-words";
 
 export function LetterKeeper({ unavailable }: { unavailable?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -23,7 +23,7 @@ export function LetterKeeper({ unavailable }: { unavailable?: boolean }) {
       <p className="text-sm text-muted">
         {quiet === "loss"
           ? t("伝えたい事がある時だけ、手紙にして残せます。封をせず、いつでも読める形にもできます。")
-          : t("開く日を決めて封をします。{child}が大きくなった日に、一冊の中で開きます。", { child: family.childName ?? t("子ども") })}
+          : t("開く日を決めて封をします。{child}が大きくなった日に、一冊の中で開きます。", { child: nameOf(family, family.childName) ?? t("子ども") })}
       </p>
       <Btn kind="secondary" full onClick={() => setOpen(true)}>
         {t("✉ 手紙を書く")}

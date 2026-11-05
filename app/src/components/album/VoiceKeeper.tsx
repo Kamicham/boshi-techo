@@ -10,7 +10,7 @@ import { Btn } from "@/components/ui";
 import { useRecorder } from "@/components/capture/useRecorder";
 import { t } from "@/lib/i18n";
 import { VOICE_MOMENTS, voiceMomentsFor, type ClientMedia } from "@/lib/media-shared";
-import { monthName, quote } from "@/lib/memory-words";
+import { monthName, nameOf, quote } from "@/lib/memory-words";
 import { tr } from "@/lib/i18n/rich";
 import { invalidateMedia } from "./useMedia";
 
@@ -58,7 +58,7 @@ function VoiceSheet({ moment, onClose }: { moment: Moment; onClose: () => void }
   const [saved, setSaved] = useState<ClientMedia | null>(null);
   const r = useRecorder({ onDone: ({ blob, sec }) => void save(blob, sec) });
   const { secs, error, setError } = r;
-  const child = family.childName ?? t("赤ちゃん");
+  const child = nameOf(family, family.childName) ?? t("赤ちゃん");
   const phaseNow: Phase = r.recording ? "recording" : phase;
   const start = r.start;
   const stop = r.stop;

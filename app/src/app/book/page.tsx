@@ -18,7 +18,7 @@ import { readWelcomed, WELCOMED_KEY } from "@/components/Welcome";
 import type { ClientMedia } from "@/lib/media-shared";
 import { t } from "@/lib/i18n";
 import { tr } from "@/lib/i18n/rich";
-import { dayLong, parens } from "@/lib/memory-words";
+import { dayLong, nameOf, parens } from "@/lib/memory-words";
 
 /** 一冊に描ける写真（ある・隠していない）。消した写真の id は飛ばして描く */
 type Photos = Map<string, ClientMedia>;
@@ -133,10 +133,10 @@ export default function BookPage() {
     }
   };
 
-  const child = family.childName ?? t("赤ちゃん");
+  const child = nameOf(family, family.childName) ?? t("赤ちゃん");
   // 妊娠中で記録がまだ少ない時は、本を作るより記録を足すのが先（言葉と分け方は lib/book-intro.ts）
   const born = !!family.birthDate && family.birthDate <= today;
-  const intro = bookIntro({ childName: family.childName, count: count ?? 0, born, isDemo });
+  const intro = bookIntro({ childName: nameOf(family, family.childName), count: count ?? 0, born, isDemo });
 
   if (making) return <Binding child={child} />;
 
@@ -279,7 +279,7 @@ function BookWhy() {
 /** 一冊を、そのまま送れる文に */
 function bookText(book: Book): string {
   // 枠の言葉（宛名・章・おわりに・日付）は今の言葉で。一冊の文そのものは書いた言葉のまま
-  const parts = [book.title, t("{name}へ", { name: book.childName }), "", book.dedication];
+  const parts = [book.title, t("{name}へ", { name: nameOf({ id: book.familyId }, book.childName) }), "", book.dedication];
   book.chapters.forEach((ch, i) => parts.push("", t("第{n}章　{title}（{period}）", { n: i + 1, title: ch.title, period: t(ch.period) }), "", ch.text.trim()));
   parts.push("", t("おわりに"), "", book.closing.trim(), "", dayLong(book.asOf));
   return parts.join("\n");
@@ -452,7 +452,7 @@ function PageBody({ book, page, photos }: { book: Book; page: Page; photos: Phot
           <TitleLines text={book.title} />
         </h2>
         <div className="h-px w-16 bg-rose/40" />
-        <p className="font-display text-lg">{t("{name}へ", { name: book.childName })}</p>
+        <p className="font-display text-lg">{t("{name}へ", { name: nameOf({ id: book.familyId }, book.childName) })}</p>
         <p className="tabular text-xs text-muted">
           {dayLong(book.range.start)} — {dayLong(book.range.end)}
         </p>
