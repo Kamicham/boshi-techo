@@ -86,9 +86,9 @@ export default {
   "{when}（{day}）開きます": { zh: "{when}（{day}）开启", en: "Opens {when} ({day})" },
   "{day}に開きます": { zh: "{day}开启", en: "Opens on {day}" },
   いつでも読めます: { zh: "随时都能读", en: "Can be read anytime" },
-  おなかにいた頃の手紙が開きました: { zh: "怀孕时写的信打开了", en: "A letter from the pregnancy has opened" },
-  "{n}年前の手紙が開きました": { zh: "{n}年前的信打开了", en: "A letter from {n} {n:year|years} ago has opened" },
-  封をした手紙が開きました: { zh: "封存的信打开了", en: "A sealed letter has opened" },
+  おなかにいた頃の手紙が開きました: { zh: "怀孕时写的信开启了", en: "A letter from the pregnancy is now open" },
+  "{n}年前の手紙が開きました": { zh: "{n}年前的信开启了", en: "A letter from {n} {n:year|years} ago is now open" },
+  封をした手紙が開きました: { zh: "封存的信开启了", en: "A sealed letter is now open" },
 
   // ── 映画（lib/film-plan.ts）──
   "{name}から": { zh: "来自{name}", en: "From {name}" },
