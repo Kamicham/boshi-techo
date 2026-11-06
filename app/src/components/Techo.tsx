@@ -510,7 +510,7 @@ export function Techo() {
     <main className="flex flex-col gap-5 px-4 pt-4 pb-8">
       <WeekBand family={family} today={today} />
       {/* 手帳がしておいた事（日付）: 窓口の調べと下書き。鍵の無い見本の答えは数えないので、見本では出ない */}
-      {!loading && <PrepNote tasks={ahead} prepared={prepared} today={today} />}
+      {!loading && <PrepNote tasks={ahead} prepared={prepared} today={today} familyId={family.id} />}
       {!loading && <PrepAhead tasks={ahead.filter((t) => t.id !== firstPrep?.id)} family={family} me={me} today={today} enabled={!timeTravel} />}
 
       {!loading && bornPrompt && <BornPrompt key={`${family.id}:born`} family={family} today={today} />}

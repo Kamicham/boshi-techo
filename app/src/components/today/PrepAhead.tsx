@@ -81,10 +81,12 @@ export function PrepAhead({ tasks, family, me, today, enabled }: { tasks: Task[]
  * 週数の帯の下の1行「手帳がしておいた事（11/5）: 窓口の調べ2件・下書き1件 ›」。押すと、何をしたかが開く。
  * 数えるのは、開いた時に手帳が用意する事（一番上を含めて3件まで）のうち、本当にできている物だけ（見本の答えは数えない）。
  */
-export function PrepNote({ tasks, prepared, today }: { tasks: Task[]; prepared: Record<string, Prepared>; today: string }) {
+export function PrepNote({ tasks, prepared, today, familyId }: { tasks: Task[]; prepared: Record<string, Prepared>; today: string; familyId: string }) {
+  // 作った家族は、日を場面の今日に（prep.ts の prepNoteOf）
   const note = prepNoteOf(
     tasks.map((t) => t.id),
     prepared,
+    { familyId, today },
   );
   if (!note) return null;
   const parts = [note.local.length > 0 && tr("窓口の調べ{n}件", { n: note.local.length }), note.draft.length > 0 && tr("下書き{n}件", { n: note.draft.length })].filter(Boolean);
