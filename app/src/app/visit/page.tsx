@@ -112,7 +112,7 @@ export default function VisitList() {
   const daysToNext = next ? daysUntil(today, next.date) : null;
   // 3日前〜前日は「聞きたい事を書く」が今やる1つ（前日は持ち物も一緒に）
   const soon = daysToNext != null && daysToNext >= 1 && daysToNext <= 3;
-  // 録音から聞こえただけで、まだ本人が確かめていない日（heard）: 手帳の中では添え書きをして出し、カレンダーへは確かめた後だけ（2026-11-05 作り手の方針）
+  // 録音から聞こえただけで、まだ本人が確かめていない日（heard）: 手帳の中では添え書きをして出し、カレンダーへは確かめた後だけ（作り手の方針）
   const heard = !!next?.heard;
   // カレンダーへ渡す題も画面の言葉で組む（TaskCard の期限と同じ）
   const calendar = next && !heard ? { title: t("健診（{label}）", { label: visitLabelIn(family, next.date) }), date: next.date, time: next.time ?? null, minutes: 60 } : null;

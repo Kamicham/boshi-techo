@@ -277,7 +277,7 @@ export function shareView(input: ShareInput, opts: { viewer: ShareViewer; bundle
 
   if (want.has("next")) {
     // 次の予約は、本人が入れた日（source "manual"）か、録音から聞こえた日（"visit"）を本人が確かめた（ok・fixed）時だけ。
-    // 聞き違えがあり得るので、確かめる前の日は手帳の外（1枚・印刷・共有の文）へ出さない（2026-11-05 聞き違いの件・プラン第4版）
+    // 聞き違えがあり得るので、確かめる前の日は手帳の外（1枚・印刷・共有の文）へ出さない（聞き違いの件・プラン第4版）
     const n = input.plan?.next;
     const confirmed = n?.source === "manual" || (n?.source === "visit" && input.nextChecked === true);
     sheet.next =

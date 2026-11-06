@@ -6,7 +6,7 @@
 //      family の一覧や世帯を作る口のように、世帯を指さない口は requireAccount / currentAccount でもよい（familyId を受け取らない時だけ）
 //   2) 古い関所 requireFamily（家族の id を信じるだけ）を使わない
 //   3) 公開の口（下の PUBLIC）は、理由と、その口が守るべき印（文字）を持つ
-// 健診（api/visit/**）も数える（2026-11-05 の健診の後に関所 visitFor を足した。健診を id で引き、その健診の世帯で関所を通す）。
+// 健診（api/visit/**）も数える（2026-11-05 の監査 #2 で関所 visitFor を足した。健診を id で引き、その健診の世帯で関所を通す）。
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

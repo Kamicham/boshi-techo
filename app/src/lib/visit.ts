@@ -82,7 +82,7 @@ export interface VisitData {
    * 本人が確かめた後は確かめた日（直した日）、「言われていない」なら null（lib/visit-next.ts）
    */
   nextDate?: string | null;
-  /** 次の健診の日を本人が確かめたか（無い＝まだ確かめていない。2026-11-05 作り手の方針「最後の確かめと OK は本人」） */
+  /** 次の健診の日を本人が確かめたか（無い＝まだ確かめていない。作り手の方針「最後の確かめと OK は本人」） */
   nextCheck?: NextCheck;
   agenda?: AgendaItem[];
   guide?: { steps: GuideStep[]; done: number[]; at: string; unsure?: string | null };
@@ -561,7 +561,7 @@ export function nextOfVisit(v: Pick<VisitData, "nextDate" | "nextCheck" | "resul
 
 /**
  * 家族へ送る短い文（3行のまとめ＋次の予約）。評価は足さない。
- * 次の予約は、本人が確かめた日だけ入れる（録音から聞こえただけの日を家族へ広げない。2026-11-05 作り手の方針）
+ * 次の予約は、本人が確かめた日だけ入れる（録音から聞こえただけの日を家族へ広げない。作り手の方針）
  * 送る文は日本語のまま（まとめの3行が Claude の日本語なので、枠だけ訳すと言葉が混ざる。2026-11-05 統括）。jp も日本語の書き方を渡す
  */
 export function familyMessage(v: Pick<VisitData, "date" | "label" | "result" | "nextDate" | "nextCheck">, jp: (d: string) => string): string {

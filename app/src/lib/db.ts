@@ -135,7 +135,7 @@ export function removeFilesDir(familyId: string): void {
 //
 // わが家・本番の置き場（BOSHI_DATA_DIR を指定しない＝app/data/）では、BOSHI_ACCOUNTS=1 を入れるまで表を作らない。
 // 開発サーバ（3000番）と本番（3210番）は同じ app/data/boshi.db を開いているので、試しに叩いただけで
-// わが家の DB の形が変わらないようにするため（11/5 の健診の後に、主担当が写しで試してから入れる）。
+// わが家の DB の形が変わらないようにするため（入れるのは 11/8 の後に、写しで試してから。CLAUDE.md）。
 
 /** 今開いている DB（Better Auth に同じファイルを渡すため） */
 export function database(): Database.Database {

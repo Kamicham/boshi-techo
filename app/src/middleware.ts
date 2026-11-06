@@ -9,7 +9,7 @@ import { newTrialId, publicOn, TRIAL_COOKIE, TRIAL_DAYS, trialIdFromCookie } fro
 // ───────── 公開版（BOSHI_PUBLIC=1・2026-11-04） ─────────
 // だれでも体験できる版。開いた人に体験の札（boshi_try）を配り、サーバはその人の写しだけを読み書きする（lib/trial.ts）。
 // 本物の家族の登録はまだ開けないので、アカウント・招待・書き出し・シミュレーションの口は閉じる。
-// 健診（visit）は 11/5 まで凍結の約束なので、公開版では読むだけ（共有の見本の家族に録音を書かせない）。
+// 健診（visit）は、公開版では読むだけ（共有の見本の家族に録音を書かせない）。
 const CLOSED_API = [/^\/api\/auth\/(?!get-session)/, /^\/api\/account\//, /^\/api\/household(\/|$)/, /^\/api\/export(\/|$)/, /^\/api\/sim\//, /^\/api\/unlock$/];
 const CLOSED_PAGE = [/^\/login(\/|$)/, /^\/account(\/|$)/, /^\/invite(\/|$)/, /^\/unlock$/];
 

@@ -1,5 +1,5 @@
 // 結果の画面の1問（次の健診の日の確かめ）の口: PATCH /api/visit/[id] の nextCheck と、一覧の heard・canWrite・消す時の決まり。
-// 2026-11-05 作り手の方針「聞き違いは0にできない。最後の確かめと OK は本人」。日付はすべて作った日。Claude は呼ばない（整理の結果は記録に直接置く）。
+// 作り手の方針「聞き違いは0にできない。最後の確かめと OK は本人」。日付はすべて作った日。Claude は呼ばない（整理の結果は記録に直接置く）。
 // 関所の試験は api-household.test.ts・account-api.test.ts（読むだけの人は 403）。ここは移る前の通し方（わが家と同じ）で、家族の id で通す。
 import fs from "node:fs";
 import os from "node:os";
