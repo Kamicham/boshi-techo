@@ -185,9 +185,9 @@ export default {
     zh: "能看到的只有你和你邀请的家人（不会给受邀的祖父母等看手册里妈妈的页面和健康检查的记录。不过目前，说话留下的记录和成长书等里面也包含妈妈的记录。选择给对方看哪些内容的功能还在准备中）",
     en: "Only you and the family members you invite can see it (invited grandparents and others aren't shown Mom's pages in the handbook or her checkup records. For now, though, things like records made by talking and the Book also include the mother's records. A way to choose what to show is still in preparation)",
   },
-  "写真と録音（声）は、世帯ごとの鍵で暗号にして置きます（文字の記録の暗号化は準備中です）": {
-    zh: "照片和录音（声音）会用每个家庭各自的密钥加密后保存（文字记录的加密还在准备中）",
-    en: "Photos and recordings (voices) are stored encrypted with a separate key for each household (encrypting text records is still in preparation)",
+  "写真と声のファイルは、世帯ごとの鍵で暗号にして置きます（健診の録音と、文字の記録の暗号化は準備中です）": {
+    zh: "照片和声音文件会用每个家庭各自的密钥加密后保存（健康检查的录音和文字记录的加密还在准备中）",
+    en: "Photo and voice files are stored encrypted with a separate key for each household (encrypting checkup recordings and text records is still in preparation)",
   },
   "いつでも、アカウントの画面から書き出せます。あなたの写真と声は、いつでも消せます（文字の記録を本人の分だけ消す仕組みは準備中です）": {
     zh: "随时可以在账户页面导出。你的照片和声音随时都能删除（只删除本人那部分文字记录的功能还在准备中）",

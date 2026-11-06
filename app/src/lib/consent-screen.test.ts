@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import type { Entries } from "@/lib/i18n";
+import account from "@/lib/i18n/dict/account";
 import { canInvitePartner, childConsentLine, invitePartnerHref, RECORD_PROMISES, type InviteView } from "./consent-screen";
 import { CONSULT_AFTER_NOTE, consultWaitsFirstDay } from "./consult-first-day";
 
@@ -13,15 +15,25 @@ const base: InviteView = {
 };
 
 describe("同意の画面の守っている事", () => {
-  it("3行で、判定の言葉も「法定代理人」も入れない", () => {
+  it("3行で、判定の言葉も「法定代理人」も入れず、3行とも中文・English の訳がある", () => {
     expect(RECORD_PROMISES).toHaveLength(3);
+    // 画面は t(文) で引くので、文を直したら訳の鍵も一緒に直す（鍵がずれると、中文・English の画面に日本語が出る）
+    const dict: Entries = account;
+    for (const s of RECORD_PROMISES) {
+      expect(dict[s]?.zh, s).toBeTruthy();
+      expect(dict[s]?.en, s).toBeTruthy();
+    }
     for (const t of [...RECORD_PROMISES, CONSULT_AFTER_NOTE, childConsentLine(true, false), childConsentLine(false, true)]) {
       expect(t).not.toMatch(JUDGE);
       expect(t).not.toContain("法定代理人");
     }
   });
-  it("文字の記録がまだ暗号でない事を隠さない", () => {
+  it("文字の記録と健診の録音がまだ暗号でない事を隠さない", () => {
     expect(RECORD_PROMISES.join("")).toContain("文字の記録の暗号化は準備中");
+    // 健診の録音は app/api/visit/_lib/server.ts が素のファイルで置く（2026-11-06 全体監査。364c3ea で同意の本文だけを直し、この行を直し損ねた）。
+    // 暗号にしたら、この試験と components/settings/consent-texts.test.ts と文を一緒に直す
+    expect(RECORD_PROMISES[1]).toContain("健診の録音");
+    expect(RECORD_PROMISES.join("\n")).not.toMatch(/写真と録音|録音（声）/);
   });
   it("まだ効いていない約束（母の記録の見せる範囲・本人の分の文字の記録を消す）は「準備中」と書き、「選べます」と言わない", () => {
     // 文字の記録に本人が付かないので、招いた祖父母などにも母の記録が見え、本人の分を消しても文字の記録は残る（2026-11-05 に確かめ直した）
