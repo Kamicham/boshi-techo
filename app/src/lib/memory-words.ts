@@ -76,3 +76,20 @@ export function monthName(s: string): string {
 export function parens(s: string): string {
   return currentLang() === "en" ? s.replace(/\s*（/g, " (").replace(/）/g, ")") : s;
 }
+
+/**
+ * 一冊の表紙の期間（2026-11-06）: 始まりは授かった日、終わりは中身の終わり＝その一冊を作った日（asOf）。
+ * 1000日の終わり（2歳の誕生日・range.end）より後にはしない。前は終わりがいつも2歳の誕生日で、
+ * 「1歳までの日々」の表紙が2歳の誕生日までと読めた。前に作って残っている一冊にも効くよう、描く時に決める
+ */
+export function coverPeriod(book: { range: { start: string; end: string }; asOf: string }): { start: string; end: string } {
+  return { start: book.range.start, end: book.asOf < book.range.end ? book.asOf : book.range.end };
+}
+
+/**
+ * 表紙の宛名の行（「ひなたへ」）。題がもう宛名を含む時は出さない（2026-11-06）。
+ * 「ひなたへ　1歳までの日々」の下に「ひなたへ」を重ねない。English（To Hinata）・中文（给ひなた）も同じ
+ */
+export function coverTo(title: string, to: string): string | null {
+  return title.toLowerCase().includes(to.toLowerCase()) ? null : to;
+}

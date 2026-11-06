@@ -11,7 +11,7 @@ import { Btn } from "@/components/ui";
 import type { Book } from "@/lib/book";
 import type { ClientMedia } from "@/lib/media-shared";
 import { t } from "@/lib/i18n";
-import { dayLong, nameOf } from "@/lib/memory-words";
+import { coverPeriod, coverTo, dayLong, nameOf } from "@/lib/memory-words";
 
 const CSS = `
 @page { size: 148mm 210mm; margin: 0; }
@@ -82,9 +82,12 @@ export default function BookPrintPage() {
             <h2 className="font-display" style={{ fontSize: 24, fontWeight: 700, lineHeight: 1.4 }}>
               {book.title}
             </h2>
-            <p className="font-display">{t("{name}へ", { name: nameOf(family, book.childName) })}</p>
+            {/* 宛名は題に無い時だけ・期間の終わりは中身の終わり（一冊の画面の表紙と同じ。lib/memory-words） */}
+            {coverTo(book.title, t("{name}へ", { name: nameOf(family, book.childName) })) && (
+              <p className="font-display">{t("{name}へ", { name: nameOf(family, book.childName) })}</p>
+            )}
             <p style={{ fontSize: 10, color: "#6a6876" }}>
-              {dayLong(book.range.start)} — {dayLong(book.range.end)}
+              {dayLong(coverPeriod(book).start)} — {dayLong(coverPeriod(book).end)}
             </p>
           </section>
 
