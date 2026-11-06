@@ -11,6 +11,8 @@ import type { Keep } from "./keep";
 vi.mock("server-only", () => ({}));
 
 const asked: { system: string; user: string }[] = [];
+/** 次の答え（無ければ下の職場あてのメールの形）。名乗りの試験で、決まりどおりの答えを渡す */
+const reply: { next: Record<string, unknown> | null } = { next: null };
 vi.mock("./claude", async () => {
   const actual = await vi.importActual<typeof import("./claude")>("./claude");
   return {
@@ -18,6 +20,7 @@ vi.mock("./claude", async () => {
     // 職場あてのメールの形（空欄は決まりどおりの名前）
     structured: vi.fn(async (_schema: unknown, system: string, user: string) => {
       asked.push({ system, user });
+      if (reply.next) return reply.next;
       return {
         kind: "メール",
         title: "育休のご相談",
@@ -154,6 +157,42 @@ describe("パートナーの下書きに、母の職場を入れない", () => {
     const ok = Dr.confirmDraft(F.id, "partner-leave-14", { to: "【会社名】 人事部" }, "2027-02-02", { work: w });
     expect(ok?.to).toBe("作った工業 人事部");
     expect(ok?.status).toBe("ok");
+  });
+});
+
+describe("名乗りと署名（2026-11-06 見直し③。② の参謀の文と同じ決まり）", () => {
+  it("指示: 職場・役所あては姓で名乗り（分からなければ【姓】）、家族あての頼み文は名のまま。生まれた後は産後休業", async () => {
+    asked.length = 0;
+    await Dr.makeDraft({ ...F, id: "whose-test-name" }, findMilestone("tell-work-birth"), "2027-04-27", "misaki");
+    const { system, user } = asked[0];
+    expect(system).toContain("名乗り（「◯◯です」）を姓で書き、姓が分からなければ【姓】にする");
+    expect(system).toContain("名だけで名乗らない");
+    expect(system).toContain("家族あての頼み文（LINE など）は名のままでよい");
+    expect(system).toContain("母の休みは産後休業（労働基準法第65条第2項）。「産前休業中」とは書かない");
+    expect(system).not.toContain("（分からなければ【自分の名前】）。町名");
+    // 書き手に渡すのは名（姓は渡していない）
+    expect(user).toContain("書き手: 美咲（母）");
+  });
+
+  it("決まりどおりの答え（【姓】で名乗り、署名は【姓】のあとに名）を埋めても、名だけの名乗りにならない", async () => {
+    reply.next = {
+      kind: "メール",
+      title: "出産のご報告",
+      to: "【会社名】 【上司の名前】様",
+      body: "【上司の名前】様\n\nお疲れさまです。【会社名】の【姓】です。産後休業中に失礼します。4月26日に出産しました。\n\n【姓】【自分の名前】",
+      checklist: ["日付を確かめる"],
+    };
+    try {
+      const v = await Dr.makeDraft({ ...F, id: "whose-test-name2" }, findMilestone("tell-work-birth"), "2027-04-27", "misaki");
+      const body = v.draft?.body ?? "";
+      expect(body).toContain("【姓】です");
+      expect(body).toContain("【姓】美咲");
+      expect(body).not.toMatch(/美咲です|産前休業/);
+      // 【姓】は家族が入れる空欄として残る
+      expect(v.blanks.map((b) => b.raw)).toContain("【姓】");
+    } finally {
+      reply.next = null;
+    }
   });
 });
 
