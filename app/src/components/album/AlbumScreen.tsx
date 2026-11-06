@@ -16,6 +16,7 @@ import { KeepButtons } from "./KeepButtons";
 import { PhotoSheet } from "./PhotoSheet";
 import { VoiceItem } from "./VoiceItem";
 import { invalidateMedia, trashMedia, patchMedia, useMedia } from "./useMedia";
+import { Phrase } from "@/components/Phrase";
 
 export function AlbumScreen() {
   const { family, isDemo } = useFamily();
@@ -141,7 +142,11 @@ function Pick({ m, titles, onOpen }: { m: ClientMedia; titles: Map<string, strin
         {ms ? `${dot()}${t(ms.label)}` : ""}
         {linked.length ? `${dot()}${t("手帳「{titles}」", { titles: linked.join(dot()) })}` : ""}
       </span>
-      {m.caption && <span className="text-base">{m.caption}</span>}
+      {m.caption && (
+        <span className="phrase text-base">
+          <Phrase text={m.caption} />
+        </span>
+      )}
     </button>
   );
 }

@@ -17,6 +17,7 @@ import { jpShort } from "./dates";
 import { canLocalFor, draftKindFor, prepNoteOf, type Prepared } from "./prep";
 import { notifyPrep } from "./usePrep";
 import type { Task } from "./task";
+import { Phrase } from "@/components/Phrase";
 
 /** 用意を走らせている家族（同じ画面を2回開いても、2本は走らせない） */
 const running = new Set<string>();
@@ -81,10 +82,12 @@ export function PrepAhead({ tasks, family, me, today, enabled }: { tasks: Task[]
  * 週数の帯の下の1行「手帳がしておいた事（11/5）: 窓口の調べ2件・下書き1件 ›」。押すと、何をしたかが開く。
  * 数えるのは、開いた時に手帳が用意する事（一番上を含めて3件まで）のうち、本当にできている物だけ（見本の答えは数えない）。
  */
-export function PrepNote({ tasks, prepared, today }: { tasks: Task[]; prepared: Record<string, Prepared>; today: string }) {
+export function PrepNote({ tasks, prepared, today, familyId }: { tasks: Task[]; prepared: Record<string, Prepared>; today: string; familyId: string }) {
+  // 作った家族は、日を場面の今日に（prep.ts の prepNoteOf）
   const note = prepNoteOf(
     tasks.map((t) => t.id),
     prepared,
+    { familyId, today },
   );
   if (!note) return null;
   const parts = [note.local.length > 0 && tr("窓口の調べ{n}件", { n: note.local.length }), note.draft.length > 0 && tr("下書き{n}件", { n: note.draft.length })].filter(Boolean);
@@ -92,9 +95,9 @@ export function PrepNote({ tasks, prepared, today }: { tasks: Task[]; prepared: 
   return (
     <details className="group -mt-2 text-sm text-muted">
       <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1">
-        <span className="min-w-0">
+        <span className="phrase min-w-0">
           <span className="font-semibold text-sky">{tr("手帳がしておいた事")}</span>
-          {note.on && <span className="tabular">{tr("（{x}）", { x: jpShort(note.on, today) })}</span>}: {parts.join(tr("・"))}
+          {note.on && <span className="tabular">{tr("（{x}）", { x: jpShort(note.on, today) })}</span>}: <Phrase text={parts.join(tr("・"))} />
         </span>
         <span className="shrink-0 transition-transform group-open:rotate-90" aria-hidden>
           ›

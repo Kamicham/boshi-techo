@@ -20,6 +20,7 @@ import { birthNewsText } from "@/lib/media-shared";
 import { jpDate } from "./dates";
 import type { Task } from "./task";
 import { registrationLine, tripBelowLine } from "./welcome";
+import { Phrase } from "@/components/Phrase";
 
 const field = "min-h-12 w-full rounded-xl border border-line bg-card px-3 text-base";
 
@@ -151,15 +152,23 @@ export function WelcomeBaby({
   };
   // 届けの束がすぐ下にある日は、出生届の期限と担当を束に任せる（産んだ人には、休む事だけ）
   const line = tripBelow && reg && reg.status !== "済み" ? tripBelowLine(me) : registrationLine(family, me, reg);
-  const link = "flex min-h-12 items-center justify-between gap-3 rounded-xl bg-card px-4 text-base font-semibold";
+  const link = "phrase flex min-h-12 items-center justify-between gap-3 rounded-xl bg-card px-4 text-base font-semibold";
   return (
     <section aria-label={t("ようこそ")} className="flex flex-col gap-3 rounded-2xl border border-rose/40 bg-rose-soft p-4">
       <p className="text-sm font-semibold text-rose">{t("{date}に生まれました", { date: jpDate(birth, today) })}</p>
-      <h2 className="font-display text-2xl font-bold [text-wrap:balance]">{welcome}</h2>
-      {sealed > 0 && <p className="text-base">{t("おなかにいた頃に書いた手紙が{n}通、1歳の誕生日を待っています。", { n: sealed })}</p>}
+      <h2 className="phrase font-display text-2xl font-bold [text-wrap:balance]">
+        <Phrase text={welcome} />
+      </h2>
+      {sealed > 0 && (
+        <p className="phrase text-base">
+          <Phrase text={t("おなかにいた頃に書いた手紙が{n}通、1歳の誕生日を待っています。", { n: sealed })} />
+        </p>
+      )}
       <div className="flex flex-col gap-2">
         <Link href="/capture?keep=1" className={link}>
-          <span>{t("📷 はじめましての写真・🎙 声を残す")}</span>
+          <span className="min-w-0">
+            <Phrase text={t("📷 はじめましての写真・🎙 声を残す")} />
+          </span>
           <span className="text-muted" aria-hidden>
             ›
           </span>
@@ -167,14 +176,20 @@ export function WelcomeBaby({
         <button type="button" onClick={() => void share()} className={`${link} text-left`}>
           <span className="min-w-0">
             💌 {t("家族に知らせる")}
-            <span className="block text-sm font-normal text-muted">{copied ? t("文を写しました。LINE などに貼れます") : t("「{text}」", { text: news })}</span>
+            <span className="block text-sm font-normal text-muted">
+              <Phrase text={copied ? t("文を写しました。LINE などに貼れます") : t("「{text}」", { text: news })} />
+            </span>
           </span>
           <span className="text-muted" aria-hidden>
             ›
           </span>
         </button>
       </div>
-      {line && <p className="text-base">{line}</p>}
+      {line && (
+        <p className="phrase text-base">
+          <Phrase text={line} />
+        </p>
+      )}
     </section>
   );
 }

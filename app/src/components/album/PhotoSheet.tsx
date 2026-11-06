@@ -9,6 +9,7 @@ import { t } from "@/lib/i18n";
 import { isPhotoPage, keptLine, type ClientMedia } from "@/lib/media-shared";
 import { dot } from "@/lib/memory-words";
 import { patchMedia, trashMedia } from "./useMedia";
+import { Phrase } from "@/components/Phrase";
 
 // 日本語のまま持ち、出す時に t() を通す（辞書は lib/i18n/dict/album.ts）
 const FROM: Record<NonNullable<ClientMedia["takenAtFrom"]>, string> = {
@@ -151,7 +152,11 @@ export function PhotoSheet({ photo, techo, canWrite, onClose }: { photo: ClientM
               </div>
             </>
           ) : (
-            m.caption && <p className="text-base">{m.caption}</p>
+            m.caption && (
+              <p className="phrase text-base">
+                <Phrase text={m.caption} />
+              </p>
+            )
           )}
           {error && <p className="text-sm text-alert">{error}</p>}
           <p className="pb-2 text-sm text-muted">{t("Claude には見せていません")}</p>

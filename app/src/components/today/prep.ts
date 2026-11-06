@@ -7,6 +7,7 @@ import type { Family, Member } from "@/lib/demo-family";
 import { diffDays } from "@/lib/clock";
 import { DRAFTABLE } from "@/lib/draft-kinds";
 import { t as tr } from "@/lib/i18n";
+import { isMadeId } from "@/lib/i18n/names";
 import { NOW, byDays, daysLeft, isMine, isStale, type Task } from "./task";
 
 /** 下書きを何と呼ぶかの種類: 表（lib/draft-kinds.ts）を先に見る＝札の下のボタン（MilestoneActions）と同じ順。
@@ -75,11 +76,20 @@ export function prepAhead(tasks: Task[], today: string, me: Member | null, first
   return [...head, ...rest].slice(0, PREP_MAX);
 }
 
-/** 帯の下の1行の中身: 用意した物のある事（窓口・下書き）と、いちばん新しい日。何も無ければ null */
-export function prepNoteOf(ids: string[], prepared: Record<string, Prepared>): { on: string; local: string[]; draft: string[] } | null {
+/**
+ * 帯の下の1行の中身: 用意した物のある事（窓口・下書き）と、いちばん新しい日。何も無ければ null。
+ * 作った家族（見本・なりきり・公開版の写し）は、日を場面の今日（scene.today）にする。町の窓口の調べは本物の日付で
+ * 共有の置き場に残るので、見本の 2027/1/19 の画面に本物の今日（2026/11/6（金））が出ていた（デモの会話が見つけた⑥・2026-11-06）
+ */
+export function prepNoteOf(
+  ids: string[],
+  prepared: Record<string, Prepared>,
+  scene?: { familyId: string; today: string },
+): { on: string; local: string[]; draft: string[] } | null {
   const local = ids.filter((id) => prepared[id]?.local);
   const draft = ids.filter((id) => prepared[id]?.draft);
   if (local.length === 0 && draft.length === 0) return null;
+  if (scene && isMadeId(scene.familyId)) return { on: scene.today, local, draft };
   const days = [...local.map((id) => prepared[id].local!.on), ...draft.map((id) => prepared[id].draft!.on)].filter(Boolean).sort();
   return { on: days[days.length - 1] ?? "", local, draft };
 }

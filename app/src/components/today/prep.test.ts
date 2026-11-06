@@ -62,6 +62,16 @@ describe("手帳が用意した事の言い方", () => {
     ).toEqual({ on: "2027-04-28", local: ["a", "b"], draft: ["b"] });
   });
 
+  it("帯の下の1行の日: 作った家族（見本・30家族・公開版の写し）は場面の今日、本物の家族は用意した日（デモの会話が見つけた⑥）", () => {
+    // 町の窓口の調べは本物の日付（2026-11-06）で残る。見本の場面の日（2027-01-19）の画面に、本物の日付を出さない
+    const prepared = { a: { local: { on: "2026-11-06" } }, b: { draft: { kind: "メール" as const, on: "2027-01-10", blanks: [] } } };
+    for (const familyId of ["demo-sato", "sim-01", "pop-0001", "try-0123456789abcdef0123456789abcdef"]) {
+      expect(prepNoteOf(["a", "b"], prepared, { familyId, today: "2027-01-19" })?.on).toBe("2027-01-19");
+    }
+    expect(prepNoteOf(["a", "b"], prepared, { familyId: "h-real", today: "2027-01-19" })?.on).toBe("2027-01-10");
+    expect(prepNoteOf(["a", "b"], {}, { familyId: "demo-sato", today: "2027-01-19" })).toBeNull();
+  });
+
   it("窓口を先に調べるのは、役所に出す手続きだけ（産院・職場に出す物と、町の分からない家族は調べない）", () => {
     const t = { needsLocal: true, kind: "手続き", title: "出生届を出す", plain: "出生届を出す" } as const;
     expect(canLocalFor(t, { city: "さいたま市" })).toBe(true);

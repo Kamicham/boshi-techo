@@ -1,7 +1,7 @@
 "use client";
 
 // 声を残す（思い出の録り方）。押して始め、もう一度押して止める（長く話せるように）。
-// 残した声は世帯の鍵で守って置き、Claude には送らない（記録の振り分けにもかけない）。文字にするのは自宅の機械だけ。
+// 残した声は世帯の鍵で守って置き、Claude には送らない（記録の振り分けにもかけない）。文字にするのは自宅の機械だけ（画面の言葉は「手帳の中で」）。
 // 根拠: 紙の母子手帳の「迎える気持ち」「誕生日のメッセージ」は文字の欄だけ（府令様式・こども家庭庁 令和5年度改正）。声はここで足す。
 import Link from "next/link";
 import { useState } from "react";
@@ -30,7 +30,7 @@ export function VoiceKeeper({ unavailable }: { unavailable?: boolean }) {
       <p className="text-sm text-muted">
         {loss
           ? t("残したい時だけ、声のまま残せます。消さずにしまうこともできます。")
-          : t("声のまま残します。聞き返す手がかりに、手帳の機械で文字も添えます。大きくなった子どもが、一冊の本の中で聞けます")}
+          : t("声のまま残します。聞き返す手がかりに、手帳の中で文字にして添えます（声は AI に送りません）。大きくなった子どもが、一冊の本の中で聞けます")}
       </p>
       <div className={`grid gap-2 ${moments.length === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
         {moments.map((m) => (
@@ -129,7 +129,7 @@ function VoiceSheet({ moment, onClose }: { moment: Moment; onClose: () => void }
             </button>
             {error && <p className="text-sm text-alert">{error}</p>}
             <p className="text-xs text-muted">
-              {t("声は家族の鍵で守って、この手帳の中だけに残します。声そのものは AI（Claude）に送りません。文字にするのは手帳の機械で、一冊を作る時だけ、題と最初の一文の文字を Claude に渡します。消したい時はアルバムから消せます。")}
+              {t("声は家族の鍵で守って、この手帳の中だけに残します。声そのものは AI（Claude）に送りません。文字にするのも手帳の中です。一冊を作る時だけ、題と最初の一文の文字を Claude に渡します。消したい時はアルバムから消せます。")}
             </p>
             {!on && (
               <Link href="/album" className="text-sm text-muted underline-offset-2 hover:underline">

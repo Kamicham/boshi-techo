@@ -17,6 +17,7 @@ import { MilestoneActions } from "../MilestoneActions";
 import { jpShort } from "./dates";
 import type { Prepared } from "./prep";
 import { FAR_DAYS, daysLeft, isMine, whenDate, whoLabel, type Task } from "./task";
+import { Phrase } from "@/components/Phrase";
 
 /** 今日の画面に出す1件。shared = もとは家族みんなの事で、担当を選べる（together = 2人でと決めた） */
 export type ShownTask = Task & { shared?: boolean; together?: boolean };
@@ -105,7 +106,9 @@ export function TaskRow(p: Common & { muted?: boolean }) {
         aria-label={others && who ? tr("{who}の番: {plain}", { who, plain: msWords(t.plain) }) : undefined}
       >
         <span className="flex min-w-0 flex-col gap-0.5">
-          <span className={`text-base leading-snug ${p.muted || others ? "text-muted" : "font-semibold"}`}>{msWords(t.plain)}</span>
+          <span className={`phrase text-base leading-snug ${p.muted || others ? "text-muted" : "font-semibold"}`}>
+            <Phrase text={msWords(t.plain)} />
+          </span>
           {(showPill || sharedPill || ready) && (
             <span className="flex flex-wrap gap-1">
               {showPill && <Pill tone={others ? "muted" : "rose"}>{tr("{who}の番", { who })}</Pill>}

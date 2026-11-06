@@ -2,11 +2,15 @@
 
 [![検査（型・lint・試験・早送り・組み立て）](https://github.com/Kamicham/boshi-techo/actions/workflows/check.yml/badge.svg?branch=main)](https://github.com/Kamicham/boshi-techo/actions/workflows/check.yml)
 
-> 1948年、日本は母子手帳を発明した。それは世界約40か国に広がった。
+> 1948年、日本は母子手帳を発明した。それは世界約50か国に広がった。
 > 2026年、その次の形を作る。「読む手帳」から、「一緒に動く手帳」へ。
 
 **Built with Claude: Japan 2026** の出品作（テーマ #2「本来、誰にでも届くべきものを。」）。
 開発期間: 2026-11-02 12:30 〜 2026-11-08 20:00（JST）。このリポジトリは期間中にゼロから作っています。
+
+作り手: Kamicham（1人で参加。Cerebral Valley では Kamichama）。11/2〜11/4 のコミットの作者名 konnokun も同じ作り手で、11/4 に Git の名前の設定を揃えた。
+
+体験版: https://boshi-techo-try.fly.dev/ （ログイン不要）
 
 [English below](#english)
 
@@ -72,7 +76,7 @@
 - **相談できる人**: 時期ごとに1回だけ「子育てについて気軽に相談できる人はいますか。」と聞く（紙の手帳の保護者の記録の毎回の問い。言葉もそのまま）。「いない」なら、町のこども家庭センター・産後ケア・#8000・児童相談所の相談ダイヤルへ橋をかける
 - **急ぎの時**: 命が危ないと思ったら迷わず 119、救急車を呼ぶか迷う時は #8000（子ども）と #7119（ママの体・実施している町）、窒息の手当と心肺蘇生の要点（こども家庭庁の任意様式・日本蘇生協議会のガイドラインを元に短く）。電波が無くても開ける
 
-作り手自身が、使う人の1号目です。家族の妊婦健診で、このアプリで先生の説明を録音して使っています（本物の記録は公開しません）。
+作り手自身が、使う人の1号目です。家族の妊婦健診で、このアプリで先生の説明を録音して使っています（本物の記録は公開しません）。期間中の健診では、録音から作ったまとめが次の健診の日付を聞き違えました。その日のうちに、聞こえた日付は本人が「大丈夫」を押すまで予定・カレンダー・送る文へ進まない形に作り直しています（[Claude Code での作り方](docs/BUILT_WITH_CLAUDE_CODE.md) の7）。
 
 ## Claude の使い方
 
@@ -127,7 +131,7 @@ npm run typecheck
 
 ## 公開版（体験）
 
-だれでも、作った家族の手帳を自分だけの写しで触れる版です（`BOSHI_PUBLIC=1`）。
+だれでも、作った家族の手帳を自分だけの写しで触れる版です（`BOSHI_PUBLIC=1`）。いまの体験版: https://boshi-techo-try.fly.dev/ （ログイン不要）
 
 - 開いた人ごとに、見本の家族の写しを1つ作る（札＝クッキーの持ち主だけが開ける。7日で消える）。ほかの人の書き込みは見えない
 - 本物の家族の登録・招待・書き出しは閉じてある。健診の録音は、公開版ではまだ読むだけ
@@ -153,7 +157,7 @@ fly deploy --remote-only   # 組み立ては Fly の機械で。像は、きれ�
 ### 確かめ方
 
 - **試験 110ファイル・1478件**（2026-11-05 時点・`npm test`）。Claude は呼ばず、鍵も使わない。main への push と PR のたびに、GitHub Actions（`.github/workflows/check.yml`）が型・lint・試験・早送り・組み立て（next build）を回す
-- **早送り: 22の決まり（a〜v）× 1030家族 × 1000日**（`npm run sim`）。公的な統計から作った1000組（のべ 1,035,345日）と、珍しい型の30家族（のべ 28,767日）の毎日を、「今日」の画面と同じ関数に通す。手帳の記録の決まり t1〜t9 は、見本の家族を足した1031家族で確かめる。今はすべて守れている
+- **早送り: 23の決まり（a〜w）× 1030家族 × 1000日**（`npm run sim`）。公的な統計から作った1000組（のべ 1,035,345日）と、珍しい型の30家族（のべ 28,767日）の毎日を、「今日」の画面と同じ関数に通す。手帳の記録の決まり t1〜t9 は、見本の家族を足した1031家族で確かめる。今はすべて守れている
 - **世帯をまたぐ試験**: 家族Aのログインで家族Bの記録・済んだ事・手帳・写真の id を叩くと、どれも 404（`app/src/sim/cross-household.test.ts`）。API の口が（健診の口も）すべて、関所（`withHousehold`）か理由つきの公開の口を通るかを、コードを読んで確かめる（`app/src/sim/api-guard.test.ts`）
 
 修正のたびに、公的な統計の割合から作った1000家族（すべて作った家族）でアプリの1000日を早送りしています。使った割合と出典: [docs/SIM_STATS.md](docs/SIM_STATS.md)
@@ -171,10 +175,14 @@ MIT
 
 # Reinventing the Maternal and Child Health Handbook
 
-> In 1948, Japan invented the Maternal and Child Health Handbook (Boshi Techo), which has since spread to around 40 countries.
+> In 1948, Japan invented the Maternal and Child Health Handbook (Boshi Techo), which has since spread to around 50 countries.
 > In 2026, we build what comes next: from a handbook you read, to an agent that walks the first 1,000 days with your family.
 
 An entry to **Built with Claude: Japan 2026** (Theme #2: "What should reach everyone"). Built from scratch between 2026-11-02 and 2026-11-08 (JST).
+
+Maker: Kamicham (solo entry; Kamichama on Cerebral Valley). The commits from Nov 2 to Nov 4 authored as konnokun are by the same maker; the Git name setting was unified on Nov 4.
+
+Live demo: https://boshi-techo-try.fly.dev/ (no login needed)
 
 ## Why
 
@@ -216,7 +224,7 @@ The national handbook format has been refined for 78 years. We keep its seven qu
 - **Someone to talk to**: once per stage, the app asks the handbook's recurring question (kept word for word in Japanese), "Is there someone you can casually talk to about raising your child?" If not, it links to the city's child and family center, postpartum care, the #8000 pediatric line and the child guidance hotline.
 - **Emergency page**: call 119 without hesitation if a life may be in danger; if unsure whether to call an ambulance, #8000 (children) and #7119 (the mother's body, where the town offers it), and short steps for choking and CPR (based on the Children and Families Agency's handbook pages and the Japan Resuscitation Council guidelines). It opens even offline.
 
-The author is user #1, using it at a family member's real prenatal checkups (real records are never published).
+The author is user #1, using it at a family member's real prenatal checkups (real records are never published). At one real checkup during the hackathon, the summary made from the recording misheard the next checkup date. The same day, heard dates became candidates that move into the plan, the calendar or any message only after the person taps OK (see section 7 of [Built with Claude Code](docs/BUILT_WITH_CLAUDE_CODE.md)).
 
 ## How Claude is used
 
@@ -247,7 +255,7 @@ The source of truth is the four constants in [`app/src/lib/claude.ts`](app/src/l
 ## Tests
 
 - **1,478 tests in 110 files** (as of 2026-11-05, `npm test`). No Claude calls and no keys. GitHub Actions (`.github/workflows/check.yml`) runs types, lint, tests, the fast-forward and `next build` on every push to main and every PR.
-- **Fast-forward: 22 rules (a–v) × 1,030 families × 1,000 days** (`npm run sim`). 1,000 synthetic families drawn from public statistics (1,035,345 family-days) and 30 hand-made rare cases (28,767 family-days) pass every day through the same functions as the Today screen. The 9 handbook-record rules (t1–t9) are checked on 1,031 families (adding the demo family). All pass today.
+- **Fast-forward: 23 rules (a–w) × 1,030 families × 1,000 days** (`npm run sim`). 1,000 synthetic families drawn from public statistics (1,035,345 family-days) and 30 hand-made rare cases (28,767 family-days) pass every day through the same functions as the Today screen. The 9 handbook-record rules (t1–t9) are checked on 1,031 families (adding the demo family). All pass today.
 - **Cross-household tests**: with family A's login, every record, done item, handbook entry and photo id of family B returns 404 (`app/src/sim/cross-household.test.ts`). A source-reading test checks that every API route (including the checkup routes) goes through the household gate (`withHousehold`) or is a public route with a stated reason (`app/src/sim/api-guard.test.ts`).
 
 Every change is fast-forwarded through 1,000 days with 1,000 synthetic families drawn from Japanese public statistics (sources: [docs/SIM_STATS.md](docs/SIM_STATS.md), in Japanese). Results: [docs/SIMULATION_RESULTS.md](docs/SIMULATION_RESULTS.md). How it was built with Claude Code: [docs/BUILT_WITH_CLAUDE_CODE.md](docs/BUILT_WITH_CLAUDE_CODE.md). Architecture, run modes and where it would live at national scale: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (in Japanese). After the hackathon it would move to a major cloud (Google Cloud or AWS) together with a rewrite to a managed database, object storage and KMS; of the docs we checked on 2026-11-05, only Amazon Bedrock (Tokyo and Osaka) confirms in-Japan processing for Claude, and it has no web search tool, so city research would need rework there.
@@ -258,7 +266,7 @@ See the Japanese section above (`cd app && npm install && cp .env.example .env.l
 
 ## Public trial
 
-`BOSHI_PUBLIC=1` runs a version anyone can try: each visitor gets a private copy of the demo family (bound to a cookie, deleted after 7 days). Sign-up, invites and export are closed. **During the hackathon the public trial does not call Claude**: no API key is set, and the public build refuses to call Claude even if one is. Claude's part is shown with a book Claude wrote earlier and with clearly labeled sample answers; spoken notes are not transcribed (a fixed sample sentence is used). To host it yourself on Fly.io (Tokyo), see `app/Dockerfile` and `app/fly.toml` (`fly launch --no-deploy --copy-config`, create a 3 GB `boshi_data` volume, pass only `BETTER_AUTH_SECRET` and `BOSHI_KEK` through stdin with `fly secrets import`, then `fly deploy --remote-only` from a clean checkout of main).
+`BOSHI_PUBLIC=1` runs a version anyone can try (live now at https://boshi-techo-try.fly.dev/, no login needed): each visitor gets a private copy of the demo family (bound to a cookie, deleted after 7 days). Sign-up, invites and export are closed. **During the hackathon the public trial does not call Claude**: no API key is set, and the public build refuses to call Claude even if one is. Claude's part is shown with a book Claude wrote earlier and with clearly labeled sample answers; spoken notes are not transcribed (a fixed sample sentence is used). To host it yourself on Fly.io (Tokyo), see `app/Dockerfile` and `app/fly.toml` (`fly launch --no-deploy --copy-config`, create a 3 GB `boshi_data` volume, pass only `BETTER_AUTH_SECRET` and `BOSHI_KEK` through stdin with `fly secrets import`, then `fly deploy --remote-only` from a clean checkout of main).
 
 Sample media were all made during the hackathon and show no real people: photos generated with Z-Image-Turbo (Apache-2.0); voices synthesized with the AivisSpeech models 「まお」, 「阿井田 茂」 and 「ろてじん（長老ボイス）」 (ACML 1.0) and with Qwen3-TTS 1.7B VoiceDesign (Apache-2.0); the film music is a music box played in the browser.
 

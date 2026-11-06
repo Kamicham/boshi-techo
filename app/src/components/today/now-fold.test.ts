@@ -28,7 +28,7 @@ describe("ほかに今やる事を畳む", () => {
     const f = foldNow(rows, mom, today);
     expect(ids(f.shown)).toEqual(["a", "visit"]);
     expect(f.others.map((g) => [g.who, ids(g.rows)])).toEqual([["パートナー", ["p1", "p2"]]]);
-    // パートナーの画面では、母の事（健診の行も）が「美咲さんの番」の1行に入る
+    // パートナーの画面では、母の事（健診の行も）が「美咲の番」の1行に入る
     const p = foldNow(rows, partner, today);
     expect(ids(p.shown)).toEqual(["p1", "p2"]);
     expect(p.others.map((g) => [g.who, ids(g.rows)])).toEqual([["母", ["a", "visit"]]]);

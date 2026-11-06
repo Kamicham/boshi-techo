@@ -274,7 +274,7 @@ export default {
   "ほかの頼れる所（{n}か所）": { zh: "其他可以求助的地方（{n}处）", en: "Other places you can turn to ({n})" },
   相談できる人はいますか: { zh: "有可以商量的人吗？", en: "Do you have someone to talk to?" },
   "ほかに{n}件": { zh: "另外还有{n}件", en: "{n} more" },
-  "{who}さんの番 {n}件": { zh: "轮到{who}的事 {n}件", en: "{who}'s turn: {n} {n:thing|things}" },
+  "{who}の番 {n}件": { zh: "轮到{who}的事 {n}件", en: "{who}'s turn: {n} {n:thing|things}" },
   "近づいたら出す事 {n}件": { zh: "临近时会显示的事 {n}件", en: "Coming up later: {n} {n:thing|things}" },
   "{city}のこども家庭センター・保健センター": { zh: "{city}的儿童家庭中心（こども家庭センター）、保健中心", en: "{city} Children and Family Center (こども家庭センター) / health center" },
   "妊娠中から子育てまで、何でも聞ける町の窓口です（保健師さんがいます）": {
@@ -395,7 +395,7 @@ export default {
   "宛先は、メールアプリで上司のアドレスを選んでください": { zh: "收件人请在邮件应用里选择上司的邮箱地址", en: "Choose your manager's address in your mail app" },
   "宛先は町のページで（問い合わせのフォームやメールアドレス）": { zh: "收件人请在市区町村的网页上查找（咨询表格或邮箱地址）", en: "Find the recipient on the city's website (inquiry form or email address)" },
   手帳の中で気づいた所: { zh: "在手册中注意到的地方", en: "What it noticed in the handbook" },
-  機械で確かめた事: { zh: "机器核对过的事", en: "What was checked automatically" },
+  手帳が記録と日付から確かめた事: { zh: "手册根据记录和日期核对过的事", en: "What the handbook checked from your records and dates" },
   "手帳が気づいた事（閉じた物）": { zh: "手册注意到的事（已关闭）", en: "What the handbook noticed (closed)" },
   もう一度開く: { zh: "再次打开", en: "Open again" },
   // 決まりで作る気づき（lib/advisor.ts の ruleAdvice）の、名前や日付の入らない文

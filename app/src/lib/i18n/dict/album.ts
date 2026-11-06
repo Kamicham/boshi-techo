@@ -231,9 +231,9 @@ export default {
     zh: "只在想留的时候，把声音原样留下就好。也可以不删除，先收起来。",
     en: "Only when you want to, you can keep a voice just as it is. You can also put it away without deleting it.",
   },
-  "声のまま残します。聞き返す手がかりに、手帳の機械で文字も添えます。大きくなった子どもが、一冊の本の中で聞けます": {
-    zh: "把声音原样留下。为了方便回听，手册会用自己的机器配上文字。孩子长大后，可以在成长书里听到",
-    en: "Keeps the voice just as it is. To help you find it again, the handbook's own machine adds the words as text. When your child grows up, they can listen to it inside the book",
+  "声のまま残します。聞き返す手がかりに、手帳の中で文字にして添えます（声は AI に送りません）。大きくなった子どもが、一冊の本の中で聞けます": {
+    zh: "把声音原样留下。为了方便回听，手册会在内部把它转成文字附上（声音不会发给 AI）。孩子长大后，可以在成长书里听到",
+    en: "Keeps the voice just as it is. To help you find it again, the handbook adds a text version, made inside the handbook itself (the voice is never sent to the AI). When your child grows up, they can listen to it inside the book",
   },
   "残せませんでした（{status}）": { zh: "无法保存（{status}）", en: "Couldn't keep it ({status})" },
   "おなかの{child}に、今日の事を話してみてください": { zh: "对肚子里的{child}，说说今天的事吧", en: "Try telling {child} in your belly about today" },
@@ -246,9 +246,9 @@ export default {
   録る: { zh: "录音", en: "Record" },
   "{n}秒・押すと止めて残します": { zh: "{n}秒 · 点一下停止并留存", en: "{n}s · Tap to stop and keep" },
   "押して話し始め、もう一度押して止めます": { zh: "点一下开始说，再点一下停止", en: "Tap to start talking, tap again to stop" },
-  "声は家族の鍵で守って、この手帳の中だけに残します。声そのものは AI（Claude）に送りません。文字にするのは手帳の機械で、一冊を作る時だけ、題と最初の一文の文字を Claude に渡します。消したい時はアルバムから消せます。": {
-    zh: "声音会用家庭的密钥保护，只保存在这本手册里。声音本身不会发给 AI（Claude）。转成文字的是手册自己的机器；只有在制作成长书时，才把标题和第一句话的文字交给 Claude。想删除时，可以在相册里删除。",
-    en: "Voices are protected with your family's key and kept only in this handbook. The voice itself is never sent to the AI (Claude). The handbook's own machine turns it into text, and only when making the book does Claude get the text of its title and first sentence. You can delete voices from the album.",
+  "声は家族の鍵で守って、この手帳の中だけに残します。声そのものは AI（Claude）に送りません。文字にするのも手帳の中です。一冊を作る時だけ、題と最初の一文の文字を Claude に渡します。消したい時はアルバムから消せます。": {
+    zh: "声音会用家庭的密钥保护，只保存在这本手册里。声音本身不会发给 AI（Claude）。转成文字也在手册内部完成。只有在制作成长书时，才把标题和第一句话的文字交给 Claude。想删除时，可以在相册里删除。",
+    en: "Voices are protected with your family's key and kept only in this handbook. The voice itself is never sent to the AI (Claude). Turning it into text also happens inside the handbook. Only when making the book does Claude get the text of its title and first sentence. You can delete voices from the album.",
   },
   "残した声を聞く ›": { zh: "听留下的声音 ›", en: "Listen to kept voices ›" },
 

@@ -12,6 +12,7 @@ import { nameIn } from "@/lib/i18n/names";
 import { recentlyOpened, type ClientLetter } from "@/lib/letters-shared";
 import { ThousandDays } from "./ThousandDays";
 import { personOf } from "@/lib/memory-words";
+import { Phrase } from "@/components/Phrase";
 
 export function BirthdayCard({ family, today, by, age }: { family: Family; today: string; by?: string; age: 1 | 2 }) {
   const [letters, setLetters] = useState<ClientLetter[]>([]);
@@ -30,25 +31,33 @@ export function BirthdayCard({ family, today, by, age }: { family: Family; today
   const name = nameIn(family.childName) ?? t("赤ちゃん");
   // 名前がまだ無い時の呼びかけは、文ごとに引く（English で the baby と呼びかけないよう）
   const cheer = family.childName != null ? t("🎂 {name}、{age}歳おめでとう", { name: nameIn(family.childName), age }) : t("🎂 赤ちゃん、{age}歳おめでとう", { age });
-  const link = "flex min-h-12 items-center justify-between gap-3 rounded-xl bg-card px-4 text-base font-semibold";
+  const link = "phrase flex min-h-12 items-center justify-between gap-3 rounded-xl bg-card px-4 text-base font-semibold";
   return (
     <section aria-label={t("{age}歳の誕生日", { age })} className="flex flex-col gap-3 rounded-2xl border border-rose/40 bg-rose-soft p-4">
       <p className="text-sm font-semibold text-rose">{t("{age}歳の誕生日", { age })}</p>
-      <h2 className="font-display text-2xl font-bold [text-wrap:balance]">{cheer}</h2>
+      <h2 className="phrase font-display text-2xl font-bold [text-wrap:balance]">
+        <Phrase text={cheer} />
+      </h2>
       <div className="flex flex-col gap-2">
         {opened.length > 0 && (
           <Link href="/book#letters" className={link}>
             <span className="min-w-0">
               {/* 書き手は子どもから見た呼び名を画面の言葉で（English は Mom (Misaki)。日本語は「ママ（美咲）」のまま） */}
-              {t("💌 {from}からの手紙が開きました", { from: personOf(family, opened[0].from) })}
-              {opened[0].voiceSec !== undefined ? <span className="font-normal text-muted">{t("・🎙 声つき")}</span> : null}
+              <Phrase text={t("💌 {from}からの手紙が開きました", { from: personOf(family, opened[0].from) })} />
+              {opened[0].voiceSec !== undefined ? (
+                <span className="font-normal text-muted">
+                  <Phrase text={t("・🎙 声つき")} />
+                </span>
+              ) : null}
               {opened.length > 1 ? <span className="font-normal text-muted">{t("（ほか{n}通）", { n: opened.length - 1 })}</span> : null}
             </span>
             <span className="text-muted" aria-hidden>›</span>
           </Link>
         )}
         <Link href="/book" className={link}>
-          <span>{age === 1 ? t("📖 この1年を一冊で読む") : t("📖 この2年を一冊で読む")}</span>
+          <span className="min-w-0">
+            <Phrase text={age === 1 ? t("📖 この1年を一冊で読む") : t("📖 この2年を一冊で読む")} />
+          </span>
           <span className="text-muted" aria-hidden>›</span>
         </Link>
         <Link href="/book/film" className={link}>
@@ -57,7 +66,9 @@ export function BirthdayCard({ family, today, by, age }: { family: Family; today
         </Link>
         {/* 紙の母子手帳の「誕生日のメッセージ」と同じ欄（手帳の気持ちの記録。府令様式の保護者の記録） */}
         <Link href="/techo#page-feeling" className={link}>
-          <span>{t("✍ {name}へ、誕生日の一言を書く", { name })}</span>
+          <span className="min-w-0">
+            <Phrase text={t("✍ {name}へ、誕生日の一言を書く", { name })} />
+          </span>
           <span className="text-muted" aria-hidden>›</span>
         </Link>
       </div>
