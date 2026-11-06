@@ -94,6 +94,13 @@ describe("気づき: 鍵が無い時は、予定表の決まりから書く", ()
     // 空欄は「いつもの」と送る人の名前で埋まる形（lib/blanks.ts の blankKey）
     expect(a.message!.body).toContain("【上司の名前】様");
     expect(a.message!.body).toContain("【名前】");
+    // 名乗りは姓（分からないので【姓】）。【名前】は書き手の名で埋まるので名乗りに使わない。生まれた後に「産前休業」と書かない（デモの会話の見つけ ②）
+    expect(a.message!.body).toContain("お疲れさまです。【姓】です。");
+    expect(a.message!.body).not.toMatch(/【名前】です|産前休業/);
+    const { fillFamilyBlanks } = await import("./blanks");
+    const filled = fillFamilyBlanks(a.message!.body, DEMO_FAMILY, { writer: "美咲" });
+    expect(filled).not.toContain("美咲です");
+    expect(filled).toContain("【姓】美咲");
     expect(a.message!.body).toContain("6月22日から");
     expect(a.message!.body).toContain("4月26日に子どもが生まれました");
     expect(a.message!.body).not.toMatch(/早く|遅く/);
