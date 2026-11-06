@@ -73,6 +73,20 @@ Japan invented the Maternal and Child Health Handbook in 1948. This is what come
 | Advisor and per-stage look, checkup notes, the book | Opus 5.5 | Deep work |
 | Guard on "Ask" replies, reshaping research | Haiku 5.5 | Light jobs |
 
+## 動画の素材と権利（3分の動画）
+
+すべて大会の期間中（2026-11-02〜）に作りました。動画の最後に「語りの声と曲は AI で生成」「見本の家族は作った家族」と出します。
+
+| 素材 | 作り方 | 権利 |
+|---|---|---|
+| 画面 | このアプリを、本番と別の録画用のサーバで動かして撮った。家族は作った家族 | 自作（MIT） |
+| Claude の場面 | 録画用のサーバで本物の Claude（Sonnet 5.5・Haiku 5.5・Opus 5.5）を呼んで撮った。札の「この回 $…」はその時の額 | — |
+| 見本の写真と声 | 写真は Z-Image-Turbo、声は AivisSpeech と Qwen3-TTS で合成（README「見本の素材」と同じ） | Apache-2.0・ACML 1.0 |
+| 語り | Gemini API の音声合成（gemini-3.8-flash-tts・声 ja-jp-storyteller-5）。28文を1回でまとめて読ませ、動画の時刻に収めるため全体を 1.066 倍に速めた。無料枠の鍵で作ったので、送った台本（動画で公開する文だけ）は Google のサービスの改善に使われ得る | Gemini API 追加利用規約（2026-03-23 施行）。Google は生成物の所有権を主張しない |
+| 曲 | Gemini API の Lyria 3.5 で作曲した、歌なしの映画音楽風の曲（指示に実在の歌手・既存の曲名を入れていない）。場面に合わせて小節で切り貼りした | Gemini API 追加利用規約。Google は生成物の所有権を主張しない。聞こえない透かし（SynthID）入り |
+| 字体 | Noto Sans JP・Noto Sans SC・M PLUS Rounded 1c・Cormorant Garamond | SIL Open Font License 1.1 |
+| 効果音 | 使っていない | — |
+
 ## 提出前に確かめる事
 
 - 公開リポジトリの URL・ライセンス（MIT）
