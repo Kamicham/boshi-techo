@@ -105,9 +105,9 @@ export default {
     zh: "说·拍：说过的话和写下的内容的文字，以及拍下的纸张和手册页面的照片（选择“读取”的那一张。用于分到手册的各栏里。声音本身不会发送）",
     en: "Talk · Snap: the text of what you said or wrote, and photos of papers or handbook pages (the one photo you chose to “Read”, to sort it into the handbook's sections. Your voice itself is not sent)",
   },
-  "健診: 録音の書き起こしの文字（まとめて、手帳に入れる候補を作るため。文字にするのは手帳の機械で、声そのものは送りません）と、案内図・受付票の写真（その日に回る順を作るため）": {
-    zh: "健康检查：录音转写出的文字（用于整理，并生成要写进手册的候选内容。转成文字的是手册自己的机器，声音本身不会发送），以及院内指引图和挂号单的照片（用于安排当天要去的顺序）",
-    en: "Checkups: the transcribed text of recordings (to summarize it and suggest what to add to the handbook. The handbook's own machine turns speech into text, and your voice itself is not sent), and photos of hospital maps and reception slips (to plan the order of where to go that day)",
+  "健診: 録音の書き起こしの文字（まとめて、手帳に入れる候補を作るため。文字にするのは手帳の中で、声そのものは送りません）と、案内図・受付票の写真（その日に回る順を作るため）": {
+    zh: "健康检查：录音转写出的文字（用于整理，并生成要写进手册的候选内容。转成文字在手册内部完成，声音本身不会发送），以及院内指引图和挂号单的照片（用于安排当天要去的顺序）",
+    en: "Checkups: the transcribed text of recordings (to summarize it and suggest what to add to the handbook. Speech is turned into text inside the handbook, and your voice itself is not sent), and photos of hospital maps and reception slips (to plan the order of where to go that day)",
   },
   "手帳に聞く: 問いと30日分の会話、最近の記録（12件まで）、手帳のページの新しい記録（健診の値など、ページごとに3件まで）、予定と次の健診": {
     zh: "问手册：问题和30天内的对话、最近的记录（最多12条）、手册各页的新记录（健康检查的数值等，每页最多3条）、日程和下一次健康检查",

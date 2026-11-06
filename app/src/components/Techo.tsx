@@ -48,6 +48,7 @@ import { msWords } from "@/lib/i18n/milestone-words";
 // 訳さない: 続柄の値（whoLabel が画面の言葉の呼び名にする）
 const MOTHER = { who: "母" } as const;
 import { DRAFTABLE } from "./MilestoneActions";
+import { Phrase } from "@/components/Phrase";
 
 /** 「済んだにしました・もどす」を出しておく長さ */
 const UNDO_MS = 20000;
@@ -658,7 +659,7 @@ export function Techo() {
             <RowFold label={t("ほかに{n}件", { n: nowFold.more.length })}>{nowFold.more.map(rowEl)}</RowFold>
           )}
           {nowFold.others.map((g) => (
-            <RowFold key={g.who} label={t("{who}さんの番 {n}件", { who: whoLabel({ who: g.who as Task["who"] }, family, me), n: g.rows.length })}>
+            <RowFold key={g.who} label={t("{who}の番 {n}件", { who: whoLabel({ who: g.who as Task["who"] }, family, me), n: g.rows.length })}>
               {g.rows.map(rowEl)}
             </RowFold>
           ))}
@@ -852,12 +853,14 @@ function QuietDay({ family, quiet, onShowAll }: { family: Family; quiet: "loss" 
   );
 }
 
-/** 一覧の中の1行の畳み（「ほかに◯件 ›」「◯◯さんの番 ◯件 ›」「近づいたら出す事 ◯件 ›」）。開くと同じ並びで全部出る */
+/** 一覧の中の1行の畳み（「ほかに◯件 ›」「◯◯の番 ◯件 ›」「近づいたら出す事 ◯件 ›」）。開くと同じ並びで全部出る */
 function RowFold({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <details className="group border-b border-line last:border-b-0">
       <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 py-2 text-base text-muted">
-        <span className="underline underline-offset-2">{label}</span>
+        <span className="phrase underline underline-offset-2">
+          <Phrase text={label} />
+        </span>
         <span className="shrink-0 transition-transform group-open:rotate-90" aria-hidden>
           ›
         </span>

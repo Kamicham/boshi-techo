@@ -21,6 +21,7 @@ import { TaskBody, type ShownTask } from "./TaskCard";
 import { turnLabel, whoLabel } from "./task";
 import { dueName, nudgeText, untilWords } from "./trip";
 import { usePrep } from "./usePrep";
+import { Phrase } from "@/components/Phrase";
 
 const STAGE: Record<TripWhere, string> = {
   役所: "役所で",
@@ -363,12 +364,13 @@ function FirstRow({
 
 /**
  * 母の画面: パートナーの番に決めた届けを1行にたたむ（UX の見直し C08）。
- * 「生まれた届け5件は、翔太さんの番です（済んだ 0/5）›」。押すと束が開く。
- * 法の期限まで5日を切ったら「翔太さんに声をかける文を作る」（写して LINE などに貼る。外へは送らない）
+ * 「生まれた届け5件は、翔太の番です（済んだ 0/5）›」。押すと束が開く。
+ * 法の期限まで5日を切ったら「翔太に声をかける文を作る」（写して LINE などに貼る。外へは送らない）
  */
 export function TripFolded({ fold, family, today, open, onToggle }: { fold: TripFold<ShownTask>; family: Family; today: string; open: boolean; onToggle: () => void }) {
   const person = family.members.find((m) => m.role === fold.who);
-  const name = person ? t("{name}さん", { name: nameIn(person.name) }) : t("パートナー");
+  // 呼び方は今日の画面と同じ（名前に「さん」を付けない。Techo の「{who}の番」・DraftPanel。デモの会話が見つけた⑧）
+  const name = person ? nameIn(person.name) : t("パートナー");
   const due = fold.due ? `${t("{name}は", { name: dueName(fold.due.task) })} ${untilWords(fold.due.left, fold.due.date, today)}` : null;
   const count = t("済んだ {done}/{total}", { done: fold.done, total: fold.total });
   const text = fold.due ? nudgeText(fold.items.length, fold.due, today) : "";
@@ -378,7 +380,9 @@ export function TripFolded({ fold, family, today, open, onToggle }: { fold: Trip
         <details className="group border-b border-line">
           <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 py-2">
             <span className="min-w-0">
-              <span className="block text-base font-semibold">{t("{name}に声をかける文を作る", { name })}</span>
+              <span className="phrase block text-base font-semibold">
+                <Phrase text={t("{name}に声をかける文を作る", { name })} />
+              </span>
               {due && <span className="tabular block text-sm text-muted">{due}</span>}
             </span>
             <span className="shrink-0 text-muted transition-transform group-open:rotate-90" aria-hidden>
@@ -395,8 +399,8 @@ export function TripFolded({ fold, family, today, open, onToggle }: { fold: Trip
       )}
       <button type="button" onClick={onToggle} aria-expanded={open} className="flex min-h-12 w-full items-center justify-between gap-3 py-2 text-left">
         <span className="min-w-0">
-          <span className="block text-base">
-            {fold.nudge ? t("届けを見る") : t("生まれた届け{n}件は、{name}の番です", { n: fold.total, name })}
+          <span className="phrase block text-base">
+            <Phrase text={fold.nudge ? t("届けを見る") : t("生まれた届け{n}件は、{name}の番です", { n: fold.total, name })} />
             <span className="tabular text-sm text-muted">{t("（{x}）", { x: count })}</span>
           </span>
           {!fold.nudge && due && <span className="tabular block text-sm text-muted">{due}</span>}

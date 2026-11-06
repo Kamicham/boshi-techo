@@ -14,6 +14,7 @@ import { t } from "@/lib/i18n";
 import type { ClientMedia } from "@/lib/media-shared";
 import { dayLong as jpDay, dot, nameOf, personOf } from "@/lib/memory-words";
 import { tr } from "@/lib/i18n/rich";
+import { Phrase } from "@/components/Phrase";
 
 /** みんなの章: 足した人ごとに、写真と声と一言 */
 export function MinnaChapter() {
@@ -63,8 +64,8 @@ export function MinnaChapter() {
               <figure key={m.id} className="flex flex-col gap-1">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={m.urls.view} alt={m.caption ?? ""} className="w-full rounded-xl object-cover" loading="lazy" />
-                <figcaption className="text-sm">
-                  {m.caption}
+                <figcaption className="phrase text-sm">
+                  {m.caption && <Phrase text={m.caption} />}
                   <span className="ml-2 tabular text-xs text-muted">{jpDay(m.date)}</span>
                 </figcaption>
               </figure>
@@ -196,7 +197,9 @@ function LetterRow({ l, onRemoved }: { l: ClientLetter; onRemoved: () => void })
           {l.opened ? "💌" : "✉️"}
         </span>
         <span className="flex min-w-0 flex-1 flex-col">
-          <span className="text-base font-semibold">{t("{from}から {to}へ", { from: personOf(family, l.from), to: nameOf(family, l.to) })}</span>
+          <span className="phrase text-base font-semibold">
+            <Phrase text={t("{from}から {to}へ", { from: personOf(family, l.from), to: nameOf(family, l.to) })} />
+          </span>
           <span className="tabular text-xs text-muted">
             {l.opened ? (l.openOn ? t("{date}に開きました", { date: jpDay(l.openOn) }) : t("いつでも読めます")) : opensLine(l)}
             {dot()}

@@ -17,6 +17,7 @@ import { jpShort } from "./dates";
 import { canLocalFor, draftKindFor, prepNoteOf, type Prepared } from "./prep";
 import { notifyPrep } from "./usePrep";
 import type { Task } from "./task";
+import { Phrase } from "@/components/Phrase";
 
 /** 用意を走らせている家族（同じ画面を2回開いても、2本は走らせない） */
 const running = new Set<string>();
@@ -94,9 +95,9 @@ export function PrepNote({ tasks, prepared, today, familyId }: { tasks: Task[]; 
   return (
     <details className="group -mt-2 text-sm text-muted">
       <summary className="flex min-h-11 cursor-pointer list-none items-center gap-1">
-        <span className="min-w-0">
+        <span className="phrase min-w-0">
           <span className="font-semibold text-sky">{tr("手帳がしておいた事")}</span>
-          {note.on && <span className="tabular">{tr("（{x}）", { x: jpShort(note.on, today) })}</span>}: {parts.join(tr("・"))}
+          {note.on && <span className="tabular">{tr("（{x}）", { x: jpShort(note.on, today) })}</span>}: <Phrase text={parts.join(tr("・"))} />
         </span>
         <span className="shrink-0 transition-transform group-open:rotate-90" aria-hidden>
           ›

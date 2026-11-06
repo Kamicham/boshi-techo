@@ -12,6 +12,7 @@ import type { Advice } from "@/lib/advisor";
 import { currentLang, t as tr } from "@/lib/i18n";
 import { Btn, CopyField, HandoffRow, Why } from "../ui";
 import { whyParts } from "./why-parts";
+import { Phrase } from "@/components/Phrase";
 
 /** 「わかった」で閉じた時に出す合図（ClosedAdvice が読み直す） */
 export const ADVICE_CLOSED = "boshi:advice-closed";
@@ -124,7 +125,9 @@ export function AdvisorCard({
           <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 py-2">
             <span className="min-w-0">
               <span className="block text-sm font-semibold text-sky">{eyebrow}</span>
-              <span className="line-clamp-2 text-base leading-snug font-semibold">{tr(a.title)}</span>
+              <span className="phrase line-clamp-2 text-base leading-snug font-semibold">
+                <Phrase text={tr(a.title)} />
+              </span>
             </span>
             <span className="shrink-0 text-muted transition-transform group-open:rotate-90" aria-hidden>
               ›
@@ -138,7 +141,9 @@ export function AdvisorCard({
     <section aria-label={tr("手帳が気づいた事")} className={BOX}>
       <p className="text-sm font-semibold text-sky">{eyebrow}</p>
       {/* 気づきの中身はサーバ（Claude か決まり）が日本語で書いて残した物。辞書にある文（決まりの文）だけ、画面の言葉にする */}
-      <h2 className="line-clamp-2 font-display text-2xl leading-snug font-bold text-balance">{tr(a.title)}</h2>
+      <h2 className="phrase line-clamp-2 font-display text-2xl leading-snug font-bold text-balance">
+        <Phrase text={tr(a.title)} />
+      </h2>
       {rest}
     </section>
   );
@@ -150,7 +155,7 @@ const toIn = (to: string): string => {
   return city ? tr("{city}の子育ての窓口", { city }) : tr(to);
 };
 
-/** 畳んだ中身: 次にする事・渡す文面・なぜ（機械で確かめた事・調べたページ）。閉じた気づきを開き直す所（ClosedAdvice）でも使う */
+/** 畳んだ中身: 次にする事・渡す文面・なぜ（手帳が記録と日付から確かめた事・調べたページ）。閉じた気づきを開き直す所（ClosedAdvice）でも使う */
 export function AdviceDetails({ a, res }: { a: Advice; res: Pick<Res, "mailTo" | "from"> | null }) {
   const m = a.message;
   const [, ...whyRest] = whyParts(a.why);
@@ -194,7 +199,7 @@ export function AdviceDetails({ a, res }: { a: Advice; res: Pick<Res, "mailTo" |
         {whyRest.map((w, i) => (
           <p key={i}>{tr(w)}</p>
         ))}
-        <p className="font-semibold">{a.kind === "look" ? tr("手帳の中で気づいた所") : tr("機械で確かめた事")}</p>
+        <p className="font-semibold">{a.kind === "look" ? tr("手帳の中で気づいた所") : tr("手帳が記録と日付から確かめた事")}</p>
         {a.facts.map((f, i) => (
           <p key={`f${i}`}>{tr(f)}</p>
         ))}

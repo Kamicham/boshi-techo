@@ -58,7 +58,7 @@ export interface DraftView {
   fromName: string;
   /** メールなのに宛先のアドレスが分からず、欄で聞かない時の案内（町の窓口あて: 「宛先は町のページで」） */
   mailHint: string;
-  /** 開いた人が担当でない時の、担当の人（「翔太さんの番です。LINE で頼む」の1行を出す）。担当が開いた時・開いた人が分からない時は null */
+  /** 開いた人が担当でない時の、担当の人（「翔太の番です。LINE で頼む」の1行を出す）。担当が開いた時・開いた人が分からない時は null */
   handTo: { id: string; name: string } | null;
 }
 
