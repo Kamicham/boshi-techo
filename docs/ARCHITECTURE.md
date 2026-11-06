@@ -1,6 +1,6 @@
 # しくみ
 
-母子手帳のアプリ（`app/`・Next.js 15）と、健診の録音を文字にする小さなサーバ（`asr/`）でできています。記録は SQLite に置き、写真と声は世帯ごとの鍵で暗号にしてから置きます。Claude は仕事ごとにモデルを分けて呼びます。
+母子手帳のアプリ（`app/`・Next.js 15）と、健診の録音を文字にする小さなサーバ（`asr/`）でできています。記録は SQLite に置き、写真と声のファイルは世帯ごとの鍵で暗号にしてから置きます（健診の録音と記録の文字は、まだ暗号にしていません）。Claude は仕事ごとにモデルを分けて呼びます。
 
 ## 層
 
@@ -17,6 +17,7 @@ flowchart TD
   DB["記録 lib/db.ts<br/>SQLite（better-sqlite3）"]
   ST["写真・声 lib/storage.ts（local か S3 互換）<br/>lib/crypto.ts: 世帯ごとの鍵（AES-256-GCM）"]
   ASR["文字起こし lib/asr.ts → asr/server.py<br/>家の GPU（faster-whisper large-v3）"]
+  VREC["健診の録音 api/visit/_lib/server.ts<br/>files/世帯 に素のファイル（暗号はまだ）"]
   UI --> MW --> API --> GATE
   GATE --> AUTH
   GATE --> RULES
@@ -24,6 +25,7 @@ flowchart TD
   RULES --> ST
   RULES --> CL --> ANT
   API --> ASR
+  API --> VREC
 ```
 
 - 関所は「セッション → 世帯 → 権限」の順に確かめ、その世帯の中だけに触れる道具（`ctx.db`・置き場）を渡します。ほかの世帯は 404、ログインが無ければ 401、権限が無ければ 403 です。
@@ -106,7 +108,7 @@ app/                       Next.js 15（App Router・TypeScript・Tailwind 4）
   src/lib/techo.ts         母子手帳の記録の背骨（府令様式のページの並び・記録の形・便色の7色・手帳と同じ注意書き）
   src/lib/techo-seed.ts    作った家族（デモ・sim-・pop-）の手帳の記録を統計から作る（わが家には作らない。出典はファイルの頭）
   src/app/techo            手帳のタブ（府令の並びで記録を見る・発育曲線・便色カード・予防接種の控え・最後に一冊）
-  src/app/emergency        急ぎの時（迷ったら119・#8000・窒息と心肺蘇生）。家族の読み込みを待たずに出し、public/sw.js が通信なしでも開けるよう取っておく
+  src/app/emergency        急ぎの時（命が危ない時は119・迷う時は #8000／#7119・窒息と心肺蘇生）。家族の読み込みを待たずに出し、public/sw.js が通信なしでも開けるよう取っておく
   src/components/today/ConsultAsk.tsx  時期ごとに1回「相談できる人はいますか」を聞き、「いない」なら町の相談先へ橋をかける
   src/lib/app-guide.ts     画面の地図（どの画面で何ができるか。手帳に聞くが使い方を答える正本。下のタブの並びもここ）
   src/lib/ask/             手帳に聞く: agent.ts（道具を使うループ・会話の決まり・見張り）・tools.ts（予定・手帳・町・動きの道具）・bridge.ts（急ぎ・心の危機の床）
@@ -168,7 +170,7 @@ docs の外に、世帯（households）・本人（subjects）・同意（consen
          読む: get_plan（予定）・get_notebook（手帳・記録・健診）・look_up_town（町の公式ページ）・search_official（予定に無い制度）
          動く: open_screen・offer_paperwork・propose_done・add_checkup_question・add_record・write_message（ボタンを積むだけ。書き込まない）
    └─> 見張り（Haiku 5.5: 体・心・栄養の判断の言葉）──> あれば書き直し（Sonnet 5.5）
-   └─> 返事＋動きのボタン ──> 家族が押した時だけ、既存の API（/api/visit/plan・/api/capture・/api/done・/api/draft）で書き込む
+   └─> 返事＋動きのボタン ──> 家族が押した時だけ書き込む（記録・健診で聞く事・済んだ印は /api/ask/act が capture・addToAgenda・markDone を呼ぶ。書類の下書きは期限の札から /api/draft）
 ```
 
 - 答える: 手続き・期限・お金・仕事・町・この家族の予定と記録・アプリの操作（画面の地図だけを根拠に。無い機能は作らない）。
@@ -200,7 +202,7 @@ docs の外に、世帯（households）・本人（subjects）・同意（consen
 ### 作りの直し
 
 - 記録: 今の同期の SQLite（better-sqlite3）を、管理された DB へ。SQLite を直に読み書きする所（`lib/db.ts` の関数・世帯の中の `ctx.db`・SQL の `prepare`）は、アプリの本体（試験・`src/sim`・`lib/db.ts` を除く）で33ファイル・189か所です（2026-11-05 に grep で数えた数）。読み書きが非同期になると、それを呼ぶ関数と API の口も変わるので、直す範囲はこれより広がります（見込み）。
-- 写真と声: 物の置き場（Cloud Storage か S3）へ。`lib/storage.ts` の S3 互換の口（`BOSHI_STORAGE=s3`）を、そのまま向けられる見込みです（未実測）。
+- 写真と声: 物の置き場（Cloud Storage か S3）へ。`lib/storage.ts` の S3 互換の口（`BOSHI_STORAGE=s3`）を、そのまま向けられる見込みです（未実測）。健診の録音は `lib/storage.ts` を通らず、`api/visit/_lib/server.ts` が置き場（`files/<世帯>`）へ素のファイルで直に書くので、移す時に `lib/storage.ts` へ寄せ、写真や声と同じく暗号にします。
 - 鍵: 世帯の鍵を包む親鍵（`BOSHI_KEK`）を、雲の鍵の管理（KMS）へ。
 - 返事の後に続ける仕事（健診の文字起こしと整理。`api/visit/_lib/server.ts` の `startFinish`）は列（Cloud Tasks など）へ。1日1回の掃除（体験の写し。`src/instrumentation-node.ts`）はスケジューラへ。
 - メモリの中の印（`api/ask/route.ts` の `busy`・`api/visit/_lib/server.ts` の `running` など）は、台数が増えると効かないので、DB の印へ。

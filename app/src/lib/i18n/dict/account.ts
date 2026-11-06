@@ -149,9 +149,9 @@ export default {
     zh: "通过 API 发送的内容，不会用于训练 Claude（Anthropic 的 Commercial Terms）",
     en: "Content sent through the API is not used to train Claude (Anthropic's Commercial Terms)",
   },
-  "API の入力と出力は、30日以内に Anthropic の側で消えます（Anthropic Privacy Center）": {
-    zh: "API 的输入和输出，会在30天内从 Anthropic 那边删除（Anthropic Privacy Center）",
-    en: "API inputs and outputs are deleted on Anthropic's side within 30 days (Anthropic Privacy Center)",
+  "API の入力と出力は、原則30日以内に Anthropic の側で消えます。ただし、利用規約に反する疑いがあると判定された物は最長2年、法律で求められた時はそれより長く残ることがあります（Anthropic Privacy Center）": {
+    zh: "API 的输入和输出，原则上会在30天内从 Anthropic 那边删除。但被判定为可能违反使用政策的内容最多保留2年；法律要求时，可能保留更久（Anthropic Privacy Center）",
+    en: "API inputs and outputs are, as a rule, deleted on Anthropic's side within 30 days. However, content flagged as possibly violating the Usage Policy is kept for up to 2 years, and content may be kept longer when the law requires it (Anthropic Privacy Center)",
   },
   通信は暗号にして送ります: { zh: "通信会加密后发送", en: "Communications are encrypted when sent" },
   // 子の分（CHILD_NOTE。法定代理人は個人情報保護法の英訳と同じ legal representative）
@@ -270,9 +270,9 @@ export default {
     zh: "撤回“保存记录”后，手册上方会再次显示同意的提示。在服务器一侧停止保存未同意者记录的功能还在准备中。撤回之前保存的照片和声音，可以在下面的“删除”里删除这个人的部分（只删除本人那部分文字记录的功能还在准备中）。",
     en: "If you withdraw “Keep records”, the notice about consent appears at the top of the handbook again. A way for the server to stop keeping the records of people who haven't agreed is still in preparation. Photos and voices kept before withdrawing can be deleted for that person under “Delete” below (a way to delete only one person's text records is still in preparation).",
   },
-  "「米国の Claude に送る」を撤回すると、その本人の分は Claude に送りません。送った分の Anthropic の側の写しは、30日以内に消えます。": {
-    zh: "撤回“发送给美国的 Claude”后，这个人的部分就不再发送给 Claude。已经发送的部分在 Anthropic 那边的副本，会在30天内删除。",
-    en: "If you withdraw “Send to Claude in the US”, that person's data isn't sent to Claude. Copies of what was already sent are deleted on Anthropic's side within 30 days.",
+  "「米国の Claude に送る」を撤回すると、その本人の分は Claude に送りません。送った分の Anthropic の側の写しは、原則30日以内に消えます（利用規約に反する疑いの物などは、長く残ることがあります）。": {
+    zh: "撤回“发送给美国的 Claude”后，这个人的部分就不再发送给 Claude。已经发送的部分在 Anthropic 那边的副本，原则上会在30天内删除（可能违反使用政策的内容等，可能保留更久）。",
+    en: "If you withdraw “Send to Claude in the US”, that person's data isn't sent to Claude. Copies of what was already sent are, as a rule, deleted on Anthropic's side within 30 days (content possibly violating the Usage Policy and the like may be kept longer).",
   },
   // 同意の履歴
   同意の履歴: { zh: "同意的记录", en: "Consent history" },
@@ -318,9 +318,9 @@ export default {
     zh: "删除这个人的记录、照片、录音、同意和代理标记。没有标明本人、属于整个家庭的记录会保留",
     en: "Deletes that person's records, photos, recordings, consents, and proxy marks. Household-wide records that aren't tied to a person are kept",
   },
-  "Claude に送った分の Anthropic の側の写しは、30日以内に自動で消えます": {
-    zh: "已经发送给 Claude 的部分在 Anthropic 那边的副本，会在30天内自动删除",
-    en: "Copies of what was sent to Claude are deleted automatically on Anthropic's side within 30 days",
+  "Claude に送った分の Anthropic の側の写しは、原則30日以内に自動で消えます（利用規約に反する疑いの物などは、長く残ることがあります）": {
+    zh: "已经发送给 Claude 的部分在 Anthropic 那边的副本，原则上会在30天内自动删除（可能违反使用政策的内容等，可能保留更久）",
+    en: "Copies of what was sent to Claude are, as a rule, deleted automatically on Anthropic's side within 30 days (content possibly violating the Usage Policy and the like may be kept longer)",
   },
   "サーバのバックアップに残る写しは、バックアップが入れ替わるまで残ります（日数はまだ決めていません）": {
     zh: "服务器备份里的副本，会一直保留到备份被替换为止（天数还没有决定）",

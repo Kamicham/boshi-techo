@@ -73,9 +73,14 @@ describe("記録の同意の文が、今のコードでできる事を越えな�
     },
   );
 
-  it("文を本当の事にそろえた版（2026-11-05）より前へ、版を戻さない", () => {
+  it("文を本当の事にそろえた版より前へ版を戻さず、Anthropic の側の写しは「原則30日」と書く（claude_us は 2026-11-06）", () => {
     expect(CONSENT_VERSION.record >= "2026-11-05").toBe(true);
-    expect(CONSENT_VERSION.claude_us >= "2026-11-05").toBe(true);
+    expect(CONSENT_VERSION.claude_us >= "2026-11-06").toBe(true);
+    // Anthropic Privacy Center（2026-07-01 更新）: 30日以内。ただし利用規約の執行・法の求めなどの例外があり、利用規約に反すると判定された物は最長2年
+    expect(CLAUDE_US.measures.join("\n")).toMatch(/原則30日以内[\s\S]*最長2年/);
+    const account = fs.readFileSync(path.join(root, "app/account/page.tsx"), "utf8");
+    expect(account).not.toMatch(/写しは、30日以内に/);
+    expect(account.match(/写しは、原則30日以内に/g)).toHaveLength(2);
   });
 });
 

@@ -8,9 +8,11 @@
 // 米国の Claude に送る物（CLAUDE_US.what）を実際に送っている物にそろえた。前の版の同意は履歴に残り、画面はもう一度聞く
 // 2026-11-06 に record だけ上げた（全体監査）: 健診の録音は暗号にしていない（app/api/visit/_lib/server.ts が素のファイルで置く）のに、
 // 「写真・録音のファイルは暗号にしてから置きます」と書いていた。暗号は写真と声のファイル、健診の録音と記録の文字はまだ、と事実に合わせた
+// 2026-11-06 に claude_us も上げた（全体監査・統括の頼み）: 相手の措置の「30日以内に消えます」に例外を書いていなかった。Anthropic Privacy Center
+// （2026-07-01 更新）は「30日以内。ただし、利用規約の執行・法の求めなど」で、利用規約に反すると判定された物は最長2年残る
 export const CONSENT_VERSION = {
   record: "2026-11-06",
-  claude_us: "2026-11-05",
+  claude_us: "2026-11-06",
 } as const;
 
 export type ScreenConsentKind = keyof typeof CONSENT_VERSION;
@@ -63,7 +65,7 @@ export const CLAUDE_US = {
   pdfLabel: "個人情報保護委員会「外国における個人情報の保護に関する制度等の調査（米国）」",
   measures: [
     "API で送った内容を、Claude の学習には使いません（Anthropic の Commercial Terms）",
-    "API の入力と出力は、30日以内に Anthropic の側で消えます（Anthropic Privacy Center）",
+    "API の入力と出力は、原則30日以内に Anthropic の側で消えます。ただし、利用規約に反する疑いがあると判定された物は最長2年、法律で求められた時はそれより長く残ることがあります（Anthropic Privacy Center）",
     "通信は暗号にして送ります",
   ],
   measuresLinks: [

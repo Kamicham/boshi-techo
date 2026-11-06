@@ -2,7 +2,7 @@
 
 > **English summary**
 > One maker built this with Claude Code. The work was not done in one long chat. Several Claude Code sessions ran side by side, each with its own role. A coordinator session keeps the whole picture and hands out work. Work sessions (usability, memories, the ask-the-handbook feature, audit, demo, and others) each run in their own git worktree. The sessions talk to each other through cross-session messages, and every commit lands on `main`. When CI passes on `main`, the new version ships every 30 minutes to the public trial and to the maker's own instance, with a health check and automatic rollback.
-> Every change goes through one loop: 42 public statistics → 1,000 synthetic families → a 1,000-day fast-forward test on every change → Opus role-playing families on an iPhone-sized screen → Sonnet answering a survey as all 1,000 families → findings → commits.
+> Every change goes through one loop: 41 public statistics → 1,000 synthetic families → a 1,000-day fast-forward test on every change → Opus role-playing families on an iPhone-sized screen → Sonnet answering a survey as all 1,000 families → findings → commits.
 > A Workflow-based audit read `main` through 8 lenses, and a separate refuter checked every finding. It produced 89 findings, and the maker picked 8 to fix that same day.
 > The maker's own family used the app at a real prenatal checkup, and a date in the recording was misheard. Since then, a heard date stays a candidate until the person confirms it with "OK".
 > So far: 6 recorded role-play rounds (36 family sessions, 377 findings) and 2 surveys (1,007 answers each). The fixes can be traced in the git history.
@@ -43,7 +43,7 @@ flowchart TB
 
 ```mermaid
 flowchart TD
-  S["公的な統計 42項目<br/>出典と年つき<br/>app/src/sim/stats.ts"] --> P["1000組の家族を作る<br/>1組 = 年に約671家族<br/>population.ts"]
+  S["公的な統計 41項目<br/>出典と年つき<br/>app/src/sim/stats.ts"] --> P["1000組の家族を作る<br/>1組 = 年に約671家族<br/>population.ts"]
   F["珍しい型の30家族<br/>families.ts"] --> FF
   P --> FF["早送りの検査<br/>1000組 × 1000日・決まり a〜v<br/>npm run sim（修正のたびに毎回）"]
   P --> R["なりきり<br/>Opus が家族になって iPhone 幅で画面を触る<br/>Workflow simulate・drive.mjs"]
@@ -60,8 +60,8 @@ flowchart TD
 
 ## 1. 公的な統計から1000組を作る
 
-- 厚生労働省の人口動態統計・出生動向基本調査・雇用均等基本調査・国勢調査など、42項目の割合を `app/src/sim/stats.ts` に置きました。どの数字にも出典と年があります
-- 一覧は [SIM_STATS.md](SIM_STATS.md) です。統計そのもの・計算した推計・統計が無くて置いた近似を、行ごとに分けて書いています（一覧の40行のうち、統計20・推計13・近似7）
+- 厚生労働省の人口動態統計・出生動向基本調査・雇用均等基本調査・国勢調査など、41項目の割合を `app/src/sim/stats.ts` に置きました。どの数字にも出典と年があります
+- 一覧は [SIM_STATS.md](SIM_STATS.md) です。統計そのもの・計算した推計・統計が無くて置いた近似を、行ごとに分けて書いています（一覧の41行のうち、統計21・推計13・近似7）
 - そこから、日本で子を迎える家族を1000組作りました（`app/src/sim/population.ts`）。1組は、2025年の出生 671,270人の 1/1000 にあたります
 - 作った1000組の割合を、統計と照らすテストがあります（`app/src/sim/population.test.ts`）。有り得ない組み合わせ（週数に合わない体重など）も止めます
 - ほかに、珍しい型の見本として30家族を手で作りました（双子と NICU・離島・外国籍・聴覚に障害がある親など）
@@ -107,14 +107,14 @@ flowchart TD
 |---|---|
 | `282c914` | 30家族のシミュレーション: 早送りの検査・なりきりの道具・別のサーバ・Workflow |
 | `67ce0ef` | API の費用を1回ずつ記録し、1回 $5 を超えたら止める |
-| `c7658eb` | 公的な統計42項目から1000組を作り、早送りを1000組 × 1000日に広げる |
+| `c7658eb` | 公的な統計41項目から1000組を作り、早送りを1000組 × 1000日に広げる |
 | `7285fda` | なりきりで1000組の家族を開けるようにする |
 | `c842b91` | アンケートのスキル（/survey） |
 
 ## 6. 全体の技術監査（Workflow で観点ごとに読み、反証にかける）
 
 - 11/5 の朝、main を8つの観点で読む Workflow を回しました。使った Claude は17です。観点ごとに読む監査役が8、それぞれの見つけた事を崩そうとする反証の役が8、最後に判定する役が1です
-- 報告は89件でした（重大0・高12・中31・低46）。作り手が8件を選び、全体監査の会話がその日のうちに直して main へ入れました
+- 報告は89件でした（重大0・高12・中31・低46）。最後の判定役が8件に絞り、作り手が8件すべてを直すと決めました。その日のうちに全体監査（一部は統括と UX）が直して main へ入れました
 - 大きな作り替え（大きな画面の分割・DB の入口を1つにまとめる事など）は、提出の後に回しています
 
 ## 7. 本物の健診で使って、直した
