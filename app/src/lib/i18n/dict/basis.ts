@@ -416,4 +416,21 @@ export default {
     zh: "{basis}。入园的4月，是根据想复职的时间（“过了1岁之后”）设定的（估算）",
     en: "{basis}. The April of entry is set from when you want to return to work (“after age 1”) (approximate)",
   },
+  // 役所への届けの期限・目安の日が役所の休みに当たり、開庁日へ動かした（lib/holidays.ts の HOLIDAY_TAILS・見直し①）
+  "{basis}。期限の日が役所の休み（土日・祝日・年末年始）に当たるので、次の開庁日までにした（地方自治法第4条の2第4項）": {
+    zh: "{basis}。截止日是市区町村政府的休息日（周六日、节假日、年末年初），所以延到下一个办公日（《地方自治法》第4条之2第4款）",
+    en: "{basis}. The deadline falls on a day the city office is closed (weekend, public holiday, or New Year period), so it moves to the next business day (Local Autonomy Act (地方自治法), Article 4-2, Paragraph 4)",
+  },
+  "{basis}。目安の日が役所の休み（土日・祝日・年末年始）に当たるので、次の開庁日にした": {
+    zh: "{basis}。参考日期是市区町村政府的休息日（周六日、节假日、年末年初），所以改为下一个办公日",
+    en: "{basis}. The suggested date falls on a day the city office is closed (weekend, public holiday, or New Year period), so it moves to the next business day",
+  },
+  "{basis}。目安の日が役所の休み（土日・祝日・年末年始）に当たり、後ろへずらすと町の締切を越える事があるので、前の開庁日にした": {
+    zh: "{basis}。参考日期是市区町村政府的休息日（周六日、节假日、年末年初），往后推可能会超过市区町村的截止日期，所以提前到前一个办公日",
+    en: "{basis}. The suggested date falls on a day the city office is closed (weekend, public holiday, or New Year period), and moving it later could pass the city's deadline, so it moves to the previous business day",
+  },
+  "{basis}。期限の日が国の役所の休み（土日・祝日・年末年始）に当たるので、次の開庁日にした（行政機関の休日に関する法律第2条・国税は国税通則法第10条第2項）": {
+    zh: "{basis}。截止日是国家机关的休息日（周六日、节假日、年末年初），所以延到下一个办公日（《行政机关休息日法》（行政機関の休日に関する法律）第2条。国税依据《国税通则法》（国税通則法）第10条第2款）",
+    en: "{basis}. The deadline falls on a day national government offices are closed (weekend, public holiday, or New Year period), so it moves to the next business day (Act on Holidays of Administrative Organs (行政機関の休日に関する法律), Article 2; for national taxes, Act on General Rules for National Taxes (国税通則法), Article 10, Paragraph 2)",
+  },
 } satisfies Entries;

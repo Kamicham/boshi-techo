@@ -4,6 +4,7 @@
 // それとは別に、時期ごとに1回、Claude が家族の今（形・予定・記録）を見渡して、決まりに無い事に気づく（look。lookBucket で時期を決める）。
 import { z } from "zod";
 import { addDays, clockAt, diffDays, relabel } from "./clock";
+import { nextOpenDay } from "./holidays";
 import type { Family, Member } from "./demo-family";
 import { currentLang, INTL_LOCALE, t } from "./i18n";
 import { EARLY_BIRTH_DAYS, scheduleFor, type Milestone } from "./milestones";
@@ -341,9 +342,11 @@ function movedRule(find: Find, mv: RegExpMatchArray, today?: string): AdviceFiel
   const what = t(pregnant ? "転入の届けと健診の券の取り替え" : born ? "転入の届けと医療証・予防接種" : "転入の届け");
   // 題はカードの2行（iPhone の幅で24字ほど）に収める。長い時は前の町を省く
   const title = [t("{from}から{to}へ: {what}", { from, to, what }), t("{to}へ: {what}", { to, what })].find(titleFits) ?? what;
-  // 転入の届けは、引っ越した日の翌日から数えて14日以内（住民基本台帳法第22条・初日は数えない）
+  // 転入の届けは、引っ越した日の翌日から数えて14日以内（住民基本台帳法第22条・初日は数えない）。
+  // 14日目が役所の休みなら、次の開庁日まで（地方自治法第4条の2第4項・lib/holidays.ts。予定表の転入届の期限と同じ＝見直し①）
   const since = Number(find(/^今日は引っ越して(\d+)日目/)?.[1]);
-  const by = today && Number.isFinite(since) && since <= 14 ? jp(addDays(today, 14 - since)) : null;
+  const due = today && Number.isFinite(since) ? nextOpenDay(addDays(today, 14 - since)) : null;
+  const by = today && due && today <= due ? jp(due) : null;
   const plan = [
     by ? t("転入の届け: {date}まで（引っ越した日から14日以内）", { date: md(by) }) : t("転入の届けが済んだか確かめる（引っ越した日から14日以内）"),
     ...(pregnant ? [t("{city}の窓口で、健診の券（受診票）の取り替えを確かめる", { city: to }), t("次の健診の日までに取り替えが済むよう、窓口へ行く日を決める")] : []),

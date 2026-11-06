@@ -15,6 +15,11 @@ describe("生まれた届けの束（第1波②）", () => {
     expect(t.items[0].task.id).toBe("birth-registration");
     expect(t.deadline).toBe("2027-05-14");
   });
+  it("束の期限は、14日目が役所の休みなら次の開庁日（出生届の期限と同じ。見本の家族の 2027-04-26 生まれ: 5/9（日）→ 5/10（月）・見直し①）", () => {
+    const t = planBirthTrip(at("2027-04-27", undefined, [], "2027-04-26"), "2027-04-27", "2027-04-26", undefined)!;
+    expect(t.deadline).toBe("2027-05-10");
+    expect(t.items.find((i) => i.task.id === "birth-registration")?.task.deadlineDate).toBe("2027-05-10");
+  });
   it("会社の保険なら、医療証は「保険が届いたら」で、保険は勤め先", () => {
     const s: Situation = { partnerWork: "会社員・公務員" };
     const t = planBirthTrip(at("2027-05-02", s), "2027-05-02", "2027-05-01", s)!;
@@ -33,8 +38,14 @@ describe("生まれた届けの束（第1波②）", () => {
     expect(tripWhere("child-allowance", { publicServant: true })).toBe("勤め先");
     expect(tripWhere("child-allowance", {})).toBe("役所");
   });
-  it("16日目と、残りが1件の時は出さない", () => {
-    expect(planBirthTrip(at("2027-05-17"), "2027-05-17", "2027-05-01", undefined)).toBeNull();
+  it("16日目と、残りが1件の時は出さない。15日目が役所の休みなら、次の開庁日まで出す（児童手当の期限と同じ・見直し①）", () => {
+    // 2027-04-26 生まれ: 15日目の 5/11 は火曜なので、16日目の 5/12 から出さない
+    expect(planBirthTrip(at("2027-05-11", undefined, [], "2027-04-26"), "2027-05-11", "2027-04-26", undefined)).not.toBeNull();
+    expect(planBirthTrip(at("2027-05-12", undefined, [], "2027-04-26"), "2027-05-12", "2027-04-26", undefined)).toBeNull();
+    // 2027-05-01 生まれ: 15日目の 5/16 は日曜なので、児童手当の期限は 5/17（月）。束は 5/17 まで出し、5/18 から出さない
+    expect(at("2027-05-17").find((m) => m.id === "child-allowance")?.deadlineDate).toBe("2027-05-17");
+    expect(planBirthTrip(at("2027-05-17"), "2027-05-17", "2027-05-01", undefined)).not.toBeNull();
+    expect(planBirthTrip(at("2027-05-18"), "2027-05-18", "2027-05-01", undefined)).toBeNull();
     const all = ["birth-registration", "child-allowance", "health-insurance", "medical-subsidy"];
     expect(planBirthTrip(at("2027-05-03", undefined, all), "2027-05-03", "2027-05-01", undefined)).toBeNull();
   });

@@ -5,6 +5,7 @@
  * 見込みは近似（町・健康保険・ハローワークで違う）。出典と年は basis に残す。
  */
 import { addDays, addMonths } from "./clock";
+import { nextOpenDay } from "./holidays";
 import { endOfMonth } from "./leave-money";
 import type { Milestone, MilestoneDef } from "./milestones";
 
@@ -36,8 +37,8 @@ export const isPaidId = (id: string) => id.startsWith("paid-") && id.slice(5) in
 
 /** 児童手当の最初の振込の月（YYYY-MM-01）。申請の日と生まれた日から */
 export function childAllowanceFirstPay(applied: string, birth?: string): string {
-  // 生まれた日の翌日から15日以内に申請すれば、生まれた月の翌月分から（児童手当法第8条第3項）
-  const from = birth && applied <= addDays(birth, 15) ? birth : applied;
+  // 生まれた日の翌日から15日以内に申請すれば、生まれた月の翌月分から（児童手当法第8条第3項）。15日目が役所の休みなら次の開庁日まで（地方自治法第4条の2第4項・lib/holidays.ts）
+  const from = birth && applied <= nextOpenDay(addDays(birth, 15)) ? birth : applied;
   const first = addMonths(`${from.slice(0, 7)}-01`, 1);
   const m = Number(first.slice(5, 7));
   return addMonths(first, m % 2 === 1 ? 1 : 2);

@@ -26,13 +26,14 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { addDays, addMonths, clockAt, diffDays, lmpFromDue, secondBirthday } from "../lib/clock";
-import { BIRTH_TRIP_IDS, planBirthTrip, tripScreen, type TripScreen } from "../lib/birth-trip";
+import { BIRTH_TRIP_IDS, babyInsuranceOf, planBirthTrip, tripScreen, type TripScreen } from "../lib/birth-trip";
+import { HOLIDAY_TAILS, holidayWhy, isOfficeHoliday, nextOpenDay, prevOpenDay } from "../lib/holidays";
 import { vaxRetime } from "../lib/vax-next";
 import { intervalDays, prenatalState } from "../lib/prenatal";
 import { olderOf } from "../lib/older";
 import { benefitFirst } from "../lib/leave-money";
 import type { Family, Member } from "../lib/demo-family";
-import { PARENT_FILINGS, PREGNANCY_ONLY, scheduleFor, statusOf } from "../lib/milestones";
+import { deadlineKindOf, PARENT_FILINGS, PREGNANCY_ONLY, scheduleFor, statusOf, type Milestone } from "../lib/milestones";
 import { hasOlderChildren, hideCounts, motherEmployed, partnerEmployed, partnerTakesLeave } from "../lib/situation";
 import { bodySeries } from "../lib/body-series";
 import { detectTriggers, BIRTH_SHIFT_DAYS, BIRTH_WINDOW_DAYS, MOVED_WINDOW_DAYS, type TriggerKind } from "../lib/advisor";
@@ -73,7 +74,7 @@ const RULES = {
   g: "今やる事が0の日も「次に来る事」が見つかる（予定表の最後の事を過ぎた後を除く。1歳半健診の後は2歳まで何も無い）",
   h: "家族に合わない項目が出ない（仕事のない母・パートナーに職場の事・パートナーのいない家族にパートナーの事・育休を取らないパートナーに育休の事）",
   i: "妊娠中、予定日の8週前を過ぎたら、支援給付の2回目が今やる（か済み）に出る（第1波③）",
-  j: "生まれた日から15日の間、出生届がまだなら、届けの束の1件目が出生届で、束の期限は生まれた日を含めて14日目。束を一番上の1枚に出す日は、束の届けを「このあと」に重ねない＝出生届を2回出さない（第1波②・UX の見直し C08）",
+  j: "生まれた日から15日の間、出生届がまだなら、届けの束の1件目が出生届で、束の期限は生まれた日を含めて14日目（役所の休みなら次の開庁日＝見直し①）。束を一番上の1枚に出す日は、束の届けを「このあと」に重ねない＝出生届を2回出さない（第1波②・UX の見直し C08）",
   k: "妊娠中の妊婦健診の目安は、今日より前にならず予定日より前で、今日受けた時の次は国の標準の間隔を超えない（第1波⑧）",
   l: "上の子の予定は上の子がいる家族だけに出て、健診・接種の日は上の子の生まれた日から数え、期限切れにならない。園の継続は保育園の上の子がいる時だけ（第2波①）",
   m: "保育園の入る4月が仕事に戻りたい時期に合い（1歳まで＝1歳の誕生日まで・1歳を過ぎて＝その後）、見学は生後1か月より前に来ず、延長の申し出の期限は1歳の誕生日の2週間前（第2波④）",
@@ -81,14 +82,25 @@ const RULES = {
   p: "お金の1000日: 児童手当の最初の振込は偶数月で申請の後・届いたか確かめる件は申請が済んだ物だけで額を出さない・自営や仕事なしの母に出産手当金が出ない（辞める母には出す＝健康保険法第104条）",
   n: "産休・育休のお金: 育休の給付の初回の期限は育休の4か月目の月末で、自営・仕事なし・辞める母には育休の給付が出ず、パートナーの14日の1件は14日以上の家族に出ない（第2波⑤）",
   q: "呼び名と担当: 「パパ」は法の呼び名「産後パパ育休」の中だけ（短い題・一言・正式な題とも。産後パパ育休の期限の行は、短い題にも呼び名を書く＝見直し⑦）。法律上の親が出す届け（出生届・児童手当・保険証・医療費助成）の担当がパートナーに決め打ちにならない（2026-11-04 見直し L2-2・同性の家族 sim-03・未婚の父 sim-05）",
-  r: "引っ越しの行: 町を変えた家族だけに、引っ越した日から出る。転入届の期限は引っ越した日の14日後（住民基本台帳法第22条）・児童手当は15日後（児童手当法第8条第3項）で、児童手当と医療証は引っ越した時に子がいた家族だけ、受診券は妊娠中に引っ越した家族だけ（見直し C10①）",
+  r: "引っ越しの行: 町を変えた家族だけに、引っ越した日から出る。転入届の期限は引っ越した日の14日後（住民基本台帳法第22条）・児童手当は15日後（児童手当法第8条第3項。どちらも役所の休みなら次の開庁日＝見直し①）で、児童手当と医療証は引っ越した時に子がいた家族だけ、受診券は妊娠中に引っ越した家族だけ（見直し C10①）",
   s: "早く生まれた時: 予定日より7日以上早く生まれ、育休を取るかもしれないパートナーがいる家族だけに「育休の始まりを早める」が、生まれた日から予定日の前日まで出る（遅く生まれた時・6日以内は出さない。見直し C10②）",
   t: "気をつける事の札（lib/cautions.ts）: 1日に1枚まで。静かにする家族・生まれた日・母の画面の生後14日まで・お祝いや届けの束や手帳の気づきの日には出ず、読んだ札は同じ端末に二度出ない。引用ごとに出典があり、労基法の引用は働く母の家族だけ。出生届出済証明は36週の札と、届けの束の出生届の行で伝える（2026-11-05 総点検の札）",
   u: "ほかに今やる事は畳んで出す（家族の声①「要らないのに、ずらっと並ぶ。疲れる」への直し A・2026-11-05）: 自分の番は3行まで・ほかの人の番は人ごとに1行・法の期限が明日までの事は誰の番でも畳まない。畳んだ後の行は6行まで（components/today/now-fold.ts。画面と同じ関数）",
   v: "健診の録音から聞こえた次の健診の日（作り手の方針「聞き違いは0にできない。最後の確かめと OK は本人」・lib/visit-next.ts）: 国の標準の間隔で正しく聞こえた日には機械の印が付かず（本当に年をまたぐ日だけ「年をまたいだ」）、月を聞き違えて翌年に回った日には印が付く。確かめる前は送る文（LINE・共有）に日が入らず、予定に heard の印が付き、前日の声かけは出る。確かめた後は送る文に入り、heard が外れる",
+  w: "役所の休み（見直し①・lib/holidays.ts）: 役所への届けの法の期限と目安の日が、役所の休み（土日・祝日と休日・12/29〜1/3）に当たらない。動かすのは休みに当たった日だけで、法の期限と目安は次の開庁日（町の締切の近似の目安は前の開庁日＝期限は越えない）。職場・産院・健康保険の行（公務員の児童手当・勤め先の保険を含む）は動かさない。束の期限も同じ",
 } as const;
 type Rule = keyof typeof RULES;
 const RULE_IDS = Object.keys(RULES) as Rule[];
+
+/** 決まり w: 役所に出さない届け（産院・健康保険・どこに出すか決まっていない母の保険の切り替え）。職場の事（kind 仕事）も役所の印を持たない */
+const NOT_OFFICE = new Set(["direct-payment", "maternity-allowance-cert", "maternity-allowance-apply", "lump-sum-diff", "mother-insurance-switch"]);
+/** 決まり w: 役所（町・国）への届け。赤ちゃんの保険は国保の時だけ・児童手当は公務員でない時だけ */
+const OFFICE_IDS = new Set([
+  "pregnancy-report", "nenkin-maternity-exempt", "kokuho-maternity-exempt", "older-daycare-continue", "satogaeri-visit", "pregnancy-support-2",
+  "birth-registration", "child-allowance", "child-allowance-change", "health-insurance", "medical-subsidy", "single-child-support", "single-medical",
+  "birth-notice", "low-birth-weight-report", "preterm-medical", "satogaeri-checkup-refund", "daycare-apply", "medical-deduction",
+  "moved-tennyu", "moved-child-allowance", "moved-checkup-tickets", "moved-medical-card",
+]);
 
 /** 妊娠中だけの事（生まれた後に今やるに出てはいけない）。期限表の pregnancyOnly の印から。パパの育休は生まれた後も意味があるので入れない */
 const PREG_ONLY = PREGNANCY_ONLY;
@@ -407,7 +419,7 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
       else if (t2.status === "まだ先" && !t2.awaitingPregnancy) push("i", "late", `予定日の8週前を過ぎたのに、支援給付の2回目が「まだ先」`);
     }
     // j: 生まれた届けの束
-    if (isBorn && f.birthDate && diffDays(day, f.birthDate) <= 15) {
+    if (isBorn && f.birthDate && day <= nextOpenDay(addDays(f.birthDate, 15))) {
       const reg = tasks.find((t) => t.id === "birth-registration");
       const trip = planBirthTrip(tasks, day, f.birthDate, fv.situation);
       if (reg && reg.status !== "済み" && reg.status !== "期限切れ") {
@@ -415,7 +427,8 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
           if (tasks.filter((t) => BIRTH_TRIP_IDS.has(t.id) && t.status !== "済み" && t.status !== "過ぎた" && t.status !== "期限切れ").length >= 2) push("j", "missing", "出生届がまだで届けが2件以上あるのに、束が出ない");
         } else {
           if (trip.items[0].task.id !== "birth-registration") push("j", "order", `束の1件目が「${trip.items[0].task.plain}」`);
-          if (trip.deadline !== addDays(f.birthDate, 13)) push("j", "deadline", `束の期限が ${trip.deadline}`);
+          if (trip.deadline !== nextOpenDay(addDays(f.birthDate, 13))) push("j", "deadline", `束の期限が ${trip.deadline}`);
+          if (isOfficeHoliday(trip.deadline)) push("w", "trip", `束の期限 ${trip.deadline} が役所の休み（${holidayWhy(trip.deadline)}）`);
         }
       }
     }
@@ -540,14 +553,40 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
         const on = fv.movedOn!;
         const tennyu = mv.find((t) => t.id === "moved-tennyu");
         if (!tennyu) push("r", "missing", "引っ越したのに、転入届の行が無い");
-        else if (tennyu.startDate !== on || tennyu.deadlineDate !== addDays(on, 14)) push("r", "tennyu-date", `転入届が ${tennyu.startDate}〜${tennyu.deadlineDate}（引っ越した日 ${on} から14日後まで、でない）`);
+        else if (tennyu.startDate !== on || tennyu.deadlineDate !== nextOpenDay(addDays(on, 14))) push("r", "tennyu-date", `転入届が ${tennyu.startDate}〜${tennyu.deadlineDate}（引っ越した日 ${on} から14日後（休みなら次の開庁日）まで、でない）`);
         const kid = (!!f.birthDate && f.birthDate <= on) || hasOlderChildren(fv.situation);
         const ca = mv.find((t) => t.id === "moved-child-allowance");
         if (kid !== !!ca) push("r", "allowance", kid ? "引っ越した時に子がいたのに、児童手当の行が無い" : "引っ越した時に子がいないのに、児童手当の行が出る");
-        if (ca && ca.deadlineDate !== addDays(on, 15)) push("r", "allowance-date", `児童手当の期限が ${ca.deadlineDate}（引っ越した日の15日後でない）`);
+        if (ca && ca.deadlineDate !== nextOpenDay(addDays(on, 15))) push("r", "allowance-date", `児童手当の期限が ${ca.deadlineDate}（引っ越した日の15日後（休みなら次の開庁日）でない）`);
         if (kid !== mv.some((t) => t.id === "moved-medical-card")) push("r", "medical", kid ? "引っ越した時に子がいたのに、医療証の行が無い" : "引っ越した時に子がいないのに、医療証の行が出る");
         const pregMove = on >= lmpFromDue(f.dueDate) && (!f.birthDate || on < f.birthDate);
         if (pregMove !== mv.some((t) => t.id === "moved-checkup-tickets")) push("r", "tickets", pregMove ? "妊娠中に引っ越したのに、受診券の行が無い" : "妊娠中でない引っ越しに、受診券の行が出る");
+      }
+    }
+    // w: 役所の休み（見直し①）。予定表のすべての行の期限・目安の日を見る
+    {
+      for (const t of tasks) {
+        if (!t.deadlineDate) continue;
+        const kindWord = deadlineKindOf(t) === "目安" ? "目安の日" : "期限";
+        // 役所に出さない届け（職場の事・産院・健康保険・どこに出すか決まっていない母の保険）と、公務員の児童手当（勤め先）には印が無い
+        const toOffice =
+          t.kind !== "仕事" &&
+          !NOT_OFFICE.has(t.id) &&
+          !(fv.situation?.publicServant && (t.id === "child-allowance" || t.id === "child-allowance-change")) &&
+          (t.id !== "health-insurance" || babyInsuranceOf(fv.situation) === "国保");
+        if (!!t.office !== (toOffice && OFFICE_IDS.has(t.id))) push("w", `mark:${t.id}`, t.office ? `役所に出さない「${t.plain}」に役所の印` : `役所への届け「${t.plain}」に役所の印が無い`);
+        if (!t.office) {
+          if (t.deadlineOnHoliday) push("w", `stay:${t.id}`, `職場・産院・健康保険の「${t.plain}」の日を ${t.deadlineOnHoliday} から動かした`);
+          continue;
+        }
+        if (isOfficeHoliday(t.deadlineDate)) push("w", `holiday:${t.id}`, `「${t.plain}」の${kindWord} ${t.deadlineDate} が役所の休み（${holidayWhy(t.deadlineDate)}）`);
+        if (t.deadlineOnHoliday) {
+          if (!isOfficeHoliday(t.deadlineOnHoliday)) push("w", `needless:${t.id}`, `「${t.plain}」を休みでない日 ${t.deadlineOnHoliday} から動かした`);
+          const early = !!t.officeNoLater && deadlineKindOf(t) === "目安";
+          const want = early ? prevOpenDay(t.deadlineOnHoliday) : nextOpenDay(t.deadlineOnHoliday);
+          if (t.deadlineDate !== want) push("w", `where:${t.id}`, `「${t.plain}」を ${t.deadlineOnHoliday} から ${t.deadlineDate} へ（${early ? "前" : "次"}の開庁日 ${want} でない）`);
+          if (!t.basis.includes("開庁日")) push("w", `why:${t.id}`, `「${t.plain}」の日を動かしたのに、根拠に理由が無い`);
+        }
       }
     }
     // s: 早く生まれた時のパートナーの育休（見直し C10②）
@@ -826,6 +865,28 @@ const UNREPRESENTABLE: { label: string; why: string; hit: (f: PopFamily) => bool
   { label: "離島に住む", why: "島外の産院へ移る（出産前の滞在）・船の時刻を表せない", hit: (f) => f.profile.placeType === "離島" },
 ];
 
+/** 決まり w の報告: 役所の休みで動かした期限・目安の日（家族ごとに、2歳の誕生日の時点の予定表をまるごと1回組んで数える。空振りでない事を見る） */
+function holidayLines(rs: Result[], heading: string): string[] {
+  const how = (m: Milestone) =>
+    m.office === "国" ? "国の役所→次の開庁日" : m.basis.endsWith(HOLIDAY_TAILS.前) ? "目安→前の開庁日" : deadlineKindOf(m) === "目安" ? "目安→次の開庁日" : "法の期限→次の開庁日";
+  const rows = new Map<string, number>();
+  const examples: string[] = [];
+  let families = 0;
+  let total = 0;
+  for (const x of rs) {
+    const moved = scheduleFor(viewAt(x.f, secondBirthday(x.f))).filter((m) => m.deadlineOnHoliday);
+    if (moved.length) families++;
+    for (const m of moved) {
+      total++;
+      const k = `${m.plain}（${how(m)}）`;
+      rows.set(k, (rows.get(k) ?? 0) + 1);
+      if (examples.length < 3) examples.push(`${x.r.id}: ${m.plain} ${m.deadlineOnHoliday}（${holidayWhy(m.deadlineOnHoliday!)}）→ ${m.deadlineDate}`);
+    }
+  }
+  const list = [...rows.entries()].sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v}件`);
+  return [`### 役所の休みで動かした日（決まり w・${heading}）`, "", `${rs.length}家族のうち ${families}家族・${total}件。${list.join("・") || "—"}`, "", ...examples.map((e) => `- 例: ${e}`), ""];
+}
+
 /** 決まり t の報告: 気をつける事の札が、どの家族に・いつ出たか（家族ごとに、使う人の誰かに最初に出た時。妊娠中の時期は週にまとめる） */
 function cautionLines(rs: Result[], heading: string, sampled: boolean): string[] {
   const week = (at: string) => at.replace(/^(妊娠\d+週)\d+日$/, "$1");
@@ -938,6 +999,7 @@ function writeReport() {
     L.push("", "### 今のアプリが表せない状況（1000組の人数と全国換算）", "", "今の Family 型・期限表では持てない状況。困る人の多い順に、作る物の優先順位を決められる。", "", "| 状況 | 1000組 | 全国（年） | 何が表せないか |", "|---|---|---|---|");
     for (const u of unrep) L.push(`| ${u.label} | ${u.n} | ${nation(u.n)}家族 | ${u.why} |`);
     L.push("", ...cautionLines(popResults, "1000組", !FULL));
+    L.push(...holidayLines(popResults, "1000組"));
   }
 
   L.push("## 30家族（珍しい型の見本・毎日確かめる）", "");
@@ -952,6 +1014,7 @@ function writeReport() {
     L.push("");
   }
   L.push(...cautionLines(results, "30家族", false));
+  L.push(...holidayLines(results, "30家族"));
   L.push("### 家族ごと", "", `| id | 一言 | ${RULE_IDS.join(" | ")} |`, `|---|---|${RULE_IDS.map(() => "---").join("|")}|`);
   for (const x of results) L.push(`| ${x.r.id} | ${x.r.label} | ${RULE_IDS.map((r) => x.marks[r]).join(" | ")} |`);
   L.push("");

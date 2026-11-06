@@ -1,6 +1,7 @@
 // 予定（lib/milestones.ts・lib/older.ts）の言葉を、画面の言葉にする。予定のデータは日本語のまま持ち（下書き・Claude への頼み・試験はそのまま）、
 // 画面に描く時だけここを通す。辞書は dict/milestones.ts（「なぜ？」の根拠の文 basis は dict/basis.ts）。家族の形で変わる言い方（名前・人数・町）は、形を見て差し込みの鍵で引く
 // （components/today/StagePicker.tsx の stageWords と同じやり方）。試験は milestones-i18n.test.ts（作った家族の予定の言葉をすべて引く）
+import { HOLIDAY_TAILS } from "../holidays";
 import { currentLang, t } from ".";
 import { nameIn } from "./names";
 
@@ -45,6 +46,8 @@ const BASIS_TAILS: readonly string[] = [
   // 仕事に戻りたい時期で入る4月を置いた（daycare-apply）
   "。入る4月は、仕事に戻りたい時期（1歳になるまでに）から置いた（近似）",
   "。入る4月は、仕事に戻りたい時期（1歳を過ぎてから）から置いた（近似）",
+  // 役所への届けの期限・目安の日を、役所の休みで開庁日へ動かした（scheduleFor・lib/holidays.ts の HOLIDAY_TAILS。見直し①）
+  ...Object.values(HOLIDAY_TAILS),
 ];
 
 /** 正規表現の記号を、ただの字として読む */

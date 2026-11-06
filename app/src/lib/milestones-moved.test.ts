@@ -39,7 +39,9 @@ describe("引っ越した時の行（見直し C10①）", () => {
     expect(ca.deadlineDate).toBe("2027-06-25"); // 6/10 の翌日から数えて15日目
     expect(ca.basis).toContain("児童手当法第8条第3項");
     const mc = byId(f, "moved-medical-card", "2027-06-11")!;
-    expect(mc.deadlineDate).toBe("2027-07-10");
+    // 1か月後の 7/10 は土曜なので、目安の日も次の開庁日の 7/12（月）にする（見直し①）
+    expect(mc.deadlineOnHoliday).toBe("2027-07-10");
+    expect(mc.deadlineDate).toBe("2027-07-12");
     expect(mc.deadlineKind).toBe("目安");
     expect(mc.basis).toMatch(/^町の制度/);
     // 法律上の親が出す届けは、担当をパートナーに決め打ちしない

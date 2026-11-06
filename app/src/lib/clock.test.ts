@@ -48,8 +48,10 @@ describe("期限", () => {
     expect(get("birth-registration").deadlineDate).toBe("2027-05-21");
   });
 
-  it("児童手当は翌日から15日以内", () => {
-    expect(get("child-allowance").deadlineDate).toBe("2027-05-23");
+  it("児童手当は翌日から15日以内（15日目が役所の休みなら次の開庁日・見直し①）", () => {
+    // 2027-05-08 生まれ: 15日目の 5/23 は日曜なので、次の開庁日の 5/24（月）まで（地方自治法第4条の2第4項）
+    expect(get("child-allowance").deadlineOnHoliday).toBe("2027-05-23");
+    expect(get("child-allowance").deadlineDate).toBe("2027-05-24");
   });
 
   it("産前休業は予定日を含めて42日（出産の当日は産前に入る）。1日目は予定日の41日前", () => {

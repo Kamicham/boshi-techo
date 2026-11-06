@@ -3,6 +3,7 @@
 // 「1回で全部」とは言い切らない: 会社の保険の家族は、医療証に赤ちゃんの保険の資格の書類が要り、勤め先を通して後から届く。
 // 画面とサーバの両方で使う純関数（Claude は呼ばない）。
 import { addDays, diffDays } from "./clock";
+import { nextOpenDay } from "./holidays";
 import type { Situation } from "./situation";
 
 export type TripWhere = "役所" | "勤め先" | "保険が届いたら";
@@ -29,8 +30,13 @@ export const BIRTH_TRIP: { id: string; reason: string; also?: string }[] = [
 const ORDER = new Map(BIRTH_TRIP.map((x, i) => [x.id, i]));
 export const BIRTH_TRIP_IDS = new Set(BIRTH_TRIP.map((x) => x.id));
 
-/** 束を出す日数（生まれた日から。児童手当の15日まで） */
+/** 束を出す日数（生まれた日から。児童手当の15日まで。15日目が役所の休みなら、次の開庁日まで＝児童手当の期限と同じ） */
 export const TRIP_DAYS = 15;
+
+/** 束の期限（出生届の期限＝生まれた日を含めて14日目。役所の休みなら次の開庁日＝地方自治法第4条の2第4項。lib/holidays.ts） */
+export function tripDeadline(birthDate: string): string {
+  return nextOpenDay(addDays(birthDate, 13));
+}
 
 /** 赤ちゃんが入る健康保険（答えが無ければ働き方から近似。わからなければ undefined） */
 export function babyInsuranceOf(s: Situation | undefined): "勤め先" | "国保" | undefined {
@@ -62,7 +68,7 @@ export interface TripItem<T> {
 }
 
 export interface BirthTrip<T> {
-  /** 束の期限（出生届の期限＝生まれた日を含めて14日目） */
+  /** 束の期限（出生届の期限＝生まれた日を含めて14日目。役所の休みなら次の開庁日。tripDeadline） */
   deadline: string;
   items: TripItem<T>[];
 }
@@ -73,7 +79,7 @@ export interface BirthTrip<T> {
  */
 export function planBirthTrip<T extends { id: string; status: string }>(tasks: T[], today: string, birthDate: string | undefined, s: Situation | undefined): BirthTrip<T> | null {
   if (!birthDate || today < birthDate) return null;
-  if (diffDays(today, birthDate) > TRIP_DAYS) return null;
+  if (today > nextOpenDay(addDays(birthDate, TRIP_DAYS))) return null;
   const open = tasks
     .filter((t) => BIRTH_TRIP_IDS.has(t.id) && t.status !== "済み" && t.status !== "過ぎた" && t.status !== "期限切れ")
     .sort((a, b) => ORDER.get(a.id)! - ORDER.get(b.id)!);
@@ -83,7 +89,7 @@ export function planBirthTrip<T extends { id: string; status: string }>(tasks: T
   const rank: Record<TripWhere, number> = { 役所: 0, 勤め先: 1, 保険が届いたら: 2 };
   const sorted = [...open].sort((a, b) => rank[where(a)] - rank[where(b)] || ORDER.get(a.id)! - ORDER.get(b.id)!);
   return {
-    deadline: addDays(birthDate, 13),
+    deadline: tripDeadline(birthDate),
     items: sorted.map((t, i) => {
       const x = BIRTH_TRIP.find((b) => b.id === t.id)!;
       return { task: t, step: i + 1, reason: x.reason, ...(x.also ? { also: x.also } : {}), where: where(t) };

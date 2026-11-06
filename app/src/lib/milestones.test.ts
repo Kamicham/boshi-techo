@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { MILESTONES, PREGNANCY_ONLY, daycarePlan, deadlineKindOf, schoolEntry, scheduleFor, statusOf } from "./milestones";
+import { addDays } from "./clock";
+import { HOLIDAY_TAILS, isOfficeHoliday } from "./holidays";
+import { MILESTONES, PREGNANCY_ONLY, daycarePlan, deadlineKindOf, officeDay, schoolEntry, scheduleFor, statusOf } from "./milestones";
 import type { Situation } from "./situation";
 
 // 予定日 2027-05-10 の家族（すべて作った家族）
@@ -299,5 +301,84 @@ describe("損で脅さない", () => {
       }
     }
     expect(allowance).toBeGreaterThan(0);
+  });
+});
+
+describe("役所の休み（見直し①・lib/holidays.ts）: 役所への届けの期限と目安の日は、休みなら開庁日へ。職場・産院は動かさない", () => {
+  const at = (dueDate: string, birthDate?: string, situation?: Situation) => scheduleFor({ dueDate, birthDate, situation, members: both });
+  const row = (list: ReturnType<typeof at>, id: string) => list.find((m) => m.id === id)!;
+
+  it("見本の家族（2027-04-26 生まれ）の出生届: 14日目の 5/9 は日曜なので、5/10（月）まで。理由を根拠の後ろに一文足す", () => {
+    const s = at("2027-05-10", "2027-04-26");
+    const reg = row(s, "birth-registration");
+    expect(reg.deadlineDate).toBe("2027-05-10");
+    expect(reg.deadlineOnHoliday).toBe("2027-05-09");
+    expect(reg.basis.endsWith(HOLIDAY_TAILS.期限)).toBe(true);
+    expect(reg.basis.startsWith("戸籍法第49条")).toBe(true);
+    // 休みでない日は動かさない（児童手当の15日目の 5/11 は火曜）
+    const ca = row(s, "child-allowance");
+    expect(ca.deadlineDate).toBe("2027-05-11");
+    expect(ca.deadlineOnHoliday).toBeUndefined();
+    expect(ca.basis).not.toContain("開庁日");
+  });
+
+  it("目安の日も、休みなら次の開庁日（予定日 5/3＝憲法記念日の、国民年金の産前産後の免除: 5/4・5/5 も祝日なので 5/6）", () => {
+    const n = row(at("2027-05-03", undefined, { motherWork: "自営・フリー" }), "nenkin-maternity-exempt");
+    expect(n.deadlineKind).toBe("目安");
+    expect(n.deadlineDate).toBe("2027-05-06");
+    expect(n.basis.endsWith(HOLIDAY_TAILS.目安)).toBe(true);
+  });
+
+  it("職場・産院への期限は、休みでも動かさない（予定日 5/23: 産後パパ育休の 5/9（日）・産院の書類の 4/25（日））", () => {
+    const s = scheduleFor({ dueDate: "2027-05-23", members: both, situation: { partnerWork: "会社員・公務員", partnerLeave: "取る" } });
+    for (const [id, d] of [["partner-leave", "2027-05-09"], ["direct-payment", "2027-04-25"]] as const) {
+      expect(row(s, id).deadlineDate, id).toBe(d);
+      expect(row(s, id).deadlineOnHoliday, id).toBeUndefined();
+    }
+  });
+
+  it("公務員の児童手当は勤め先に出すので動かさない。町に出す家族は動かす（2027-04-18 生まれ: 15日目の 5/3 は憲法記念日）", () => {
+    expect(row(at("2027-05-10", "2027-04-18"), "child-allowance").deadlineDate).toBe("2027-05-06");
+    expect(row(at("2027-05-10", "2027-04-18", { publicServant: true }), "child-allowance").deadlineDate).toBe("2027-05-03");
+  });
+
+  it("赤ちゃんの保険: 国保は役所に14日以内なので動かす。勤め先の保険は動かさない", () => {
+    const k = row(at("2027-05-10", "2027-04-26", { babyInsurance: "国保" }), "health-insurance");
+    expect(k.deadlineDate).toBe("2027-05-10");
+    expect(k.basis.endsWith(HOLIDAY_TAILS.期限)).toBe(true);
+    // 2027-04-03 生まれ: 1か月の目安の 5/3 は祝日だが、勤め先の保険は動かさない
+    const w = row(at("2027-05-10", "2027-04-03", { partnerWork: "会社員・公務員" }), "health-insurance");
+    expect(w.deadlineDate).toBe("2027-05-03");
+    expect(w.office).toBeUndefined();
+  });
+
+  it("町の締切の近似の目安（保育園の申し込み）は、後ろへずらさず前の開庁日。確定申告（国の役所）は次の開庁日", () => {
+    // 2025-05-01 生まれ: 2026年4月入園の申し込みの締切の近似 2025-11-30 は日曜 → 11/28（金）
+    const s = at("2025-05-10", "2025-05-01");
+    expect(daycarePlan("2025-05-01").apply.deadline).toBe("2025-11-30");
+    const apply = row(s, "daycare-apply");
+    expect(apply.deadlineDate).toBe("2025-11-28");
+    expect(apply.basis.endsWith(HOLIDAY_TAILS.前)).toBe(true);
+    // 医療費控除の確定申告の期限 2026-03-15 は日曜 → 3/16（月）（国税通則法第10条第2項）
+    const tax = row(s, "medical-deduction");
+    expect(tax.deadlineDate).toBe("2026-03-16");
+    expect(tax.basis.endsWith(HOLIDAY_TAILS.国)).toBe(true);
+    // 印の無い行は、どの日も動かさない
+    expect(officeDay({}, "2027-05-09")).toEqual({ date: "2027-05-09" });
+  });
+
+  it("1年分の生まれた日で、役所の行の期限・目安は休みに当たらず、休みでない日は動かさず、ほかの行は動かさない", () => {
+    for (let i = 0; i < 366; i++) {
+      const birth = addDays("2027-01-01", i);
+      for (const situation of [undefined, { babyInsurance: "国保" as const, motherWork: "自営・フリー" as const }]) {
+        for (const m of at(addDays(birth, 7), birth, situation)) {
+          if (!m.deadlineDate) continue;
+          if (m.office) {
+            expect(isOfficeHoliday(m.deadlineDate), `${birth} ${m.id} ${m.deadlineDate}`).toBe(false);
+            if (m.deadlineOnHoliday) expect(isOfficeHoliday(m.deadlineOnHoliday), `${birth} ${m.id}`).toBe(true);
+          } else expect(m.deadlineOnHoliday, `${birth} ${m.id}`).toBeUndefined();
+        }
+      }
+    }
   });
 });
