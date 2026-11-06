@@ -16,7 +16,7 @@
 
 - **名前**: 母子手帳を、再発明する
 - **一言**: 読む手帳から、一緒に動く手帳へ。
-- **魂の一行**: 抱えるのは、手帳。抱くのは、あなた。（The handbook carries the load. You hold the child.）
+- **魂の一行**: 手続きは、手帳に任せて。あなたは、子どものそばに。（Leave the paperwork to the handbook. Stay close to your child.）— 11/6 20:0x に作り手が言い換えた（前の「抱えるのは、手帳。抱くのは、あなた。」は、「抱える」と「抱く」の掛け合わせが一瞬伝わらないため）
 - **3つの言い分**
   1. **全体を抱えて、先に動く** — 妊娠から2歳までの1000日。週数と月齢で自分から起き、どの町でも公式ページを調べ、期限・下書き・窓口まで用意する。家族がするのは最後の OK だけ。
   2. **最後に決めるのは本人** — 録音や写真から出た日付は「こう聞こえました。大丈夫ですか？」と聞く。体の判断はせず、健診で聞く事と連絡先へつなぐ。手紙と声は家族の鍵で封をし、Claude には渡さない。
@@ -82,7 +82,7 @@ Japan invented the Maternal and Child Health Handbook in 1948. This is what come
 | 画面 | このアプリを、本番と別の録画用のサーバで動かして撮った。家族は作った家族 | 自作（MIT） |
 | Claude の場面 | 録画用のサーバで本物の Claude（Sonnet 5.5・Haiku 5.5・Opus 5.5）を呼んで撮った。札の「この回 $…」はその時の額 | — |
 | 見本の写真と声 | 写真は Z-Image-Turbo、声は AivisSpeech と Qwen3-TTS で合成（README「見本の素材」と同じ） | Apache-2.0・ACML 1.0 |
-| 語り | Gemini API の音声合成（gemini-3.8-flash-tts・声 ja-jp-storyteller-5）。28文を1回でまとめて読ませ、動画の時刻に収めるため全体を 1.066 倍に速めた。無料枠の鍵で作ったので、送った台本（動画で公開する文だけ）は Google のサービスの改善に使われ得る | Gemini API 追加利用規約（2026-03-23 施行）。Google は生成物の所有権を主張しない |
+| 語り | Gemini API の音声合成（gemini-3.8-flash-tts・声 ja-jp-storyteller-5）。台本の35文を1回でまとめて読ませた（速めていない。6本読ませた中から、文ごとの声の高さが一番そろった1本）。無料枠の鍵で作ったので、送った台本（動画で公開する文だけ）は Google のサービスの改善に使われ得る | Gemini API 追加利用規約（2026-03-23 施行）。Google は生成物の所有権を主張しない |
 | 曲 | Gemini API の Lyria 3.5 で作曲した、歌なしの映画音楽風の曲（指示に実在の歌手・既存の曲名を入れていない）。場面に合わせて小節で切り貼りした | Gemini API 追加利用規約。Google は生成物の所有権を主張しない。聞こえない透かし（SynthID）入り |
 | 字体 | Noto Sans JP・Noto Sans SC・M PLUS Rounded 1c・Cormorant Garamond | SIL Open Font License 1.1 |
 | 効果音 | 使っていない | — |
@@ -90,5 +90,5 @@ Japan invented the Maternal and Child Health Handbook in 1948. This is what come
 ## 提出前に確かめる事
 
 - 公開リポジトリの URL・ライセンス（MIT）
-- 3分の日本語動画（11/6 に作り始め、11/7 の夜に完成。11/8 は予備）
+- 3分の日本語動画（11/6 に作り始め、11/6 の夜に完成＝2:59.3。YouTube へは作り手が限定公開で上げ、題は「母子手帳を、再発明する」で始める）
 - 素の clone → `npm ci` → `npm test` → `npm run typecheck` → `npm run build` → 起動 → 見本の家族で健診の1日（健診の整理と案内図は見本の答えが無いので、鍵を入れて確かめる。鍵が無い時は整理の前まで）
