@@ -80,7 +80,7 @@ const RULES = {
   o: "里帰り: 同じ市なら遠方向け（訪問を頼む・健診代の申請・戻る日の段取り・里帰り先の町の調べ）が出ず、健診代の申請と戻る日の段取りは戻る日から、里帰り先の町の調べは里帰り先の町を答えた家族だけ（第2波⑦）",
   p: "お金の1000日: 児童手当の最初の振込は偶数月で申請の後・届いたか確かめる件は申請が済んだ物だけで額を出さない・自営や仕事なしの母に出産手当金が出ない（辞める母には出す＝健康保険法第104条）",
   n: "産休・育休のお金: 育休の給付の初回の期限は育休の4か月目の月末で、自営・仕事なし・辞める母には育休の給付が出ず、パートナーの14日の1件は14日以上の家族に出ない（第2波⑤）",
-  q: "呼び名と担当: 短い題・一言に「パパ」が出ず、正式な題は法の呼び名「産後パパ育休」の中だけ。法律上の親が出す届け（出生届・児童手当・保険証・医療費助成）の担当がパートナーに決め打ちにならない（2026-11-04 見直し L2-2・同性の家族 sim-03・未婚の父 sim-05）",
+  q: "呼び名と担当: 「パパ」は法の呼び名「産後パパ育休」の中だけ（短い題・一言・正式な題とも。産後パパ育休の期限の行は、短い題にも呼び名を書く＝見直し⑦）。法律上の親が出す届け（出生届・児童手当・保険証・医療費助成）の担当がパートナーに決め打ちにならない（2026-11-04 見直し L2-2・同性の家族 sim-03・未婚の父 sim-05）",
   r: "引っ越しの行: 町を変えた家族だけに、引っ越した日から出る。転入届の期限は引っ越した日の14日後（住民基本台帳法第22条）・児童手当は15日後（児童手当法第8条第3項）で、児童手当と医療証は引っ越した時に子がいた家族だけ、受診券は妊娠中に引っ越した家族だけ（見直し C10①）",
   s: "早く生まれた時: 予定日より7日以上早く生まれ、育休を取るかもしれないパートナーがいる家族だけに「育休の始まりを早める」が、生まれた日から予定日の前日まで出る（遅く生まれた時・6日以内は出さない。見直し C10②）",
   t: "気をつける事の札（lib/cautions.ts）: 1日に1枚まで。静かにする家族・生まれた日・母の画面の生後14日まで・お祝いや届けの束や手帳の気づきの日には出ず、読んだ札は同じ端末に二度出ない。引用ごとに出典があり、労基法の引用は働く母の家族だけ。出生届出済証明は36週の札と、届けの束の出生届の行で伝える（2026-11-05 総点検の札）",
@@ -145,6 +145,8 @@ interface KnownGap {
 }
 
 const hasRole = (f: Family, role: Member["role"]) => f.members.some((m) => m.role === role);
+/** パートナーの育休を職場に申し出る行（産後パパ育休・ふつうの育休） */
+const LEAVE_ASK = new Set(["partner-leave", "partner-leave-regular"]);
 
 /** h: この家族に合わない項目か（合わなければ理由の鍵。situation の無い家族は確かめない） */
 function misfit(t: Task, f: Family): string | null {
@@ -152,8 +154,8 @@ function misfit(t: Task, f: Family): string | null {
   if (!s) return null;
   if (!motherEmployed(s) && t.kind === "仕事" && t.who === "母") return "mother-no-work";
   if (!partnerEmployed(s) && t.kind === "仕事" && t.who === "パートナー") return "partner-no-work";
-  if (!hasRole(f, "パートナー") && (t.who === "パートナー" || t.id === "partner-leave")) return "no-partner";
-  if (s.partnerLeave === "取らない" && t.id === "partner-leave") return "partner-no-leave";
+  if (!hasRole(f, "パートナー") && (t.who === "パートナー" || LEAVE_ASK.has(t.id))) return "no-partner";
+  if (s.partnerLeave === "取らない" && LEAVE_ASK.has(t.id)) return "partner-no-leave";
   return null;
 }
 
@@ -524,7 +526,7 @@ function simulate(f: SimFamily, sampled = false): FamilyResult {
     {
       const all = [...tasks, ...moneyWatch(tasks, new Set(tasks.filter((t) => t.id in MONEY).map((t) => t.id)), {}, isBorn ? f.birthDate : undefined)];
       for (const t of all) {
-        if (/パパ/.test(`${t.plain}${t.hint}`)) push("q", `word:${t.id}`, `${t.id} の短い題か一言に「パパ」`);
+        if (/パパ/.test(`${t.plain}${t.hint}`.replace(/産後パパ育休/g, ""))) push("q", `word:${t.id}`, `${t.id} の短い題か一言に「パパ」（法の呼び名「産後パパ育休」の外）`);
         if (/パパ/.test(t.title.replace(/産後パパ育休/g, ""))) push("q", `title:${t.id}`, `${t.id} の題に「パパ」（産後パパ育休の外）`);
         if (PARENT_FILINGS.has(t.id) && t.who === "パートナー") push("q", `who:${t.id}`, `${t.id} の担当がパートナーに決め打ち`);
       }

@@ -25,9 +25,10 @@ describe("planToday", () => {
     expect(p.rest.map((t) => t.id)).toContain("partner-leave");
   });
 
-  it("パパの時、一番上はパパの事", () => {
+  it("パパの時、一番上はパパの事（ふつうの育休の申し出は予定日の1か月前なので、2週間前の産後パパ育休より先。見直し⑦）", () => {
     const p = planToday(tasks, today, papa);
-    expect(p.top?.id).toBe("partner-leave");
+    expect(p.top?.id).toBe("partner-leave-regular");
+    expect(p.rest.map((t) => t.id)).toContain("partner-leave");
     expect(p.topIsSoon).toBe(false);
   });
 

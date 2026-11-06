@@ -58,6 +58,26 @@ describe("家族の形で予定を組み替える", () => {
     expect(s.map((m) => m.id)).toEqual(expect.arrayContaining(["single-child-support", "single-medical"]));
   });
 
+  it("パートナーの育休は2行: 産後パパ育休は予定日の2週間前・ふつうの育休は予定日の1か月前。やさしい題にも休みの名前を書く。取らない家族には出さない（デモの会話の見つけ ⑦）", () => {
+    const members = [
+      { id: "m", name: "美咲", role: "母" },
+      { id: "p", name: "翔太", role: "パートナー" },
+    ];
+    const s = scheduleFor({ dueDate: "2027-05-10", members } as never, "2026-12-01");
+    const papa = s.find((m) => m.id === "partner-leave")!;
+    const regular = s.find((m) => m.id === "partner-leave-regular")!;
+    expect(papa.plain).toBe("翔太の産後パパ育休を職場に伝える");
+    expect(papa.deadlineDate).toBe("2027-04-26");
+    expect(regular.plain).toBe("翔太の育休を職場に伝える");
+    expect(regular.deadlineDate).toBe("2027-04-10");
+    expect(regular.who).toBe("パートナー");
+    expect(regular.basis).toContain("第6条第3項");
+    expect(regular.basis).toContain("第9条の3第3項");
+    const none = scheduleFor({ dueDate: "2027-05-10", members, situation: { partnerLeave: "取らない" } } as never, "2026-12-01").map((m) => m.id);
+    expect(none).not.toContain("partner-leave");
+    expect(none).not.toContain("partner-leave-regular");
+  });
+
   it("育休を取らない・自営のパートナー: 育休の事を出さない", () => {
     for (const sit of [{ partnerLeave: "取らない" }, { partnerWork: "自営・フリー" }] as Situation[]) expect(ids(sit)).not.toContain("partner-leave");
     expect(ids({ partnerLeave: "未定" })).toContain("partner-leave");

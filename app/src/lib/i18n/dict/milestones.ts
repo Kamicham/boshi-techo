@@ -50,7 +50,13 @@ export default {
     zh: "伴侣和工作单位商量产后爸爸育儿休假（産後パパ育休）",
     en: "Your partner talks with work about childcare leave at birth (産後パパ育休)",
   },
+  "パートナーの産後パパ育休を職場に伝える": { zh: "向工作单位提出伴侣的产后爸爸育儿休假（産後パパ育休）", en: "Tell work about your partner's childcare leave at birth (産後パパ育休)" },
   "パートナーの育休を職場に伝える": { zh: "向工作单位提出伴侣的育儿休假", en: "Tell work about your partner's childcare leave" },
+  "パートナーのふつうの育休（育児休業）を職場に申し出る": { zh: "向工作单位申请伴侣的普通育儿休假（育児休業）", en: "Your partner applies to work for regular childcare leave (育児休業)" },
+  "始める日の1か月前までに。予定日から休むなら予定日の1か月前": {
+    zh: "在开始日的1个月前提出。如果从预产期开始休，要在预产期的1个月前提出",
+    en: "Apply 1 month before it starts — by 1 month before the due date if leave starts then",
+  },
   "産後すぐ休むなら、予定日の2週間前までに": {
     zh: "如果产后马上休假，要在预产期2周前提出",
     en: "For leave right after the birth, tell them by 2 weeks before the due date",
@@ -609,6 +615,7 @@ export default {
   // ───────── 差し込みの鍵（msWords が形を見て引く）─────────
   // パートナーの呼び名の入る見出し（adjust: 「パートナーの…」の頭を、6字までの呼び名に変える）
   "{name}の育休を職場に伝える": { zh: "向工作单位提出{name}的育儿休假", en: "Tell work about {name}'s childcare leave" },
+  "{name}の産後パパ育休を職場に伝える": { zh: "向工作单位提出{name}的产后爸爸育儿休假（産後パパ育休）", en: "Tell work about {name}'s childcare leave at birth (産後パパ育休)" },
   "{name}の職場に生まれた事を伝える": { zh: "告诉{name}的工作单位宝宝出生了", en: "Tell {name}'s work the baby is born" },
   "{name}の就労証明書を頼む": { zh: "请开{name}的在职证明（就労証明書）", en: "Ask for {name}'s proof of employment (就労証明書)" },
   "{name}の育休の日数を決める": { zh: "决定{name}育儿休假的天数", en: "Decide how many days of childcare leave {name} takes" },

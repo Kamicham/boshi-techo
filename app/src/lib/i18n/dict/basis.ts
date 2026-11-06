@@ -44,6 +44,10 @@ export default {
     zh: "《劳动基准法》（労働基準法）第65条（产前产后休假）、《健康保险法》（健康保険法）第104条（离职后也有可以领取分娩补贴的条件）。条件请向你加入的健康保险确认",
     en: "Labor Standards Act (労働基準法), Article 65 (maternity leave); Health Insurance Act (健康保険法), Article 104 (there are conditions under which you can still receive the maternity allowance after leaving your job). Check the conditions with the health insurance you're enrolled in",
   },
+  "育児・介護休業法第5条（育児休業）・第6条第3項（始める日が申し出の日の翌日から1か月より前の時は、会社が始まりの日を、その1か月を過ぎる日までの間で決められる）。産後パパ育休（出生時育児休業）は別に申し出て、申し出は2週間前まで（第9条の3第3項）。期限の日は、予定日から休む時の目安（予定日の1か月前）。両方取るか・いつから休むかは家族と職場で決める。職場に確かめる": {
+    zh: "《育儿·护理休假法》（育児・介護休業法）第5条（育儿休假）、第6条第3款（如果开始日早于申请日次日起1个月，公司可以在满1个月的日子之前指定开始日）。产后爸爸育儿休假（出生时育儿休假・産後パパ育休）另行申请，要在2周前提出（第9条之3第3款）。期限日是从预产期开始休时的大致日期（预产期的1个月前）。是否两种都休、从什么时候开始休，由家人和工作单位商定。请向工作单位确认",
+    en: "Child Care and Family Care Leave Act (育児・介護休業法), Article 5 (childcare leave) and Article 6, Paragraph 3 (if the start date is less than 1 month after the day after the request, the employer can set the start date anywhere up to the day that month ends). Childcare leave at birth (出生時育児休業・産後パパ育休) is requested separately, 2 weeks in advance (Article 9-3, Paragraph 3). The date shown is a guideline for leave starting on the due date (1 month before the due date). Decide with your family and work whether to take both and when to start. Check with work",
+  },
   "育児・介護休業法（産後パパ育休の申し出は原則2週間前まで。予定日から休むなら予定日の2週間前）": {
     zh: "《育儿·护理休假法》（育児・介護休業法）（产后爸爸育儿休假（産後パパ育休）原则上要在2周前提出申请。如果从预产期开始休，要在预产期的2周前提出）",
     en: "Child Care and Family Care Leave Act (育児・介護休業法) (as a rule, request childcare leave at birth (産後パパ育休) 2 weeks in advance; to take leave from the due date, by 2 weeks before the due date)",
