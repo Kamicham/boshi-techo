@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PREGNANCY_ONLY, daycarePlan, deadlineKindOf, schoolEntry, scheduleFor, statusOf } from "./milestones";
+import { MILESTONES, PREGNANCY_ONLY, daycarePlan, deadlineKindOf, schoolEntry, scheduleFor, statusOf } from "./milestones";
 import type { Situation } from "./situation";
 
 // 予定日 2027-05-10 の家族（すべて作った家族）
@@ -56,6 +56,13 @@ describe("家族の形で予定を組み替える", () => {
     expect(s.find((m) => m.id === "birth-registration")?.who).toBe("母");
     expect(s.map((m) => m.id)).not.toContain("partner-leave");
     expect(s.map((m) => m.id)).toEqual(expect.arrayContaining(["single-child-support", "single-medical"]));
+  });
+
+  it("保険証の新しい発行は 2024-12-02 に終わったので、期限表の言葉に「保険証を作る・届く・できる」と書かない。赤ちゃんの保険の行のやさしい題は正式な題と同じ（デモの会話の見つけ ③）", () => {
+    const h = MILESTONES.find((m) => m.id === "health-insurance")!;
+    expect(h.plain).toBe("赤ちゃんを健康保険に入れる");
+    expect(h.plain).toBe(h.title);
+    for (const m of MILESTONES) for (const x of [m.title, m.plain, m.hint, m.basis]) expect(x, m.id).not.toMatch(/保険証を作|保険証が届|保険証ができ/);
   });
 
   it("パートナーの育休は2行: 産後パパ育休は予定日の2週間前・ふつうの育休は予定日の1か月前。やさしい題にも休みの名前を書く。取らない家族には出さない（デモの会話の見つけ ⑦）", () => {

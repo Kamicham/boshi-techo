@@ -125,7 +125,7 @@ export function SituationForm({ value, onChange, hasPartner, disabled, born }: {
       <Ask label={t("ママかパートナーは公務員？（公務員だと、児童手当の申し込み先が町ではなく職場になります）")}>
         <YesNo words={["はい", "いいえ"]} value={value.publicServant} onPick={(v) => set({ publicServant: v })} name="public-servant" />
       </Ask>
-      <Ask label={t("赤ちゃんの保険証は、どれになりそう？")}>
+      <Ask label={t("赤ちゃんの健康保険は、どれになりそう？")}>
         <Choice
           // 訳さない: 保存する値（画面には出さず、labels の言葉を出す）
           options={["勤め先", "国保"] as const}

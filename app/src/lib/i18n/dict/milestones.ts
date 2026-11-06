@@ -216,7 +216,6 @@ export default {
   "上の子の手当に足します。15日以内に": { zh: "加到大孩子的补贴里。15天以内办理", en: "It's added to your older child's allowance. Within 15 days" },
 
   "赤ちゃんを健康保険に入れる": { zh: "给宝宝加入健康保险", en: "Enroll the baby in health insurance" },
-  "赤ちゃんの保険証を作る": { zh: "办理宝宝的健康保险证", en: "Get the baby's health insurance card" },
   "1か月健診までに": { zh: "在满月儿健康检查之前", en: "By the one-month checkup" },
 
   "子ども医療費助成の受給者証を申請する": {

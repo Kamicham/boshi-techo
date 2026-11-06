@@ -203,7 +203,7 @@ export default {
   },
   はい: { zh: "是", en: "Yes" },
   いいえ: { zh: "不是", en: "No" },
-  "赤ちゃんの保険証は、どれになりそう？": { zh: "宝宝的健康保险证可能会是哪一种？", en: "Which health insurance card will the baby likely get?" },
+  "赤ちゃんの健康保険は、どれになりそう？": { zh: "宝宝可能会加入哪种健康保险？", en: "Which health insurance will the baby likely join?" },
   親の勤め先の保険: { zh: "父母工作单位的保险", en: "Insurance through a parent's employer" },
   "国民健康保険（町の保険）": { zh: "国民健康保险（市区町村的保险）", en: "National Health Insurance (the city's plan)" },
   "上の子は？": { zh: "有大孩子吗？", en: "Any older children?" },

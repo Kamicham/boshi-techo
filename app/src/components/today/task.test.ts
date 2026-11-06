@@ -66,7 +66,7 @@ describe("時期を過ぎた事を畳む", () => {
     const shown = [p.top, ...p.rest].filter(Boolean).map((t) => t!.id);
     expect(shown).not.toContain("birth-registration");
     expect(p.stale.map((t) => t.id)).toContain("birth-registration");
-    // 目安の日を過ぎた事（保険証を作る）は、畳むが聞かない
+    // 目安の日を過ぎた事（赤ちゃんを健康保険に入れる）は、畳むが聞かない
     expect(shown).not.toContain("health-insurance");
     expect(p.stale.map((t) => t.id)).not.toContain("health-insurance");
   });

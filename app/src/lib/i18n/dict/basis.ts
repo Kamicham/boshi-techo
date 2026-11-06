@@ -126,7 +126,7 @@ export default {
     en: "Child Allowance Act (児童手当法), Article 9 (amount revision; if you file within 15 days from the day after the birth, it increases from the month after the birth month; after that, from the month after the month you file)",
   },
   "1か月健診までが目安": { zh: "以满月儿健康检查之前为参考标准", en: "Guideline: by the one-month checkup" },
-  "町の制度（保険証が届いたら）": { zh: "市区町村的制度（收到健康保险证之后）", en: "City program (once the health insurance card arrives)" },
+  "町の制度（赤ちゃんの保険の資格が分かる物が届いたら）": { zh: "市区町村的制度（收到能证明宝宝保险资格的材料之后）", en: "City program (once you have proof of the baby's insurance coverage)" },
   "児童扶養手当法第6条（認定の請求）・第7条（請求した月の翌月分から。さかのぼらない）。所得の制限がある。窓口は役所": {
     zh: "《儿童抚养津贴法》（児童扶養手当法）第6条（认定请求）、第7条（从提出请求那个月的下个月起。不追溯）。有所得限制。窗口在市区町村政府",
     en: "Child Rearing Allowance Act (児童扶養手当法), Article 6 (certification claim); Article 7 (from the month after the month you file; not retroactive). There is an income limit. The desk is at the city office",
