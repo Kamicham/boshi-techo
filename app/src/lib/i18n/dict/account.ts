@@ -73,9 +73,9 @@ export default {
     zh: "根据记录，显示接下来要办的手续和健康检查的日程",
     en: "The records are used to show the paperwork to do next and the checkup schedule",
   },
-  "写真・録音のファイルは、世帯ごとの鍵で暗号にしてから置きます": {
-    zh: "照片和录音文件，会先用每个家庭各自的密钥加密，然后再保存",
-    en: "Photo and audio files are encrypted with a separate key for each household before they are stored",
+  "写真と声のファイルは、世帯ごとの鍵で暗号にしてから置きます": {
+    zh: "照片和声音文件，会先用每个家庭各自的密钥加密，然后再保存",
+    en: "Photo and voice files are encrypted with a separate key for each household before they are stored",
   },
   "世帯に招いた家族も、記録を見られます（招いた祖父母などには、手帳のママの頁と健診の記録を見せません。ただし今は、話した記録や一冊などには母の記録も入ります。見せる範囲を選ぶ仕組みは準備中です）": {
     zh: "邀请加入这个家庭的家人也能看到记录（不会给受邀的祖父母等看手册里妈妈的页面和健康检查的记录。不过目前，说话留下的记录和成长书等里面也包含妈妈的记录。选择给对方看哪些内容的功能还在准备中）",
@@ -86,9 +86,9 @@ export default {
     en: "The handbook doesn't make judgments about your body. For anything that worries you, it connects you with your maternity clinic, a pediatrician, or the Children's Medical Hotline (#8000)",
   },
   // 記録の同意で正直に書く、今できていない事（RECORD_HONEST）
-  "暗号にしているのは写真・録音のファイルだけです。記録の文字（健診の結果など）は、まだ暗号にしていません": {
-    zh: "加密的只有照片和录音文件。记录的文字（健康检查的结果等）还没有加密",
-    en: "Only photo and audio files are encrypted. The text of records (such as checkup results) is not encrypted yet",
+  "健診の録音と、記録の文字（健診の結果など）は、まだ暗号にしていません": {
+    zh: "健康检查的录音和记录的文字（健康检查的结果等）还没有加密",
+    en: "Checkup recordings and the text of records (such as checkup results) are not encrypted yet",
   },
   "いつでも、アカウントの画面から書き出し・撤回・消すができます": {
     zh: "随时可以在账户页面导出、撤回或删除",
@@ -342,9 +342,9 @@ export default {
     zh: "只保存在这个家庭里。不填写姓名全名和住址的门牌号也没关系。",
     en: "It's kept only within this household. You don't need to enter full names or street numbers.",
   },
-  "写真・録音のファイルは、世帯ごとの鍵で暗号にしてから置きます。": {
-    zh: "照片和录音文件，会先用每个家庭各自的密钥加密，然后再保存。",
-    en: "Photo and audio files are encrypted with a separate key for each household before they are stored.",
+  "写真と声のファイルは、世帯ごとの鍵で暗号にしてから置きます（健診の録音は、まだ暗号にしていません）。": {
+    zh: "照片和声音文件，会先用每个家庭各自的密钥加密，然后再保存（健康检查的录音还没有加密）。",
+    en: "Photo and voice files are encrypted with a separate key for each household before they are stored (checkup recordings are not encrypted yet).",
   },
 
   // ── ログイン（app/login/page.tsx） ──

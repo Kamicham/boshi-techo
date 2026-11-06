@@ -7,7 +7,7 @@
 //   lib/mother-records.ts で、ママの頁・妊娠中のワクチン・お産のしかたを外す。2026-11-05）。健診（api/visit）は開けない（403）。ほかの文字の記録（話した記録・一冊・手帳に聞く・下書きなど）には
 //   本人（subject_id）が付かないので、読むだけの人にも、母の記録を含めて見える。写真・声は本人ごとに絞るが、選んだ項目は見ず、1つでも選べば母の分が全部見える
 //   （proxies.scope を読む所が無い。lib/access.ts の visibleSubjects）。だから「選べます」とは書かず「準備中」と書く
-// - 暗号: 写真・録音のファイルは世帯ごとの鍵で暗号にしてから置く（lib/media.ts の sealForHousehold）。文字の記録はまだ（RECORD_HONEST）
+// - 暗号: 写真と声のファイルは世帯ごとの鍵で暗号にしてから置く（lib/media.ts の sealForHousehold）。健診の録音と文字の記録はまだ（RECORD_HONEST）
 // - 書き出し: アカウントの画面の「書き出す」（/api/export・record:read と media:read）
 // - 消す: 本人の分を消す（/api/account/subject の DELETE → lib/households.ts の purgeSubject）は、本人の付いた行（写真・声・同意・代理）だけを消す。
 //   文字の記録には本人が付かないので残る。世帯の全部は持ち主が消せる（purgeHousehold）

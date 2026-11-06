@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { CLAUDE_US, CONSENT_VERSION, RECORD_PURPOSES } from "./consent-texts";
+import { CLAUDE_US, CONSENT_VERSION, RECORD_HONEST, RECORD_PURPOSES } from "./consent-texts";
 
 const what = CLAUDE_US.what.join("\n");
 
@@ -76,5 +76,23 @@ describe("記録の同意の文が、今のコードでできる事を越えな�
   it("文を本当の事にそろえた版（2026-11-05）より前へ、版を戻さない", () => {
     expect(CONSENT_VERSION.record >= "2026-11-05").toBe(true);
     expect(CONSENT_VERSION.claude_us >= "2026-11-05").toBe(true);
+  });
+});
+
+describe("健診の録音を「暗号にしている」と書かない（2026-11-06 全体監査。健診の録音は、まだ素のファイルで置く）", () => {
+  const root = path.resolve(import.meta.dirname, "../..");
+
+  it("健診の録音を暗号にしていない間は、同意の文と世帯を作る画面にそう書く（暗号にしたら、この試験と文を一緒に直す）", () => {
+    const visitServer = fs.readFileSync(path.join(root, "app/api/visit/_lib/server.ts"), "utf8");
+    expect(visitServer).not.toContain("sealForHousehold");
+    expect(RECORD_HONEST).toContain("健診の録音と、記録の文字（健診の結果など）は、まだ暗号にしていません");
+    expect([...RECORD_PURPOSES, ...RECORD_HONEST].join("\n")).not.toMatch(/写真・録音のファイル/);
+    const page = fs.readFileSync(path.join(root, "app/account/new/page.tsx"), "utf8");
+    expect(page).toContain("健診の録音は、まだ暗号にしていません");
+    expect(page).not.toContain("写真・録音のファイル");
+  });
+
+  it("文を直した版（2026-11-06）より前へ、記録の同意の版を戻さない", () => {
+    expect(CONSENT_VERSION.record >= "2026-11-06").toBe(true);
   });
 });
