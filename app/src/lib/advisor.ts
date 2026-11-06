@@ -316,7 +316,8 @@ function birthRule(lines: string[], find: Find, leave: RegExpMatchArray, partner
       body: [
         "【上司の名前】様",
         "",
-        "お疲れさまです。【名前】です。",
+        // 名乗りは姓（分からないので【姓】）。【名前】は書き手の名で埋まるので、名乗りには使わない（デモで「美咲です」と出た）
+        "お疲れさまです。【姓】です。",
         born ? `${born[2]}に子どもが生まれました。出産予定日（${born[1]}）と日がずれたので、休みの日付が変わります。` : "子どもが生まれました。出産予定日と日がずれたので、休みの日付が変わります。",
         "",
         ...(post ? [`・産後休業: ${post[1]}まで（予定日で数えると${post[2]}まで）`] : []),
@@ -324,7 +325,7 @@ function birthRule(lines: string[], find: Find, leave: RegExpMatchArray, partner
         "",
         "お手数ですが、書類の日付の直しをお願いします。ほかに要る手続きがあれば教えてください。",
         "",
-        "【名前】",
+        "【姓】【名前】",
       ].join("\n"),
     },
   };
@@ -369,7 +370,7 @@ function movedRule(find: Find, mv: RegExpMatchArray, today?: string): AdviceFiel
             to: `${to}の子育ての窓口`,
             via: "mail" as const,
             subject: pregnant ? "転入した妊婦の健診の受診票について" : "転入した子どもの医療証と予防接種について",
-            body: [`${to} 子育ての窓口のご担当の方`, "", `${movedOn}に${from}から転入しました（引っ越した時、${phase}）。`, ask, "", "【名前】"].join("\n"),
+            body: [`${to} 子育ての窓口のご担当の方`, "", `${movedOn}に${from}から転入しました（引っ越した時、${phase}）。`, ask, "", "【姓】【名前】"].join("\n"),
           },
         }
       : {}),
