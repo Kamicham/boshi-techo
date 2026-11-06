@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import type { Family } from "@/lib/demo-family";
 import { t } from "@/lib/i18n";
 import { openedNewsLine, recentlyOpened, type ClientLetter } from "@/lib/letters-shared";
-import { childView } from "@/lib/call-name";
+import { nameOf, personOf } from "@/lib/memory-words";
 
 /** 開いた手紙の一言（lib/letters-shared.ts の openedNewsLine の日本語）を画面の言葉に。年の数だけ差し込みで引く */
 function newsLine(s: string): string {
@@ -42,7 +42,8 @@ export function LetterNews({ family, today, by }: { family: Family; today: strin
           {news.length > 1 ? t("（ほか{n}通）", { n: news.length - 1 }) : ""}
         </span>
         <span className="text-sm text-muted">
-          {t("{from}から {to}へ", { from: childView(family, l.from), to: l.to })}
+          {/* 書き手と宛先は画面の言葉で（アルバムのみんなの章 Minna.tsx と同じ。前は English に「ママ（美咲）」「ひなた」が残った） */}
+          {t("{from}から {to}へ", { from: personOf(family, l.from), to: nameOf(family, l.to) })}
           {l.voiceSec !== undefined ? t("・🎙 声つき") : ""}
           {t("・一冊で読む ›")}
         </span>

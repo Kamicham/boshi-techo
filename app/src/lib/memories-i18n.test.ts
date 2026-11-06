@@ -2,7 +2,7 @@
 // 日本語の字は今までの試験（media・letters・film-plan・book-intro）が見る。ここでは同じ関数を3つの言葉で回し、日本語が前と同じ事も1回だけ確かめる
 import { createElement, isValidElement, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
-import { withLang, type Lang } from "./i18n";
+import { t, withLang, type Lang } from "./i18n";
 import { DICTS } from "./i18n/dicts";
 import { tr } from "./i18n/rich";
 import { bookIntro } from "./book-intro";
@@ -65,8 +65,8 @@ describe("思い出の言葉を3つの言葉で", () => {
       opens20: "在20岁生日（2047年4月26日）开启",
       opensDate: "2030年1月2日开启",
       opensNow: "随时都能读",
-      news2: "2年前的信打开了",
-      newsBelly: "怀孕时写的信打开了",
+      news2: "2年前的信开启了",
+      newsBelly: "怀孕时写的信开启了",
       voice: "Aya对肚子说的话",
       letter: "2027年3月1日写下、2028年4月26日打开的信",
       day: "2026年11月3日",
@@ -84,13 +84,27 @@ describe("思い出の言葉を3つの言葉で", () => {
       opens20: "Opens on the 20th birthday (Apr 26, 2047)",
       opensDate: "Opens on Jan 2, 2030",
       opensNow: "Can be read anytime",
-      news2: "A letter from 2 years ago has opened",
-      newsBelly: "A letter from the pregnancy has opened",
+      news2: "A letter from 2 years ago is now open",
+      newsBelly: "A letter from the pregnancy is now open",
       voice: "Aya, to the bump",
       letter: "A letter written on Mar 1, 2027, opened on Apr 26, 2028",
       day: "Nov 3, 2026",
       md: "Nov 3",
     });
+  });
+
+  it("誕生日の札の手紙と一冊の行（デモの会話が見つけた④・2026-11-06）: 書き手は画面の言葉の呼び名、開いた事は is now open・开启了", () => {
+    // components/today/BirthdayCard.tsx と同じ組み方（書き手は personOf。前は childView で、English に「ママ（美咲）」が残った）
+    // 手紙の知らせの札（LetterNews.tsx）の下の行も同じ（書き手は personOf・宛先は nameOf＝アルバムのみんなの章と同じ）
+    const birthday = () => [
+      t("💌 {from}からの手紙が開きました", { from: personOf(DEMO_FAMILY, "美咲") }),
+      t("📖 この1年を一冊で読む"),
+      t("📖 この2年を一冊で読む"),
+      t("{from}から {to}へ", { from: personOf(DEMO_FAMILY, "美咲"), to: nameOf(DEMO_FAMILY, "ひなた") }),
+    ];
+    expect(inLang("ja", birthday)).toEqual(["💌 ママ（美咲）からの手紙が開きました", "📖 この1年を一冊で読む", "📖 この2年を一冊で読む", "ママ（美咲）から ひなたへ"]);
+    expect(inLang("zh", birthday)).toEqual(["💌 妈妈（美咲）写的信开启了", "📖 在一本书里读第一年", "📖 在一本书里读前两年", "妈妈（美咲） 写给 ひなた"]);
+    expect(inLang("en", birthday)).toEqual(["💌 A letter from Mom (Misaki) is now open", "📖 Read Year One as a book", "📖 Read Years One and Two as a book", "From Mom (Misaki) to Hinata"]);
   });
 
   it("声の題: サーバが作ったままの題だけを作り直し、家族が付けた題はそのまま出す", () => {

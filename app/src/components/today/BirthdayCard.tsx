@@ -11,7 +11,7 @@ import { t } from "@/lib/i18n";
 import { nameIn } from "@/lib/i18n/names";
 import { recentlyOpened, type ClientLetter } from "@/lib/letters-shared";
 import { ThousandDays } from "./ThousandDays";
-import { childView } from "@/lib/call-name";
+import { personOf } from "@/lib/memory-words";
 
 export function BirthdayCard({ family, today, by, age }: { family: Family; today: string; by?: string; age: 1 | 2 }) {
   const [letters, setLetters] = useState<ClientLetter[]>([]);
@@ -39,7 +39,8 @@ export function BirthdayCard({ family, today, by, age }: { family: Family; today
         {opened.length > 0 && (
           <Link href="/book#letters" className={link}>
             <span className="min-w-0">
-              {t("💌 {from}からの手紙が開きました", { from: childView(family, opened[0].from) })}
+              {/* 書き手は子どもから見た呼び名を画面の言葉で（English は Mom (Misaki)。日本語は「ママ（美咲）」のまま） */}
+              {t("💌 {from}からの手紙が開きました", { from: personOf(family, opened[0].from) })}
               {opened[0].voiceSec !== undefined ? <span className="font-normal text-muted">{t("・🎙 声つき")}</span> : null}
               {opened.length > 1 ? <span className="font-normal text-muted">{t("（ほか{n}通）", { n: opened.length - 1 })}</span> : null}
             </span>
