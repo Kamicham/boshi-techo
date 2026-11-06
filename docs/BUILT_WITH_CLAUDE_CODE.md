@@ -1,13 +1,43 @@
 # Claude Code でどう作ったか
 
 > **English summary**
-> The app was built with Claude Code in one continuous loop: 42 public statistics → 1,000 synthetic families → a 1,000-day fast-forward test on every change → Opus role-playing families on an iPhone-sized screen → Sonnet answering a survey as all 1,000 families → findings → commits.
-> So far: 6 recorded role-play rounds (36 family sessions, 377 findings) and 2 surveys (1,007 answers each), with fixes traceable in the git history.
-> API spend is metered per call (`app/scripts/spend.mjs`, by default a $21 cap per simulation run and $3 per family), and only synthetic families are used — the maker's real family records never enter any test.
+> One maker built this with Claude Code. The work was not done in one long chat. Several Claude Code sessions ran side by side, each with its own role. A coordinator session keeps the whole picture and hands out work. Work sessions (usability, memories, the ask-the-handbook feature, audit, demo, and others) each run in their own git worktree. The sessions talk to each other through cross-session messages, and every commit lands on `main`. When CI passes on `main`, the new version ships every 30 minutes to the public trial and to the maker's own instance, with a health check and automatic rollback.
+> Every change goes through one loop: 42 public statistics → 1,000 synthetic families → a 1,000-day fast-forward test on every change → Opus role-playing families on an iPhone-sized screen → Sonnet answering a survey as all 1,000 families → findings → commits.
+> A Workflow-based audit read `main` through 8 lenses, and a separate refuter checked every finding. It produced 89 findings, and the maker picked 8 to fix that same day.
+> The maker's own family used the app at a real prenatal checkup, and a date in the recording was misheard. Since then, a heard date stays a candidate until the person confirms it with "OK".
+> So far: 6 recorded role-play rounds (36 family sessions, 377 findings) and 2 surveys (1,007 answers each). The fixes can be traced in the git history.
+> API spend is metered per call (`app/scripts/spend.mjs`). By default a simulation run stops at $21 and a single family at $3. Only synthetic families are used in tests, so the maker's real family records never enter any test.
 
 作り手は、自分の家族が使う1号目です。でも、2人だけで確かめても、日本で子を迎える家族の多くは見えません。そこで、Claude Code で「作った家族の国」を作り、修正のたびにその中でアプリを使ってもらいました。
 
 **ここに出てくる家族は、すべて作った家族です。** 公的な統計から作った近似で、実在の人物ではありません。結果の数字は [SIMULATION_RESULTS.md](SIMULATION_RESULTS.md) にあります。
+
+## 1人と、役を分けた Claude Code の会話たち
+
+作り手は1人です。Claude Code の会話を1本で使い続けるのではなく、11/4 から役ごとに分けて、同時に動かしました。
+
+```mermaid
+flowchart TB
+  M["作り手<br/>方向を決めて OK を出す"] --> H["統括の会話<br/>全体・次の一手・割り振り"]
+  H -->|仕事を渡す| W["作業の会話<br/>使い心地・思い出・手帳に聞くなど"]
+  H -->|仕事を渡す| A["全体監査の会話"]
+  H -->|仕事を渡す| D["デモの会話"]
+  W -->|コミットのたびに| G["main（GitHub）"]
+  A -->|コミットのたびに| G
+  D -->|コミットのたびに| G
+  G --> CI["検査（CI）<br/>型・lint・試験・早送り・組み立て"]
+  CI -->|30分ごと| T["体験版（Fly.io）"]
+  CI -->|30分ごと| P["本番（作り手の家族の手帳）"]
+```
+
+- **統括の会話**は、全体の状態を持ち、次の一手を考えて、作業の会話へ仕事を渡します。渡す文には、目的・範囲・触らない所・終わりの形を書きます。会話どうしは、Claude Code の会話の間のメッセージでやり取りします
+- **作業の会話**は、それぞれ自分の git の worktree（`~/boshi-<名前>`）とブランチで作ります。どの会話でも、作り手が承認する順は同じです。プランのページを出し、作り手が「OK」と言ったら、最後まで一気に作ります
+- **ぶつからない仕掛け**は次のとおりです
+  - コミットのたびに main へ上げる git のフック（`scripts/git-hooks/post-commit`）。main が先に進んでいたら、取り込むように知らせます
+  - 会話を始めた時に、main とのずれを1行で出すフック（`scripts/git-sync-status.sh`）
+  - 複数の会話が触るファイルの一覧と、会話ごとに分けたサーバの番号と組み立ての置き場
+- **出すのは仕掛けと統括だけ**です。CI が通った main を、launchd が30分ごとに体験版と本番へ出します（`app/scripts/sync-deploy.sh`）。本番は、作り手の家族の記録の写しで確かめてから入れ替えます。応えなければ前の版に戻します
+- 11/6 朝の時点で、main には 376 のコミットがあります。どれも期間中に作った物です
 
 ## 流れ
 
@@ -81,8 +111,22 @@ flowchart TD
 | `7285fda` | なりきりで1000組の家族を開けるようにする |
 | `c842b91` | アンケートのスキル（/survey） |
 
+## 6. 全体の技術監査（Workflow で観点ごとに読み、反証にかける）
+
+- 11/5 の朝、main を8つの観点で読む Workflow を回しました。使った Claude は17です。観点ごとに読む監査役が8、それぞれの見つけた事を崩そうとする反証の役が8、最後に判定する役が1です
+- 報告は89件でした（重大0・高12・中31・低46）。作り手が8件を選び、全体監査の会話がその日のうちに直して main へ入れました
+- 大きな作り替え（大きな画面の分割・DB の入口を1つにまとめる事など）は、提出の後に回しています
+
+## 7. 本物の健診で使って、直した
+
+- 作り手は、自分の家族が使う1号目です。11/5 に、家族の本物の健診でこの手帳を使いました
+- 録音から作ったまとめの中で、次の予定の日付が聞き違えられていました。調べ3つと反証1つの Workflow で道をたどると、確かめていない日付が、今日の画面・前日の声かけ・手帳に聞く・共有の文へ、そのまま広がる事が分かりました
+- 直し方は作り手が決めました。聞き違いは仕組みでは防ぎ切れないので、最後の OK は本人に残します。結果の画面で「録音からはこう聞こえました。この日で大丈夫ですか？」と1問だけ聞きます。本人が「大丈夫」を押すまで、その日付は予定・カレンダー・送る文へ進みません（`8ea6da8`・`691e9e8`）
+- この考え方は、[VISION.md](VISION.md) の性質③「答えずに、動く」にも書き足しました
+
 ## 費用の見張り
 
+- 鍵は、本番と検査でワークスペースを分け、月の上限を付けて作ります。本番には、全体の1日の上限（`BOSHI_DAILY_USD`）と、世帯の1日の上限（`BOSHI_HOUSEHOLD_DAILY_USD`）も入れています。11/4 に、上限の無い1本の鍵を何か所にも写していて、残高を使い切った事から学んだ形です
 - Claude の API を呼ぶたびに、使った額を記録します（`app/src/lib/spend.ts`）
 - 検査やシミュレーションの後は、毎回 `node app/scripts/spend.mjs` で「今回・今日・残り」を出します。回す前に `app/sim-data/run-start` に時刻を書いて区切ります
 - シミュレーションのサーバは、1回で `BOSHI_SIM_BUDGET_USD`（既定 $21＝7家族×$3）を、1つの家族で `BOSHI_SIM_HOUSEHOLD_USD`（既定 $3）を超えたら止まります。意地悪な問いの検査も既定 $5、アンケートは既定 $50 が上限です
