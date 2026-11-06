@@ -18,7 +18,7 @@
 
 出産は一生に1〜2回。練習ができず、上達する前に終わります。役所は手続き、産院は体、会社は休業、親は手伝い。全体を持っている人がどこにもいなくて、つなぐのは一番経験の無い家族です。しかも、産後の眠れない数週間に、出生届（14日以内）・児童手当（15日以内）・保険・医療証が重なります。
 
-足りないのは情報ではなく、**全体を持って先回りして動いてくれる誰か**。お金のある家は人を雇って手に入れています。それを、すべての家族に。詳しくは [docs/VISION.md](docs/VISION.md)。
+足りないのは情報ではなく、**全体を持って先回りして動いてくれる誰か**。それを、すべての家族に。詳しくは [docs/VISION.md](docs/VISION.md)。
 
 ## 「読む手帳」から「一緒に動く手帳」へ
 
@@ -188,7 +188,7 @@ Live demo: https://boshi-techo-try.fly.dev/ (no login needed)
 
 Most people give birth once or twice in a lifetime, so nobody gets to practice. The city office handles paperwork, the clinic handles the body, the employer handles leave, and grandparents help where they can. Nobody holds the whole picture except the family, who have the least experience. And the heaviest paperwork (birth registration within 14 days, child allowance within 15) lands in the sleepless weeks after birth.
 
-What is missing is not information. It is **someone who holds the whole picture and moves ahead of you**. Wealthy families hire that person. We want every family to have one.
+What is missing is not information. It is **someone who holds the whole picture and moves ahead of you**. We want every family to have one.
 
 ## From a handbook you read to a handbook that moves with you
 
