@@ -1,4 +1,4 @@
-# 母子手帳を、再発明する（仮称）— Built with Claude: Japan 2026
+# 母子手帳を、再発明する — Built with Claude: Japan 2026
 
 ビジョンの正本は docs/VISION.md。迷ったらそこへ戻る。
 
