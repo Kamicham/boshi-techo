@@ -18,7 +18,7 @@ import { readWelcomed, WELCOMED_KEY } from "@/components/Welcome";
 import type { ClientMedia } from "@/lib/media-shared";
 import { t } from "@/lib/i18n";
 import { tr } from "@/lib/i18n/rich";
-import { dayLong, nameOf, parens } from "@/lib/memory-words";
+import { coverPeriod, coverTo, dayLong, nameOf, parens } from "@/lib/memory-words";
 
 /** 一冊に描ける写真（ある・隠していない）。消した写真の id は飛ばして描く */
 type Photos = Map<string, ClientMedia>;
@@ -279,7 +279,9 @@ function BookWhy() {
 /** 一冊を、そのまま送れる文に */
 function bookText(book: Book): string {
   // 枠の言葉（宛名・章・おわりに・日付）は今の言葉で。一冊の文そのものは書いた言葉のまま
-  const parts = [book.title, t("{name}へ", { name: nameOf({ id: book.familyId }, book.childName) }), "", book.dedication];
+  // 題がもう宛名を含む時は、宛名の行を重ねない（表紙と同じ）
+  const to = coverTo(book.title, t("{name}へ", { name: nameOf({ id: book.familyId }, book.childName) }));
+  const parts = [book.title, ...(to ? [to] : []), "", book.dedication];
   book.chapters.forEach((ch, i) => parts.push("", t("第{n}章　{title}（{period}）", { n: i + 1, title: ch.title, period: t(ch.period) }), "", ch.text.trim()));
   parts.push("", t("おわりに"), "", book.closing.trim(), "", dayLong(book.asOf));
   return parts.join("\n");
@@ -441,6 +443,9 @@ function ChapterVoices({ list, media }: { list: { voiceId: string; line: string 
 function PageBody({ book, page, photos }: { book: Book; page: Page; photos: Photos }) {
   if (page.kind === "cover") {
     const cover = book.cover ? photos.get(book.cover) : undefined;
+    // 宛名は題に無い時だけ・期間の終わりは中身の終わり（lib/memory-words の coverTo・coverPeriod）
+    const to = coverTo(book.title, t("{name}へ", { name: nameOf({ id: book.familyId }, book.childName) }));
+    const period = coverPeriod(book);
     return (
       <div className="flex min-h-[24rem] flex-col items-center justify-center gap-6 text-center">
         {cover && (
@@ -452,9 +457,9 @@ function PageBody({ book, page, photos }: { book: Book; page: Page; photos: Phot
           <TitleLines text={book.title} />
         </h2>
         <div className="h-px w-16 bg-rose/40" />
-        <p className="font-display text-lg">{t("{name}へ", { name: nameOf({ id: book.familyId }, book.childName) })}</p>
+        {to && <p className="font-display text-lg">{to}</p>}
         <p className="tabular text-xs text-muted">
-          {dayLong(book.range.start)} — {dayLong(book.range.end)}
+          {dayLong(period.start)} — {dayLong(period.end)}
         </p>
       </div>
     );

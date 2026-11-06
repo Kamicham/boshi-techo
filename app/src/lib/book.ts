@@ -76,7 +76,7 @@ export interface Book extends BookContent {
   photoCount?: number;
   /** 声の候補の数（文字だけ。前の版の一冊には無い） */
   voiceCount?: number;
-  /** 1000日の始まりと終わり */
+  /** 1000日の始まりと終わり（表紙に描く期間は lib/memory-words の coverPeriod＝終わりは中身の終わり＝asOf） */
   range: { start: string; end: string };
   childName: string;
   /** 作った時の決まりの版（BOOK_RULES）。前の版の一冊には無い */
