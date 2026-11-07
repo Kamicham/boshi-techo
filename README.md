@@ -97,6 +97,10 @@
 
 ## 一緒に動くための7つの性質
 
+<p align="center">
+  <img src="docs/images/traits-ja.webp" width="900" alt="3台の iPhone に、① 話す・撮る・打つ（打った物は AI を通さず手帳へ）・③ 生まれた届けをまとめて役所へ行く日を1つに・④ パートナーの「翔太の番」">
+</p>
+
 | | 性質 | このアプリで動くもの |
 |---|---|---|
 | ① | 入力ゼロ、でも押し付けない | 話すだけ・撮るだけ（役所の封筒、健診の紙）で、日付つきの記録と期限になる。打つ方が早い物（体重・血圧・体温・日付・時刻・ひとこと）は、話す・撮ると同じ大きさの「打つ」でその場で打て、AI を通さずそのまま手帳に入る。読み取った値も OK の前に直せる。足りない事は1つだけ聞く |
@@ -304,6 +308,10 @@ The paper handbook, and today's digital versions, are handbooks the family reads
 Compared with what exists: the national digital handbook (PMH) stores and shows records for municipalities, and apps such as Boshimo, ninaru and LINE Yahoo "Kosodate" notify and list tasks. This handbook takes the family's side, spans any city for the first 1,000 days, and drafts the paperwork for an OK. It complements PMH rather than competing with it ([docs/LANDSCAPE.md](docs/LANDSCAPE.md), in Japanese).
 
 ## The seven qualities behind it
+
+<p align="center">
+  <img src="docs/images/traits-en.webp" width="900" alt="Three iPhones: 1, talk, snap or type, where typed entries skip the AI; 3, the birth paperwork bundled into one trip to the city office; 4, tasks marked as the partner's turn">
+</p>
 
 1. **Zero input, never forced**: talk or take a photo (a letter from the city, a checkup slip); it becomes dated records and deadlines. When typing is faster (weight, blood pressure, temperature, a date, a time, a short note), a "Type" button of the same size lets you enter it on the spot — it goes straight into the techo without AI. Values read from photos or speech can be corrected before you tap OK. It asks at most one question.
 2. **Lives through 1,000 days**: a family clock (weeks of pregnancy, days since birth) surfaces what to do today. Local rules for your own city are researched with Claude's web search, with sources.
