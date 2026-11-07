@@ -82,19 +82,35 @@ describe("決まりで書いた気づきを、頼みの言葉で組み直す", (
     expect(whyParts(zh.why)[0]).toBe("比预产期早14天出生。");
   });
 
-  it("引っ越した翌日（妊娠中）: 町の名前は日本語のまま、ほかは頼みの言葉で", async () => {
+  it("引っ越した翌日（妊娠中）: 見本の家族の町の名前も頼みの言葉で（2026-11-07 UX の気づき）、役所あての文面は日本語のまま", async () => {
     const { adviceIn } = await import("./in-lang");
     const { family, a } = await stored("2027-01-19");
     expect(a.kind).toBe("moved");
     for (const lang of ["zh", "en"] as const) {
       const x = adviceIn(a, family, lang);
-      for (const s of texts(x)) expect(kanaLeft(s), `${lang}: ${s}`).toEqual([]);
+      for (const s of texts(x)) {
+        expect(kanaLeft(s), `${lang}: ${s}`).toEqual([]);
+        expect(s, `${lang}: ${s}`).not.toMatch(/横浜市|さいたま市/);
+      }
       expect(x.message).toEqual(a.message);
     }
     const en = adviceIn(a, family, "en");
+    expect(en.why).toContain("You moved from Yokohama on Jan 18.");
     expect(en.plan[0]).toMatch(/^Moving-in notification: by Feb 1 \(within 14 days of the move\)$/);
+    expect(en.facts[0]).toBe("Moved from Yokohama to Saitama City on Jan 18 (at the time: 24 weeks pregnant)");
+    const zh = adviceIn(a, family, "zh");
+    expect(zh.why).toContain("1月18日从横滨市搬了家。");
+    expect(zh.facts[0]).toBe("1月18日从横滨市搬到埼玉市（当时：妊娠24周0天）");
+  });
+
+  it("本物の家族が入れた町の名前は、中文・English でも日本語のまま（窓口の書類と同じ字）", async () => {
+    const { adviceIn } = await import("./in-lang");
+    const { family, a } = await stored("2027-01-19");
+    const real = { ...family, id: "h-real-moved" };
+    const en = adviceIn(a, real, "en");
+    expect(en.why).toContain("You moved from 横浜市 on Jan 18.");
     expect(en.facts[0]).toBe("Moved from 神奈川県横浜市 to 埼玉県さいたま市 on Jan 18 (at the time: 24 weeks pregnant)");
-    expect(adviceIn(a, family, "zh").facts[0]).toBe("1月18日从神奈川県横浜市搬到埼玉県さいたま市（当时：妊娠24周0天）");
+    expect(adviceIn(a, real, "zh").facts[0]).toBe("1月18日从神奈川県横浜市搬到埼玉県さいたま市（当时：妊娠24周0天）");
   });
 
   it("Claude が書いた気づき（決まりの札が無い物）は、書いたまま", async () => {

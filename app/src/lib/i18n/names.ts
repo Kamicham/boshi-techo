@@ -16,6 +16,18 @@ export function isMadeId(id: string | null | undefined): boolean {
   return !!id && (id === DEMO_FAMILY.id || isTrialId(id) || /^sim-\d{2}$/.test(id) || /^pop-\d{4}$/.test(id));
 }
 
+/**
+ * 町の名前を今の言葉で（2026-11-07 UX の気づき・統括: English の体験版の28週の札が「You moved from 横浜市 on Jan 18.」だった）。
+ * 作った家族の町だけ、辞書にある名前にする（見本の家族の 横浜市→Yokohama・横滨市、さいたま市→Saitama City・埼玉市。dict/welcome.ts）。
+ * 本物の家族が入れた町は日本語のまま（窓口の書類と同じ字）。「神奈川県横浜市」のように県が付いていれば、訳す時だけ町の名前にする
+ */
+export function placeIn(place: string, opts?: { made?: boolean }): string {
+  if (!opts?.made || currentLang() === "ja") return place;
+  const city = place.replace(/^.{2,3}?[都道府県](?=.)/, "");
+  const named = t(city);
+  return named === city ? place : named;
+}
+
 /** 名前1つを今の言葉で（無い時はそのまま返す） */
 export function nameIn<T extends string | null | undefined>(name: T, opts?: { made?: boolean }): T {
   if (!name) return name;

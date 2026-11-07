@@ -32,8 +32,11 @@ export default {
   // 見本の家族で触ってみる
   "見本の家族の手帳で、触ってみる": { zh: "用示例家庭的手册试一试", en: "Try a sample family's handbook" },
   // 見本の家族の町（下の紹介の {city}。Welcome.tsx が t() で引く）。中文はかなを漢字に戻した「埼玉市」（nippon.com 中文版の埼玉県の案内・2026-11 に確かめた）、
-  // English は市の英語の名前。家族が入れた町の名前は日本語のまま（窓口の書類と同じ字）
+  // English は市の英語の名前。家族が入れた町の名前は日本語のまま（窓口の書類と同じ字）。
+  // 引っ越しの札（前の町＝横浜市）も、作った家族の時だけこの2つで引く（lib/i18n/names.ts の placeIn・2026-11-07）。
+  // 横浜市は県の名前と紛れないので「Yokohama」、さいたま市は埼玉県と紛れるので「Saitama City」のまま
   "さいたま市": { zh: "埼玉市", en: "Saitama City" },
+  "横浜市": { zh: "横滨市", en: "Yokohama" },
   "{names}と{child}（{city}・作った家族）。時期を選ぶと、その日の手帳が開きます。": {
     zh: "{names}，还有{child}（{city}，虚构的家庭）。选一个时期，就会打开那一天的手册。",
     en: "{names}, with {child} ({city}; a fictional family). Pick a stage to open the handbook on that day.",

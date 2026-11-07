@@ -7,6 +7,7 @@ import { addDays, clockAt, diffDays, relabel } from "./clock";
 import { nextOpenDay } from "./holidays";
 import type { Family, Member } from "./demo-family";
 import { currentLang, INTL_LOCALE, t } from "./i18n";
+import { placeIn } from "./i18n/names";
 import { EARLY_BIRTH_DAYS, scheduleFor, type Milestone } from "./milestones";
 import type { Situation } from "./situation";
 
@@ -268,14 +269,15 @@ const titleIn = (s: string) => (currentLang() === "ja" ? s.replace(/（.*?）/g,
  * 機械で確かめた事（birthShift・moved が書いた文）から、気づきを決まりで作る。形が読めない時は null。
  * today: 今日（YYYY-MM-DD・転入の届けの締切を数える）。partner: 文に入れてよいパートナーの名前（仕事の無い人は渡さない）。
  * mother: 母の名前（育休の題と次にする事に入れる。パートナーが見ても、だれの育休かが分かるように＝UX 2026-11-05）
+ * made: 作った家族か（町の名前を中文・English にするのは作った家族の時だけ＝i18n/names.ts の placeIn）
  */
-export function ruleAdvice(facts: string[], ctx: { today?: string; partner?: string; mother?: string } = {}): AdviceFields | null {
+export function ruleAdvice(facts: string[], ctx: { today?: string; partner?: string; mother?: string; made?: boolean } = {}): AdviceFields | null {
   const lines = facts.map((x) => x.trim()).filter(Boolean);
   const find: Find = (re) => lines.map((l) => l.match(re)).find((m): m is RegExpMatchArray => m != null) ?? null;
   const leave = find(new RegExp(`^母の育休が始まる日は ${MD}（予定日で数えると ${MD}。(\\d+)日(早まる|遅くなる)）`));
   if (leave) return birthRule(lines, find, leave, ctx.partner, ctx.mother);
   const mv = find(new RegExp(`^${MD}に (.+?) から (.+?) へ引っ越した（その時: (.+?)）`));
-  if (mv) return movedRule(find, mv, ctx.today);
+  if (mv) return movedRule(find, mv, ctx.today, ctx.made);
   return null;
 }
 
@@ -333,15 +335,18 @@ function birthRule(lines: string[], find: Find, leave: RegExpMatchArray, partner
 }
 
 /** 町が変わった: 転入の届けの締切と、町ごとに出している物（妊娠中は健診の券・生まれた後は医療証と予防接種） */
-function movedRule(find: Find, mv: RegExpMatchArray, today?: string): AdviceFields {
+function movedRule(find: Find, mv: RegExpMatchArray, today?: string, made?: boolean): AdviceFields {
   const [, movedOn, fromFull, toFull, phase] = mv;
   const from = cityOnly(fromFull);
   const to = cityOnly(toFull);
+  // 画面の文に入れる町の名前（作った家族だけ中文・English に。役所あての文面と Claude への問いは日本語のまま from・to）
+  const fromName = placeIn(from, { made });
+  const toName = placeIn(to, { made });
   const pregnant = phase.startsWith("妊娠");
   const born = /^生|歳/.test(phase);
   const what = t(pregnant ? "転入の届けと健診の券の取り替え" : born ? "転入の届けと医療証・予防接種" : "転入の届け");
   // 題はカードの2行（iPhone の幅で24字ほど）に収める。長い時は前の町を省く
-  const title = [t("{from}から{to}へ: {what}", { from, to, what }), t("{to}へ: {what}", { to, what })].find(titleFits) ?? what;
+  const title = [t("{from}から{to}へ: {what}", { from: fromName, to: toName, what }), t("{to}へ: {what}", { to: toName, what })].find(titleFits) ?? what;
   // 転入の届けは、引っ越した日の翌日から数えて14日以内（住民基本台帳法第22条・初日は数えない）。
   // 14日目が役所の休みなら、次の開庁日まで（地方自治法第4条の2第4項・lib/holidays.ts。予定表の転入届の期限と同じ＝見直し①）
   const since = Number(find(/^今日は引っ越して(\d+)日目/)?.[1]);
@@ -349,8 +354,8 @@ function movedRule(find: Find, mv: RegExpMatchArray, today?: string): AdviceFiel
   const by = today && due && today <= due ? jp(due) : null;
   const plan = [
     by ? t("転入の届け: {date}まで（引っ越した日から14日以内）", { date: md(by) }) : t("転入の届けが済んだか確かめる（引っ越した日から14日以内）"),
-    ...(pregnant ? [t("{city}の窓口で、健診の券（受診票）の取り替えを確かめる", { city: to }), t("次の健診の日までに取り替えが済むよう、窓口へ行く日を決める")] : []),
-    ...(born ? [t("{city}の窓口で、子どもの医療証と予防接種の予診票を確かめる", { city: to }), t("転入の届けの時に、子どもの手続きも一緒にできるか聞く")] : []),
+    ...(pregnant ? [t("{city}の窓口で、健診の券（受診票）の取り替えを確かめる", { city: toName }), t("次の健診の日までに取り替えが済むよう、窓口へ行く日を決める")] : []),
+    ...(born ? [t("{city}の窓口で、子どもの医療証と予防接種の予診票を確かめる", { city: toName }), t("転入の届けの時に、子どもの手続きも一緒にできるか聞く")] : []),
   ];
   const ask = pregnant
     ? `${from}でもらった妊婦健診の受診票の残りがあります。${to}の受診票への取り替えのやり方と、持って行く物を教えてください。`
@@ -360,7 +365,7 @@ function movedRule(find: Find, mv: RegExpMatchArray, today?: string): AdviceFiel
   return {
     title,
     why: sentences([
-      t("{date}に{city}から引っ越しました。", { date: md(movedOn), city: from }),
+      t("{date}に{city}から引っ越しました。", { date: md(movedOn), city: fromName }),
       t("転入の届けは、引っ越した日から14日以内（住民基本台帳法第22条）。"),
       pregnant ? t("妊婦健診の券（受診票）は町ごとに出しているので、扱いを新しい町で確かめます。") : born ? t("子どもの医療証と予防接種の予診票は町ごとに出しているので、新しい町で確かめます。") : "",
       t("予定表から数えました。"),
@@ -382,9 +387,9 @@ function movedRule(find: Find, mv: RegExpMatchArray, today?: string): AdviceFiel
 
 /**
  * 機械で確かめた事（birthShift・moved が日本語で書いて残した文）を、今の言葉で（画面へ返す時だけ。形が読めない行はそのまま）。
- * 日本語の時は何も変えない。予定の名前・担当の役は辞書で、町の名前は日本語のまま
+ * 日本語の時は何も変えない。予定の名前・担当の役は辞書で。町の名前は日本語のまま（作った家族の町だけ訳す＝made・i18n/names.ts の placeIn）
  */
-export function factsIn(facts: readonly string[]): string[] {
+export function factsIn(facts: readonly string[], opts: { made?: boolean } = {}): string[] {
   if (currentLang() === "ja") return [...facts];
   const re = (s: string) => new RegExp(`^${s}$`);
   return facts.map((l) => {
@@ -400,7 +405,7 @@ export function factsIn(facts: readonly string[]): string[] {
     if ((m = l.match(re(`- (.+?)（担当の目安: (.+?)）: ${MD}まで（あと(\\d+)日）`))))
       return t("- {title}（担当の目安: {who}）: {date}まで（あと{n}日）", { title: t(m[1]), who: t(m[2]), date: md(m[3]), n: Number(m[4]) });
     if ((m = l.match(re(`${MD}に (.+?) から (.+?) へ引っ越した（その時: (.+?)）`))))
-      return t("{date}に {from} から {to} へ引っ越した（その時: {phase}）", { date: md(m[1]), from: m[2], to: m[3], phase: relabel(m[4]) });
+      return t("{date}に {from} から {to} へ引っ越した（その時: {phase}）", { date: md(m[1]), from: placeIn(m[2], opts), to: placeIn(m[3], opts), phase: relabel(m[4]) });
     if ((m = l.match(/^今日は引っ越して(\d+)日目$/))) return t("今日は引っ越して{n}日目", { n: Number(m[1]) });
     // 名前も日付も入らない行（産後パパ育休の決まり・まだ済みになっていない・数え直した期限の見出し）
     return t(l);

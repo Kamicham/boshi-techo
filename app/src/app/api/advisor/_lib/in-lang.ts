@@ -28,10 +28,10 @@ export function adviceIn(advice: Advice, family: Family, lang: Lang): Advice {
     return withLang(
       lang,
       () => {
-        const out = ruleAdvice(advice.facts, { today: advice.today, mother: c.mother && nameIn(c.mother, { made }), partner: c.partner && nameIn(c.partner, { made }) });
+        const out = ruleAdvice(advice.facts, { today: advice.today, mother: c.mother && nameIn(c.mother, { made }), partner: c.partner && nameIn(c.partner, { made }), made });
         if (!out) return advice;
         const why = note ? [out.why, t(note)].join(lang === "en" ? " " : "") : out.why;
-        return { ...advice, title: out.title, why, plan: out.plan, facts: factsIn(advice.facts) };
+        return { ...advice, title: out.title, why, plan: out.plan, facts: factsIn(advice.facts, { made }) };
       },
       dictFor(lang),
     );
