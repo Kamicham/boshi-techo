@@ -33,7 +33,7 @@
 
 ### 4つの軸から見る
 
-- **インパクト** — [なぜ作るか](#なぜ作るか)：役所・産院・会社がばらばらで、全体を持つ人がいない。2025年に生まれた子は 671,270人。親の少なくとも1人が外国人の子は 5.4％（2024年）。数字はすべて出典つき
+- **インパクト** — [なぜ作るか](#なぜ作るか)：作り手も12月に父になる当事者で、期間中も家族の本物の妊婦健診で使った。役所・産院・会社がばらばらで、全体を持つ人がいない。2025年に生まれた子は 671,270人。親の少なくとも1人が外国人の子は 5.4％（2024年）。数字はすべて出典つき
 - **デモ** — [3分の動画](https://youtu.be/XKPseCaHKGg)・[体験版](https://boshi-techo-try.fly.dev/)：見本の家族の写しが、あなただけに開く（登録なし・7日で消える）。妊娠8週から2歳までの8つの時期（もしもの引っ越しも）か、つまみで好きな日を選び、日本語・中文・English で見られる
 - **Claude 活用** — [Claude の使い方](#claude-の使い方)：9つの仕事を Sonnet 5.5・Opus 5.5・Haiku 5.5 に分ける → [Claude Code での作り方](docs/BUILT_WITH_CLAUDE_CODE.md)
 - **深さと実行力** — [確かめ方](#確かめ方)：修正のたびに、試験 1,534件と、1,030家族の1000日（のべ約106万日）を動かして23の決まりで確かめる早送りを CI で回す → [早送りの結果](docs/SIMULATION_RESULTS.md)
@@ -41,6 +41,8 @@
 作り手: Kamicham（1人で参加。Cerebral Valley では Kamichama）。11/2〜11/4 のコミットの作者名 konnokun も同じ作り手で、11/4 に Git の名前の設定を揃えた。
 
 ## なぜ作るか
+
+作り手も、12月に父になります。作り手の家族が、この手帳を使う1号目です。期間中も、家族の本物の妊婦健診で先生の説明を録音して使い、そこで起きた日付の聞き違いから作り直しました（[作り手自身の話](#母子手帳の魂を引き継ぐ)）。
 
 出産は一生に1〜2回。練習ができず、上達する前に終わります。役所は手続き、産院は体、会社は休業、親は手伝い。全体を持っている人がどこにもいなくて、つなぐのは一番経験の無い家族です。しかも、産後の眠れない数週間に、出生届（14日以内）・児童手当（15日以内）・保険・医療証が重なります。見本の家族の1000日だけでも、用事は49件、うち法の期限が13件あります。
 
@@ -270,7 +272,7 @@ MIT
 
 ### Four ways in
 
-- **Impact** — [Why](#why): the city office, the clinic and the employer each hold a piece, and no one holds the whole. 671,270 children were born in Japan in 2025; 5.4% of births have at least one foreign parent (2024). Every number has a source
+- **Impact** — [Why](#why): the maker becomes a father in December, and the family used it at real prenatal checkups during the hackathon. The city office, the clinic and the employer each hold a piece, and no one holds the whole. 671,270 children were born in Japan in 2025; 5.4% of births have at least one foreign parent (2024). Every number has a source
 - **Demo** — [3-minute video](https://youtu.be/XKPseCaHKGg) · [Public trial](https://boshi-techo-try.fly.dev/): a private copy of a sample family opens just for you (no sign-up, gone in 7 days). Pick one of eight moments from week 8 of pregnancy to age two (one is a move to a new city), or any day on the slider, in Japanese, Chinese or English
 - **Use of Claude** — [How Claude is used](#how-claude-is-used): nine jobs split across Sonnet 5.5, Opus 5.5 and Haiku 5.5 → [How it was built with Claude Code](docs/BUILT_WITH_CLAUDE_CODE.md)
 - **Depth & execution** — [Tests](#tests): on every change, CI runs 1,534 tests and a fast-forward that moves 1,030 families through 1,000 days (about 1.06 million family-days) and checks 23 rules → [Results](docs/SIMULATION_RESULTS.md)
@@ -278,6 +280,8 @@ MIT
 Maker: Kamicham (solo entry; Kamichama on Cerebral Valley). The commits from Nov 2 to Nov 4 authored as konnokun are by the same maker; the Git name setting was unified on Nov 4.
 
 ## Why
+
+The maker becomes a father in December, and the maker's own family is user #1. During the hackathon the family used it at a real prenatal checkup to record the doctor's explanation, and a date misheard there reshaped the design (see [Carrying the soul of the paper handbook](#carrying-the-soul-of-the-paper-handbook)).
 
 Most people give birth once or twice in a lifetime, so nobody gets to practice. The city office handles paperwork, the clinic handles the body, the employer handles leave, and grandparents help where they can. Nobody holds the whole picture except the family, who have the least experience. And the heaviest paperwork (birth registration within 14 days, child allowance within 15) lands in the sleepless weeks after birth. In the sample family's 1,000 days alone there are 49 tasks, 13 of them with legal deadlines.
 
