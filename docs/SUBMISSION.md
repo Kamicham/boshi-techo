@@ -41,11 +41,11 @@
 
 ## 概要（日本語・500字以内）
 
-フォームの型: 1文目を「このプロジェクトは、〔誰〕の〔課題〕を〔どう変える〕〔形〕です。」にし、その下に具体的な利用の場面を入れて500字以内（下の本文は改行・空白こみで464字。2026-11-06 統括の割り振り。11/6 夜に作り手の言葉で「お金のある家」の一文を外した）。
+フォームの型: 1文目を「このプロジェクトは、〔誰〕の〔課題〕を〔どう変える〕〔形〕です。」にし、その下に具体的な利用の場面を入れて500字以内（下の本文は改行・空白こみで499字。2026-11-06 統括の割り振り。11/6 夜に作り手の言葉で「お金のある家」の一文を外した。11/8 朝に作り手の言葉で、出発点の1文を足した）。
 
 このプロジェクトは、妊娠から2歳までの1000日を迎える家族の「役所・産院・会社がばらばらで、全体を持つ人がいない」負担を、手帳が全体を抱えて先に動き、家族は最後の OK だけで済む形に変える、スマホで使う母子手帳です。
 
-出産は一生に1〜2回で、練習ができません。
+出産は一生に1〜2回で、練習ができません。一人で産み育てた家族に何もできなかった作り手が、父になる今作りました。
 
 たとえば予定より2週早く生まれた日。手帳は14日以内の届けを役所へ行く1日にまとめ、1000日の用事のうち28件の日付を数え直し、上司へのメールまで、それぞれの名前で下書きします。ふだんは話す・撮るだけで記録になり、どの町の窓口と期限も公式ページから取ります。健診の録音から聞こえた日付は「こう聞こえました。大丈夫ですか？」と本人に確かめてから入れ、体の判断はしません。日本語・中文・English で使え、1000日の終わりに子どもへの一冊になります。
 
@@ -53,7 +53,7 @@
 
 ## Summary (English)
 
-Japan invented the Maternal and Child Health Handbook in 1948. This is what comes next: from a handbook you read to a handbook that moves with you. For the first 1,000 days, it wakes up on the family's own clock, turns talk and photos into records, fetches any city's procedures from official pages, drafts the emails and forms, gives the partner their own turn, works in Japanese, Chinese or English, and turns the doctor's words into questions for the next checkup without ever judging health. Claude Sonnet 5.5 handles the everyday jobs (reading, drafting, answering, research) and Claude Opus 5.5 the deep ones (replanning, checkup notes, the book). Built with Claude Code, and tested on every change against 1,000 synthetic families drawn from Japanese public statistics.
+Japan invented the Maternal and Child Health Handbook in 1948. This is what comes next: from a handbook you read to a handbook that moves with you. It began with the maker's regret at being unable to help a family member who gave birth and raised a child alone; the maker also becomes a father in December. For the first 1,000 days, it wakes up on the family's own clock, turns talk and photos into records, fetches any city's procedures from official pages, drafts the emails and forms, gives the partner their own turn, works in Japanese, Chinese or English, and turns the doctor's words into questions for the next checkup without ever judging health. Claude Sonnet 5.5 handles the everyday jobs (reading, drafting, answering, research) and Claude Opus 5.5 the deep ones (replanning, checkup notes, the book). Built with Claude Code, and tested on every change against 1,000 synthetic families drawn from Japanese public statistics.
 
 ## Claude の使い方（仕事 → モデル → 理由）
 
