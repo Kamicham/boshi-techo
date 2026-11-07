@@ -14,8 +14,9 @@ import type { Family } from "@/lib/demo-family";
 import { listOf, t } from "@/lib/i18n";
 import { nameIn } from "@/lib/i18n/names";
 import { hideCounts } from "@/lib/situation";
-import { PUBLIC_UI, TRIAL_BANNER, TRIAL_BODY, TRIAL_KEEP } from "@/lib/trial-words";
+import { PUBLIC_UI, TRIAL_BANNER, TRIAL_BODY, TRIAL_KEEP, WORK_PAGE_URL } from "@/lib/trial-words";
 import { LangRow } from "./LangSwitch";
+import { useLang } from "./LocaleProvider";
 
 export const WELCOMED_KEY = "boshi.welcomed";
 /** 開き直した入口の1枚で言葉を変えた時、読み直した後も入口を開いたままにする印（この窓の間だけ。Shell が読んで消す） */
@@ -89,6 +90,7 @@ const DOES = [
  */
 export function Welcome({ onClose, again = false }: { onClose: () => void; again?: boolean }) {
   const { family, setToday, today } = useFamily();
+  const lang = useLang();
   const path = usePathname();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -198,7 +200,14 @@ export function Welcome({ onClose, again = false }: { onClose: () => void; again
             <span className="font-display text-lg font-bold">{t("自分の手帳を始める")}</span>
             <span className="text-sm">{t("3つ答える")}</span>
           </a>
-          {!PUBLIC && (
+          {PUBLIC ? (
+            // 作品のページ（体験版だけ。作り手が見本で承認した「下に『作品のページ ↗』の1行」11/7）。別の窓で開き、入口の1枚はそのまま残す。
+            // ページは日本語と English なので、その2つは今の言葉で開き、中文はページが端末の言葉で決める（訳の札に「日文、英文」と添える）
+            <a href={lang === "zh" ? WORK_PAGE_URL : `${WORK_PAGE_URL}#${lang}`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center gap-1 self-center text-sm text-muted underline underline-offset-2">
+              {t("作品のページ")}
+              <span aria-hidden>↗</span>
+            </a>
+          ) : (
             <a href="/unlock" onClick={markWelcomed} className="inline-flex min-h-11 items-center self-center text-sm text-muted underline underline-offset-2">
               {t("家族に「入れて」と言われた人は、合言葉で入る ›")}
             </a>

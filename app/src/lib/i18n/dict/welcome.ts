@@ -52,6 +52,8 @@ export default {
   自分の手帳を始める: { zh: "开始使用自己的手册", en: "Start your own handbook" },
   "3つ答える": { zh: "回答3个问题", en: "Answer 3 questions" },
   "家族に「入れて」と言われた人は、合言葉で入る ›": { zh: "家人邀请你加入的话，用口令进入 ›", en: "Invited by your family? Enter with the passphrase ›" },
+  // 作品のページ（体験版だけ・GitHub Pages）。ページは日本語と English だけなので、中文ではそれを添える
+  作品のページ: { zh: "作品介绍页（日文、英文）", en: "Project page" },
   // ほかの時期を見る（上の帯の札から）
   見本の家族のほかの時期を見る: { zh: "查看示例家庭的其他时期", en: "See the sample family at other stages" },
   ほかの時期を見る: { zh: "查看其他时期", en: "See other stages" },

@@ -5,6 +5,12 @@
 /** 画面が体験版として組まれたか（組み立てる時に入る＝Dockerfile） */
 export const PUBLIC_UI = process.env.NEXT_PUBLIC_BOSHI_PUBLIC === "1";
 
+/**
+ * 作品のページ（GitHub Pages・main の docs/。2026-11-07 21:49 に開いた）。入口の1枚の下に「作品のページ ↗」の1行で出す（体験版だけ・作り手が見本で承認 11/7）。
+ * ページは日本語と English で、住所の後ろの #ja・#en で開く言葉を選べる（docs/index.html）
+ */
+export const WORK_PAGE_URL = "https://kamicham.github.io/boshi-techo/";
+
 /** 上の帯と入口の1枚: 何を触っているか */
 export const TRIAL_BANNER = "体験版です。家族はすべて作った家族で、今は AI（Claude）を呼ばず、前に Claude が書いた一冊と見本の答えで動いています";
 
