@@ -30,7 +30,7 @@
 ### 4つの軸から見る
 
 - **インパクト** — [なぜ作るか](#なぜ作るか)：役所・産院・会社がばらばらで、全体を持つ人がいない。2025年に生まれた子は 671,270人。親の少なくとも1人が外国人の子は 5.4％（2024年）。数字はすべて出典つき
-- **デモ** — [体験版](https://boshi-techo-try.fly.dev/)：見本の家族の写しが、あなただけに開く（登録なし・7日で消える）。妊娠8週から2歳までの5つの日と、日本語・中文・English を選べる
+- **デモ** — [体験版](https://boshi-techo-try.fly.dev/)：見本の家族の写しが、あなただけに開く（登録なし・7日で消える）。妊娠8週から2歳までの8つの時期（もしもの引っ越しも）か、つまみで好きな日を選び、日本語・中文・English で見られる
 - **Claude 活用** — [Claude の使い方](#claude-の使い方)：9つの仕事を Sonnet 5.5・Opus 5.5・Haiku 5.5 に分ける → [Claude Code での作り方](docs/BUILT_WITH_CLAUDE_CODE.md)
 - **深さと実行力** — [確かめ方](#確かめ方)：修正のたびに、試験 1,514件と、1,030家族の1000日（のべ約106万日）を動かして23の決まりで確かめる早送りを CI で回す → [早送りの結果](docs/SIMULATION_RESULTS.md)
 
@@ -79,10 +79,10 @@
 
 - **8週**: 「役所に妊娠を届ける」。住んでいる町の窓口・持ち物を公式ページから取ってきて、行く前に1枚で見せる
 - **14週**: 「職場に妊娠を伝える」。会社名と上司の名前の入ったメールの下書き。家族は読んで「OK」
-- **28週**: 健診の前日に「明日 11:30 健診」。持ち物と聞く事をそろえ、「診察の最初に「録音してもいいですか」と聞くと、あとで家族で聞き返せます」と添える。帰り道には、先生が言った事・次までにやる事・次に聞く質問がそろっている
+- **28週**: 「産休・育休のお金の手続きを職場に頼む」。出産手当金・保険料の免除・育休の給付を、職場へのメールの下書きにまとめる。この週の健診では、録音から先生が言った事・次までにやる事・次に聞く質問がそろう
 - **引っ越した日**: 新しい町の窓口で、健診の補助券や医療証がどう変わるかを調べて組み直す
-- **生まれた日**: 予定より2週早く生まれたら、1000日の用事のうち28件の日付を数え直す。出生届（14日）・児童手当（15日）・保険証・育休の始まりを担当つきで並べ直し、パートナーの育休の始まりを早める1件と、パートナーの名前の文面を出す
-- **1歳**: 誕生日に、おなかにいた頃にママが書いた手紙（声つき）が開く。寝返り・はじめての言葉・予防接種の控えは、国の様式と同じ並びで積み上がっている
+- **生まれた翌日**: 予定より2週早く生まれたら、1000日の用事のうち28件の日付を数え直す。出生届（14日）・児童手当（15日）・健康保険の加入・育休の始まりを担当つきで並べ直し、パートナーの育休の始まりを早める1件と、パートナーの名前の文面を出す
+- **1歳**: 誕生日に、おなかにいた頃にママが書いた手紙（声つき）が開く。寝返り・つかまり立ち・予防接種の控えは、国の様式と同じ並びで積み上がっている
 - **2歳**: 1000日の記録と家族の言葉が、子どもへの一冊になる
 
 ### 今ある物との違い
@@ -106,8 +106,8 @@
 | ① | 入力ゼロ、でも押し付けない | 話すだけ・撮るだけ（役所の封筒、健診の紙）で、日付つきの記録と期限になる。打つ方が早い物（体重・血圧・体温・日付・時刻・ひとこと）は、話す・撮ると同じ大きさの「打つ」でその場で打て、AI を通さずそのまま手帳に入る。読み取った値も OK の前に直せる。足りない事は1つだけ聞く |
 | ② | 1000日を生きる | 家族の時計（妊娠週数・生後日数）で、その日にやる事が自分から出てくる。住んでいる町の窓口・持ち物・助成は、Claude が市の公式ページを web 検索で取りに行き、出典つきで残す |
 | ③ | 答えずに、動く | 職場への連絡、出生届の記入メモ、保育園見学の予約文。家族がするのは「OK」だけ（外へは何も送らない） |
-| ④ | 家族で1冊 | パートナーも招待のリンクで同じ手帳を開き、自分の番の事と、自分の名前の下書きが出る。担当は法と制度で決まる人（出生届・職場の事は働いている人）に振る |
-| ⑤ | 医療は壁でなく橋 | **健診の1日を支える**: 前日に「明日 11:30 健診」と持ち物・聞く事を出し、診察の最初に「録音してもいいですか」と聞くよう添える → アプリで録音 → 自宅の GPU で文字起こし → 先生が言った事・次までにやる事・次の予約・難しい言葉の言い換え（元の言葉を並べる）・次に聞く質問。大きな病院の案内図を撮ると、今日回る順番になる。**体の判断はしない** |
+| ④ | 家族で1冊 | パートナーも招待のリンクで同じ手帳を開き、自分の番の事と、自分の名前の下書きが出る。担当は法と制度で決まる人に振る（職場の事は働いている人。出生届は家族の用事で、届け出るのは父か母） |
+| ⑤ | 医療は壁でなく橋 | **健診の1日を支える**: 前日に「明日 10:30 健診」と持ち物・聞く事を出し、診察の最初に「録音してもいいですか」と聞くよう添える → アプリで録音 → 自宅の GPU で文字起こし → 先生が言った事・次までにやる事・次の予約・難しい言葉の言い換え（元の言葉を並べる）・次に聞く質問。大きな病院の案内図を撮ると、今日回る順番になる。**体の判断はしない** |
 | ⑥ | 町の制度を取りに行く | どの町でも、その手続きの窓口・持ち物・期限を、Claude が公式ページから取ってくる（「どこへ行くか見る」） |
 | ⑦ | 子どもへの贈り物 | 府令と同じ並びの記録（手帳のタブ）と1000日の言葉が、最後に子どもへ語りかける一冊になる |
 
@@ -119,12 +119,12 @@
   <img src="docs/images/soul-ja.webp" width="900" alt="4台の iPhone に、手帳のタブ（国の様式と同じ並び）・便色カード（国の7色から親が番号を選ぶ）・発育曲線（帯は目安、気になる事は健診で）・急ぎの時（電波が無くても開ける）">
 </p>
 
-- **手帳のタブ**: 国の様式と同じ並び（妊婦健診 → 出産 → 新生児 → 便色カード → 成長・できた日 → 予防接種 → 相談した記録 → 一冊）で記録を見る。発育曲線はこども家庭庁「令和5年乳幼児身体発育調査」（2024-12-25 公表）の値、便色カードは国の7色から親が番号を選ぶ（アプリは判定しない。注意書きは手帳と同じ文言）
+- **手帳のタブ**: 国の様式と同じ並び（妊婦健診 → 出産 → 新生児 → 便色カード → 成長・できた日 → 予防接種 → 相談した記録 → 一冊）で記録を見る。発育曲線はこども家庭庁「令和5年乳幼児身体発育調査」（2024-12-25 公表）の値（区分の間は直線でつないだ近似）、便色カードは国の7色から親が番号を選ぶ（アプリは判定しない。注意書きは手帳と同じ文言）
 - **撮るだけ・話すだけで記録**: 紙の手帳のページを撮ると、Claude がどのページかを見分けて記録の候補を出す。「今日寝返りした」「BCG を受けた」と話しても候補になる。家族の「OK」で入る。紙の手帳が正本のまま、二重に書かせない
 - **相談できる人**: 時期ごとに1回だけ「子育てについて気軽に相談できる人はいますか。」と聞く（紙の手帳の保護者の記録の毎回の問い。言葉もそのまま）。「いない」なら、町のこども家庭センター・産後ケア・#8000・児童相談所の相談ダイヤルへ橋をかける
 - **急ぎの時**: 命が危ないと思ったら迷わず 119、救急車を呼ぶか迷う時は #8000（子ども）と #7119（ママの体・実施している町）、窒息の手当と心肺蘇生の要点（こども家庭庁の任意様式・日本蘇生協議会のガイドラインを元に短く）。電波が無くても開ける
 
-作り手自身が、使う人の1号目です。家族の妊婦健診で、このアプリで先生の説明を録音して使っています（本物の記録は公開しません）。期間中の健診では、録音から作ったまとめが次の健診の日付を聞き違えました。その日のうちに、聞こえた日付は本人が「大丈夫」を押すまで予定・カレンダー・送る文へ進まない形に作り直しています（[Claude Code での作り方](docs/BUILT_WITH_CLAUDE_CODE.md) の7）。
+作り手自身が、使う人の1号目です。家族の妊婦健診で、このアプリで先生の説明を録音して使っています（本物の記録は公開しません）。期間中の健診では、録音から作ったまとめが大事な日付を聞き違えました。そこで、聞こえた日付は本人が「大丈夫」を押すまでカレンダー・家族へ送る文・共有の1枚へ出さず、手帳の中では「録音から聞こえた日・まだ確かめていません」と添える形に作り直しています（[Claude Code での作り方](docs/BUILT_WITH_CLAUDE_CODE.md) の7）。
 
 ## Claude の使い方
 
@@ -174,13 +174,13 @@ npm run dev                  # http://localhost:3000
 
 - `BOSHI_DATA_DIR` を消すと、`app/data/` を本物の家族の置き場として守り、アカウント・思い出・手紙・映画が止まる（作り手の家族の本番だけの形）
 - **動かし方は4つ**: わが家の本番（home）・公開版の体験（public）・シミュレーション（sim）・手元の試し（dev）。置き場と環境変数の表は [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#動かし方)。公開版やシミュレーションが本物の家族の置き場を開くなど、危ない組み合わせはサーバが立つ時に止まる（`app/src/lib/mode.ts`）
-- **鍵が無くても動く**: `ANTHROPIC_API_KEY` が空の時、予定表・期限・急ぎの時の連絡先はそのまま動き、デモの家族は Claude の仕事（撮る・下書き・気づき・聞く・一冊）を「見本の答え」で一通り触れる。町の窓口の調べ物と、健診の整理・院内の案内図は鍵が要る（GPU は要らない）
+- **鍵が無くても動く**: `ANTHROPIC_API_KEY` が空の時、予定表・期限・急ぎの時の連絡先はそのまま動き、デモの家族は Claude の仕事（撮る・下書き・気づき・聞く・一冊）を「見本の答え」で一通り触れる（撮った写真は読まない）。町の窓口の調べ物と、健診の整理・院内の案内図は鍵が要る（GPU は要らない）
 - Claude の使い過ぎ止め: `BOSHI_DAILY_USD`（サーバ全体の1日）と `BOSHI_HOUSEHOLD_DAILY_USD`（1つの世帯の1日）。鍵は月の上限を付けたワークスペースで作る
 - 文字起こし（健診の録音）は [asr/](asr/) の小さなサーバ（faster-whisper large-v3）を GPU の機械で動かし、`ASR_URL` で指す。音声は家のネットワークの外に出ない
 - `ASR_URL` が無い時、見本の家族（作った家族）は用意したデモの文字起こしに切り替わる（画面に「デモの文字起こし」と出る）。GPU が無くても、健診の1日を試せる（先生の言葉の整理と案内図は鍵が要る）。本物の世帯の「話す」の記録は、デモの文を入れずに止める（`lib/asr.ts`）。わが家の本番は `ASR_URL` が無いと立たない
 - スマホのマイクは https でないと使えない。家の機械で動かす時は Tailscale Serve などで https の住所を付ける
 - 家族が毎日使う時は、組み立て済みの本番で動かす（`app/scripts/serve-prod.sh`）。更新は `app/scripts/release-prod.sh`: GitHub の main のきれいな写しから組み立て、3211番で確かめてから差し替え、だめなら前の版に戻す。開発サーバのままだと、コードを直した時に録音中の画面が読み直される
-- デモの家族（すべて架空・町だけ実在のさいたま市）は上の切り替えで選べる。時計を早送りできる
+- デモの家族（すべて架空。町だけは実在の横浜市とさいたま市）は上の切り替えで選べる。時計を早送りできる
 
 ```bash
 npm test          # 試験のすべて（Claude は呼ばない・鍵も使わない）
@@ -216,7 +216,7 @@ fly deploy --remote-only   # 組み立ては Fly の機械で。像は、きれ�
 ### 確かめ方
 
 - **試験 114ファイル・1,514件**（2026-11-07 時点・`npm test`）。Claude は呼ばず、鍵も使わない。main への push と PR のたびに、GitHub Actions（`.github/workflows/check.yml`）が型・lint・試験・早送り・組み立て（next build）を回す
-- **早送り: 23の決まり（a〜w）× 1,030家族 × 1000日**（`npm run sim`）。公的な統計から作った1000組（のべ 1,035,345日。家族は毎日動かし、画面は1週おきと節目の日に確かめる）と、珍しい型の30家族（のべ 28,767日。毎日確かめる）を、「今日」の画面と同じ関数に通す。手帳の記録の決まり t1〜t9 は、見本の家族を足した1,031家族で確かめる。今はすべて守れている
+- **早送り: 23の決まり（a〜w）× 1,030家族 × 1000日**（`npm run sim`）。公的な統計から作った1000組（のべ 1,035,345日。家族は毎日動かし、画面は7日ごとと節目の日に確かめる）と、珍しい型の30家族（のべ 28,767日。毎日確かめる）を、「今日」の画面と同じ関数に通す。手帳の記録の決まり t1〜t9 は、見本の家族を足した1,031家族で確かめる。今はすべて守れている
 - **世帯をまたぐ試験**: 家族Aのログインで家族Bの記録・済んだ事・手帳・写真の id を叩くと、どれも 404（`app/src/sim/cross-household.test.ts`）。API の口が（健診の口も）すべて、関所（`withHousehold`）か理由つきの公開の口を通るかを、コードを読んで確かめる（`app/src/sim/api-guard.test.ts`）
 
 修正のたびに、公的な統計の割合から作った1000家族（すべて作った家族）でアプリの1000日を早送りしています。使った割合と出典: [docs/SIM_STATS.md](docs/SIM_STATS.md)
@@ -263,7 +263,7 @@ MIT
 ### Four ways in
 
 - **Impact** — [Why](#why): the city office, the clinic and the employer each hold a piece, and no one holds the whole. 671,270 children were born in Japan in 2025; 5.4% of births have at least one foreign parent (2024). Every number has a source
-- **Demo** — [Public trial](https://boshi-techo-try.fly.dev/): a private copy of a sample family opens just for you (no sign-up, gone in 7 days). Pick one of five days from week 8 of pregnancy to age two, in Japanese, Chinese or English
+- **Demo** — [Public trial](https://boshi-techo-try.fly.dev/): a private copy of a sample family opens just for you (no sign-up, gone in 7 days). Pick one of eight moments from week 8 of pregnancy to age two (one is a move to a new city), or any day on the slider, in Japanese, Chinese or English
 - **Use of Claude** — [How Claude is used](#how-claude-is-used): nine jobs split across Sonnet 5.5, Opus 5.5 and Haiku 5.5 → [How it was built with Claude Code](docs/BUILT_WITH_CLAUDE_CODE.md)
 - **Depth & execution** — [Tests](#tests): on every change, CI runs 1,514 tests and a fast-forward that moves 1,030 families through 1,000 days (about 1.06 million family-days) and checks 23 rules → [Results](docs/SIMULATION_RESULTS.md)
 
@@ -308,12 +308,12 @@ The paper handbook, and today's digital versions, are handbooks the family reads
   <img src="docs/images/days-en.webp" width="900" alt="Five iPhones showing five days in a fictional family's handbook: week 8, reporting the pregnancy to the city; week 28, a drafted email to the workplace; the day after birth, the plan recounted for an early birth; age one, a letter from the pregnancy opens; age two, the book of 1,000 days">
 </p>
 
-- **Week 8**: "Report the pregnancy to the city office." It fetches your own city's office and what to bring from official pages, and shows them on one card before you go.
-- **Week 14**: "Tell your workplace." A drafted email with the company's and the manager's names. The family reads it and taps OK.
-- **Week 28**: the day before a checkup, "Checkup tomorrow at 11:30," with what to bring and what to ask, plus a tip: "At the start of the exam, ask 'May I record this?' Then your family can listen back later." On the way home, what the doctor said, what to do next and questions for next time are ready.
+- **Week 8**: "Report your pregnancy to the city office." It fetches your own city's office and what to bring from official pages, and shows them on one card before you go.
+- **Week 14**: "Tell work about your pregnancy." A drafted email with the company's and the manager's names. The family reads it and taps OK.
+- **Week 28**: "Ask work to handle the money paperwork for maternity leave and childcare leave." The maternity allowance, the premium exemption and the childcare leave benefit go into one drafted email to the workplace. At this week's checkup, what the doctor said, what to do next and questions for next time come out of the recording.
 - **Moving day**: it checks how checkup vouchers and medical cards change at the new city's office, and replans.
-- **Birth**: born 2 weeks early? It recounts the dates of 28 of the 1,000 days' tasks, lays out birth registration (14 days), child allowance (15 days), health insurance and the start of leave with who does each, adds one new task (moving the partner's leave earlier) and a message in the partner's name.
-- **Age one**: on the birthday, a letter mom wrote during pregnancy (with her voice) opens. Rolling over, first words and vaccination records stack up in the same order as the national format.
+- **The day after birth**: born 2 weeks early? It recounts the dates of 28 of the 1,000 days' tasks, lays out birth registration (14 days), child allowance (15 days), enrolling the baby in health insurance and the start of leave with who does each, adds one new task (moving the partner's leave earlier) and a message in the partner's name.
+- **Age one**: on the birthday, a letter mom wrote during pregnancy (with her voice) opens. Rolling over, pulling up to stand and vaccination records stack up in the same order as the national format.
 - **Age two**: 1,000 days of records and the family's words become a book for the child.
 
 Compared with what exists: the national digital handbook (PMH) stores and shows records for municipalities, and apps such as Boshimo, ninaru and LINE Yahoo "Kosodate" notify and list tasks. This handbook takes the family's side, spans any city for the first 1,000 days, and drafts the paperwork for an OK. It complements PMH rather than competing with it ([docs/LANDSCAPE.md](docs/LANDSCAPE.md), in Japanese).
@@ -328,7 +328,7 @@ Compared with what exists: the national digital handbook (PMH) stores and shows 
 2. **Lives through 1,000 days**: a family clock (weeks of pregnancy, days since birth) surfaces what to do today. Local rules for your own city are researched with Claude's web search, with sources.
 3. **Acts instead of answering**: drafts of the message to your employer, birth-registration notes, daycare visit requests. The family only says "OK". Nothing is sent.
 4. **One handbook for the family**: the partner opens the same handbook (through an invite link) and sees their own tasks and drafts written in their own name. Tasks go to whoever the law and the system name (for work matters, the parent who is employed).
-5. **A bridge to medicine, not a wall**: the day of a prenatal checkup. The app reminds you to ask the doctor to record, records in the app, transcribes on a home GPU, and turns it into what the doctor said, what to do next, the next appointment, plain-language notes for jargon (always next to the doctor's own words) and questions for next time. Photograph a big hospital's floor map and get today's route. **It never judges health.**
+5. **A bridge to medicine, not a wall**: the day of a prenatal checkup. The day before, it shows "Checkup tomorrow at 10:30" with what to bring and what to ask, and suggests asking the doctor, "May I record this?" at the start of the exam. It records in the app, transcribes on a home GPU, and turns it into what the doctor said, what to do next, the next appointment, plain-language notes for jargon (always next to the doctor's own words) and questions for next time. Photograph a big hospital's floor map and get today's route. **It never judges health.**
 6. **Fetches your city's rules**: for any city, the office, what to bring and the deadline for each procedure are fetched from the official pages.
 7. **A gift to the child**: the 1,000 days of records become a book that speaks to the child.
 
@@ -340,12 +340,12 @@ The national handbook format has been refined for 78 years. We keep its seven qu
   <img src="docs/images/soul-en.webp" width="900" alt="Four iPhones: the handbook tab in the national format's order, the stool color card where the parent picks one of seven colors, the growth chart whose bands are only a guide, and the emergency page that opens offline">
 </p>
 
-- **Handbook tab**: records in the same order as the national format (prenatal checkups, birth, newborn, stool color card, growth and milestones, vaccinations, consultations, and finally the book). Growth charts use the Children and Families Agency's 2023 National Growth Survey on Preschool Children (published 2024-12-25); for the stool color card the parent picks one of the seven official colors (the app never judges; the notes are the handbook's own wording).
+- **Handbook tab**: records in the same order as the national format (prenatal checkups, birth, newborn, stool color card, growth and milestones, vaccinations, consultations, and finally the book). Growth charts use the Children and Families Agency's 2023 National Growth Survey on Preschool Children (published 2024-12-25; values between age bands are joined by straight lines, an approximation); for the stool color card the parent picks one of the seven official colors (the app never judges; the notes are the handbook's own wording).
 - **Record by photo or voice**: photograph a page of the paper handbook and Claude identifies the page and proposes entries; saying "rolled over today" or "got the BCG shot" works too. Nothing is saved until the family taps OK. The paper handbook stays the original.
 - **Someone to talk to**: once per stage, the app asks the handbook's recurring question (kept word for word in Japanese), "Is there someone you can casually talk to about raising your child?" If not, it links to the city's child and family center, postpartum care, the #8000 pediatric line and the child guidance hotline.
 - **Emergency page**: call 119 without hesitation if a life may be in danger; if unsure whether to call an ambulance, #8000 (children) and #7119 (the mother's body, where the town offers it), and short steps for choking and CPR (based on the Children and Families Agency's handbook pages and the Japan Resuscitation Council guidelines). It opens even offline.
 
-The author is user #1, using it at a family member's real prenatal checkups (real records are never published). At one real checkup during the hackathon, the summary made from the recording misheard the next checkup date. The same day, heard dates became candidates that move into the plan, the calendar or any message only after the person taps OK (see section 7 of [Built with Claude Code](docs/BUILT_WITH_CLAUDE_CODE.md)).
+The author is user #1, using it at a family member's real prenatal checkups (real records are never published). At one real checkup during the hackathon, the summary made from the recording misheard an important date. So a heard date now stays out of the calendar, messages to family and the shared page until the person taps OK; inside the handbook it shows as "Date heard from the recording · not checked yet" (see section 7 of [Built with Claude Code](docs/BUILT_WITH_CLAUDE_CODE.md)).
 
 ## How Claude is used
 
@@ -394,7 +394,7 @@ Every change is fast-forwarded through 1,000 days with 1,000 synthetic families 
 
 ## Run
 
-See the Japanese section above (`cd app && npm install && cp .env.example .env.local && npm run dev`). `.env.example` starts with `BOSHI_DATA_DIR=./try-data`; without it the app treats `app/data/` as a real family's store and keeps accounts, memories, letters and films closed. Without `ANTHROPIC_API_KEY`, the schedule, deadlines and emergency contacts still work, and the demo family shows clearly labeled sample answers for the Claude features (city research, checkup notes and the floor-map route need a key). Without `ASR_URL`, the demo families use a bundled demo transcript, so the visit flow works without a GPU (organizing the notes still needs a key); a real household's voice notes get an error instead of demo text, and the home server refuses to start without `ASR_URL`. There are four run modes (home production, public trial, simulation, local dev; `app/src/lib/mode.ts`), and unsafe combinations, such as the public trial or the simulation opening the real family's store, stop the server at startup. The home production server is rebuilt from a clean checkout of main, checked on port 3211, then swapped in, with rollback (`app/scripts/release-prod.sh`).
+See the Japanese section above (`cd app && npm install && cp .env.example .env.local && npm run dev`). `.env.example` starts with `BOSHI_DATA_DIR=./try-data`; without it the app treats `app/data/` as a real family's store and keeps accounts, memories, letters and films closed. Without `ANTHROPIC_API_KEY`, the schedule, deadlines and emergency contacts still work, and the demo family shows clearly labeled sample answers for the Claude features (photos are not read; city research, checkup notes and the floor-map route need a key). Without `ASR_URL`, the demo families use a bundled demo transcript, so the visit flow works without a GPU (organizing the notes still needs a key); a real household's voice notes get an error instead of demo text, and the home server refuses to start without `ASR_URL`. There are four run modes (home production, public trial, simulation, local dev; `app/src/lib/mode.ts`), and unsafe combinations, such as the public trial or the simulation opening the real family's store, stop the server at startup. The home production server is rebuilt from a clean checkout of main, checked on port 3211, then swapped in, with rollback (`app/scripts/release-prod.sh`).
 
 ## Public trial
 
