@@ -130,6 +130,17 @@
 
 仕事ごとにモデルを分けています。毎日の仕事は Sonnet、深く読む仕事は Opus、見張りと整えは Haiku です。
 
+<p align="center">
+  <img src="docs/images/claude-research-ja.webp" width="240" alt="手帳に聞くの画面。翔太の「引っ越したけど、さいたま市で僕がやる手続きってある？」に、転入届は2月1日まで（住民基本台帳法第22条）・出す先は区役所の区民課・持ち物と、産後パパ育休を職場に伝える期限を答えている（Sonnet 5.5・web 検索）">
+  <img src="docs/images/claude-ask-ja.webp" width="240" alt="同じ答えを下へ送る動き。答えの下に、転入届の「どこへ行くか見る」「書く事のメモを見る」のボタンと「調べたページ」が出る（Sonnet 5.5）">
+  <img src="docs/images/claude-notice-ja.webp" width="240" alt="今日の画面の「手帳が気づいた事」。生まれた日に合わせ、育休の始まりを6月22日に直しました。予定日5月10日より14日前の4月26日に生まれ、産後休業は6月21日までに変わった（Opus 5.5）">
+  <img src="docs/images/claude-letter-ja.webp" width="240" alt="気づきに添えた、職場の上司へ渡す文面。件名「出産のご報告と育児休業開始日の変更について」と本文、コピーとメールで開くのボタン（Opus 5.5）">
+  <img src="docs/images/claude-visit-ja.webp" width="240" alt="健診の画面の「今日のまとめ」。28週の健診でした事、お腹の張りが休んでもおさまらない時は夜でも病院に電話、里帰り先の病院へ早めに電話する事（Opus 5.5）">
+  <img src="docs/images/claude-visit-lists-ja.webp" width="240" alt="次の健診の聞こえた日。録音からは「2週間後の月曜日、30週ですね。10時半」と聞こえました。この日で大丈夫ですか？の下に「大丈夫」と「直す」。先生の話13件・聞いた事と答え2件・次までに10件（Opus 5.5）">
+</p>
+
+<p align="center"><sub>3分の動画の録画から（作った家族）。どれも本物の Claude の答えで、どのモデルが書いたかは録画の時の使った量の記録で確かめています</sub></p>
+
 | 仕事 | モデル | 理由 |
 |---|---|---|
 | 撮る・話す（声と写真の読み取り → 記録の候補。紙の手帳のページを見分ける） | Sonnet 5.5（`EVERYDAY_MODEL`） | 毎日の仕事。単価は Opus の半分 |
@@ -205,7 +216,7 @@ fly deploy --remote-only   # 組み立ては Fly の機械で。像は、きれ�
 ### 確かめ方
 
 - **試験 114ファイル・1,514件**（2026-11-07 時点・`npm test`）。Claude は呼ばず、鍵も使わない。main への push と PR のたびに、GitHub Actions（`.github/workflows/check.yml`）が型・lint・試験・早送り・組み立て（next build）を回す
-- **早送り: 23の決まり（a〜w）× 1030家族 × 1000日**（`npm run sim`）。公的な統計から作った1000組（のべ 1,035,345日。家族は毎日動かし、画面は1週おきと節目の日に確かめる）と、珍しい型の30家族（のべ 28,767日。毎日確かめる）を、「今日」の画面と同じ関数に通す。手帳の記録の決まり t1〜t9 は、見本の家族を足した1031家族で確かめる。今はすべて守れている
+- **早送り: 23の決まり（a〜w）× 1,030家族 × 1000日**（`npm run sim`）。公的な統計から作った1000組（のべ 1,035,345日。家族は毎日動かし、画面は1週おきと節目の日に確かめる）と、珍しい型の30家族（のべ 28,767日。毎日確かめる）を、「今日」の画面と同じ関数に通す。手帳の記録の決まり t1〜t9 は、見本の家族を足した1,031家族で確かめる。今はすべて守れている
 - **世帯をまたぐ試験**: 家族Aのログインで家族Bの記録・済んだ事・手帳・写真の id を叩くと、どれも 404（`app/src/sim/cross-household.test.ts`）。API の口が（健診の口も）すべて、関所（`withHousehold`）か理由つきの公開の口を通るかを、コードを読んで確かめる（`app/src/sim/api-guard.test.ts`）
 
 修正のたびに、公的な統計の割合から作った1000家族（すべて作った家族）でアプリの1000日を早送りしています。使った割合と出典: [docs/SIM_STATS.md](docs/SIM_STATS.md)
@@ -339,6 +350,17 @@ The author is user #1, using it at a family member's real prenatal checkups (rea
 ## How Claude is used
 
 Each job uses the model that fits it: everyday jobs run on Sonnet, deep reading runs on Opus, and the guard and formatting run on Haiku.
+
+<p align="center">
+  <img src="docs/images/claude-research-en.webp" width="240" alt="The Ask screen. To the partner's question about the paperwork after moving to Saitama City, the answer gives the moving-in notice deadline (Feb 1, Basic Resident Registration Act art. 22), the ward office desk, what to bring, and the deadline to tell the workplace about paternity leave (Sonnet 5.5 with web search)">
+  <img src="docs/images/claude-ask-en.webp" width="240" alt="Scrolling down the same answer: under it come the buttons for the moving-in notice (where to go, the notes for the form) and the folded list of pages it searched (Sonnet 5.5)">
+  <img src="docs/images/claude-notice-en.webp" width="240" alt="A notice on the Today screen: the start of parental leave was moved to June 22 to match the birth day; the baby came on April 26, 14 days before the May 10 due date, so maternity leave now ends on June 21 (Opus 5.5)">
+  <img src="docs/images/claude-letter-en.webp" width="240" alt="The note for the boss attached to that notice: a subject line about the birth and the new leave start date, the body, and buttons to copy it or open it in a mail app (Opus 5.5)">
+  <img src="docs/images/claude-visit-en.webp" width="240" alt="Today's summary of a week-28 checkup: what was done, a call to the hospital even at night if the belly tightening does not settle with rest, and an early call to the hospital back home (Opus 5.5)">
+  <img src="docs/images/claude-visit-lists-en.webp" width="240" alt="The next checkup date as heard in the recording, with OK and Fix buttons, then the doctor's points (13), questions and answers (2) and to-dos before next time (10) (Opus 5.5)">
+</p>
+
+<p align="center"><sub>From the 3-minute demo recording (a made-up family; the screens are in Japanese). Every answer is a real Claude response; which model wrote each one was checked against the recording's usage log</sub></p>
 
 | Job | Model | Why |
 |---|---|---|
