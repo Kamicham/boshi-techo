@@ -52,6 +52,10 @@
 
 すべての家族には、日本語の読めない家族も入ります。だから手帳は、日本語・中文・English で使えます（上の帯の 🌐 で切り替え。役所や職場に出す下書きは日本語のまま）。
 
+<p align="center">
+  <img src="docs/images/lang-switch.webp" width="300" alt="1台の iPhone で、妊娠8週の今日の画面が、上の帯の 🌐 で日本語・中文・English に切り替わる動き">
+</p>
+
 ## 「読む手帳」から「一緒に動く手帳」へ
 
 紙の母子手帳も、今の電子版も、**家族が読みに行く手帳**です。いつ何をするかを読んで覚え、窓口を探し、書類を書くのは家族です。この手帳は、家族の時計（妊娠週数・生後日数）で自分から起き、**家族と一緒に動きます**。
@@ -106,6 +110,10 @@
 ### 母子手帳の魂を引き継ぐ
 
 紙の母子手帳（府令様式）が78年かけて磨いた7つ（持つ・続く・突き合わせる・証明する・つなぐ・想いを残す・取り残さない）を壊さずに引き継ぎます。
+
+<p align="center">
+  <img src="docs/images/soul-ja.webp" width="900" alt="4台の iPhone に、手帳のタブ（国の様式と同じ並び）・便色カード（国の7色から親が番号を選ぶ）・発育曲線（帯は目安、気になる事は健診で）・急ぎの時（電波が無くても開ける）">
+</p>
 
 - **手帳のタブ**: 国の様式と同じ並び（妊婦健診 → 出産 → 新生児 → 便色カード → 成長・できた日 → 予防接種 → 相談した記録 → 一冊）で記録を見る。発育曲線はこども家庭庁「令和5年乳幼児身体発育調査」（2024-12-25 公表）の値、便色カードは国の7色から親が番号を選ぶ（アプリは判定しない。注意書きは手帳と同じ文言）
 - **撮るだけ・話すだけで記録**: 紙の手帳のページを撮ると、Claude がどのページかを見分けて記録の候補を出す。「今日寝返りした」「BCG を受けた」と話しても候補になる。家族の「OK」で入る。紙の手帳が正本のまま、二重に書かせない
@@ -262,6 +270,10 @@ What is missing is not information. It is **someone who holds the whole picture 
 
 Every family includes families who cannot read Japanese, so the handbook works in Japanese, Chinese (Simplified) and English (switch with 🌐 in the top bar; drafts for city offices and employers stay in Japanese).
 
+<p align="center">
+  <img src="docs/images/lang-switch.webp" width="300" alt="One iPhone switching the week-8 Today screen between Japanese, Chinese and English with the 🌐 picker in the top bar">
+</p>
+
 ## From a handbook you read to a handbook that moves with you
 
 The paper handbook, and today's digital versions, are handbooks the family reads. The family memorizes what comes next, looks up the city office, and fills in the forms. This handbook wakes up on the family's own clock (weeks of pregnancy, days since birth) and moves with them:
@@ -304,6 +316,10 @@ Compared with what exists: the national digital handbook (PMH) stores and shows 
 ### Carrying the soul of the paper handbook
 
 The national handbook format has been refined for 78 years. We keep its seven qualities: the family holds it, it continues from pregnancy onward, parent and doctor records sit side by side, vaccination records serve as proof, it asks every time whether you have someone to talk to, it keeps the family's own words, and it leaves no one behind.
+
+<p align="center">
+  <img src="docs/images/soul-en.webp" width="900" alt="Four iPhones: the handbook tab in the national format's order, the stool color card where the parent picks one of seven colors, the growth chart whose bands are only a guide, and the emergency page that opens offline">
+</p>
 
 - **Handbook tab**: records in the same order as the national format (prenatal checkups, birth, newborn, stool color card, growth and milestones, vaccinations, consultations, and finally the book). Growth charts use the Children and Families Agency's 2023 National Growth Survey on Preschool Children (published 2024-12-25); for the stool color card the parent picks one of the seven official colors (the app never judges; the notes are the handbook's own wording).
 - **Record by photo or voice**: photograph a page of the paper handbook and Claude identifies the page and proposes entries; saying "rolled over today" or "got the BCG shot" works too. Nothing is saved until the family taps OK. The paper handbook stays the original.
