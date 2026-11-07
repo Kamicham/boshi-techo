@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>母子手帳を、再発明する</title>
+<meta name="description" content="1948年、日本は母子手帳を発明した。2026年、その次の形を作る。妊娠から2歳までの1000日、手帳が全体を受け持って先に動き、家族は最後の OK だけ。Built with Claude: Japan 2026 の出品作。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://kamicham.github.io/boshi-techo/">
+<meta property="og:title" content="母子手帳を、再発明する">
+<meta property="og:description" content="読む手帳から、一緒に動く手帳へ。妊娠から2歳までの1000日を、手帳が受け持つ。">
+<meta property="og:image" content="https://kamicham.github.io/boshi-techo/images/page/video/poster.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=M+PLUS+Rounded+1c:wght@500;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap">
+<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>
+:root{
+  --paper:#f6f0e4; --card:#fffaf1; --ink:#2a2130; --muted:#685c6d; --line:#e2d6c3;
+  --rose:#a84468; --rose-soft:#f2b8cb; --rose-bg:#f8e4ea;
+  --plum:#1d1824; --plum-2:#2a2231; --cream:#efe6d6; --cream-dim:rgba(239,230,214,.72);
+  --cover:#e2d2ae; --sea:#2d6a83; --sea-bg:#e2edf2;
+  --jp:"Noto Sans JP",system-ui,-apple-system,"Hiragino Sans","Yu Gothic",sans-serif;
+  --rd:"M PLUS Rounded 1c","Noto Sans JP",system-ui,sans-serif;
+  --num:"Cormorant Garamond","Times New Roman",serif;
+}
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font:400 16px/1.85 var(--jp);-webkit-font-smoothing:antialiased}
+#pg[data-l="ja"] .en,#pg[data-l="en"] .ja{display:none!important}
+a{color:inherit}
+.wrap{max-width:1120px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{text-wrap:balance;margin:0}
+p{margin:0}
+.eyebrow{font:700 12px/1.4 var(--jp);letter-spacing:.14em;text-transform:uppercase;color:var(--rose)}
+section{padding-block:clamp(56px,9vw,104px)}
+h2{font:800 clamp(26px,4.2vw,40px)/1.35 var(--rd);margin-top:10px}
+.lead{max-width:40em;margin-top:18px;color:var(--muted);font-size:17px}
+.src{margin-top:18px;font-size:13px;color:var(--muted)}
+.src code{font-size:12px;background:rgba(42,33,48,.06);padding:1px 5px;border-radius:4px}
+
+/* hero */
+.hero{background:radial-gradient(60% 55% at 72% 38%,rgba(242,184,203,.16),rgba(242,184,203,0) 70%),var(--plum);color:var(--cream);padding-block:max(18px,env(safe-area-inset-top,0px)) clamp(56px,8vw,96px)}
+.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.bar .tag{font:600 13px/1.4 var(--jp);color:var(--cream-dim);letter-spacing:.04em}
+.bar .right{display:flex;align-items:center;gap:10px}
+.lang{display:inline-flex;border:1px solid rgba(239,230,214,.3);border-radius:999px;padding:3px}
+.lang button{font:600 13px var(--jp);color:var(--cream-dim);background:none;border:0;border-radius:999px;padding:6px 12px;cursor:pointer}
+.lang button[aria-pressed="true"]{background:var(--cream);color:var(--plum)}
+.gh{font:600 13px var(--jp);color:var(--cream-dim);text-decoration:none;border:1px solid rgba(239,230,214,.3);border-radius:999px;padding:6px 12px}
+.hero h1{font:800 clamp(36px,7vw,72px)/1.2 var(--rd);color:var(--cream);margin-top:clamp(40px,7vw,76px);text-shadow:0 4px 26px rgba(0,0,0,.35)}
+.hero .sub{font:700 clamp(19px,2.8vw,28px)/1.5 var(--rd);color:var(--rose-soft);margin-top:12px}
+.hero .lead{color:var(--cream-dim)}
+.player{margin-top:clamp(28px,4vw,44px);max-width:960px}
+.player video{display:block;width:100%;max-width:100%;aspect-ratio:16/9;border-radius:14px;background:#000;box-shadow:0 24px 60px rgba(0,0,0,.45)}
+.vcap{margin-top:10px;font-size:13px;color:var(--cream-dim)}
+.cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:26px}
+.btn{display:inline-flex;align-items:center;gap:8px;font:700 16px var(--jp);text-decoration:none;border-radius:999px;padding:13px 22px}
+.btn.p{background:var(--rose);color:#fff}
+.btn.s{border:1.5px solid rgba(239,230,214,.45);color:var(--cream)}
+.note{margin-top:14px;font-size:13px;color:var(--cream-dim);max-width:46em}
+
+/* 1000 days */
+.line{position:relative;margin-top:44px;height:92px}
+.line .ln{position:absolute;left:0;right:0;top:40px;height:3px;background:var(--line);border-radius:2px}
+.line .pre{position:absolute;left:0;width:27.7%;top:40px;height:3px;background:#d9b9c4;border-radius:2px}
+.line .hot{position:absolute;left:27.7%;width:5.6%;top:22px;height:39px;border-radius:8px;background:var(--rose-bg);border:1.5px solid var(--rose-soft)}
+.line .dot{position:absolute;top:35px;width:13px;height:13px;margin-left:-6.5px;border-radius:50%;background:var(--rose);box-shadow:0 0 0 3px var(--paper)}
+.line .mk{position:absolute;top:58px;transform:translateX(-50%);font:600 12px/1.3 var(--jp);color:var(--muted);white-space:nowrap}
+.line .mk::before{content:"";position:absolute;left:50%;top:-14px;width:1.5px;height:10px;background:var(--muted);opacity:.6}
+.line .mk.s{transform:none}.line .mk.s::before{left:0}
+.line .mk.e{transform:translateX(-100%)}.line .mk.e::before{left:auto;right:0}
+.line .hl{position:absolute;left:27.7%;top:0;font:700 12px/1.2 var(--jp);color:var(--rose);white-space:nowrap}
+.forms{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-top:22px}
+@media (max-width:560px){.forms{grid-template-columns:1fr 1fr}.form{padding:10px 12px}.form b{font-size:14px}}
+.form{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;min-width:0}
+.form small{display:block;font:600 12px/1.4 var(--jp);color:var(--rose)}
+.form b{display:block;font:700 15px/1.5 var(--jp);margin-top:2px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:34px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px 22px;min-width:0}
+.stat .n{font:600 46px/1 var(--num);color:var(--rose)}
+.stat .n span{font:700 18px var(--jp);margin-left:4px}
+.stat p{margin-top:10px;font-size:15px;line-height:1.7}
+
+/* screens */
+.shots{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(232px,262px);gap:22px;overflow-x:auto;scroll-snap-type:x mandatory;margin-top:36px;padding:4px 2px 16px;-webkit-overflow-scrolling:touch}
+.shot{scroll-snap-align:start;min-width:0}
+.ph{border-radius:34px;padding:9px;background:#1a161e;box-shadow:0 16px 36px rgba(29,24,36,.16)}
+.ph img{display:block;width:100%;max-width:100%;height:auto;aspect-ratio:780/1688;border-radius:26px;background:#fff}
+.shot .when{margin-top:16px;font:700 12px/1.4 var(--jp);color:var(--rose);letter-spacing:.06em}
+.shot h3{font:800 18px/1.45 var(--rd);margin-top:4px}
+.shot p{font-size:14px;line-height:1.75;color:var(--muted);margin-top:6px}
+.badge{display:inline-block;margin-top:8px;font:700 11.5px/1 var(--jp);color:var(--sea);background:var(--sea-bg);border-radius:999px;padding:6px 10px}
+.hint{margin-top:6px;font-size:13px;color:var(--muted)}
+@media (min-width:1000px){.shots{grid-auto-flow:row;grid-template-columns:repeat(4,1fr);grid-auto-columns:auto;overflow:visible;row-gap:44px}.hint{display:none}}
+
+/* principles */
+.band{background:var(--card);border-block:1px solid var(--line)}
+.three{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;margin-top:34px}
+.pr{border-top:3px solid var(--rose);padding-top:16px;min-width:0}
+.pr .k{font:600 34px/1 var(--num);color:var(--rose)}
+.pr h3{font:800 20px/1.45 var(--rd);margin-top:8px}
+.pr p{margin-top:8px;font-size:15px;color:var(--muted)}
+.care{display:flex;gap:16px;align-items:flex-start;margin-top:34px;background:var(--sea-bg);border-radius:16px;padding:20px 22px}
+.care b{font:800 17px/1.5 var(--rd);color:var(--sea)}
+.care p{font-size:15px;margin-top:4px}
+
+/* claude */
+.models{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:34px}
+.mdl{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px;min-width:0}
+.mdl .nm{font:800 22px/1.2 var(--rd)}
+.mdl .nm small{display:block;font:600 12px var(--jp);color:var(--muted);margin-top:6px}
+.mdl ul{margin:14px 0 0;padding-left:1.1em;font-size:15px}
+.mdl li+li{margin-top:4px}
+.mdl.op{border-color:var(--rose-soft);background:linear-gradient(var(--rose-bg),var(--card) 55%)}
+
+/* built */
+.dark{background:var(--plum);color:var(--cream)}
+.dark .lead,.dark .src{color:var(--cream-dim)}
+.dark .eyebrow{color:var(--rose-soft)}
+.nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-top:34px}
+.num{border:1px solid rgba(239,230,214,.18);border-radius:16px;padding:18px 20px;min-width:0}
+.num .n{font:600 42px/1 var(--num);color:var(--rose-soft)}
+.num p{margin-top:10px;font-size:14px;line-height:1.7;color:var(--cream-dim)}
+.loop{display:flex;flex-wrap:wrap;align-items:center;gap:8px 6px;margin-top:34px}
+.loop>span{font:600 14px/1.4 var(--jp);background:var(--plum-2);border:1px solid rgba(239,230,214,.16);border-radius:10px;padding:8px 12px}
+.loop i{font-style:normal;color:var(--rose-soft);opacity:.8}
+.loop>span.me{background:var(--rose);border-color:var(--rose)}
+.roles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:22px}
+.role{border-left:3px solid var(--rose-soft);padding:2px 0 2px 14px;font-size:14px;color:var(--cream-dim)}
+.role b{display:block;color:var(--cream);font:700 15px/1.5 var(--jp)}
+
+/* maker */
+.maker{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:clamp(24px,5vw,64px);align-items:start}
+.maker blockquote{margin:22px 0 0;padding:0;font:500 18px/2 var(--jp)}
+.maker blockquote p+p{margin-top:14px}
+.maker .q{display:inline;background:linear-gradient(transparent 62%,var(--rose-bg) 62%);font-weight:700}
+.maker .by{margin-top:18px;font:700 14px var(--jp);color:var(--muted)}
+.maker figure{margin:0}
+.maker figcaption{margin-top:10px;font-size:13px;color:var(--muted)}
+@media (max-width:760px){.maker{grid-template-columns:1fr}.maker figure{max-width:250px}}
+
+/* close */
+.close{text-align:center;padding-block:clamp(64px,10vw,120px)}
+.close .l1{font:800 clamp(24px,4.4vw,40px)/1.5 var(--rd)}
+.close .l2{font:800 clamp(24px,4.4vw,40px)/1.5 var(--rd);color:var(--rose)}
+.close .cta{justify-content:center}
+.close .btn.s{border-color:var(--line);color:var(--ink)}
+footer{border-top:1px solid var(--line);padding-block:28px 40px;font-size:13px;color:var(--muted)}
+footer nav{display:flex;flex-wrap:wrap;gap:8px 18px;margin-bottom:12px}
+footer nav a{text-decoration:none;font-weight:600;color:var(--ink)}
+footer p+p{margin-top:4px}
+</style>
+</head>
+<body>
+<div id="pg" data-l="ja">
+
+<header class="hero">
+  <div class="wrap">
+    <div class="bar">
+      <span class="tag">Built with Claude: Japan 2026</span>
+      <div class="right">
+        <div class="lang" role="group" aria-label="言葉 / Language">
+          <button type="button" data-set="ja" aria-pressed="true" lang="ja">日本語</button>
+          <button type="button" data-set="en" aria-pressed="false" lang="en">English</button>
+        </div>
+        <a class="gh" href="https://github.com/Kamicham/boshi-techo" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+    <h1 lang="ja">母子手帳を、再発明する</h1>
+    <p class="sub"><span class="ja" lang="ja">読む手帳から、一緒に動く手帳へ。</span><span class="en" lang="en">From a handbook you read to a handbook that moves with you.</span></p>
+    <p class="lead"><span class="ja" lang="ja">1948年、日本は母子手帳を発明しました。世界の約50か国へ広がったその手帳の次の形を、2026年に作ります。妊娠から2歳までの1000日、手帳が全体を受け持って先に動き、家族がするのは最後の OK だけ。</span><span class="en" lang="en">Japan invented the Maternal and Child Health Handbook in 1948, and it spread to about 50 countries. In 2026, this is what comes next: for the first 1,000 days, from pregnancy to age two, the handbook carries the whole picture and moves first. The family only gives the final OK.</span></p>
+    <div class="player">
+      <video controls playsinline preload="metadata" poster="images/page/video/poster.jpg" src="images/page/video/boshi-demo-3min.mp4"></video>
+      <p class="vcap"><span class="ja" lang="ja">3分のデモ（日本語・英語の字幕つき）。画面はすべて、このアプリを実際に動かして撮りました。Claude が動く場面は、本物の Claude です。</span><span class="en" lang="en">3-minute demo in Japanese with English subtitles. Every screen was recorded from the running app, and every Claude scene is real Claude.</span></p>
+    </div>
+    <div class="cta">
+      <a class="btn p" href="https://boshi-techo-try.fly.dev" target="_blank" rel="noopener"><span class="ja" lang="ja">体験版を開く</span><span class="en" lang="en">Open the live demo</span> ↗</a>
+      <a class="btn s" href="https://github.com/Kamicham/boshi-techo" target="_blank" rel="noopener"><span class="ja" lang="ja">コードを見る（GitHub）</span><span class="en" lang="en">Read the code (GitHub)</span> ↗</a>
+    </div>
+    <p class="note"><span class="ja" lang="ja">体験版は、開いた人ごとに見本の家族（作った家族）の写しで動きます。ハッカソンの間は Claude を呼ばず、見本の答えで動きます。スマホでも、パソコンでも開けます。</span><span class="en" lang="en">The live demo gives each visitor their own copy of a sample family (a fictional family). During the hackathon it does not call Claude and replies with recorded sample answers. It works on phones and computers.</span></p>
+  </div>
+</header>
+
+<main>
+<section id="days">
+  <div class="wrap">
+    <p class="eyebrow"><span class="ja" lang="ja">困り事</span><span class="en" lang="en">The problem</span></p>
+    <h2><span class="ja" lang="ja">妊娠から2歳まで、1000日。</span><span class="en" lang="en">From pregnancy to age two: 1,000 days.</span></h2>
+    <p class="lead"><span class="ja" lang="ja">役所・産院・会社の届けと手続きが、次々に来ます。それぞれの窓口は自分の分しか持っていなくて、全体を持つ人がいません。出産は一生に1〜2回で、練習もできません。</span><span class="en" lang="en">Forms and procedures keep coming from the city office, the clinic and the workplace. Each counter holds only its own part, and nobody holds the whole. Most people give birth once or twice in a lifetime, so there is no practice run.</span></p>
+
+    <div class="line" aria-hidden="true">
+      <div class="ln"></div><div class="pre"></div><div class="hot"></div>
+      <div class="hl"><span class="ja" lang="ja">生まれてからの8週</span><span class="en" lang="en">First 8 weeks after birth</span></div>
+      <i class="dot" style="left:6.2%"></i><i class="dot" style="left:6.9%"></i><i class="dot" style="left:23.6%"></i><i class="dot" style="left:27.7%"></i><i class="dot" style="left:29.1%"></i><i class="dot" style="left:29.6%"></i><i class="dot" style="left:30.4%"></i><i class="dot" style="left:33.3%"></i><i class="dot" style="left:33.9%"></i><i class="dot" style="left:45.5%"></i>
+      <span class="mk s" style="left:0"><span class="ja" lang="ja">妊娠</span><span class="en" lang="en">Pregnancy</span></span>
+      <span class="mk" style="left:27.7%"><span class="ja" lang="ja">予定日</span><span class="en" lang="en">Due date</span></span>
+      <span class="mk" style="left:63.9%"><span class="ja" lang="ja">1歳</span><span class="en" lang="en">Age 1</span></span>
+      <span class="mk e" style="left:100%"><span class="ja" lang="ja">2歳</span><span class="en" lang="en">Age 2</span></span>
+    </div>
+    <div class="forms">
+      <div class="form"><small><span class="ja" lang="ja">妊娠がわかったら</span><span class="en" lang="en">Once pregnant</span></small><b><span class="ja" lang="ja">妊娠届</span><span class="en" lang="en">Pregnancy notification</span></b></div>
+      <div class="form"><small><span class="ja" lang="ja">妊娠届の時に</span><span class="en" lang="en">With the notification</span></small><b><span class="ja" lang="ja">妊婦健診の受診票</span><span class="en" lang="en">Prenatal checkup vouchers</span></b></div>
+      <div class="form"><small><span class="ja" lang="ja">予定日の6週前から</span><span class="en" lang="en">6 weeks before the due date</span></small><b><span class="ja" lang="ja">産休の届け</span><span class="en" lang="en">Maternity leave</span></b></div>
+      <div class="form"><small><span class="ja" lang="ja">生まれた時</span><span class="en" lang="en">At birth</span></small><b><span class="ja" lang="ja">出産育児一時金</span><span class="en" lang="en">Childbirth lump-sum grant</span></b></div>
+      <div class="form"><small><span class="ja" lang="ja">生まれて14日以内</span><span class="en" lang="en">Within 14 days</span></small><b><span class="ja" lang="ja">出生届</span><span class="en" lang="en">Birth registration</span></b></div>
+      <div class="form"><small><span class="ja" lang="ja">生まれて15日以内に申請</span><span class="en" lang="en">Apply within 15 days</span></small><b><span class="ja" lang="ja">児童手当</span><span class="en" lang="en">Child allowance</span></b></div>
+      <div class="form"><small><span class="ja" lang="ja">生まれたら早めに</span><span class="en" lang="en">Soon after birth</span></small><b><span class="ja" lang="ja">赤ちゃんの健康保険</span><span class="en" lang="en">Baby's health insurance</span></b></div>
+      <div class="form"><small><span class="ja" lang="ja">産後8週の後（パートナーはすぐから）</span><span class="en" lang="en">After 8 weeks (partner: from birth)</span></small><b><span class="ja" lang="ja">育休の始まり</span><span class="en" lang="en">Childcare leave</span></b></div>
+      <div class="form"><small><span class="ja" lang="ja">生後2か月から</span><span class="en" lang="en">From 2 months</span></small><b><span class="ja" lang="ja">予防接種</span><span class="en" lang="en">Vaccinations</span></b></div>
+      <div class="form"><small><span class="ja" lang="ja">入りたい時期の前に</span><span class="en" lang="en">Before the start you want</span></small><b><span class="ja" lang="ja">保育園の申し込み</span><span class="en" lang="en">Daycare application</span></b></div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="n">49<span lang="ja" class="ja">件</span></div><p><span class="ja" lang="ja">見本の家族の1000日の用事。うち13件は、法で期限が決まっている。</span><span class="en" lang="en">Things to do in the sample family's 1,000 days. 13 of them have legal deadlines.</span></p></div>
+      <div class="stat"><div class="n">2<span lang="ja" class="ja">倍超</span><span lang="en" class="en">×+</span></div><p><span class="ja" lang="ja">生まれてからの8週の用事は14件。妊娠中で一番多い8週（6件）の2倍を超える用事が、体の一番つらい時に来る。</span><span class="en" lang="en">14 things land in the first 8 weeks after birth — more than twice the busiest 8 weeks of pregnancy (6), right when the body needs rest most.</span></p></div>
+      <div class="stat"><div class="n">14<span lang="ja" class="ja">日</span><span lang="en" class="en"> days</span></div><p><span class="ja" lang="ja">出生届の期限（戸籍法第49条）。生まれた日から数える。</span><span class="en" lang="en">Deadline for the birth registration (Family Register Act, Art. 49), counted from the day of birth.</span></p></div>
+    </div>
+    <p class="src"><span class="ja" lang="ja">用事の数は、見本の家族（佐藤家・作った家族）の予定表を、アプリの <code>scheduleFor</code> で数えたもの。線の上の点の位置は、ふつうの時期のおおよそ。</span><span class="en" lang="en">Counts come from the sample family's (the Satos', fictional) schedule, computed with the app's <code>scheduleFor</code>. Dot positions on the line are typical, approximate timings.</span></p>
+  </div>
+</section>
+
+<section id="moving" class="band">
+  <div class="wrap">
+    <p class="eyebrow"><span class="ja" lang="ja">動いているところ</span><span class="en" lang="en">How it moves</span></p>
+    <h2><span class="ja" lang="ja">1000日のうちの、ある日。</span><span class="en" lang="en">Some days out of the 1,000.</span></h2>
+    <p class="lead"><span class="ja" lang="ja">見本の家族は、美咲と翔太（作った家族）。どの画面も、このアプリを iPhone の大きさで動かして撮りました。</span><span class="en" lang="en">The sample family is Misaki and Shota (fictional). Every screen was captured from the running app at iPhone size.</span></p>
+    <div class="shots">
+      <div class="shot"><div class="ph"><img src="images/page/screens/01-8w.jpg" alt="妊娠8週の今日の画面。いちばん先の事は「役所に妊娠を届ける」" loading="lazy"></div>
+        <p class="when"><span class="ja" lang="ja">妊娠8週</span><span class="en" lang="en">Week 8 of pregnancy</span></p>
+        <h3><span class="ja" lang="ja">週数で、手帳が自分から起きる</span><span class="en" lang="en">It wakes up on the family's clock</span></h3>
+        <p><span class="ja" lang="ja">今日やる事を、一つだけ出す。役所に妊娠を届ける・目安の日まで。</span><span class="en" lang="en">One thing to do today, with a target date: report the pregnancy to the city office.</span></p></div>
+      <div class="shot"><div class="ph"><img src="images/page/screens/02-ask.jpg" alt="手帳に聞くの答え。下に「転入届を出す」とどこへ行くか見るのボタン" loading="lazy"></div>
+        <p class="when"><span class="ja" lang="ja">引っ越した日</span><span class="en" lang="en">Moving day</span></p>
+        <h3><span class="ja" lang="ja">手帳に聞く</span><span class="en" lang="en">Ask the handbook</span></h3>
+        <p><span class="ja" lang="ja">町の公式ページまで調べて答え、答えの下に次にやる事（窓口・持ち物・下書き）を置く。</span><span class="en" lang="en">It researches the city's official pages, answers, and puts the next step (counter, what to bring, drafts) right under the answer.</span></p>
+        <span class="badge">Claude Sonnet 5.5</span></div>
+      <div class="shot"><div class="ph"><img src="images/page/screens/03-checkup.jpg" alt="28週の健診のまとめ。次の健診の聞こえた日が出ている" loading="lazy"></div>
+        <p class="when"><span class="ja" lang="ja">妊娠28週・健診の日</span><span class="en" lang="en">Week 28 · checkup day</span></p>
+        <h3><span class="ja" lang="ja">健診では、録音するだけ</span><span class="en" lang="en">At a checkup, just record</span></h3>
+        <p><span class="ja" lang="ja">聞こえた言葉を崩さずに、やる事と次の健診の日に分ける。日付は、家族が確かめてから予定に入る。</span><span class="en" lang="en">Keeping the words as heard, it sorts out what to do and the next checkup date. Dates enter the plan only after the family confirms them.</span></p>
+        <span class="badge">Claude Opus 5.5</span></div>
+      <div class="shot"><div class="ph"><img src="images/page/screens/04-birth.jpg" alt="生まれた日の画面。出生届は翔太の番、あなたは休む事を一番に" loading="lazy"></div>
+        <p class="when"><span class="ja" lang="ja">生まれた日</span><span class="en" lang="en">The day of birth</span></p>
+        <h3><span class="ja" lang="ja">「あなたは、休む事を一番に。」</span><span class="en" lang="en">"Put your rest first."</span></h3>
+        <p><span class="ja" lang="ja">生まれた届けは、パートナーの番に。役所へ行く日を1つにまとめる。</span><span class="en" lang="en">The birth paperwork goes to the partner, bundled into a single trip to the city office.</span></p></div>
+      <div class="shot"><div class="ph"><img src="images/page/screens/05-recount.jpg" alt="手帳が気づいた事。生まれた日に合わせ、育休の始まりを直した" loading="lazy"></div>
+        <p class="when"><span class="ja" lang="ja">予定より早く生まれたら</span><span class="en" lang="en">If the baby comes early</span></p>
+        <h3><span class="ja" lang="ja">休みと期限を、数え直す</span><span class="en" lang="en">It recounts leave and deadlines</span></h3>
+        <p><span class="ja" lang="ja">生まれた日から数え直し、職場の上司へのメールまで、それぞれの名前で下書きする。最後の OK は家族が押す。</span><span class="en" lang="en">It recounts from the actual birthday and drafts even the email to the boss, in each parent's name. The family presses the final OK.</span></p>
+        <span class="badge">Claude Opus 5.5</span></div>
+      <div class="shot"><div class="ph"><img src="images/page/screens/06-letter.jpg" alt="1歳の誕生日に開いた手紙。ママ（美咲）から、ひなたへ" loading="lazy"></div>
+        <p class="when"><span class="ja" lang="ja">1歳の誕生日</span><span class="en" lang="en">First birthday</span></p>
+        <h3><span class="ja" lang="ja">おなかにいた頃の手紙が開く</span><span class="en" lang="en">A letter from the womb days opens</span></h3>
+        <p><span class="ja" lang="ja">手紙と声は家族の鍵で封をして、Claude には渡さない。</span><span class="en" lang="en">Letters and voices are sealed with the family's key and never sent to Claude.</span></p></div>
+      <div class="shot"><div class="ph"><img src="images/page/screens/07-english.jpg" alt="英語に切り替えた手帳の画面" loading="lazy"></div>
+        <p class="when"><span class="ja" lang="ja">どの言葉でも</span><span class="en" lang="en">In your language</span></p>
+        <h3><span class="ja" lang="ja">日本語・中文・English</span><span class="en" lang="en">Japanese · Chinese · English</span></h3>
+        <p><span class="ja" lang="ja">日本語が読めない親も、自分の言葉で同じ手帳を使える（2024年は、親の少なくとも1人が外国人の子が 5.4％）。</span><span class="en" lang="en">Parents who can't read Japanese use the same handbook in their own language (in 2024, 5.4% of babies had at least one foreign parent).</span></p></div>
+      <div class="shot"><div class="ph"><img src="images/page/screens/08-book.jpg" alt="子どもへの一冊。ひなたへ、1歳までの日々" loading="lazy"></div>
+        <p class="when"><span class="ja" lang="ja">1歳の時点（2歳で1000日の一冊に）</span><span class="en" lang="en">At age 1 (at 2, the full 1,000 days)</span></p>
+        <h3><span class="ja" lang="ja">子どもへの一冊</span><span class="en" lang="en">A book for the child</span></h3>
+        <p><span class="ja" lang="ja">家族の記録から、子どもへの一冊を書く。写真と家族の声で流す映画にもなる。</span><span class="en" lang="en">From the family's records it writes a book for the child, and a short film with photos and the family's voices.</span></p>
+        <span class="badge">Claude Opus 5.5</span></div>
+    </div>
+    <p class="hint"><span class="ja" lang="ja">横に流すと続きがあります →</span><span class="en" lang="en">Swipe for more →</span></p>
+  </div>
+</section>
+
+<section id="promise">
+  <div class="wrap">
+    <p class="eyebrow"><span class="ja" lang="ja">3つの言い分</span><span class="en" lang="en">Three commitments</span></p>
+    <h2><span class="ja" lang="ja">先に動くのは手帳。決めるのは家族。</span><span class="en" lang="en">The handbook moves first. The family decides.</span></h2>
+    <div class="three">
+      <div class="pr"><div class="k">1</div><h3><span class="ja" lang="ja">全体を抱えて、先に動く</span><span class="en" lang="en">Hold the whole, move first</span></h3><p><span class="ja" lang="ja">週数と月齢で自分から起き、どの町でも公式ページを調べ、期限・下書き・窓口まで用意する。家族がするのは最後の OK だけ。</span><span class="en" lang="en">It wakes on the pregnancy week and the baby's age, checks any city's official pages, and prepares deadlines, drafts and counters. The family only gives the final OK.</span></p></div>
+      <div class="pr"><div class="k">2</div><h3><span class="ja" lang="ja">最後に決めるのは本人</span><span class="en" lang="en">The person decides last</span></h3><p><span class="ja" lang="ja">録音や写真から出た日付は「こう聞こえました。大丈夫ですか？」と聞く。手紙と声は家族の鍵で封をし、Claude には渡さない。</span><span class="en" lang="en">A date taken from a recording or photo is asked back: "This is what I heard. Is it right?" Letters and voices are sealed with the family's key and never sent to Claude.</span></p></div>
+      <div class="pr"><div class="k">3</div><h3><span class="ja" lang="ja">家族で1冊、親の言葉で</span><span class="en" lang="en">One book for the family, in the parents' words</span></h3><p><span class="ja" lang="ja">パートナーにも自分の番と、自分の名前の下書き。日本語・中文・English で使える。</span><span class="en" lang="en">The partner gets their own turns and drafts in their own name. It works in Japanese, Chinese and English.</span></p></div>
+    </div>
+    <div class="care"><div><b><span class="ja" lang="ja">体の判断は、しません。</span><span class="en" lang="en">It never judges health.</span></b><p><span class="ja" lang="ja">体や心の事は、健診で聞く事と連絡先へつなぎます（#8000 は47都道府県、#7119 は42地域の番号を持っています）。答えるのではなく、橋になります。</span><span class="en" lang="en">For the body or the mind, it turns worries into questions for the next checkup and points to the right line (it knows #8000 for all 47 prefectures and #7119 for 42 areas). It is a bridge, not an answer.</span></p></div></div>
+  </div>
+</section>
+
+<section id="claude" class="band">
+  <div class="wrap">
+    <p class="eyebrow"><span class="ja" lang="ja">Claude の使い方</span><span class="en" lang="en">How Claude is used</span></p>
+    <h2><span class="ja" lang="ja">仕事ごとに、Claude を選ぶ。</span><span class="en" lang="en">The right Claude for each job.</span></h2>
+    <div class="models">
+      <div class="mdl"><div class="nm">Sonnet 5.5<small><span class="ja" lang="ja">毎日の仕事</span><span class="en" lang="en">Everyday jobs</span></small></div>
+        <ul><li><span class="ja" lang="ja">撮る・話すの読み取り</span><span class="en" lang="en">Reading photos and voice</span></li><li><span class="ja" lang="ja">下書き</span><span class="en" lang="en">Drafts</span></li><li><span class="ja" lang="ja">手帳に聞く（道具を選んで答える）</span><span class="en" lang="en">Ask the handbook (with tools)</span></li><li><span class="ja" lang="ja">調べ物（web 検索・出典つき）</span><span class="en" lang="en">Research with web search and citations</span></li></ul></div>
+      <div class="mdl op"><div class="nm">Opus 5.5<small><span class="ja" lang="ja">深い仕事</span><span class="en" lang="en">Deep work</span></small></div>
+        <ul><li><span class="ja" lang="ja">手帳が気づいた事（家族の形と記録の突き合わせ）</span><span class="en" lang="en">What the handbook noticed (family shape vs. records)</span></li><li><span class="ja" lang="ja">健診の整理（先生の言葉）</span><span class="en" lang="en">Checkup notes (the doctor's words)</span></li><li><span class="ja" lang="ja">子どもへの一冊と、映画の台本</span><span class="en" lang="en">The book for the child and its film script</span></li></ul></div>
+      <div class="mdl"><div class="nm">Haiku 5.5<small><span class="ja" lang="ja">軽い仕事</span><span class="en" lang="en">Light jobs</span></small></div>
+        <ul><li><span class="ja" lang="ja">手帳に聞くの答えの見張り（体や心の判断をしていないか）</span><span class="en" lang="en">Guarding Ask replies (no health or mental-health judgment)</span></li><li><span class="ja" lang="ja">調べ物の整え</span><span class="en" lang="en">Reshaping research</span></li></ul></div>
+    </div>
+    <p class="src"><span class="ja" lang="ja">正本は <code>app/src/lib/claude.ts</code> の4つの定数。1日の上限を超えた日は Claude の仕事だけが止まり、見本の家族は見本の答えで動きます。</span><span class="en" lang="en">The source of truth is four constants in <code>app/src/lib/claude.ts</code>. On a day past the spending limit only the Claude jobs pause; sample families keep running on recorded answers.</span></p>
+  </div>
+</section>
+
+<section id="built" class="dark">
+  <div class="wrap">
+    <p class="eyebrow"><span class="ja" lang="ja">作り方</span><span class="en" lang="en">How it was built</span></p>
+    <h2><span class="ja" lang="ja">作り手1人 ＋ Claude Code</span><span class="en" lang="en">One maker + Claude Code</span></h2>
+    <p class="lead"><span class="ja" lang="ja">大会の期間中（2026-11-02〜）に、すべて新しく作りました。Claude Code の会話を役ごとに分けて同時に動かし、直すたびに、国の統計に近似した1000の家族で1000日を早送りして確かめています。</span><span class="en" lang="en">Everything was built new during the hackathon (from 2026-11-02). Claude Code sessions ran side by side, one role each, and every fix is replayed through 1,000 days for 1,000 families that approximate national statistics.</span></p>
+    <div class="nums">
+      <div class="num"><div class="n">400+</div><p><span class="ja" lang="ja">main のコミットは 400 以上。うち 300 以上が Claude と共著（締め切りまで増え続けるので、動画と同じく「以上」で書いています）</span><span class="en" lang="en">400+ commits on main, 300+ co-authored with Claude (still growing until the deadline, so written as a floor, as in the video)</span></p></div>
+      <div class="num"><div class="n">1,030</div><p><span class="ja" lang="ja">統計に近似した1000家族と珍しい30家族 × 1000日を、直すたびに早送り（のべ約106万日・確かめる決まり23こ）</span><span class="en" lang="en">1,000 families approximating national statistics plus 30 rare cases, fast-forwarded through 1,000 days on every fix (≈1.06M family-days, 23 rules)</span></p></div>
+      <div class="num"><div class="n">41</div><p><span class="ja" lang="ja">公的な統計から1000組を作った。1組は2025年の出生 671,270人の約671家族ぶん</span><span class="en" lang="en">Public statistics behind the 1,000 families; each stands for ≈671 families (671,270 births in 2025)</span></p></div>
+      <div class="num"><div class="n">377</div><p><span class="ja" lang="ja">なりきり（Opus が家族になって iPhone の大きさで画面を触る）6回・のべ36家族で見つかった事</span><span class="en" lang="en">Findings from 6 role-play rounds (36 family sessions) where Opus used the app at iPhone size</span></p></div>
+    </div>
+    <div class="loop" aria-label="直す流れ">
+      <span><span class="ja" lang="ja">公的な統計 41</span><span class="en" lang="en">41 statistics</span></span><i>→</i>
+      <span><span class="ja" lang="ja">統計に近似した1000組</span><span class="en" lang="en">1,000 families</span></span><i>→</i>
+      <span><span class="ja" lang="ja">早送り（毎回）</span><span class="en" lang="en">Fast-forward (every fix)</span></span><i>→</i>
+      <span><span class="ja" lang="ja">なりきり（Opus）</span><span class="en" lang="en">Role-play (Opus)</span></span><i>→</i>
+      <span><span class="ja" lang="ja">見つかった事</span><span class="en" lang="en">Findings</span></span><i>→</i>
+      <span class="me"><span class="ja" lang="ja">作り手が選ぶ</span><span class="en" lang="en">The maker picks</span></span><i>→</i>
+      <span><span class="ja" lang="ja">コミット</span><span class="en" lang="en">Commit</span></span><i>↺</i>
+    </div>
+    <div class="roles">
+      <div class="role"><b><span class="ja" lang="ja">統括の会話</span><span class="en" lang="en">Coordinator session</span></b><span class="ja" lang="ja">全体と次の一手。仕事を割り振る</span><span class="en" lang="en">Holds the whole picture and hands out work</span></div>
+      <div class="role"><b><span class="ja" lang="ja">作業の会話</span><span class="en" lang="en">Work sessions</span></b><span class="ja" lang="ja">使い心地・思い出・手帳に聞く…それぞれの worktree で</span><span class="en" lang="en">Usability, memories, Ask… each in its own worktree</span></div>
+      <div class="role"><b><span class="ja" lang="ja">全体監査の会話</span><span class="en" lang="en">Audit session</span></b><span class="ja" lang="ja">8つの観点で読み、反証にかけて 89件 → 8件を直した</span><span class="en" lang="en">8 lenses plus refuters: 89 findings, 8 fixed</span></div>
+      <div class="role"><b><span class="ja" lang="ja">仕掛け</span><span class="en" lang="en">Automation</span></b><span class="ja" lang="ja">コミットのたびに main へ。CI が通れば30分ごとに体験版へ</span><span class="en" lang="en">Every commit lands on main; when CI passes it ships every 30 min</span></div>
+    </div>
+    <p class="src"><a href="https://github.com/Kamicham/boshi-techo/blob/main/docs/BUILT_WITH_CLAUDE_CODE.md" target="_blank" rel="noopener"><span class="ja" lang="ja">Claude Code での作り方を詳しく →</span><span class="en" lang="en">More on building with Claude Code →</span></a></p>
+  </div>
+</section>
+
+<section id="maker">
+  <div class="wrap maker">
+    <div>
+      <p class="eyebrow"><span class="ja" lang="ja">作り手の話</span><span class="en" lang="en">From the maker</span></p>
+      <h2><span class="ja" lang="ja">家族の本物の健診で、使いました。</span><span class="en" lang="en">We used it at a real checkup.</span></h2>
+      <blockquote>
+        <p><span class="ja" lang="ja">作り手は、自分の家族が使う1号目です。期間中に、家族の本物の妊婦健診でこの手帳を使いました。録音から作ったまとめの中で、次の健診の日付が聞き違えられていました。確かめていない日付は、今日の画面にも、前の日の声かけにも、家族へ送る文にも、そのまま広がります。</span><span class="en" lang="en">I am the first user — my own family uses this handbook. During the hackathon we used it at a real prenatal checkup, and the summary made from the recording misheard the next checkup date. An unconfirmed date spreads everywhere: to today's screen, to the reminder the day before, to the message sent to family.</span></p>
+        <p><span class="ja" lang="ja">聞き違いは、仕組みだけでは防ぎ切れません。だから、最後の OK を本人に残す形に作り直しました。<span class="q">「録音からはこう聞こえました。この日で大丈夫ですか？」</span>本人が「大丈夫」を押すまで、その日付は予定にも、カレンダーにも、送る文にも進みません。</span><span class="en" lang="en">Mishearing can't be fully prevented by design. So I rebuilt it to leave the final OK to the person: <span class="q">"This is what the recording sounded like. Is this date right?"</span> Until they press OK, the date never moves into the plan, the calendar or any message.</span></p>
+      </blockquote>
+      <p class="by">— Kamicham</p>
+    </div>
+    <figure><div class="ph"><img src="images/page/screens/03b-confirmed.jpg" alt="次の健診の日を、本人が確かめた後の画面" loading="lazy"></div>
+      <figcaption><span class="ja" lang="ja">見本の家族で再現した画面。「美咲が確かめました」の後に、カレンダーへ入れられる。</span><span class="en" lang="en">Re-created with the sample family: only after "Misaki confirmed" can it go to the calendar.</span></figcaption></figure>
+  </div>
+</section>
+
+<section class="close band">
+  <div class="wrap">
+    <p class="l1"><span class="ja" lang="ja">手続きは、手帳に任せて。</span><span class="en" lang="en">Leave the paperwork to the handbook.</span></p>
+    <p class="l2"><span class="ja" lang="ja">あなたは、子どものそばに。</span><span class="en" lang="en">Stay close to your child.</span></p>
+    <div class="cta">
+      <a class="btn p" href="https://boshi-techo-try.fly.dev" target="_blank" rel="noopener"><span class="ja" lang="ja">体験版を開く</span><span class="en" lang="en">Open the live demo</span> ↗</a>
+      <a class="btn s" href="https://github.com/Kamicham/boshi-techo" target="_blank" rel="noopener">GitHub ↗</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <nav>
+      <a href="https://github.com/Kamicham/boshi-techo/blob/main/docs/VISION.md" target="_blank" rel="noopener"><span class="ja" lang="ja">考え方</span><span class="en" lang="en">Vision</span></a>
+      <a href="https://github.com/Kamicham/boshi-techo/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener"><span class="ja" lang="ja">作り</span><span class="en" lang="en">Architecture</span></a>
+      <a href="https://github.com/Kamicham/boshi-techo/blob/main/docs/SIMULATION_RESULTS.md" target="_blank" rel="noopener"><span class="ja" lang="ja">シミュレーションの結果</span><span class="en" lang="en">Simulation results</span></a>
+      <a href="https://github.com/Kamicham/boshi-techo/blob/main/docs/BUILT_WITH_CLAUDE_CODE.md" target="_blank" rel="noopener"><span class="ja" lang="ja">Claude Code での作り方</span><span class="en" lang="en">Built with Claude Code</span></a>
+    </nav>
+    <p><span class="ja" lang="ja">見本の家族（佐藤家）はすべて作った家族で、実在の人物ではありません。3分の動画の語りの声と曲は AI で生成しました（Gemini API）。見本の写真は Z-Image-Turbo で生成し、見本の声は AivisSpeech と Qwen3-TTS で合成しました（README「見本の素材」と同じ）。</span><span class="en" lang="en">The sample family (the Satos) is fictional. The narration voice and music of the 3-minute video were generated with AI (Gemini API). Sample photos were generated with Z-Image-Turbo, and sample voices were synthesized with AivisSpeech and Qwen3-TTS (same as “Sample media” in the README).</span></p>
+    <p>MIT License · Built with Claude: Japan 2026 · <span class="ja" lang="ja">作り手</span><span class="en" lang="en">Maker</span> Kamicham</p>
+  </div>
+</footer>
+</div>
+
+<script>
+(function(){
+  var pg=document.getElementById("pg");
+  function set(l){pg.setAttribute("data-l",l);document.documentElement.lang=l;
+    document.querySelectorAll(".lang button").forEach(function(b){b.setAttribute("aria-pressed",b.dataset.set===l?"true":"false")});}
+  var h=(location.hash||"").replace("#",""),l=null;
+  if(h==="ja"||h==="en")l=h;
+  if(!l){try{l=localStorage.getItem("boshi.page.lang")}catch(e){}}
+  if(l!=="ja"&&l!=="en"){var ls=navigator.languages||[navigator.language||"ja"];l=ls.some(function(x){return /^ja/i.test(x)})?"ja":"en";}
+  set(l);
+  document.querySelectorAll(".lang button").forEach(function(b){b.addEventListener("click",function(){set(b.dataset.set);try{localStorage.setItem("boshi.page.lang",b.dataset.set)}catch(e){}})});
+})();
+</script>
+</body>
+</html>
