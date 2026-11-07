@@ -36,7 +36,7 @@
 - **インパクト** — [なぜ作るか](#なぜ作るか)：役所・産院・会社がばらばらで、全体を持つ人がいない。2025年に生まれた子は 671,270人。親の少なくとも1人が外国人の子は 5.4％（2024年）。数字はすべて出典つき
 - **デモ** — [3分の動画](https://youtu.be/XKPseCaHKGg)・[体験版](https://boshi-techo-try.fly.dev/)：見本の家族の写しが、あなただけに開く（登録なし・7日で消える）。妊娠8週から2歳までの8つの時期（もしもの引っ越しも）か、つまみで好きな日を選び、日本語・中文・English で見られる
 - **Claude 活用** — [Claude の使い方](#claude-の使い方)：9つの仕事を Sonnet 5.5・Opus 5.5・Haiku 5.5 に分ける → [Claude Code での作り方](docs/BUILT_WITH_CLAUDE_CODE.md)
-- **深さと実行力** — [確かめ方](#確かめ方)：修正のたびに、試験 1,514件と、1,030家族の1000日（のべ約106万日）を動かして23の決まりで確かめる早送りを CI で回す → [早送りの結果](docs/SIMULATION_RESULTS.md)
+- **深さと実行力** — [確かめ方](#確かめ方)：修正のたびに、試験 1,534件と、1,030家族の1000日（のべ約106万日）を動かして23の決まりで確かめる早送りを CI で回す → [早送りの結果](docs/SIMULATION_RESULTS.md)
 
 作り手: Kamicham（1人で参加。Cerebral Valley では Kamichama）。11/2〜11/4 のコミットの作者名 konnokun も同じ作り手で、11/4 に Git の名前の設定を揃えた。
 
@@ -219,7 +219,7 @@ fly deploy --remote-only   # 組み立ては Fly の機械で。像は、きれ�
 
 ### 確かめ方
 
-- **試験 114ファイル・1,514件**（2026-11-07 時点・`npm test`）。Claude は呼ばず、鍵も使わない。main への push と PR のたびに、GitHub Actions（`.github/workflows/check.yml`）が型・lint・試験・早送り・組み立て（next build）を回す
+- **試験 116ファイル・1,534件**（2026-11-07 時点・`npm test`）。Claude は呼ばず、鍵も使わない。main への push と PR のたびに、GitHub Actions（`.github/workflows/check.yml`）が型・lint・試験・早送り・組み立て（next build）を回す
 - **早送り: 23の決まり（a〜w）× 1,030家族 × 1000日**（`npm run sim`）。公的な統計から作った1000組（のべ 1,035,345日。家族は毎日動かし、画面は7日ごとと節目の日に確かめる）と、珍しい型の30家族（のべ 28,767日。毎日確かめる）を、「今日」の画面と同じ関数に通す。手帳の記録の決まり t1〜t9 は、見本の家族を足した1,031家族で確かめる。今はすべて守れている
 - **世帯をまたぐ試験**: 家族Aのログインで家族Bの記録・済んだ事・手帳・写真の id を叩くと、どれも 404（`app/src/sim/cross-household.test.ts`）。API の口が（健診の口も）すべて、関所（`withHousehold`）か理由つきの公開の口を通るかを、コードを読んで確かめる（`app/src/sim/api-guard.test.ts`）
 
@@ -273,7 +273,7 @@ MIT
 - **Impact** — [Why](#why): the city office, the clinic and the employer each hold a piece, and no one holds the whole. 671,270 children were born in Japan in 2025; 5.4% of births have at least one foreign parent (2024). Every number has a source
 - **Demo** — [3-minute video](https://youtu.be/XKPseCaHKGg) · [Public trial](https://boshi-techo-try.fly.dev/): a private copy of a sample family opens just for you (no sign-up, gone in 7 days). Pick one of eight moments from week 8 of pregnancy to age two (one is a move to a new city), or any day on the slider, in Japanese, Chinese or English
 - **Use of Claude** — [How Claude is used](#how-claude-is-used): nine jobs split across Sonnet 5.5, Opus 5.5 and Haiku 5.5 → [How it was built with Claude Code](docs/BUILT_WITH_CLAUDE_CODE.md)
-- **Depth & execution** — [Tests](#tests): on every change, CI runs 1,514 tests and a fast-forward that moves 1,030 families through 1,000 days (about 1.06 million family-days) and checks 23 rules → [Results](docs/SIMULATION_RESULTS.md)
+- **Depth & execution** — [Tests](#tests): on every change, CI runs 1,534 tests and a fast-forward that moves 1,030 families through 1,000 days (about 1.06 million family-days) and checks 23 rules → [Results](docs/SIMULATION_RESULTS.md)
 
 Maker: Kamicham (solo entry; Kamichama on Cerebral Valley). The commits from Nov 2 to Nov 4 authored as konnokun are by the same maker; the Git name setting was unified on Nov 4.
 
@@ -394,7 +394,7 @@ The source of truth is the four constants in [`app/src/lib/claude.ts`](app/src/l
 
 ## Tests
 
-- **1,514 tests in 114 files** (as of 2026-11-07, `npm test`). No Claude calls and no keys. GitHub Actions (`.github/workflows/check.yml`) runs types, lint, tests, the fast-forward and `next build` on every push to main and every PR.
+- **1,534 tests in 116 files** (as of 2026-11-07, `npm test`). No Claude calls and no keys. GitHub Actions (`.github/workflows/check.yml`) runs types, lint, tests, the fast-forward and `next build` on every push to main and every PR.
 - **Fast-forward: 23 rules (a–w) × 1,030 families × 1,000 days** (`npm run sim`). 1,000 synthetic families drawn from public statistics (1,035,345 family-days; the families move every day, and the screen is checked weekly and on milestone days) and 30 hand-made rare cases (28,767 family-days, checked every day) pass through the same functions as the Today screen. The 9 handbook-record rules (t1–t9) are checked on 1,031 families (adding the demo family). All pass today.
 - **Cross-household tests**: with family A's login, every record, done item, handbook entry and photo id of family B returns 404 (`app/src/sim/cross-household.test.ts`). A source-reading test checks that every API route (including the checkup routes) goes through the household gate (`withHousehold`) or is a public route with a stated reason (`app/src/sim/api-guard.test.ts`).
 
