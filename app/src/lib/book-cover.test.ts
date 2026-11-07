@@ -6,7 +6,7 @@ import { conceptionDate, secondBirthday } from "./clock";
 import DEMO_BOOKS from "./demo-books.json";
 import { DEMO_FAMILY } from "./demo-family";
 import sampleBooks from "./i18n/dict/sample-books";
-import { coverPeriod, coverTo } from "./memory-words";
+import { coverPeriod, coverTitleParts, coverTo } from "./memory-words";
 
 const RANGE = { start: conceptionDate(DEMO_FAMILY), end: secondBirthday(DEMO_FAMILY) };
 const SB: Record<string, { zh: string; en: string }> = sampleBooks;
@@ -36,5 +36,23 @@ describe("一冊の表紙の宛名（題に宛名がある時は重ねない）"
   it("題に宛名が無い一冊（本物の家族で Claude が別の題を書いた時）は、宛名の行を出す", () => {
     expect(coverTo("はじまりの1年", "ゆいへ")).toBe("ゆいへ");
     expect(coverTo("Our First Year", "To Yui")).toBe("To Yui");
+  });
+});
+
+describe("一冊の表紙の題の空き（空きの所でだけ分けて全角ほどに広げる・英語の語の間は広げない）", () => {
+  it("見本の4冊の題: 日本語と中文は宛名の後の空きで2つに分かれ、English は1つのまま（2026-11-07 English の語の間がどれも広く見えた）", () => {
+    for (const b of DEMO_BOOKS) {
+      const { zh, en } = SB[b.raw.title];
+      expect(coverTitleParts(b.raw.title)).toEqual(["ひなたへ", b.raw.title.slice("ひなたへ".length).trim()]);
+      expect(coverTitleParts(zh)).toEqual(["给ひなた", zh.split("\u3000")[1]]);
+      expect(coverTitleParts(en)).toEqual([en]);
+    }
+  });
+
+  it("半角の空白も、日本語・中文の字に接していれば空き。英語の語と語の間・英語と数字の間は空きにしない", () => {
+    expect(coverTitleParts("ひなたへ はじまりの日々")).toEqual(["ひなたへ", "はじまりの日々"]);
+    expect(coverTitleParts("To Hinata: Your First 1000 Days")).toEqual(["To Hinata: Your First 1000 Days"]);
+    expect(coverTitleParts("Our First Year\u3000はじめての1年")).toEqual(["Our First Year", "はじめての1年"]);
+    expect(coverTitleParts(" \u3000")).toEqual([]);
   });
 });

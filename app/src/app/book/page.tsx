@@ -18,7 +18,7 @@ import { readWelcomed, WELCOMED_KEY } from "@/components/Welcome";
 import type { ClientMedia } from "@/lib/media-shared";
 import { t } from "@/lib/i18n";
 import { tr } from "@/lib/i18n/rich";
-import { coverPeriod, coverTo, dayLong, nameOf, parens } from "@/lib/memory-words";
+import { coverPeriod, coverTitleParts, coverTo, dayLong, nameOf, parens } from "@/lib/memory-words";
 
 /** 一冊に描ける写真（ある・隠していない）。消した写真の id は飛ばして描く */
 type Photos = Map<string, ClientMedia>;
@@ -321,14 +321,14 @@ function Binding({ child }: { child: string }) {
 
 /**
  * 表紙の題を、全角の空きの所で折り返す（「1歳になるまで」の「で」の1字だけが次の行に残る、のような折れ方を避ける）。
- * 空きで分けた言葉を1つずつ折れない箱にし、間は折れる普通の空き（行の終わりで消えるので、折れても中寄せがずれない）。
- * 空きの幅は h2 の word-spacing で全角ほどに。箱より長い言葉だけは、箱の中で折れる（text-balance で行の長さをそろえる）
+ * 空き（lib/memory-words の coverTitleParts）で分けた言葉を1つずつ折れない箱にし、間は折れる普通の空き（行の終わりで消えるので、折れても中寄せがずれない）。
+ * 空きの空白にだけ word-spacing を付けて全角ほどに（英語の語と語の間は、箱の中の普通の空白のまま。前は h2 に付けていて、
+ * English の題の語の間がどれも広がっていた）。箱より長い言葉だけは、箱の中で折れる（text-balance で行の長さをそろえる）
  */
 function TitleLines({ text }: { text: string }) {
-  const words = text.split(/[\u3000 ]+/).filter(Boolean);
-  return words.map((w, i) => (
+  return coverTitleParts(text).map((w, i) => (
     <Fragment key={i}>
-      {i > 0 && " "}
+      {i > 0 && <span className="[word-spacing:0.6em]">{" "}</span>}
       <span className="inline-block">{w}</span>
     </Fragment>
   ));
@@ -453,7 +453,7 @@ function PageBody({ book, page, photos }: { book: Book; page: Page; photos: Phot
           <img src={cover.urls.view} alt="" className="max-h-64 w-full rounded-lg object-cover" />
         )}
         <p className="text-xs tracking-[0.4em] text-rose">{t("1000 日 の 記 録")}</p>
-        <h2 className="font-display text-3xl font-bold leading-snug text-balance [word-spacing:0.6em]">
+        <h2 className="font-display text-3xl font-bold leading-snug text-balance">
           <TitleLines text={book.title} />
         </h2>
         <div className="h-px w-16 bg-rose/40" />

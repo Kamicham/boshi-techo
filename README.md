@@ -24,7 +24,7 @@
 <p align="center">
   <a href="https://github.com/Kamicham/boshi-techo/actions/workflows/check.yml"><img src="https://github.com/Kamicham/boshi-techo/actions/workflows/check.yml/badge.svg?branch=main" alt="検査（型・lint・試験・早送り・組み立て）"></a><br>
   <sub><b>Built with Claude: Japan 2026</b> の出品作<br>（テーマ #2「本来、誰にでも届くべきものを。」）<br>
-  開発期間: 2026-11-02 12:30 〜 2026-11-08 20:00（JST）。このリポジトリは期間中にゼロから作っています ・ <a href="#english">English</a></sub>
+  開発期間: 2026-11-02 12:30 〜 2026-11-08 20:00（JST）。このリポジトリは期間中にゼロから作っています（<a href="https://github.com/Kamicham/boshi-techo/commit/f97bd3f46d0b2dbb556cbdae463f3c567a72262a">最初のコミット</a>は 11/2 20:51） ・ <a href="#english">English</a></sub>
 </p>
 
 ### 4つの軸から見る
@@ -257,7 +257,7 @@ MIT
 
 <p align="center">
   <sub>An entry to <b>Built with Claude: Japan 2026</b> (Theme #2: "What should reach everyone").<br>
-  Built from scratch between 2026-11-02 12:30 and 2026-11-08 20:00 (JST).</sub>
+  Built from scratch between 2026-11-02 12:30 and 2026-11-08 20:00 (JST). The <a href="https://github.com/Kamicham/boshi-techo/commit/f97bd3f46d0b2dbb556cbdae463f3c567a72262a">first commit</a> was at 20:51 on Nov 2.</sub>
 </p>
 
 ### Four ways in
