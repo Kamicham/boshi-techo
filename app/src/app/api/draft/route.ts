@@ -1,5 +1,5 @@
 import { body, route } from "@/lib/api";
-import { confirmDraft, getDraft, listDrafts, makeDraft, saveDraft, viewDraft, writerName, writerWork } from "@/lib/drafts";
+import { confirmDraft, getDraft, listDrafts, makeDraft, saveDraft, TO_MAX, viewDraft, writerName, writerWork } from "@/lib/drafts";
 import { getKeep } from "@/lib/keep";
 import { sendingAs } from "@/lib/claude";
 import { HttpError } from "@/lib/family";
@@ -47,11 +47,13 @@ type EditBody = {
 };
 
 function readEdits(b: EditBody) {
-  const str = (v: unknown) => (typeof v === "string" ? v.slice(0, 20_000) : undefined);
+  // 長さの上限（2026-11-07 Claude Security の F2）: 宛先は300字（lib/drafts.ts の TO_MAX）・件名は200字・本文は2万字。
+  // 宛先と件名は、表示のたびに正規表現で分ける・空欄を探す所を通るので、現実の長さで切る
+  const str = (v: unknown, max: number) => (typeof v === "string" ? v.slice(0, max) : undefined);
   return {
-    title: str(b.title),
-    to: str(b.to),
-    body: str(b.body),
+    title: str(b.title, 200),
+    to: str(b.to, TO_MAX),
+    body: str(b.body, 20_000),
     checklist: Array.isArray(b.checklist) ? b.checklist.filter((x): x is string => typeof x === "string") : undefined,
   };
 }

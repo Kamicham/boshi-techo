@@ -54,14 +54,22 @@ const TAG = /^(ご?報告|ご?連絡|ご?相談|お知らせ|重要|至急|共�
 
 const BLANK = /【([^】\n]{0,40})】/g;
 
+// 長い本文で、空欄の数×長さの手間にならないようにする（2026-11-07 Claude Security の F2 と全体監査の実測: 本文2万字で1回3〜14秒塞がった）。
+// 1つの欄で見る空欄は60まで（現実の下書きは多くて十数個）。名前の無い空欄の行の文は、空欄の前後 LABEL_WINDOW 字だけで作る
+// （名前は40字に縮めて空欄の前後18字ずつしか見せないので、窓の外は答えに出ない）。試験: drafts-redos.test.ts
+const MAX_BLANKS = 60;
+const LABEL_WINDOW = 200;
+
 /** 名前の無い【 】の欄の名前: その行の文（この空欄を「＿」、ほかの空欄を「…」にして短く） */
 function lineLabel(text: string, index: number, len: number): string {
   const start = text.lastIndexOf("\n", index - 1) + 1;
   const endN = text.indexOf("\n", index + len);
   const end = endN < 0 ? text.length : endN;
-  const line = `${text.slice(start, index)}＿${text.slice(index + len, end)}`.replace(BLANK, "…").replace(/^[\s■●・※]+/, "").trim();
-  // 前の行が見出し（■希望する期間 など）なら添える
-  const prev = text.slice(0, Math.max(0, start - 1)).split("\n").pop()?.trim() ?? "";
+  const from = Math.max(start, index - LABEL_WINDOW);
+  const to = Math.min(end, index + len + LABEL_WINDOW);
+  const line = `${text.slice(from, index)}＿${text.slice(index + len, to)}`.replace(BLANK, "…").replace(/^[\s■●・※]+/, "").trim();
+  // 前の行が見出し（■希望する期間 など）なら添える（前は前の全文を split していた）
+  const prev = start > 0 ? text.slice(text.lastIndexOf("\n", start - 2) + 1, start - 1).trim() : "";
   const head = /^[■●【]/.test(prev) ? `${prev.replace(/^[■●]\s*/, "")}: ` : "";
   const s = `${head}${line}`;
   return s.length > 40 ? `…${s.slice(Math.max(0, s.indexOf("＿") - 18), s.indexOf("＿") + 18)}…` : s;
@@ -78,11 +86,15 @@ export function findBlanks(fields: Record<BlankField, string>): Blank[] {
     const text = fields[field] ?? "";
     const dates = [...text.matchAll(SPLIT_DATE)].map((m) => ({ i: m.index ?? 0, raw: m[0] }));
     const inDate = (i: number) => dates.some((d) => i >= d.i && i < d.i + d.raw.length);
+    let seenInField = 0;
     for (const m of text.matchAll(BLANK)) {
+      if (++seenInField > MAX_BLANKS) break;
       const inner = m[1].trim();
       const i = m.index ?? 0;
       if (!inner) {
-        const d = dates.find((x) => x.i === i || (inDate(i) && x.i <= i && i < x.i + x.raw.length));
+        // inDate は日付ごとに変わらないので、先に1回だけ（前は日付ごとに日付の数だけ回り、日付の数の二乗になった）
+        const within = inDate(i);
+        const d = dates.find((x) => x.i === i || (within && x.i <= i && i < x.i + x.raw.length));
         if (d) {
           // 日付の1つ目の【 】の時だけ欄を出す
           if (text.indexOf("【", d.i) === i) out.push({ raw: d.raw, label: lineLabel(text, d.i, d.raw.length), input: "date", at: { field, index: d.i } });
@@ -91,7 +103,7 @@ export function findBlanks(fields: Record<BlankField, string>): Blank[] {
         const label = lineLabel(text, i, m[0].length);
         // 「【 】〜【 】」のような期間の端は日付
         const range = /〜\s*$/.test(text.slice(Math.max(0, i - 2), i)) || /^\s*〜/.test(text.slice(i + m[0].length, i + m[0].length + 2));
-        out.push({ raw: m[0], label, input: range ? "date" : "text", numeric: /^[年月日時分か]/.test(text.slice(i + m[0].length)), at: { field, index: i } });
+        out.push({ raw: m[0], label, input: range ? "date" : "text", numeric: /^[年月日時分か]/.test(text.charAt(i + m[0].length)), at: { field, index: i } });
         continue;
       }
       // 件名の頭の【ご報告】のような札は空欄ではない

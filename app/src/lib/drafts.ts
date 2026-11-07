@@ -134,24 +134,41 @@ function fillDraft(d: Draft, keep: Keep, fill: DraftFill = {}, family?: Family):
   return { ...d, title: fam(fillBlanks(d.title, keep, o)), to: fam(fillBlanks(d.to, keep, o)), body: fam(fillBlanks(d.body, keep, o)) };
 }
 
-const EMAIL_G = /[\w.+-]+@[\w-]+(\.[\w-]+)+/g;
+// 宛先を分ける正規表現は、長い入力で後戻りしない形にする（2026-11-07 Claude Security の F2。公開版では匿名の体験の人も宛先を直せる）。
+// 前は2万字の宛先で、1回の表示に1秒（空白の並び）〜1時間近く（「(cc」＋空白の並び＝三乗）イベントループが塞がった。試験: drafts-redos.test.ts
+
+/** 宛先として見る長さ（現実の宛先は長くても百字ほど）。直した値を残す所（api/draft の readEdits）もこの長さで切る */
+export const TO_MAX = 300;
+
+/** メールアドレス。長さに上限を付ける（名前の部分は64字・ドメインの1つは63字まで＝RFC 5321。上限が無いと @ の無い長い並びで二乗の後戻り） */
+const EMAIL_G = /[\w.+-]{1,64}@[\w-]{1,63}(?:\.[\w-]{1,63}){1,8}/g;
+
+/** （CC: …）。空白を読む所を1か所にする（前は \s*[:：]?\s*([^）)]*) の3つが同じ空白を取り合い、閉じ括弧が無いと三乗の後戻り） */
+const CC_G = /[（(]\s*(?:CC|Cc|cc|ＣＣ)(?:\s*[:：])?([^）)]{0,300})[）)]/g;
+
+/** 末尾の空白と区切り（、,／/）を落とす（前は /[\s、,／/]+$/g。区切りの長い並びで、1字ずつ始めては末尾まで読み直していた） */
+function trimEndSeps(s: string): string {
+  let i = s.length;
+  while (i > 0 && /[\s、,／/]/.test(s[i - 1])) i--;
+  return s.slice(0, i);
+}
 
 /** 宛先の文を「宛名」「メールアドレス」「CC」に分ける */
 export function splitTo(to: string): { name: string; email: string; cc: string } {
-  const email = to.match(EMAIL_G)?.[0] ?? "";
+  const s = to.slice(0, TO_MAX);
+  const email = s.match(EMAIL_G)?.[0] ?? "";
   let cc = "";
-  let name = to.replace(/[（(]\s*(CC|Cc|cc|ＣＣ)\s*[:：]?\s*([^）)]*)[）)]/g, (_m, _c, x: string) => {
+  let name = s.replace(CC_G, (_m, x: string) => {
     cc = x.trim();
     return "";
   });
   name = name
     .replace(/(宛先|メール|アドレス)\s*[:：]\s*/g, "")
     .replace(EMAIL_G, "")
-    .replace(/[<＜]\s*[>＞]|[（(]\s*[）)]/g, "")
-    .replace(/\s*\n\s*/g, " ")
-    .replace(/[\s、,／/]+$/g, "")
-    .trim();
-  return { name, email, cc: cc.replace(EMAIL_G, "").trim() };
+    .replace(/[<＜]\s*[>＞]|[（(]\s*[）)]/g, "");
+  // 改行をはさむ空白は、1つの空白に（前は /\s*\n\s*/g。空白の長い並びで、1字ずつ始めては読み直していた）
+  if (name.includes("\n")) name = name.split("\n").map((l) => l.trim()).filter(Boolean).join(" ");
+  return { name: trimEndSeps(name).trim(), email, cc: cc.replace(EMAIL_G, "").trim() };
 }
 
 /** 下書きと「いつもの」から、画面へ返す形を作る。meId は「この手帳を使っている人」（【自分の名前】を埋める） */
