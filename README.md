@@ -17,9 +17,11 @@
 </p>
 
 <p align="center">
+  <a href="https://youtu.be/XKPseCaHKGg"><img src="docs/images/btn-video-ja.png" height="46" alt="3分の動画"></a>
   <a href="https://boshi-techo-try.fly.dev/"><img src="docs/images/btn-try-ja.png" height="46" alt="体験版で触る（登録なし）"></a>
   <a href="https://kamicham.github.io/boshi-techo/"><img src="docs/images/btn-page-ja.png" height="46" alt="作品のページ"></a><br>
-  <sub>体験版: <a href="https://boshi-techo-try.fly.dev/">https://boshi-techo-try.fly.dev/</a> （ログイン不要）<br>
+  <sub>3分の動画: <a href="https://youtu.be/XKPseCaHKGg">https://youtu.be/XKPseCaHKGg</a><br>
+  体験版: <a href="https://boshi-techo-try.fly.dev/">https://boshi-techo-try.fly.dev/</a> （ログイン不要）<br>
   作品のページ: <a href="https://kamicham.github.io/boshi-techo/">https://kamicham.github.io/boshi-techo/</a></sub>
 </p>
 
@@ -32,7 +34,7 @@
 ### 4つの軸から見る
 
 - **インパクト** — [なぜ作るか](#なぜ作るか)：役所・産院・会社がばらばらで、全体を持つ人がいない。2025年に生まれた子は 671,270人。親の少なくとも1人が外国人の子は 5.4％（2024年）。数字はすべて出典つき
-- **デモ** — [体験版](https://boshi-techo-try.fly.dev/)：見本の家族の写しが、あなただけに開く（登録なし・7日で消える）。妊娠8週から2歳までの8つの時期（もしもの引っ越しも）か、つまみで好きな日を選び、日本語・中文・English で見られる
+- **デモ** — [3分の動画](https://youtu.be/XKPseCaHKGg)・[体験版](https://boshi-techo-try.fly.dev/)：見本の家族の写しが、あなただけに開く（登録なし・7日で消える）。妊娠8週から2歳までの8つの時期（もしもの引っ越しも）か、つまみで好きな日を選び、日本語・中文・English で見られる
 - **Claude 活用** — [Claude の使い方](#claude-の使い方)：9つの仕事を Sonnet 5.5・Opus 5.5・Haiku 5.5 に分ける → [Claude Code での作り方](docs/BUILT_WITH_CLAUDE_CODE.md)
 - **深さと実行力** — [確かめ方](#確かめ方)：修正のたびに、試験 1,514件と、1,030家族の1000日（のべ約106万日）を動かして23の決まりで確かめる早送りを CI で回す → [早送りの結果](docs/SIMULATION_RESULTS.md)
 
@@ -253,9 +255,11 @@ MIT
 </p>
 
 <p align="center">
+  <a href="https://youtu.be/XKPseCaHKGg"><img src="docs/images/btn-video-en.png" height="46" alt="3-min video"></a>
   <a href="https://boshi-techo-try.fly.dev/"><img src="docs/images/btn-try-en.png" height="46" alt="Try it (no sign-up)"></a>
   <a href="https://kamicham.github.io/boshi-techo/#en"><img src="docs/images/btn-page-en.png" height="46" alt="Project page"></a><br>
-  <sub>Live demo: <a href="https://boshi-techo-try.fly.dev/">https://boshi-techo-try.fly.dev/</a> (no login needed)<br>
+  <sub>3-minute video: <a href="https://youtu.be/XKPseCaHKGg">https://youtu.be/XKPseCaHKGg</a> (in Japanese with English subtitles)<br>
+  Live demo: <a href="https://boshi-techo-try.fly.dev/">https://boshi-techo-try.fly.dev/</a> (no login needed)<br>
   Project page: <a href="https://kamicham.github.io/boshi-techo/#en">https://kamicham.github.io/boshi-techo/</a></sub>
 </p>
 
@@ -267,7 +271,7 @@ MIT
 ### Four ways in
 
 - **Impact** — [Why](#why): the city office, the clinic and the employer each hold a piece, and no one holds the whole. 671,270 children were born in Japan in 2025; 5.4% of births have at least one foreign parent (2024). Every number has a source
-- **Demo** — [Public trial](https://boshi-techo-try.fly.dev/): a private copy of a sample family opens just for you (no sign-up, gone in 7 days). Pick one of eight moments from week 8 of pregnancy to age two (one is a move to a new city), or any day on the slider, in Japanese, Chinese or English
+- **Demo** — [3-minute video](https://youtu.be/XKPseCaHKGg) · [Public trial](https://boshi-techo-try.fly.dev/): a private copy of a sample family opens just for you (no sign-up, gone in 7 days). Pick one of eight moments from week 8 of pregnancy to age two (one is a move to a new city), or any day on the slider, in Japanese, Chinese or English
 - **Use of Claude** — [How Claude is used](#how-claude-is-used): nine jobs split across Sonnet 5.5, Opus 5.5 and Haiku 5.5 → [How it was built with Claude Code](docs/BUILT_WITH_CLAUDE_CODE.md)
 - **Depth & execution** — [Tests](#tests): on every change, CI runs 1,514 tests and a fast-forward that moves 1,030 families through 1,000 days (about 1.06 million family-days) and checks 23 rules → [Results](docs/SIMULATION_RESULTS.md)
 
