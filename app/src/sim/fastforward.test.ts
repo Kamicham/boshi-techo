@@ -1,6 +1,6 @@
 // ① 早送りの検査: 作った家族の1000日を、「今日」の画面と同じ純関数に通して、決まりを守れているかを機械で確かめる。
 //   - 30家族（families.ts・珍しい型の見本）: 毎日確かめる
-//   - 現実の割合から作った1000組（population.ts）: ふだんは1週おき＋節目の日（届出・出産の前後・生後14日・1か月・3か月・1歳・2歳など）だけ確かめる。
+//   - 現実の割合から作った1000組（population.ts）: ふだんは7日ごと＋節目の日（届出・出産の前後・生後14日・1か月・3か月・1歳・2歳など）だけ確かめる。
 //     家族は毎日動く（間の日も一番上を済ませる）ので、間引くのは確かめる日だけ。SIM_FULL=1（npm run sim:full）なら毎日確かめる
 //     1000組は「授かった時から使った」扱いで1000日を全部通す（startedOn を外す）。全国に直した数（1組 = 年に約671家族）が、時期の偏りなく意味を持つように。
 //     途中から使い始める型は、30家族（startedOn のある家族）と、なりきり（サーバの pop- は今日から使い始める）で見る
@@ -308,7 +308,7 @@ interface CautionShown {
   at: string;
 }
 
-/** 確かめる日（間引く時）: 1週おき＋節目＋きっかけの窓（生まれた日の前後・引っ越し・使い始め） */
+/** 確かめる日（間引く時）: 7日ごと＋節目＋きっかけの窓（生まれた日の前後・引っ越し・使い始め） */
 function checkDays(f: SimFamily, start: string, end: string, cps: Checkpoint[]): Set<string> {
   const days = new Set<string>();
   const add = (d: string, n = 1) => {
@@ -932,7 +932,7 @@ function cautionLines(rs: Result[], heading: string, sampled: boolean): string[]
   const quietNone = none.filter((x) => x.f.situation?.quiet).length;
   const L: string[] = [`### 気をつける事の札（決まり t・${heading}）`, ""];
   L.push(
-    `札が出た家族 ${rs.length - none.length}/${rs.length}（出なかった ${none.length}・うち静かにする家族 ${quietNone}）。1家族に出た札の種類は中央値 ${median}。筋書きは、出た日に「読んだ」を押す（1日に1枚・端末ごと）。${sampled ? "確かめる日（1週おき＋節目）だけ見るので、出た日は最大6日遅れる。" : ""}`,
+    `札が出た家族 ${rs.length - none.length}/${rs.length}（出なかった ${none.length}・うち静かにする家族 ${quietNone}）。1家族に出た札の種類は中央値 ${median}。筋書きは、出た日に「読んだ」を押す（1日に1枚・端末ごと）。${sampled ? "確かめる日（7日ごと＋節目）だけ見るので、出た日は最大6日遅れる。" : ""}`,
     "",
   );
   const never = CAUTION_IDS.filter((id) => !cards.has(id));
@@ -968,7 +968,7 @@ function writeReport() {
     population: popResults.length
       ? {
           families: popResults.length,
-          mode: FULL ? "毎日" : "1週おき＋節目",
+          mode: FULL ? "毎日" : "7日ごと＋節目",
           perFamily: PER_FAMILY,
           count: pcount,
           knownGaps: pgaps.map((g) => ({ id: g.id, rule: g.rule, title: g.title, families: g.families.length, nationwide: g.families.length * PER_FAMILY })),
@@ -985,7 +985,7 @@ function writeReport() {
     const days = popResults.reduce((n, x) => n + x.r.days, 0);
     const checked = popResults.reduce((n, x) => n + x.r.checked, 0);
     L.push("## 現実の割合から作った1000組", "");
-    L.push(`1000組（\`population.ts\`・割合と出典は docs/SIM_STATS.md）が、授かった時から使い始めて2歳の誕生日の30日後まで（全国に直すため、どの家族も1000日を全部通す）。のべ ${days.toLocaleString("ja-JP")}日、うち画面を確かめた日 ${checked.toLocaleString("ja-JP")}日（${FULL ? "毎日" : "1週おき＋節目の日。家族は毎日動く"}）。`);
+    L.push(`1000組（\`population.ts\`・割合と出典は docs/SIM_STATS.md）が、授かった時から使い始めて2歳の誕生日の30日後まで（全国に直すため、どの家族も1000日を全部通す）。のべ ${days.toLocaleString("ja-JP")}日、うち画面を確かめた日 ${checked.toLocaleString("ja-JP")}日（${FULL ? "毎日" : "7日ごと＋節目の日。家族は毎日動く"}）。`);
     L.push(`全国に直す時は、1組 = 年に約${PER_FAMILY}家族（2025年の出生 ${BIRTHS_2025.toLocaleString("ja-JP")}人 ÷ 1000。双子の家族も1家族）。`, "");
     L.push("### 決まりごとの数（1000組）", "", "| 決まり | 中身 | ○ | △ | × | △×の家族を全国に直すと（年） |", "|---|---|---|---|---|---|");
     for (const r of RULE_IDS) L.push(`| ${r} | ${RULES[r]} | ${pcount[r]["○"]} | ${pcount[r]["△"]} | ${pcount[r]["×"]} | ${nation(pcount[r]["△"] + pcount[r]["×"])}家族 |`);
@@ -1060,7 +1060,7 @@ describe("① 早送りの検査: 30家族の1000日（毎日）", () => {
   }
 });
 
-describe(`① 早送りの検査: 現実の割合から作った1000組（${FULL ? "毎日" : "1週おき＋節目"}）`, () => {
+describe(`① 早送りの検査: 現実の割合から作った1000組（${FULL ? "毎日" : "7日ごと＋節目"}）`, () => {
   const pop = getPopulation();
   // 100組ずつ回す（1000個の it に分けると、報告が長くなりすぎる）
   for (let i = 0; i < pop.length; i += 100) {
