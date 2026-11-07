@@ -4,6 +4,7 @@
 > One maker built this with Claude Code. The work was not done in one long chat. Several Claude Code sessions ran side by side, each with its own role. A coordinator session keeps the whole picture and hands out work. Work sessions (usability, memories, the ask-the-handbook feature, audit, demo, and others) each run in their own git worktree. The sessions talk to each other through cross-session messages, and every commit lands on `main`. When CI passes on `main`, the new version ships every 30 minutes to the public trial and to the maker's own instance, with a health check and automatic rollback.
 > Every change goes through one loop: 41 public statistics → 1,000 synthetic families → a 1,000-day fast-forward test on every change → Opus role-playing families on an iPhone-sized screen → Sonnet answering a survey as all 1,000 families → findings → commits.
 > A Workflow-based audit read `main` through 8 lenses, and a separate refuter checked every finding. It produced 89 findings, and the maker picked 8 to fix that same day.
+> Each Claude Code feature is picked for its job (see the table below): sessions and worktrees for roles, subagents and Workflows for role-play and audits with refuters, a Skill for the survey, a SessionStart hook that reports drift from `main`, MCP (Claude in Chrome, Gmail) for browser and mail work after the maker's OK, and the official Claude Security plugin. It found a regex backtracking issue that could stall the public trial (no critical or high findings), and the fix landed the same night (`1cf280d`).
 > The maker's own family used the app at a real prenatal checkup, and a date in the recording was misheard. Since then, a heard date stays a candidate until the person confirms it with "OK".
 > So far: 6 recorded role-play rounds (36 family sessions, 377 findings) and 2 surveys (1,007 answers each). The fixes can be traced in the git history.
 > API spend is metered per call (`app/scripts/spend.mjs`). By default a simulation run stops at $21 and a single family at $3. Only synthetic families are used in tests, so the maker's real family records never enter any test.
@@ -38,6 +39,22 @@ flowchart TB
   - 複数の会話が触るファイルの一覧と、会話ごとに分けたサーバの番号と組み立ての置き場
 - **出すのは仕掛けと統括だけ**です。CI が通った main を、launchd が30分ごとに体験版と本番へ出します（`app/scripts/sync-deploy.sh`）。本番は、作り手の家族の記録の写しで確かめてから入れ替えます。応えなければ前の版に戻します
 - 11/6 朝の時点で、main には 376 のコミットがあります。どれも期間中に作った物です
+
+## Claude Code の道具の使い分け
+
+道具は、仕事の形で選びました。
+
+| 道具 | 何に使ったか | なぜその道具か |
+|---|---|---|
+| 会話を役で分ける（会話の間のメッセージ・worktree） | 統括・作業・全体監査・デモの会話を同時に動かす（上の節） | 1本の会話では文脈があふれ、書きかけがぶつかる。役ごとに分け、渡す文に目的・範囲・終わりの形を書く |
+| サブエージェント | 調べ物や読み比べを、会話の外の Claude に渡す | 大きな読み込みで、統括の会話の文脈を埋めない |
+| Workflow（サブエージェントを並べる台本） | なりきり（`.claude/workflows/simulate.js`・家族ごとに Opus 5.5）、11/5 の技術監査（8観点・反証8・判定1）、健診の聞き違いの道を調べる（調べ3・反証1） | 同じ形の仕事を並べて走らせ、見つけた事を別の Claude に崩させる。1つの会話の思い込みを残さない |
+| Skills | アンケートの手順 `/survey`（`.claude/skills/survey/SKILL.md`） | 家族の数・費用の上限・報告の形を、毎回同じにする。作り手が言った時だけ動く |
+| フック | `.claude/settings.json` の SessionStart で、会話を始めた・再開した時に main とのずれを1行で出す（`scripts/git-sync-status.sh`） | 複数の会話が同じ main を触る。Claude が忘れても、仕掛けが毎回知らせる（コミットのたびに main へ上げるのは git のフック） |
+| MCP | Claude in Chrome で、提出フォームの実物を読む・体験版の画面を見る・YouTube へ動画を上げる。Gmail で運営へ問い合わせる | ブラウザとメールの仕事も、同じ会話の流れの中で行う。外へ出す操作は、作り手が全文を見て OK した後だけ |
+| プラグイン | 公式のプラグイン集（claude-plugins-official）の Claude Security で、外から届く所（API の口・middleware・lib の279ファイル）を 11/7 に読んだ。32の Claude が読み、重い穴（CRITICAL・HIGH）は0。体験版を止められる穴（下書きの宛先を分ける所と空欄を探す所が、長い入力で二乗の後戻りをする）を見つけ、その夜に直した（`1cf280d`） | 自分たちで作った監査とは別の目で、守りを確かめる |
+| モデル | なりきりは Opus 5.5、1000組のアンケートは Sonnet 5.5。アプリの中の9つの仕事は Sonnet・Opus・Haiku に分けた（README「Claude の使い方」） | 深く読む仕事は Opus、毎日の量は Sonnet、見張りと整えは Haiku |
+| Artifact（ページ） | プラン・監査の報告・点検表・提出フォームの写しを、作り手が読むページとして出す | 作る前にずれを直せるのは、プランの段階だけ。作り手が「OK」と言ってから作る |
 
 ## 流れ
 
