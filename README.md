@@ -2,7 +2,7 @@
   <img src="docs/images/hero-ja.webp" width="900" alt="3台の iPhone に、作った家族の手帳の3つの日。妊娠28週は職場へのメールの下書き、生まれた翌日は2週早く生まれて予定を数え直した知らせ、2歳は1000日の記録からの一冊">
 </p>
 
-<h1 align="center">母子手帳を、再発明する</h1>
+<h1 align="center">母子手帳を、<br>再発明する</h1>
 
 <p align="center">
   <b>1948年、日本は母子手帳を発明した。<br>
@@ -23,7 +23,7 @@
 
 <p align="center">
   <a href="https://github.com/Kamicham/boshi-techo/actions/workflows/check.yml"><img src="https://github.com/Kamicham/boshi-techo/actions/workflows/check.yml/badge.svg?branch=main" alt="検査（型・lint・試験・早送り・組み立て）"></a><br>
-  <sub><b>Built with Claude: Japan 2026</b> の出品作（テーマ #2「本来、誰にでも届くべきものを。」）<br>
+  <sub><b>Built with Claude: Japan 2026</b> の出品作<br>（テーマ #2「本来、誰にでも届くべきものを。」）<br>
   開発期間: 2026-11-02 12:30 〜 2026-11-08 20:00（JST）。このリポジトリは期間中にゼロから作っています ・ <a href="#english">English</a></sub>
 </p>
 
