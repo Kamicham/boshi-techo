@@ -54,6 +54,7 @@ h2{font:800 clamp(26px,4.2vw,40px)/1.35 var(--rd);margin-top:10px}
 .player{margin-top:clamp(28px,4vw,44px);max-width:960px}
 .player video{display:block;width:100%;max-width:100%;aspect-ratio:16/9;border-radius:14px;background:#000;box-shadow:0 24px 60px rgba(0,0,0,.45)}
 .vcap{margin-top:10px;font-size:13px;color:var(--cream-dim)}
+.vcap a{color:var(--cream);font-weight:700;text-underline-offset:3px;white-space:nowrap}
 .cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:26px}
 .btn{display:inline-flex;align-items:center;gap:8px;font:700 16px var(--jp);text-decoration:none;border-radius:999px;padding:13px 22px}
 .btn.p{background:var(--rose);color:#fff}
@@ -172,7 +173,7 @@ footer p+p{margin-top:4px}
     <p class="lead"><span class="ja" lang="ja">1948年、日本は母子手帳を発明しました。世界の約50か国へ広がったその手帳の次の形を、2026年に作ります。妊娠から2歳までの1000日、手帳が全体を受け持って先に動き、家族がするのは最後の OK だけ。</span><span class="en" lang="en">Japan invented the Maternal and Child Health Handbook in 1948, and it spread to about 50 countries. In 2026, this is what comes next: for the first 1,000 days, from pregnancy to age two, the handbook carries the whole picture and moves first. The family only gives the final OK.</span></p>
     <div class="player">
       <video controls playsinline preload="metadata" poster="images/page/video/poster.jpg" src="images/page/video/boshi-demo-3min.mp4"></video>
-      <p class="vcap"><span class="ja" lang="ja">3分のデモ（日本語・英語の字幕つき）。画面はすべて、このアプリを実際に動かして撮りました。Claude が動く場面は、本物の Claude です。</span><span class="en" lang="en">3-minute demo in Japanese with English subtitles. Every screen was recorded from the running app, and every Claude scene is real Claude.</span></p>
+      <p class="vcap"><span class="ja" lang="ja">3分のデモ（日本語・英語の字幕つき）。画面はすべて、このアプリを実際に動かして撮りました。Claude が動く場面は、本物の Claude です。 <a href="https://youtu.be/XKPseCaHKGg" target="_blank" rel="noopener">YouTube で見る ↗</a></span><span class="en" lang="en">3-minute demo in Japanese with English subtitles. Every screen was recorded from the running app, and every Claude scene is real Claude. <a href="https://youtu.be/XKPseCaHKGg" target="_blank" rel="noopener">Watch on YouTube ↗</a></span></p>
     </div>
     <div class="cta">
       <a class="btn p" href="https://boshi-techo-try.fly.dev" target="_blank" rel="noopener"><span class="ja" lang="ja">体験版を開く</span><span class="en" lang="en">Open the live demo</span> ↗</a>
@@ -357,6 +358,7 @@ footer p+p{margin-top:4px}
 <footer>
   <div class="wrap">
     <nav>
+      <a href="https://youtu.be/XKPseCaHKGg" target="_blank" rel="noopener"><span class="ja" lang="ja">3分の動画（YouTube）</span><span class="en" lang="en">3-minute demo (YouTube)</span></a>
       <a href="https://github.com/Kamicham/boshi-techo/blob/main/docs/VISION.md" target="_blank" rel="noopener"><span class="ja" lang="ja">考え方</span><span class="en" lang="en">Vision</span></a>
       <a href="https://github.com/Kamicham/boshi-techo/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noopener"><span class="ja" lang="ja">作り</span><span class="en" lang="en">Architecture</span></a>
       <a href="https://github.com/Kamicham/boshi-techo/blob/main/docs/SIMULATION_RESULTS.md" target="_blank" rel="noopener"><span class="ja" lang="ja">シミュレーションの結果</span><span class="en" lang="en">Simulation results</span></a>
