@@ -93,3 +93,26 @@ export function coverPeriod(book: { range: { start: string; end: string }; asOf:
 export function coverTo(title: string, to: string): string | null {
   return title.toLowerCase().includes(to.toLowerCase()) ? null : to;
 }
+
+const CJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
+
+/**
+ * 表紙の題を「空き」の所で分ける（一冊の画面の TitleLines が、分けた所でだけ折り、空きを全角ほどに広げる）。
+ * 空きは、全角の空白か、日本語・中文の字に接する空白（見本の題「ひなたへ はじまりの日々」は半角の空白）。
+ * 英語の語と語の間の空白は空きにしない（2026-11-07 UX が English の体験版で見つけた: 前は空白をすべて空きにして広げ、
+ * 「To Hinata: Your First 1000 Days」の語の間がどれも広く見えた）
+ */
+export function coverTitleParts(title: string): string[] {
+  const xs = title.trim().split(/([\u3000 ]+)/);
+  const parts: string[] = [];
+  let cur = xs[0];
+  for (let k = 1; k < xs.length; k += 2) {
+    const sep = xs[k];
+    const next = xs[k + 1];
+    if (sep.includes("\u3000") || CJK.test([...cur].pop() ?? "") || CJK.test([...next][0] ?? "")) {
+      parts.push(cur);
+      cur = next;
+    } else cur += sep + next;
+  }
+  return [...parts, cur].filter(Boolean);
+}
