@@ -17,14 +17,16 @@
 </p>
 
 <p align="center">
-  <a href="https://boshi-techo-try.fly.dev/"><img src="docs/images/btn-try-ja.png" height="46" alt="体験版で触る（登録なし）"></a><br>
-  <sub>体験版: <a href="https://boshi-techo-try.fly.dev/">https://boshi-techo-try.fly.dev/</a> （ログイン不要）</sub>
+  <a href="https://boshi-techo-try.fly.dev/"><img src="docs/images/btn-try-ja.png" height="46" alt="体験版で触る（登録なし）"></a>
+  <a href="https://kamicham.github.io/boshi-techo/"><img src="docs/images/btn-page-ja.png" height="46" alt="作品のページ"></a><br>
+  <sub>体験版: <a href="https://boshi-techo-try.fly.dev/">https://boshi-techo-try.fly.dev/</a> （ログイン不要）<br>
+  作品のページ: <a href="https://kamicham.github.io/boshi-techo/">https://kamicham.github.io/boshi-techo/</a></sub>
 </p>
 
 <p align="center">
   <a href="https://github.com/Kamicham/boshi-techo/actions/workflows/check.yml"><img src="https://github.com/Kamicham/boshi-techo/actions/workflows/check.yml/badge.svg?branch=main" alt="検査（型・lint・試験・早送り・組み立て）"></a><br>
   <sub><b>Built with Claude: Japan 2026</b> の出品作<br>（テーマ #2「本来、誰にでも届くべきものを。」）<br>
-  開発期間: 2026-11-02 12:30 〜 2026-11-08 20:00（JST）。このリポジトリは期間中にゼロから作っています（<a href="https://github.com/Kamicham/boshi-techo/commit/f97bd3f46d0b2dbb556cbdae463f3c567a72262a">最初のコミット</a>は 11/2 20:51） ・ <a href="#english">English</a></sub>
+  開発期間: 2026-11-02 12:30 〜 2026-11-08 20:00（JST）。<br>このリポジトリは期間中にゼロから作っています（<a href="https://github.com/Kamicham/boshi-techo/commit/f97bd3f46d0b2dbb556cbdae463f3c567a72262a">最初のコミット</a>は 11/2 20:51） ・ <a href="#english">English</a></sub>
 </p>
 
 ### 4つの軸から見る
@@ -251,8 +253,10 @@ MIT
 </p>
 
 <p align="center">
-  <a href="https://boshi-techo-try.fly.dev/"><img src="docs/images/btn-try-en.png" height="46" alt="Try it (no sign-up)"></a><br>
-  <sub>Live demo: <a href="https://boshi-techo-try.fly.dev/">https://boshi-techo-try.fly.dev/</a> (no login needed)</sub>
+  <a href="https://boshi-techo-try.fly.dev/"><img src="docs/images/btn-try-en.png" height="46" alt="Try it (no sign-up)"></a>
+  <a href="https://kamicham.github.io/boshi-techo/#en"><img src="docs/images/btn-page-en.png" height="46" alt="Project page"></a><br>
+  <sub>Live demo: <a href="https://boshi-techo-try.fly.dev/">https://boshi-techo-try.fly.dev/</a> (no login needed)<br>
+  Project page: <a href="https://kamicham.github.io/boshi-techo/#en">https://kamicham.github.io/boshi-techo/</a></sub>
 </p>
 
 <p align="center">
