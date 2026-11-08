@@ -46,7 +46,7 @@
 
 出産は一生に1〜2回。練習ができず、上達する前に終わります。役所は手続き、産院は体、会社は休業、親は手伝い。全体を持っている人がどこにもいなくて、つなぐのは一番経験の無い家族です。しかも、産後の眠れない数週間に、出生届（14日以内）・児童手当（15日以内）・保険・医療証が重なります。見本の家族の1000日だけでも、用事は49件、うち法の期限が13件あります。
 
-足りないのは情報ではなく、**全体を持って先回りして動いてくれる誰か**。それを、すべての家族に。詳しくは [docs/VISION.md](docs/VISION.md)。
+自治体の電子母子手帳も母子手帳アプリも、記録と知らせを家族が読む手帳です（[今ある物との違い](#今ある物との違い)）。足りないのは情報ではなく、**全体を持って先回りして動いてくれる誰か**。それを、すべての家族に。詳しくは [docs/VISION.md](docs/VISION.md)。
 
 | 数字 | 出典 |
 |---|---|
@@ -285,7 +285,7 @@ It started with a regret from a few years ago. A family member decided during pr
 
 Most people give birth once or twice in a lifetime, so nobody gets to practice. The city office handles paperwork, the clinic handles the body, the employer handles leave, and grandparents help where they can. Nobody holds the whole picture except the family, who have the least experience. And the heaviest paperwork (birth registration within 14 days, child allowance within 15) lands in the sleepless weeks after birth. In the sample family's 1,000 days alone there are 49 tasks, 13 of them with legal deadlines.
 
-What is missing is not information. It is **someone who holds the whole picture and moves ahead of you**. We want every family to have one.
+City-run digital handbooks and handbook apps alike are handbooks where the family reads records and reminders ([how this differs](#from-a-handbook-you-read-to-a-handbook-that-moves-with-you)). What is missing is not information. It is **someone who holds the whole picture and moves ahead of you**. We want every family to have one.
 
 | Number | Source |
 |---|---|
