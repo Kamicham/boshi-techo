@@ -38,7 +38,7 @@
 - **Claude 活用** — [Claude の使い方](#claude-の使い方)：9つの仕事を Sonnet 5.5・Opus 5.5・Haiku 5.5 に分ける → [Claude Code での作り方](docs/BUILT_WITH_CLAUDE_CODE.md)
 - **深さと実行力** — [確かめ方](#確かめ方)：修正のたびに、試験 1,534件と、1,030家族の1000日（のべ約106万日）を動かして23の決まりで確かめる早送りを CI で回す → [早送りの結果](docs/SIMULATION_RESULTS.md)
 
-作り手: Kamicham（1人で参加。Cerebral Valley では Kamichama）。11/2〜11/4 のコミットの作者名 konnokun も同じ作り手で、11/4 に Git の名前の設定を揃えた。
+作り手: Kamicham（1人で参加。Cerebral Valley では Kamichama）。11/2〜11/4 のコミットの作者名 konnokun も同じ作り手で、11/4 に Git の名前の設定を揃えた。作り手のサイト: https://kamichama.me（日本語・中文・English）
 
 ## なぜ作るか
 
@@ -279,7 +279,7 @@ MIT
 - **Use of Claude** — [How Claude is used](#how-claude-is-used): nine jobs split across Sonnet 5.5, Opus 5.5 and Haiku 5.5 → [How it was built with Claude Code](docs/BUILT_WITH_CLAUDE_CODE.md)
 - **Depth & execution** — [Tests](#tests): on every change, CI runs 1,534 tests and a fast-forward that moves 1,030 families through 1,000 days (about 1.06 million family-days) and checks 23 rules → [Results](docs/SIMULATION_RESULTS.md)
 
-Maker: Kamicham (solo entry; Kamichama on Cerebral Valley). The commits from Nov 2 to Nov 4 authored as konnokun are by the same maker; the Git name setting was unified on Nov 4.
+Maker: Kamicham (solo entry; Kamichama on Cerebral Valley). The commits from Nov 2 to Nov 4 authored as konnokun are by the same maker; the Git name setting was unified on Nov 4. Maker's site: https://kamichama.me (Japanese, Chinese, English)
 
 ## Why
 
